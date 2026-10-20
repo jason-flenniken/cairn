@@ -1,0 +1,6 @@
+{
+  "name": "cairn",
+  "version": "0.1.0",
+  "description": "Agent-driven SDLC: discover, PRD, phased parallel plan, execute, verify, review, ship, with a script-owned state machine per plan.",
+  "author": { "name": "Jason Flenniken" }
+}

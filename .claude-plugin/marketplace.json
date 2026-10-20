@@ -1,0 +1,14 @@
+{
+  "name": "ai-workflow",
+  "owner": {
+    "name": "Jason Flenniken"
+  },
+  "description": "Jason's personal Claude Code plugins.",
+  "plugins": [
+    {
+      "name": "cairn",
+      "source": "./plugins/cairn",
+      "description": "Agent-driven SDLC: PRD, phased parallel plans, checkpoint enforcement, status and resume."
+    }
+  ]
+}

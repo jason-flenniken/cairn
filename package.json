@@ -1,0 +1,16 @@
+{
+  "name": "ai-workflow",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild plugins/cairn/cli/src/main.ts --bundle --platform=node --target=node20 --format=esm --outfile=plugins/cairn/dist/cairn.mjs --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
+    "test": "node --test 'plugins/cairn/cli/test/*.test.ts'",
+    "typecheck": "tsc -p plugins/cairn/cli"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.3",
+    "yaml": "^2.9.1"
+  }
+}

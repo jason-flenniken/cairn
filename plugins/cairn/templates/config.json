@@ -1,0 +1,9 @@
+{
+  "test": "npm test",
+  "build": "npm run build",
+  "start": "npm run dev",
+  "seed": "",
+  "appTypes": ["web"],
+  "maxParallel": 3,
+  "autoCommit": true
+}

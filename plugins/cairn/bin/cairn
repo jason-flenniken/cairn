@@ -1,0 +1,3 @@
+#!/bin/sh
+# cairn CLI: single writer of plan state. Rename-safe: only this file name carries the brand.
+exec node "$(dirname "$0")/../dist/cairn.mjs" "$@"
