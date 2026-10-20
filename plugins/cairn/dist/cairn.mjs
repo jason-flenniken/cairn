@@ -7362,7 +7362,7 @@ var require_dist = __commonJS({
 });
 
 // plugins/cairn/cli/src/main.ts
-import { readFileSync as readFileSync3 } from "node:fs";
+import { readFileSync as readFileSync4 } from "node:fs";
 
 // plugins/cairn/cli/src/locate.ts
 import { existsSync as existsSync2 } from "node:fs";
@@ -7502,8 +7502,8 @@ function requirePlan(ctx) {
 
 // plugins/cairn/cli/src/shared.ts
 import { spawnSync as spawnSync2 } from "node:child_process";
-import { appendFileSync, mkdirSync as mkdirSync2 } from "node:fs";
-import { join as join5 } from "node:path";
+import { appendFileSync, mkdirSync as mkdirSync3 } from "node:fs";
+import { join as join6 } from "node:path";
 
 // plugins/cairn/cli/src/config.ts
 import { join as join3 } from "node:path";
@@ -7523,6 +7523,105 @@ function loadConfig(...roots) {
   return { ...DEFAULTS };
 }
 var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join3(mainRoot, cfg.worktreeRoot) : join3(mainRoot, ".claude", "worktrees");
+
+// plugins/cairn/cli/src/proof.ts
+import { randomBytes, timingSafeEqual } from "node:crypto";
+import { chmodSync, closeSync, constants, fstatSync, mkdirSync as mkdirSync2, openSync, readFileSync as readFileSync2, readSync, renameSync, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { join as join4 } from "node:path";
+var HEARTBEAT_FRESH_MS = 1e4;
+var GRANT_TTL_MS = 10 * 6e4;
+var cairnDir = (common) => join4(common, "cairn");
+var secretPath = (common) => join4(cairnDir(common), "mod-secret");
+function readLineFromStdin(prompt) {
+  process.stderr.write(prompt);
+  const buf = Buffer.alloc(1);
+  let line = "";
+  for (; ; ) {
+    let n;
+    try {
+      n = readSync(0, buf, 0, 1, null);
+    } catch (e) {
+      if (e.code === "EAGAIN") continue;
+      throw e;
+    }
+    if (n === 0 || buf[0] === 10) return line;
+    line += String.fromCharCode(buf[0]);
+  }
+}
+var terminalIO = {
+  isTTY: () => !!process.stdin.isTTY && !!process.stdout.isTTY,
+  readLine: readLineFromStdin
+};
+function readRegularFile(path) {
+  let fd;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch {
+    return void 0;
+  }
+  try {
+    return fstatSync(fd).isFile() ? readFileSync2(fd, "utf8") : void 0;
+  } finally {
+    closeSync(fd);
+  }
+}
+function rotateSecret(common) {
+  const tmp = `${secretPath(common)}.${randomBytes(8).toString("hex")}.tmp`;
+  mkdirSync2(cairnDir(common), { recursive: true });
+  let created = false;
+  try {
+    writeFileSync2(tmp, randomBytes(32).toString("hex"), { mode: 384, flag: "wx" });
+    created = true;
+    chmodSync(tmp, 384);
+    renameSync(tmp, secretPath(common));
+  } catch (e) {
+    if (created) rmSync(tmp, { force: true });
+    throw e;
+  }
+}
+function secretMatches(common, given) {
+  if (!given) return false;
+  const secret = readRegularFile(secretPath(common))?.trim() ?? "";
+  const a = Buffer.from(secret);
+  const b = Buffer.from(given);
+  return a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+}
+function humanProof(ctx, opts, io = terminalIO) {
+  const common = commonDir(ctx.mainRoot);
+  if (secretMatches(common, process.env.CAIRN_APPROVER)) {
+    rotateSecret(common);
+    return { source: "mod" };
+  }
+  if (!opts.human) return void 0;
+  if (!io.isTTY()) throw new Refusal("--human needs an interactive terminal: run this in your own terminal, not through the agent");
+  const slug = ctx.plan?.slug;
+  const typed = io.readLine("Type the plan name to confirm: ").trim();
+  return slug && typed === slug ? { source: "terminal" } : void 0;
+}
+function consumeGrant(common, slug) {
+  if (!SLUG.test(slug)) return void 0;
+  const file = join4(cairnDir(common), "grants", `${slug}.json`);
+  const raw = readRegularFile(file);
+  if (raw === void 0) return void 0;
+  try {
+    rmSync(file);
+  } catch {
+    return void 0;
+  }
+  try {
+    const g = JSON.parse(raw);
+    const age = Date.now() - Number(g.createdAt);
+    if (g.slug !== slug || typeof g.reason !== "string" || !(age >= 0 && age <= GRANT_TTL_MS)) return void 0;
+    return { reason: g.reason };
+  } catch {
+    return void 0;
+  }
+}
+function modActive(common) {
+  const t = Number(readText(join4(cairnDir(common), "mod-heartbeat"))?.trim());
+  const age = Date.now() - t;
+  return Number.isFinite(t) && t > 0 && age >= 0 && age < HEARTBEAT_FRESH_MS;
+}
 
 // plugins/cairn/cli/src/sections.ts
 function sections(md) {
@@ -7578,7 +7677,7 @@ var FR_ID = /\bFR-\d+\b/g;
 var ids = (text = "") => [...new Set(text.match(FR_ID) ?? [])];
 
 // plugins/cairn/cli/src/state.ts
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 
 // plugins/cairn/cli/src/render.ts
 var STAGE_LABEL = {
@@ -7695,7 +7794,7 @@ function renderIndex(rows) {
 }
 
 // plugins/cairn/cli/src/state.ts
-var statePath = (dir) => join4(dir, "state.json");
+var statePath = (dir) => join5(dir, "state.json");
 function loadState(dir) {
   const raw = readText(statePath(dir));
   if (raw === void 0) throw new CliError(`no state.json in ${dir}`);
@@ -7709,7 +7808,7 @@ function parseState(raw) {
 function saveState(dir, s) {
   s.updated = now();
   writeText(statePath(dir), JSON.stringify(s, null, 2) + "\n");
-  writeText(join4(dir, "STATUS.md"), renderStatus(s));
+  writeText(join5(dir, "STATUS.md"), renderStatus(s));
 }
 function log(s, event, detail, override) {
   s.log.push({ at: now(), event, ...detail ? { detail } : {}, ...override ? { override } : {} });
@@ -7736,16 +7835,44 @@ function newState(slug, title, track, branch, base) {
 }
 
 // plugins/cairn/cli/src/shared.ts
+var current;
+function humanOnce(opts, io) {
+  if (!current) return void 0;
+  if (current.human === void 0) current.human = humanProof(current.ctx, opts, io) ?? null;
+  return current.human ?? void 0;
+}
+function grantOnce(slug) {
+  if (!current) return void 0;
+  if (current.grant === void 0) current.grant = consumeGrant(commonDir(current.ctx.mainRoot), slug) ?? null;
+  return current.grant ?? void 0;
+}
+function requireHumanProof(kind, opts, io) {
+  const p = humanOnce(opts, io);
+  if (p) return p.source;
+  throw new Refusal("approvals come from the user, and this command has no proof that one did", [
+    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${current?.ctx.plan?.slug}]`,
+    `or the user runs, in their own terminal: cairn approve ${kind} --human`,
+    "or the user presses Approve in the cairn pane (or runs /cairn:approve)"
+  ]);
+}
 function gate(ok, s, event, opts, message, fixes = []) {
   if (ok) return;
   if (opts.override) {
-    log(s, `override: ${event}`, message, opts.override);
+    const human = humanOnce(opts);
+    const grant = grantOnce(s.slug);
+    if (!human && !grant)
+      throw new Refusal(`${message}; an override needs proof that the user chose it`, [
+        `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], then retry within 10 minutes`,
+        "or the user runs this command, with --override, in their own terminal with --human"
+      ]);
+    log(s, `override: ${event}`, `${message} (source: ${human?.source ?? "grant"})`, human ? opts.override : grant.reason);
     return;
   }
   throw new Refusal(message, [...fixes, `or, if the user chose to skip this: add --override "<reason>"`]);
 }
 function planCtx(ctx) {
   const plan = requirePlan(ctx);
+  current = { ctx };
   return { ctx, plan, cfg: loadConfig(plan.worktree, ctx.mainRoot) };
 }
 function mutate(pc, commitMsg, fn) {
@@ -7758,7 +7885,7 @@ function mutate(pc, commitMsg, fn) {
   if (commitMsg && pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRel(pc.plan.slug), `cairn(${pc.plan.slug}): ${commitMsg}`);
   return r;
 }
-var planFile = (pc, name) => join5(pc.plan.dir, name);
+var planFile = (pc, name) => join6(pc.plan.dir, name);
 function childEnv() {
   const { CAIRN_APPROVER: _approver, ...rest } = process.env;
   return rest;
@@ -7801,17 +7928,17 @@ function recordProblems(pc) {
   return p;
 }
 function ensureExcluded(mainRoot, pattern) {
-  const file = join5(commonDir(mainRoot), "info", "exclude");
+  const file = join6(commonDir(mainRoot), "info", "exclude");
   const cur = readText(file) ?? "";
   if (!cur.split("\n").includes(pattern)) {
-    mkdirSync2(join5(commonDir(mainRoot), "info"), { recursive: true });
+    mkdirSync3(join6(commonDir(mainRoot), "info"), { recursive: true });
     appendFileSync(file, `${cur.endsWith("\n") || !cur ? "" : "\n"}${pattern}
 `);
   }
 }
 function template(name) {
   try {
-    return readText(join5(pluginRoot(), "templates", name));
+    return readText(join6(pluginRoot(), "templates", name));
   } catch {
     return void 0;
   }
@@ -7819,7 +7946,7 @@ function template(name) {
 
 // plugins/cairn/cli/src/commands/plans.ts
 import { existsSync as existsSync3 } from "node:fs";
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
 function cmdNew(ctx, slug, opts) {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "\u2026"');
   const branch = planBranch(slug);
@@ -7837,11 +7964,11 @@ function cmdNew(ctx, slug, opts) {
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-    wt = join6(root, `sdlc-${slug}`);
+    wt = join7(root, `sdlc-${slug}`);
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
-  const dir = join6(wt, planRel(slug));
-  writeText(join6(dir, "decisions.md"), `# Decisions: ${title}
+  const dir = join7(wt, planRel(slug));
+  writeText(join7(dir, "decisions.md"), `# Decisions: ${title}
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
@@ -7858,11 +7985,11 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   };
 }
 function cmdProductInit(ctx) {
-  const dir = join6(ctx.top, "docs/sdlc/product");
-  const prd = join6(dir, "PRD.md");
+  const dir = join7(ctx.top, "docs/sdlc/product");
+  const prd = join7(dir, "PRD.md");
   if (existsSync3(prd)) throw new Refusal("docs/sdlc/product/PRD.md already exists", ["edit it with the product procedure instead"]);
   writeText(prd, template("product-prd.md") ?? "# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n");
-  writeText(join6(dir, "decisions", ".gitkeep"), "");
+  writeText(join7(dir, "decisions", ".gitkeep"), "");
   return { message: `Created docs/sdlc/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
 }
 function cmdDecide(ctx, question, answer, opts) {
@@ -7882,7 +8009,7 @@ _${now().slice(0, 16).replace("T", " ")}_
 }
 
 // plugins/cairn/cli/src/commands/stages.ts
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 
 // plugins/cairn/cli/src/glob.ts
 function globToRegex(glob) {
@@ -7954,10 +8081,13 @@ var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 // plugins/cairn/cli/src/commands/stages.ts
 var STAGE_ORDER = [...STAGES];
 var nextStage = (s) => STAGE_ORDER[STAGE_ORDER.indexOf(s) + 1];
-var via = (opts) => opts.via === "human" ? "human" : "agent";
-function cmdApprove(ctx, kind, opts) {
+var APPROVAL_KINDS = ["prd", "plan", "phase", "ship"];
+var APPROVE_USAGE = 'usage: cairn approve prd|plan|phase|ship [--human] [--note "\u2026"]';
+function cmdApprove(ctx, kind, opts, io) {
+  if (!kind || !APPROVAL_KINDS.includes(kind)) throw new CliError(APPROVE_USAGE);
   const pc = planCtx(ctx);
-  const approval = () => ({ at: now(), via: via(opts), ...opts.note ? { note: String(opts.note) } : {} });
+  const source = requireHumanProof(kind, opts, io);
+  const approval = () => ({ at: now(), via: "human", source, ...opts.note ? { note: String(opts.note) } : {} });
   switch (kind) {
     case "prd": {
       const md = readText(planFile(pc, "prd.md"));
@@ -7968,7 +8098,7 @@ function cmdApprove(ctx, kind, opts) {
         if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(" | ")}`);
         gate(!problems.length, s, "approve prd", opts, problems.join("; "), ["finish prd.md, resolving open questions with the user"]);
         s.approvals.prd = { ...approval(), hash: md ? hashText(md) : void 0 };
-        log(s, "PRD approved", s.approvals.prd.via);
+        log(s, "PRD approved", source);
         return { message: "PRD approved. Next: `cairn advance` to planning." };
       });
     }
@@ -7979,7 +8109,7 @@ function cmdApprove(ctx, kind, opts) {
         gate(s.phases.length > 0, s, "approve plan", opts, "no plan is loaded", ["cairn plan load"]);
         gate(!!md && s.planHash === hashText(md), s, "approve plan", opts, "plan.md changed since it was loaded", ["cairn plan load"]);
         s.approvals.plan = { ...approval(), hash: s.planHash };
-        log(s, "plan approved", s.approvals.plan.via);
+        log(s, "plan approved", source);
         return { message: "Plan approved. Next: `cairn advance` to execution." };
       });
     }
@@ -7992,7 +8122,7 @@ function cmdApprove(ctx, kind, opts) {
         const drift = s.drift.filter((d) => !d.acked);
         gate(!drift.length, s, "approve phase", opts, `drift not reviewed: ${drift.map((d) => d.path).join(", ")}`, ['review each with the user, then cairn drift ack <path> --note "\u2026" (or --all)']);
         phase.status = "done";
-        log(s, "phase approved", phase.name);
+        log(s, "phase approved", `${phase.name} (source: ${source})`);
         const following = currentPhase(s);
         if (following) {
           following.status = "in_progress";
@@ -8009,11 +8139,11 @@ function cmdApprove(ctx, kind, opts) {
         const problems = recordProblems(pc);
         gate(!problems.length, s, "approve ship", opts, problems.join("; "), ["write RECORD.md from templates/record.md"]);
         s.approvals.ship = approval();
-        log(s, "ship approved", s.approvals.ship.via);
+        log(s, "ship approved", source);
         return { message: "Ship approved. Next: open the PR, then `cairn advance`." };
       });
     default:
-      throw new CliError('usage: cairn approve prd|plan|phase|ship [--note "\u2026"]');
+      throw new CliError(APPROVE_USAGE);
   }
 }
 function cmdAdvance(ctx, opts) {
@@ -8069,7 +8199,7 @@ function cmdClose(ctx, opts) {
     testsGate(tests, s, "close", opts);
     s.stage = "closed";
     log(s, "closed");
-    return { message: `Closed "${s.title}". The record is ${join7(pc.plan.dir, "RECORD.md")}.` };
+    return { message: `Closed "${s.title}". The record is ${join8(pc.plan.dir, "RECORD.md")}.` };
   });
 }
 
@@ -8212,7 +8342,7 @@ function cmdPlanLoad(ctx, opts) {
 
 // plugins/cairn/cli/src/commands/slices.ts
 import { existsSync as existsSync4 } from "node:fs";
-import { join as join8 } from "node:path";
+import { join as join9 } from "node:path";
 var MAX_FIX_ROUNDS = 5;
 function cmdReady(ctx) {
   const pc = planCtx(ctx);
@@ -8249,7 +8379,7 @@ function cmdSlice(ctx, action, id, rest, opts) {
 function sliceStart(pc, id, opts) {
   const { plan, ctx, cfg } = pc;
   const branch = sliceBranch(plan.slug, id);
-  const path = join8(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${plan.slug}--${id}`);
+  const path = join9(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${plan.slug}--${id}`);
   const r = mutate(pc, void 0, (s) => {
     const sl = findSlice(s, id);
     if (!sl) throw new Refusal(`no slice "${id}" in this plan`, ["cairn ready"]);
@@ -8352,11 +8482,11 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join10 } from "node:path";
+import { join as join11 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync5, readFileSync as readFileSync2 } from "node:fs";
-import { join as join9 } from "node:path";
+import { existsSync as existsSync5, readFileSync as readFileSync3 } from "node:fs";
+import { join as join10 } from "node:path";
 function listPlans(ctx) {
   const refs = git(["for-each-ref", "--format=%(refname:short)", "refs/heads/sdlc/"], ctx.top).split("\n").filter(Boolean);
   const rows = [];
@@ -8364,13 +8494,14 @@ function listPlans(ctx) {
     const slug = b.slice("sdlc/".length);
     const ref = planRef(slug, ctx.worktrees);
     try {
-      const raw = ref.dir && existsSync5(join9(ref.dir, "state.json")) ? readFileSync2(join9(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
+      const raw = ref.dir && existsSync5(join10(ref.dir, "state.json")) ? readFileSync3(join10(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
       rows.push({ state: parseState(raw), live: !!ref.dir, worktree: ref.worktree });
     } catch {
     }
   }
   return rows;
 }
+var modIsActive = (ctx) => modActive(commonDir(ctx.mainRoot));
 function warnings(pc, s) {
   const w = [];
   const prd = readText(planFile(pc, "prd.md"));
@@ -8388,7 +8519,7 @@ function cmdStatus(ctx, opts) {
     const lines = rows.length ? rows.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state)}
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state) })) } };
+${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state) })), modActive: modIsActive(ctx) } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -8396,19 +8527,19 @@ ${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.st
   const next = nextFor(s);
   return {
     message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...ctx.slice ? [`(You are in the worktree for slice "${ctx.slice}".)`] : []].join("\n"),
-    data: { state: s, next, warnings: w, slice: ctx.slice ?? null, planWorktree: pc.plan.worktree }
+    data: { state: s, next, warnings: w, slice: ctx.slice ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
   };
 }
-var procedurePath = (name) => join9(pluginRoot(), "procedures", `${name}.md`);
+var procedurePath = (name) => join10(pluginRoot(), "procedures", `${name}.md`);
 function cmdNext(ctx) {
   if (!ctx.plan) {
     const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
-    if (!active.length) return { message: "No active plans. Start one.", data: { plan: null, stage: null, procedure: procedurePath("new"), summary: "No active plans." } };
+    if (!active.length) return { message: "No active plans. Start one.", data: { plan: null, stage: null, procedure: procedurePath("new"), summary: "No active plans.", modActive: modIsActive(ctx) } };
     return {
       message: `Active plans:
 ${active.map((r) => `  ${summary(r.state)}`).join("\n")}
 Ask the user which plan to resume (/cairn:resume <slug>) or whether to start a new one (/cairn:new).`,
-      data: { plan: null, stage: null, procedure: procedurePath("status"), plans: active.map((r) => r.state.slug) }
+      data: { plan: null, stage: null, procedure: procedurePath("status"), plans: active.map((r) => r.state.slug), modActive: modIsActive(ctx) }
     };
   }
   const pc = planCtx(ctx);
@@ -8418,16 +8549,16 @@ Ask the user which plan to resume (/cairn:resume <slug>) or whether to start a n
     message: `${summary(s)}
 Next: ${n.text}
 Follow: ${procedurePath(n.procedure)}`,
-    data: { plan: s.slug, stage: s.stage, substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree }
+    data: { plan: s.slug, stage: s.stage, substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
   };
 }
 function cmdRender(ctx) {
   if (ctx.plan) {
     const pc = planCtx(ctx);
     withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
-    return { message: `Rendered ${join9(pc.plan.dir, "STATUS.md")}.` };
+    return { message: `Rendered ${join10(pc.plan.dir, "STATUS.md")}.` };
   }
-  const out = join9(ctx.top, "docs/sdlc/INDEX.md");
+  const out = join10(ctx.top, "docs/sdlc/INDEX.md");
   writeText(out, renderIndex(listPlans(ctx)));
   return { message: `Rendered ${out}.` };
 }
@@ -8455,7 +8586,7 @@ function cmdResume(ctx, slug, opts) {
     if (!branchExists(planBranch(slug), ctx.top)) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join10(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
+      const wt = join11(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
       git(["worktree", "add", "-q", wt, planBranch(slug)], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -8489,11 +8620,11 @@ function cmdResume(ctx, slug, opts) {
 
 // plugins/cairn/cli/src/commands/hooks.ts
 import { existsSync as existsSync6 } from "node:fs";
-import { dirname as dirname3, isAbsolute, join as join11, relative, resolve } from "node:path";
+import { dirname as dirname3, isAbsolute, join as join12, relative, resolve } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync6(join11(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync6(join12(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return "";
@@ -8515,7 +8646,7 @@ function hookPostEdit(input) {
   let dir = dirname3(abs);
   while (!existsSync6(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync6(join11(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync6(join12(ctx.plan.dir, "state.json"))) return "";
   const rel = relative(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (rel.startsWith("docs/sdlc/") || rel.startsWith(".sdlc/") || rel.startsWith(".claude/")) return "";
@@ -8550,7 +8681,7 @@ function hookPostEdit(input) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human"]);
 function parseArgs(argv) {
   const pos = [];
   const opts = {};
@@ -8627,7 +8758,7 @@ ${USAGE}`);
 }
 function readStdin() {
   try {
-    return JSON.parse(readFileSync3(0, "utf8") || "{}");
+    return JSON.parse(readFileSync4(0, "utf8") || "{}");
   } catch {
     return {};
   }
