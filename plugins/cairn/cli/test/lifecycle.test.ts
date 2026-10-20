@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,11 +20,11 @@ const write = (p: string, s: string) => {
 const ok = (cwd: string, ...argv: string[]) => run(argv, cwd);
 const refused = (cwd: string, pattern: RegExp, ...argv: string[]) =>
   assert.throws(() => run(argv, cwd), (e: unknown) => e instanceof Refusal && pattern.test(e.message));
-/** Act as the user through the mod: write a fresh mod secret and pass it in CAIRN_APPROVER, as the mod does. */
+/** Act as the user through the mod: write the hash of a fresh mod secret and pass the secret in CAIRN_APPROVER, as the mod does. */
 function asUser<T>(fn: () => T): T {
   const secret = randomBytes(16).toString('hex');
   mkdirSync(join(repo, '.git/cairn'), { recursive: true });
-  writeFileSync(join(repo, '.git/cairn/mod-secret'), secret, { mode: 0o600 });
+  writeFileSync(join(repo, '.git/cairn/mod-secret.sha256'), createHash('sha256').update(secret).digest('hex'), { mode: 0o600 });
   process.env.CAIRN_APPROVER = secret;
   try {
     return fn();

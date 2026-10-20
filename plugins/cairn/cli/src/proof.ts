@@ -1,17 +1,16 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { chmodSync, closeSync, constants, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import { closeSync, constants, fstatSync, openSync, readFileSync, readSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { commonDir } from './git.ts';
 import type { Ctx } from './locate.ts';
 import type { Opts } from './shared.ts';
-import { readText, Refusal, SLUG } from './util.ts';
+import { readText, Refusal } from './util.ts';
 
-/** How long a written heartbeat counts as a live mod, and how long an override grant stays valid. */
+/** How long a written heartbeat counts as a live mod. */
 const HEARTBEAT_FRESH_MS = 10_000;
-const GRANT_TTL_MS = 10 * 60_000;
 
 const cairnDir = (common: string) => join(common, 'cairn');
-const secretPath = (common: string) => join(cairnDir(common), 'mod-secret');
+const hashPath = (common: string) => join(cairnDir(common), 'mod-secret.sha256');
 
 export interface ProofIO {
   isTTY(): boolean;
@@ -56,66 +55,29 @@ function readRegularFile(path: string): string | undefined {
   }
 }
 
-/** Replace the mod secret atomically with mode 0600: a new temp file (random name, exclusive create), then rename. */
-export function rotateSecret(common: string): void {
-  const tmp = `${secretPath(common)}.${randomBytes(8).toString('hex')}.tmp`;
-  mkdirSync(cairnDir(common), { recursive: true });
-  let created = false;
-  try {
-    writeFileSync(tmp, randomBytes(32).toString('hex'), { mode: 0o600, flag: 'wx' });
-    created = true;
-    chmodSync(tmp, 0o600);
-    renameSync(tmp, secretPath(common));
-  } catch (e) {
-    if (created) rmSync(tmp, { force: true });
-    throw e;
-  }
-}
-
+/** True when the given secret hashes to the one-time hash the mod stored. The file is deleted on a match, so each secret works once. */
 function secretMatches(common: string, given: string | undefined): boolean {
   if (!given) return false;
-  const secret = readRegularFile(secretPath(common))?.trim() ?? '';
-  const a = Buffer.from(secret);
-  const b = Buffer.from(given);
-  return a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+  const stored = readRegularFile(hashPath(common))?.trim() ?? '';
+  const a = Buffer.from(stored);
+  const b = Buffer.from(createHash('sha256').update(given).digest('hex'));
+  if (a.length === 0 || a.length !== b.length || !timingSafeEqual(a, b)) return false;
+  rmSync(hashPath(common), { force: true });
+  return true;
 }
 
 /**
- * Proof that the user, not the model, is behind this command: the mod's current secret in
- * CAIRN_APPROVER (rotated on use), or `--human` at a real terminal with the plan slug typed.
+ * Proof that the user, not the model, is behind this command: the mod's one-time secret in
+ * CAIRN_APPROVER (its SHA-256 is on disk and is deleted on use), or `--human` at a real terminal with the plan slug typed.
  */
 export function humanProof(ctx: Ctx, opts: Opts, io: ProofIO = terminalIO): { source: 'mod' | 'terminal' } | undefined {
   const common = commonDir(ctx.mainRoot);
-  if (secretMatches(common, process.env.CAIRN_APPROVER)) {
-    rotateSecret(common);
-    return { source: 'mod' };
-  }
+  if (secretMatches(common, process.env.CAIRN_APPROVER)) return { source: 'mod' };
   if (!opts.human) return undefined;
   if (!io.isTTY()) throw new Refusal('--human needs an interactive terminal: run this in your own terminal, not through the agent');
   const slug = ctx.plan?.slug;
   const typed = io.readLine('Type the plan name to confirm: ').trim();
   return slug && typed === slug ? { source: 'terminal' } : undefined;
-}
-
-/** Take the plan's override grant if it is valid: single use, at most 10 minutes old. */
-export function consumeGrant(common: string, slug: string): { reason: string } | undefined {
-  if (!SLUG.test(slug)) return undefined;
-  const file = join(cairnDir(common), 'grants', `${slug}.json`);
-  const raw = readRegularFile(file);
-  if (raw === undefined) return undefined;
-  try {
-    rmSync(file);
-  } catch {
-    return undefined;
-  }
-  try {
-    const g = JSON.parse(raw) as { reason?: unknown; createdAt?: unknown; slug?: unknown };
-    const age = Date.now() - Number(g.createdAt);
-    if (g.slug !== slug || typeof g.reason !== 'string' || !(age >= 0 && age <= GRANT_TTL_MS)) return undefined;
-    return { reason: g.reason };
-  } catch {
-    return undefined;
-  }
 }
 
 /** The mod writes a heartbeat every 2 s; under 10 s old means it is running. */
