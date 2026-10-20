@@ -17,11 +17,9 @@ Dispatch the `branch-reviewer` agent (`model: opus`) with: the paths to `prd.md`
 **Done when:** the reviewer returned a findings list (possibly empty) and a count of blocking and advisory findings.
 
 ## 3. Resolve blocking findings
-For each blocking finding, add a fix slice to `plan.md` in a new final phase (own scope, concrete test that reproduces the finding). Run `cairn plan load --replan`, get approval of the changed plan from the user via AskUserQuestion, run `cairn approve plan`, then `cairn next --json` to execute it. When that phase is approved the stage returns to verify and then review; rerun this procedure's step 2 on the new diff.
+For each blocking finding, add a fix slice to `plan.md` in a new final phase (own scope, concrete test that reproduces the finding). Run `cairn plan load --replan`. Then get the user's approval of the changed plan: run `cairn status --json` and read `modActive`. When true, ask with AskUserQuestion, with the question text including `[cairn:approve plan <slug>]`: Approve (Recommended) / Revise. When false, tell the user to run `cairn approve plan --human` in their own terminal and wait for them to say it's done. Then run `cairn status --json` to confirm the approval, and `cairn next --json` to execute the fix. When that phase is approved the stage returns to verify and then review; rerun this procedure's step 2 on the new diff.
 
-The user may overrule a blocking finding: ask with AskUserQuestion (Fix / Overrule with reason). Record an overruled finding for the record's Deviations section.
-
-**Done when:** the latest review shows no blocking findings except those the user overruled.
+**Done when:** the latest review shows no blocking findings, or the remaining ones are handled in step 5.
 
 ## 4. Show advisory findings
 Report advisory findings in a few lines: count, and the top items with `path:line`. They go to the record's Follow-ups section.
@@ -29,6 +27,8 @@ Report advisory findings in a few lines: count, and the top items with `path:lin
 **Done when:** the user has seen the advisory list.
 
 ## 5. Record and advance
-Run `cairn evidence review pass --blocking 0 --note "<N advisory; overruled: M>"`, then `cairn advance`.
+Count the blocking findings still open, N.
+- N is 0: run `cairn evidence review pass --blocking 0 --note "<N advisory; overruled: M>"`, then `cairn advance`.
+- N is more than 0: run `cairn evidence review fail --blocking N --note "<N blocking open; A advisory>"`, then `cairn advance`. The advance is refused. Ask with AskUserQuestion, once for all open blocking findings. The question text lists each finding with its `path:line`, and includes `[cairn:override <slug>]`. Options: "Fix it" or "Override". "Fix it": return to step 3. Only after the user picks "Override", run `cairn advance --override "<the findings and the user's reason>"`, and record each overruled finding for the record's Deviations section.
 
 **Done when:** the stage is `ship`. Then run `cairn next --json` and follow the procedure it names.

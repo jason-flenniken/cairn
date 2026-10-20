@@ -7,7 +7,17 @@ Every command accepts `--json`. Exit codes:
 - `2`: **refused**. A checkpoint's evidence is missing. The output names what's missing and the exact command that fixes it.
 - `1`: error
 
-Refusable commands accept `--override "reason"`. The override is logged in state and shown at the next stop. Never pass `--override` on your own initiative: only when the user explicitly chose it.
+Refusable commands accept `--override "reason"`. The override is logged in state with its reason and source, and shown at the next stop. It needs human proof (see Human proof below). Never pass `--override` on your own initiative: only when the user explicitly chose it through an Override menu.
+
+## Human proof
+`cairn approve prd|plan|phase|ship` and any command run with `--override` succeed only with human proof. Each recorded approval or override notes its source.
+- **Mod menu (`source: mod`).** The session's mod asks through AskUserQuestion and runs the approval when the user picks "Approve (Recommended)". The CLI checks `CAIRN_APPROVER` against the mod secret at `<git common dir>/cairn/mod-secret` (mode 0600). The secret is rotated after each use.
+- **Terminal (`source: terminal`).** Run `cairn approve <kind> --human` in your own terminal. It needs a TTY on stdin and stdout, and you type the plan slug at the prompt. Without a TTY it exits 2 and says to run it in your terminal. Agents can't supply this proof.
+- **Override grant (`--override` only).** When the user picks "Override" on an Override menu (question tagged `[cairn:override <slug>]`), the mod writes a single-use grant to `<git common dir>/cairn/grants/<slug>.json`. It holds the question text as its reason and expires after 10 minutes. The CLI accepts `--override` only while a valid, unused grant for the plan exists, and consumes it.
+
+**Procedures never run `cairn approve`.** They ask the user through a tagged menu, or tell the user to run `cairn approve <kind> --human` when the mod is not active. Either way they confirm the result with `cairn status --json`.
+
+`modActive` in `cairn status --json` and `cairn next --json` is `true` when the mod's heartbeat (`<git common dir>/cairn/mod-heartbeat`, written every 2 seconds) is under 10 seconds old. When it is `false`, the menu can't record an approval, so procedures switch to the terminal command.
 
 ## Where things live
 - Plan branch: `sdlc/<slug>`, usually checked out in its own worktree.
@@ -50,7 +60,7 @@ Refusable commands accept `--override "reason"`. The override is logged in state
   - `cairn product init`: creates `docs/sdlc/product/` from templates, on the current branch.
   - `cairn decide "<question>" "<answer>" [--why "…"]`: appends to `decisions.md`.
 - **Stage transitions**
-  - `cairn approve prd|plan|phase|ship [--note "…"]`
+  - `cairn approve prd|plan|phase|ship [--note "…"]`: through the mod's menu, or `--human` in the user's terminal (see Human proof)
   - `cairn advance [--to <stage>]`
 - **Plan and slices**
   - `cairn plan load [--replan]`: parses `plan.md` into state. Use `--replan` during execute, verify, or review, for example to add fix slices. Existing slice progress is kept, the stage returns to plan, the plan needs approval again, and verify and review evidence is cleared, so both run again after the fixes are built.
@@ -72,8 +82,8 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 The CLI commits the plan dir on the plan branch only at transitions: approve, advance, plan load, slice done, pause, resume, and close.
 
 ## JSON shapes (`--json`)
-- `next`: `{ok, plan, stage, substep, procedure, summary, text, warnings[], planWorktree}`. On a non-plan branch: `{plan: null, procedure, plans[]}`.
-- `status`: `{ok, state, next, warnings[], slice, planWorktree}`.
+- `next`: `{ok, plan, stage, substep, procedure, summary, text, warnings[], planWorktree, modActive}`. On a non-plan branch: `{plan: null, procedure, plans[]}`.
+- `status`: `{ok, state, next, warnings[], slice, planWorktree, modActive}`.
   - `state` is the full state.json: `phases[].slices[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals`, `evidence`, `drift[]`, and `log[]`.
   - `status --all`: `{plans: [{state, live, worktree, next}]}`.
 - `ready`: `{paused, phase, phaseStatus, ready: [slice + model], inProgress: [slice], waiting: [{id, on[]}]}`.
