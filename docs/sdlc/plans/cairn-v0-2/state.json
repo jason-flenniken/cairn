@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T22:50:03.820Z",
+  "updated": "2026-10-20T22:55:24.647Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -74,12 +74,14 @@
             "package.json"
           ],
           "complexity": "complex",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 1,
-          "substep": "fixing",
           "branch": "sdlc-slice/cairn-v0-2/mod-guards",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--mod-guards",
-          "note": "false positives on git/grep/commit; glob bypass; timer stacking"
+          "note": "false positives on git/grep/commit; glob bypass; timer stacking",
+          "doneAt": "2026-10-20T22:55:24.647Z",
+          "tip": "d75fb43",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
         },
         {
           "id": "human-proof",
@@ -582,6 +584,22 @@
       "at": "2026-10-20T22:50:03.820Z",
       "event": "slice done",
       "detail": "Hashed single-use secret in the CLI"
+    },
+    {
+      "at": "2026-10-20T22:52:25.442Z",
+      "event": "slice merging",
+      "detail": "Mod skeleton, guards, heartbeat"
+    },
+    {
+      "at": "2026-10-20T22:55:24.647Z",
+      "event": "override: slice done",
+      "detail": "sdlc-slice/cairn-v0-2/mod-guards has no commits since the slice started",
+      "override": "user chose Override: re-plan dropped the slice base commit (cairn bug); 3 reviewed commits are merged"
+    },
+    {
+      "at": "2026-10-20T22:55:24.647Z",
+      "event": "slice done",
+      "detail": "Mod skeleton, guards, heartbeat"
     }
   ],
   "planHash": "7e2fd7f5483bbce7"
