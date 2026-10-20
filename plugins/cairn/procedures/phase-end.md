@@ -32,7 +32,7 @@ Reading the code is the only evidence; a matching function name does not count.
 
 ## 4. Report and ask
 Present, in about 8 lines: slices done, test result, diff size, the verdict counts, and each partial/missing item and each drift entry in one line. Then ask with AskUserQuestion:
-- Continue: approve the phase (Recommended when nothing is missing or partial)
+- Continue to phase approval (Recommended when nothing is missing or partial)
 - Fix first: user describes the problem
 - Re-plan: changes to later phases
 - Pause
@@ -43,9 +43,9 @@ Present, in about 8 lines: slices done, test result, diff size, the verdict coun
 - **Fix first:** ask what to fix, add a fix slice to the current phase in `plan.md` (own scope, `covers` the affected requirements, concrete tests), run `cairn plan load --replan`, then get the user's approval of the changed plan. Run `cairn status --json` and read `modActive`. When true, ask with AskUserQuestion, with the question text including `[cairn:approve plan <slug>]`: Approve (Recommended) / Revise. When false, tell the user to run `cairn approve plan --human` in their own terminal and wait for them to say it's done. Then run `cairn status --json` to confirm, and `cairn next --json` to return to execute.
 - **Re-plan:** edit the later phases in `plan.md` with the user, then the same replan approval.
 - **Pause:** follow the pause procedure.
-- **Continue:** go to step 6.
+- **Continue to phase approval:** go to step 6.
 
-**Done when:** Continue was chosen, or the plan was changed and execute resumed, or the plan is paused.
+**Done when:** Continue to phase approval was chosen, or the plan was changed and execute resumed, or the plan is paused.
 
 ## 6. Drift
 For each drift entry, ask with AskUserQuestion (grouped by file when several): Accept (record why) / Revert the edit / Cover it with a slice. For each accepted entry run `cairn drift ack <path> --note "<reason>"`. For all accepted: `cairn drift ack --all`.

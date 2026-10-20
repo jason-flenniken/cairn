@@ -27,8 +27,8 @@ Report advisory findings in a few lines: count, and the top items with `path:lin
 **Done when:** the user has seen the advisory list.
 
 ## 5. Record and advance
-Run `cairn evidence review pass --blocking <N> --note "<N advisory; overruled: M>"`, where N is the count of blocking findings still open. Then run `cairn advance`.
-
-If the advance is refused because blocking findings remain, ask with AskUserQuestion, once for all open blocking findings. The question text lists each finding with its `path:line`, and includes `[cairn:override <slug>]`. Options: Fix it / Override. Fix it: return to step 3. Only after the user picks Override, run `cairn advance --override "<the findings and the user's reason>"`, and record each overruled finding for the record's Deviations section.
+Count the blocking findings still open, N.
+- N is 0: run `cairn evidence review pass --blocking 0 --note "<N advisory; overruled: M>"`, then `cairn advance`.
+- N is more than 0: run `cairn evidence review fail --blocking N --note "<N blocking open; A advisory>"`, then `cairn advance`. The advance is refused. Ask with AskUserQuestion, once for all open blocking findings. The question text lists each finding with its `path:line`, and includes `[cairn:override <slug>]`. Options: "Fix it" or "Override". "Fix it": return to step 3. Only after the user picks "Override", run `cairn advance --override "<the findings and the user's reason>"`, and record each overruled finding for the record's Deviations section.
 
 **Done when:** the stage is `ship`. Then run `cairn next --json` and follow the procedure it names.
