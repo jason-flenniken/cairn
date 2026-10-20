@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T21:43:27.378Z",
+  "updated": "2026-10-20T21:50:37.165Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -101,12 +101,15 @@
             "plugins/cairn/cli/test/lifecycle.test.ts"
           ],
           "complexity": "complex",
-          "status": "in_progress",
-          "fixRound": 0,
-          "substep": "implementing",
+          "status": "done",
+          "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/human-proof",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--human-proof",
-          "base": "cf1fc07052e10bb1af9b27e0c30b9aa3c5c6b677"
+          "base": "cf1fc07052e10bb1af9b27e0c30b9aa3c5c6b677",
+          "note": "hardening minors from review",
+          "doneAt": "2026-10-20T21:50:37.165Z",
+          "tip": "2e40088",
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'"
         },
         {
           "id": "approval-procedures",
@@ -445,6 +448,26 @@
       "at": "2026-10-20T21:43:27.378Z",
       "event": "slice done",
       "detail": "Tagged approval menus in procedures"
+    },
+    {
+      "at": "2026-10-20T21:46:17.763Z",
+      "event": "slice reviewing",
+      "detail": "CLI human proof, grants, modActive"
+    },
+    {
+      "at": "2026-10-20T21:47:35.347Z",
+      "event": "slice fixing",
+      "detail": "CLI human proof, grants, modActive (round 1): hardening minors from review"
+    },
+    {
+      "at": "2026-10-20T21:50:29.626Z",
+      "event": "slice merging",
+      "detail": "CLI human proof, grants, modActive"
+    },
+    {
+      "at": "2026-10-20T21:50:37.165Z",
+      "event": "slice done",
+      "detail": "CLI human proof, grants, modActive"
     }
   ],
   "planHash": "7c7dd8a96e0a502a"
