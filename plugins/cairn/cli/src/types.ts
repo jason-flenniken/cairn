@@ -12,6 +12,7 @@ export interface Approval {
   via: 'agent' | 'human';
   note?: string;
   hash?: string;
+  source?: 'mod' | 'terminal' | 'agent';
 }
 
 export interface Slice {
@@ -39,6 +40,7 @@ export interface Phase {
   name: string;
   status: PhaseStatus;
   slices: Slice[];
+  verdict?: { result: 'green' | 'yellow' | 'red'; at: string; commit: string; note?: string };
 }
 
 export interface Evidence {
@@ -76,6 +78,8 @@ export interface State {
   paused: { at: string; mode: 'drain' | 'now'; handoffHash?: string } | null;
   approvals: { prd?: Approval; plan?: Approval; ship?: Approval };
   planHash?: string;
+  repro?: { cmd: string; tail: string; at: string };
+  configHash?: string;
   phases: Phase[];
   evidence: { verify?: Evidence; review?: Evidence };
   drift: DriftEntry[];
@@ -93,4 +97,7 @@ export interface Config {
   maxParallel: number;
   autoCommit: boolean;
   worktreeRoot?: string;
+  resumeFreshAfterMinutes?: number;
+  fixMaxFiles?: number;
+  reproTimeoutMinutes?: number;
 }

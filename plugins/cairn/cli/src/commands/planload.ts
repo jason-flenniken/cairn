@@ -1,0 +1,35 @@
+import type { Ctx } from '../locate.ts';
+import { mergeProgress, parsePlan } from '../plan-parse.ts';
+import { allSlices } from '../ready.ts';
+import { log } from '../state.ts';
+import { hashText, readText, Refusal } from '../util.ts';
+import { mutate, planCtx, planFile, type Opts, type Result } from '../shared.ts';
+
+export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
+  const pc = planCtx(ctx);
+  const planMd = readText(planFile(pc, 'plan.md'));
+  const prdMd = readText(planFile(pc, 'prd.md')) ?? '';
+  if (!planMd) throw new Refusal('plan.md does not exist', ['write it from templates/plan.md']);
+  const parsed = parsePlan(planMd, prdMd);
+  if (parsed.problems.length) throw new Refusal(`plan.md is not loadable:\n  - ${parsed.problems.join('\n  - ')}`, ['fix plan.md, then cairn plan load']);
+  return mutate(pc, 'plan loaded', (s) => {
+    const replanning = s.stage !== 'plan';
+    if (replanning && !opts.replan) throw new Refusal(`the plan is in ${s.stage}; changing it mid-flight is a re-plan`, ['cairn plan load --replan']);
+    if (!['plan', 'execute', 'verify', 'review'].includes(s.stage)) throw new Refusal(`a plan can't be loaded in ${s.stage}`);
+    const { phases, lostDone } = mergeProgress(parsed.phases, s.phases);
+    if (lostDone.length) throw new Refusal(`the new plan drops slices that already started or finished: ${lostDone.join(', ')}`, ['keep them in plan.md']);
+    s.phases = phases;
+    s.planHash = hashText(planMd);
+    if (replanning) {
+      s.stage = 'plan';
+      delete s.approvals.plan;
+      delete s.evidence.verify;
+      delete s.evidence.review;
+      log(s, 're-plan loaded', `${allSlices(s).length} slices`);
+    } else log(s, 'plan loaded', `${s.phases.length} phases, ${allSlices(s).length} slices`);
+    return {
+      message: `Loaded ${s.phases.length} phases and ${allSlices(s).length} slices.${replanning ? ' The plan needs approval again.' : ''} Next: approve the plan with the user.`,
+      data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, slices: p.slices.map((x) => x.id) })) },
+    };
+  });
+}
