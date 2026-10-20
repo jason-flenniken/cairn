@@ -41,3 +41,23 @@ _2026-10-20 21:09_
 **Decision:** Breaker, first-timer, and acceptance-runner agents and the fixed review roster (v0.3); Linear mirror, structured learnings, and roadmap generation (v0.4); the pane on mobile or in claude -p (status line and /cairn:status cover those). Users: a single developer. Data: state.json gains phase direction verdicts, the fix-track repro record, and approval source; no migrations beyond defaults. Performance: pane polls state.json every 2s and must not slow the session.
 **Why:** Confirmed v0.2 scope from docs/design.md; recorded so the PRD non-goals and NFRs are explicit.
 _2026-10-20 21:09_
+
+### 9. How is the drift verdict kept honest?
+**Decision:** The direction report contains a fixed yaml cairn-direction scorecard: one row per covered requirement with verdict and path:line evidence, plus unplanned and NFR rows. cairn evidence phase takes no color; it parses the scorecard, refuses if a covered requirement is missing or lacks evidence, and computes green, yellow, or red by the rules.
+**Why:** The model cannot mislabel the verdict; individual rows are specific claims the user sees at the stop.
+_2026-10-20 21:20_
+
+### 10. Builder-check resolutions folded into the PRD
+**Decision:** Yellow is approvable because the approval itself is the explicit human choice; red blocks. Approval ordering: the mod runs cairn approve inside the AskUserQuestion tool hook before the result returns, so the model sees the approval already recorded. Approval tags carry the plan slug. Stop now aborts the main turn at once and has the agent stop background subagents on its next turn (no API exists to stop them directly). Pause keeps existing open questions in handoff.md. The direction verdict records the plan branch commit; approve phase refuses if code outside docs/sdlc changed since. Fix-track file count is the committed diff from the slice base; escalate rewrites the fix slice scope to its changed files. Repro is excluded from the pre-approved cairn commands so the user sees each repro command in the normal permission prompt. Fix-track stages are repro, execute, review, ship, closed.
+**Why:** Answers from existing decisions and API facts; no new product calls needed.
+_2026-10-20 21:20_
+
+### 11. How does the mod guard against misleading approval menu wording?
+**Decision:** The mod approves only when the selected label is exactly Approve or Approve (Recommended), the tag plan and kind match the stop actually waiting in state, the answer read is the one for the tagged question, and the dialog was not auto-answered while the user was away. No extra confirm dialog.
+**Why:** One click per stop; the residual risk is a model labeling an option exactly Approve at the right stop.
+_2026-10-20 21:23_
+
+### 12. Review-lens resolutions folded into the PRD
+**Decision:** Every override needs the same human proof as an approval, granted by a tagged Override menu answer or a terminal run. The mod authenticates to the CLI with a per-session secret instead of a fixed value. Guards deny by default any Bash command that mentions plan state, the secret, or a cairn approval, allowing only a short read list, and cover every tool by canonical path; guard errors deny. Child commands run with the secret removed from their environment. A change to the repo config commands after plan approval blocks running them. A re-plan or a later code commit invalidates a drift verdict; decision 10 supersedes decision 4 on yellow. The drift check includes the product PRD when present. Stdin input is dropped because the worktree guard parses heredoc text like arguments. The fix-track record cap stays at 300 words.
+**Why:** Applies the security, feasibility, coherence, testability, and scope review findings that follow from earlier decisions.
+_2026-10-20 21:23_

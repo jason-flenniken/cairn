@@ -6,10 +6,17 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T21:09:59.238Z",
+  "updated": "2026-10-20T21:26:48.295Z",
   "stage": "prd",
   "paused": null,
-  "approvals": {},
+  "approvals": {
+    "prd": {
+      "at": "2026-10-20T21:26:48.293Z",
+      "via": "agent",
+      "note": "bootstrap: approved in menu, relayed by agent because the mod does not exist yet",
+      "hash": "5bde3d913b280c57"
+    }
+  },
   "phases": [],
   "evidence": {},
   "drift": [],
@@ -22,6 +29,11 @@
       "at": "2026-10-20T21:09:59.237Z",
       "event": "advanced",
       "detail": "prd"
+    },
+    {
+      "at": "2026-10-20T21:26:48.294Z",
+      "event": "PRD approved",
+      "detail": "agent"
     }
   ]
 }
