@@ -40,11 +40,16 @@ test('outside a git repo the heartbeat is skipped and the session starts', async
   expect(writes).toEqual([])
 })
 
-test('an unwritable common dir never fails the session', async ($, on) => {
-  const clock = mock.clock(on)
+test('a beat that cannot be written is skipped and the next one still lands', async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000 })
+  const writes: string[] = []
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('process.run', () => ({ value: { ...RAN, exitCode: 0, stdout: '/repo/.git\n' } }))
-  on('fs.write', () => ({ deny: 'EACCES: permission denied' }))
+  on('fs.write', (_$, e) => {
+    if (writes.push(e.text) === 1) return { deny: 'EACCES: permission denied' }
+    return { value: undefined }
+  })
   expect(await $.session.start({ cwd: '/repo', surface: null, isInteractive: false })).toEqual({ cwd: '/repo' })
   await clock.advance(2_000)
+  expect(writes).toEqual(['1000', '3000'])
 })

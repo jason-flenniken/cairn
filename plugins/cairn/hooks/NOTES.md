@@ -9,6 +9,8 @@
 
 `<git common dir>/cairn/mod-heartbeat` holds one value: epoch milliseconds as plain decimal text, with no newline (for example `1792532987012`). The mod writes it at `session.start` and every 2 s after that. It finds the common dir with `git rev-parse --path-format=absolute --git-common-dir`. Outside a git repo the heartbeat is skipped. An unwritable folder skips that beat. The CLI treats the mod as active while the value is under 10 s old.
 
+A hot reload drops the old timer. `session.start` fires again for a changed module, so the beat restarts.
+
 ## Guards (FR-03, FR-04, NFR-02)
 
 - Both guards are `tool.call` hooks with a fail-closed `.catch`.
@@ -18,6 +20,14 @@
 - A missing path rejects with `ENOENT`. For a missing path, the guard resolves the deepest existing ancestor and appends the rest, because a Write creates folders. Any other stat error propagates, and the `.catch` denies.
 - A path starting with `~` is denied, because the guard can't tell where the tool would land it.
 - Read, Grep, and Glob may read plan state. No tool may read under `.git/cairn/`, which holds the secret.
+  - Grep and Glob may not search a `.git` folder at all.
+  - Native builds don't register Grep or Glob, so those searches go through Bash.
+- The Bash guard denies a few more things:
+  - any mention of `.git/cairn`, `--git-common-dir`, or a bare `.git` folder
+  - `grants` next to `cairn`
+  - a pseudo-terminal wrapper (`script`, `expect`, `unbuffer`, `tmux`, `screen`, python/perl `pty`) around `cairn`
+
+  The one exception is a read-only command naming `.git/cairn/mod-heartbeat` exactly. The Bash guard is a best-effort deny-list on spellings. The CLI's proof is the real control.
 
 ## Testing
 

@@ -7,19 +7,34 @@ const REASON = `cairn: ${WHY}`
 
 // Always denied, even for a read-only command: the secret, the grants, the proof variable.
 const SECRET = /CAIRN_APPROVER|mod-secret|cairn\/grants/i
-// Plan state or a file under <git common dir>/cairn/: denied unless the command only reads.
-const GUARDED_FILE = /(?<![\w.-])state\.json(?!\w)|\.git\/cairn(\/|\b)|mod-heartbeat/i
+// A plan state file: denied unless the command only reads.
+const STATE_FILE = /(?<![\w.-])state\.json(?!\w)/i
 const READ_ONLY = new Set(['cat', 'head', 'tail', 'grep', 'wc', 'less', 'jq'])
 // A pseudo-terminal around cairn would fake the CLI's terminal proof (FR-01).
-const PTY_WRAPPERS = new Set(['script', 'expect', 'unbuffer'])
+const PTY_WRAPPERS = new Set(['script', 'expect', 'unbuffer', 'tmux', 'screen'])
 
 /** The FR-03 verdict on a Bash command: `{ deny }` with the reason, or `{}`. */
 export function bashVerdict(cmd: string): { deny?: string } {
-  if (SECRET.test(cmd)) return { deny: REASON }
-  if (/cairn/i.test(cmd) && segments(cmd).some(wrapsInPty)) return { deny: REASON }
-  const isGuarded = GUARDED_FILE.test(cmd) || segments(cmd).some(approvesThroughCli)
+  const mentionsCairn = /cairn/i.test(cmd)
+  if (SECRET.test(cmd) || (mentionsCairn && /(?<![\w.-])grants(\/|\b)/i.test(cmd))) return { deny: REASON }
+  if (mentionsCairn && segments(cmd).some(wrapsInPty)) return { deny: REASON }
+  if (touchesGitFolder(cmd)) return { deny: REASON }
+  const isGuarded = STATE_FILE.test(cmd) || segments(cmd).some(approvesThroughCli)
   if (isGuarded && !isReadOnly(cmd)) return { deny: REASON }
   return {}
+}
+
+/**
+ * The cairn folder (`.git/cairn`, the common dir, the heartbeat) or a whole `.git`
+ * folder, which a recursive read would reach the secret through. The one exception
+ * is a read-only command naming the heartbeat file exactly, with no glob.
+ */
+function touchesGitFolder(cmd: string): boolean {
+  const named = segments(cmd).flatMap(words).filter(word =>
+    /\.git\/cairn|git-common-dir|mod-heartbeat|(^|\/)\.git\/?$/i.test(word))
+  if (named.length === 0) return false
+  const isHeartbeatRead = (word: string) => /\.git\/cairn\/mod-heartbeat$/i.test(word) && !/[*?[]/.test(word)
+  return !(isReadOnly(cmd) && named.every(isHeartbeatRead))
 }
 
 /** The simple commands of a command line, split at `;`, `&&`, `||`, `|`, `&`, newlines. */
@@ -42,10 +57,12 @@ function approvesThroughCli(segment: string): boolean {
   return cli >= 0 && list.slice(cli + 1).includes('approve')
 }
 
-/** `script`, `expect`, `unbuffer`, or python/perl naming `pty`, as the command run. */
+/** A pty wrapper, or python/perl naming `pty`, as the command run (by basename, past `env` and `VAR=x`). */
 function wrapsInPty(segment: string): boolean {
-  const [first = ''] = words(segment)
-  return PTY_WRAPPERS.has(first) || (/^(python[\d.]*|perl)$/.test(first) && /pty/i.test(segment))
+  const list = words(segment)
+  const at = list.findIndex(word => word !== 'env' && !/^\w+=/.test(word))
+  const run = (list[at] ?? '').slice((list[at] ?? '').lastIndexOf('/') + 1)
+  return PTY_WRAPPERS.has(run) || (/^(python[\d.]*|perl)$/.test(run) && /pty/i.test(segment))
 }
 
 /** Every simple command is a listed reader, with no redirect, substitution, or `jq -i`. */
@@ -66,7 +83,10 @@ const PLAN_FILE = /\/docs\/sdlc\/plans\/[^/]+\/(state\.json|status\.md)$/i
 const CAIRN_DIR = /\/\.git\/cairn(\/|$)/i
 const PATH_KEYS = ['file_path', 'path', 'notebook_path'] as const
 // Tools that only read: they may read plan state, never the cairn folder (the secret).
+// The searching ones may not start in a .git folder either, which holds the cairn folder.
 const READ_TOOLS = new Set(['Read', 'Grep', 'Glob'])
+const SEARCH_TOOLS = new Set(['Grep', 'Glob'])
+const GIT_DIR = /\/\.git(\/|$)/i
 
 /** True for an absolute, resolved path a non-Bash tool may not write (FR-04). */
 export function pathProtected(abs: string): boolean {
@@ -118,11 +138,13 @@ export function install(on: On): void {
   on('tool.call', async ($, e, next) => {
     const paths = targetPaths(e)
     if (paths.length === 0) return next(e)
-    const isRead = READ_TOOLS.has(String(e.tool))
+    const tool = String(e.tool)
+    const isBlocked = (real: string) =>
+      SEARCH_TOOLS.has(tool) ? GIT_DIR.test(real) : READ_TOOLS.has(tool) ? CAIRN_DIR.test(real) : pathProtected(real)
     for (const path of paths) {
       const real = await landing($, path)
       if (real === undefined) return { deny: `cairn: cannot tell where ${path} lands, so the call is refused.` }
-      if (isRead ? CAIRN_DIR.test(real) : pathProtected(real)) {
+      if (isBlocked(real)) {
         return { deny: `cairn: ${path} is plan state or cairn's own folder; ${WHY}` }
       }
     }

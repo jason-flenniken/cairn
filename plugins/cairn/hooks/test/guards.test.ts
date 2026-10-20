@@ -27,10 +27,22 @@ describe('bashVerdict', () => {
     'echo {} > /repo/.git/cairn/grants/x.json',
     'echo 99999999999999 > /repo/.git/cairn/mod-heartbeat',
     'touch "$(git rev-parse --git-common-dir)/cairn/mod-heartbeat"',
+    `cd "$(git rev-parse --git-common-dir)/cairn" && echo '{}' > grants/x.json`,
+    // Reads that reach the secret without naming it.
+    'cat .git/cairn/*',
+    'head .git/cairn/m*',
+    'grep -r . .git/cairn',
+    'grep -r . .git',
+    'grep -rn x /repo/.git/',
     // A pseudo-terminal around cairn would fake the terminal proof.
     'script -q /dev/null cairn status --human',
     `expect -c 'spawn cairn status; interact'`,
     'unbuffer cairn status',
+    '/usr/bin/script -q /dev/null cairn status',
+    'env script -q /dev/null cairn status',
+    'FOO=1 expect -c "spawn cairn status"',
+    'tmux new-session -d cairn status',
+    'screen -dm cairn status',
     `python3 -c "import pty; pty.spawn(['cairn', 'status'])"`,
   ]
   for (const cmd of denied) {
@@ -133,6 +145,8 @@ describe('path guard (FR-04)', () => {
     ['mcp__files__write_file', { path: '/repo/docs/sdlc/plans/x/state.json', content: '{}' }],
     ['NotebookEdit', { notebook_path: '/repo/docs/sdlc/plans/x/state.json', new_source: '' }],
     ['Read', { file_path: '/repo/.git/cairn/mod-secret' }],
+    ['Grep', { pattern: '.', path: '/repo/.git' }],
+    ['Glob', { pattern: '**/*', path: '/repo/.git/cairn' }],
   ]
   for (const [tool, input] of denied) {
     test(`denies ${tool} ${Object.values(input)[0]}`, async ($, on) => {
@@ -162,6 +176,7 @@ describe('path guard (FR-04)', () => {
     ['Edit', { file_path: '/repo/src/app.ts', old_string: 'a', new_string: 'b' }],
     ['Write', { file_path: '/repo/docs/sdlc/plans/x/plan.md', content: 'x' }],
     ['Grep', { pattern: 'stage', path: '/repo/docs/sdlc/plans/x' }],
+    ['Read', { file_path: '/repo/.git/config' }],
   ]
   for (const [tool, input] of allowed) {
     test(`allows ${tool} ${Object.values(input)[0]}`, async ($, on) => {
