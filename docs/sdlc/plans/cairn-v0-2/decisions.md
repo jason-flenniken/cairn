@@ -66,3 +66,8 @@ _2026-10-20 21:23_
 **Decision:** The orchestrator session runs from the repo root without a worktree lock and runs cairn from the plan worktree with cd. A worktree-locked session blocks its subagents from editing and committing in slice worktrees. Dogfood finding: new.md must stop entering the plan worktree with EnterWorktree; added to the dogfood phase at the next re-plan.
 **Why:** Implementers were blocked in the first parallel phase; the scope guard and drift logging still police what each slice touches.
 _2026-10-20 21:32_
+
+### 14. How are the mod secret and overrides kept out of the model's reach?
+**Decision:** Only a SHA-256 hash of the mod secret is stored on disk; the mod keeps the secret in memory and generates a new one (and a new hash) after each use. Override grant files are removed: when the user picks Override, the mod records a pending override for that plan (10 minutes); when the model next runs a cairn command with --override for that plan, the mod runs it itself with the secret and returns the CLI output as the tool result. FR-02a is renamed FR-34 so the coverage check tracks it.
+**Why:** A broad search could pull a plaintext secret into the model context, and a script could forge a grant file; with a hash on disk and mod-run overrides there is nothing usable to read or forge.
+_2026-10-20 21:59_

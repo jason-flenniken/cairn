@@ -39,10 +39,9 @@ A Claude Code mod ships inside the cairn plugin. With it:
 
 **Proof of the user**
 
-- **FR-01 Human proof for approvals and overrides.** A `cairn approve <kind>` command, and any command run with `--override`, succeed only with human proof, and refuse otherwise. There are three kinds of human proof:
-  - **The mod's secret.** `CAIRN_APPROVER` in the environment equals the mod's current secret. The secret is random, stored at `<git common dir>/cairn/mod-secret` with mode 0600, created at session start, and rotated after each use. These are recorded as `source: mod`.
+- **FR-01 Human proof for approvals and overrides.** A `cairn approve <kind>` command, and any command run with `--override`, succeed only with human proof, and refuse otherwise. There are two kinds of human proof:
+  - **The mod's secret.** The SHA-256 of `CAIRN_APPROVER` matches `<git common dir>/cairn/mod-secret.sha256`. The mod generates the random secret and keeps it only in memory. It writes just the hash, with mode 0600, and replaces both after each use. The CLI deletes the hash file after a successful match, so a secret works once. These are recorded as `source: mod`.
   - **A terminal run.** `--human` is given, stdin and stdout are TTYs, and the user types the plan slug at a prompt read synchronously from fd 0. These are recorded as `source: terminal`.
-  - **An override grant** (see FR-02a). It counts only for `--override`.
 
   A recorded override keeps its reason and its source.
 - **FR-02 Approving through the menu.** The mod's `tool.call` hook on AskUserQuestion awaits the tool's result, then checks the answer before the model sees it. It records an approval only when all of these hold:
@@ -52,11 +51,16 @@ A Claude Code mod ships inside the cairn plugin. With it:
   - The dialog was not auto-answered because the user was away.
 
   When all hold, the mod runs the plan's `bin/cairn approve <kind>` in that plan's worktree, with `CAIRN_APPROVER` set to the secret. It returns the outcome, success or the refusal text, in the hook's `context`, and shows it as a toast. A re-plan approval uses kind `plan`.
-- **FR-02a Override grants.** For a question tagged `[cairn:override <slug>]` whose own answer is exactly "Override", the mod writes a single-use grant to `<git common dir>/cairn/grants/<slug>.json`. The grant holds the question text as its reason and expires after 10 minutes. The CLI accepts `--override` when a valid, unused grant for the plan exists, and consumes it.
+- **FR-34 Mod-run overrides.** (Earlier drafts called this FR-02a.) For a question tagged `[cairn:override <slug>]` whose own answer is exactly "Override", the mod records a pending override for that plan. It expires after 10 minutes. When the model next runs a Bash `cairn … --override "<reason>"` for that plan while an override is pending, the mod's `tool.call` hook handles it:
+  1. It checks that the command is a plain `cairn` invocation with no shell metacharacters (`; | & $ \` > <` and newlines). Otherwise it doesn't run it, and says why.
+  2. It runs the same argv itself through `$.process.run`, with the secret set.
+  3. It consumes the pending override, and returns the CLI output as the tool result.
+
+  No file stands for an override. With nothing pending, the command runs normally, and the CLI refuses it for lack of proof.
 - **FR-03 Bash guard.** The mod denies Bash tool calls whose command mentions any of these:
   - `state.json` under `docs/sdlc/plans/`
   - `CAIRN_APPROVER`
-  - `mod-secret` or `cairn/grants`
+  - `mod-secret`
   - an `approve` token after `cairn`, `cairn.mjs`, `bin/cairn`, or `dist/`
 
   The exception is a read-only command from this list: `cat`, `head`, `tail`, `grep`, `wc`, `less`, and `jq` with no `-i` and no redirect. The deny reason says that approvals and plan state come from the user and the CLI. Main-loop calls are always covered. Subagent calls are covered when `tool.call` fires for them, which the early API check settles.
@@ -175,6 +179,12 @@ A Claude Code mod ships inside the cairn plugin. With it:
 - **FR-30 Clean start at phase end.** The phase-end menu offers "Approve and start clean". It approves the phase (FR-02), then tells the user: "/clear, then /cairn:next".
 - **FR-31 Pre-approved commands.** The skills' `allowed-tools` list each `cairn` subcommand by name, except `repro`. This replaces v0.1's `Bash(cairn:*)`. A repro command therefore goes through the user's normal permission prompt.
 - **FR-32 Locked command config.** Plan approval records a hash of the `setup`, `test`, and `build` commands in `.sdlc/config.json`. On the fix track, the hash is taken when the repro is recorded. `slice start`, `slice done`, `repro`, and `close` refuse while the hash differs, and name the re-approval or override that fixes it.
+- **FR-35 No worktree lock for the orchestrator.** The new-plan procedure never moves the session into the plan worktree with EnterWorktree. The orchestrator session runs from the repo root and runs `cairn` from the plan worktree with `cd`. A locked session blocks its subagents from editing and committing in slice worktrees.
+- **FR-36 Test summary.** `slice done` and `close` record the test run's summary line, meaning the last line that reports pass or fail counts, instead of the raw last output line.
+- **FR-37 Approval sources in STATUS.md.** STATUS.md shows each approval's source (mod, terminal) and each override's source.
+- **FR-38 Documented formats.** `references/cli.md` documents the secret hash, heartbeat, and pending-override formats. The README states the Claude Code version requirement (NFR-04).
+- **FR-39 Strict requirement ids.** `cairn plan load` refuses when a bold requirement id in the PRD's Functional requirements doesn't have the form `FR-<digits>`, so coverage can never silently skip one.
+- **FR-40 Prefactor slices.** A slice may declare `kind: prefactor`, which allows an empty `covers` list.
 - **FR-33 Clean environment for child commands.** Every child command the CLI runs (setup, test, repro) runs with `CAIRN_APPROVER` removed from its environment.
 
 ## Non-functional requirements
@@ -218,10 +228,12 @@ A Claude Code mod ships inside the cairn plugin. With it:
   - the hook's `context` contains the outcome
   - the mocked process run received `approve <kind>` with `CAIRN_APPROVER` set to the secret
 - [FR-02] Given the answer "Approve the revised wording", "Revise", an auto-answered dialog, or a tag for a stop that isn't waiting, then nothing is recorded.
-- [FR-02a]
-  - Given an answer of exactly "Override" to a `[cairn:override <slug>]` question, a grant file exists, and the next `--override` succeeds and consumes it.
+- [FR-34]
+  - Given an answer of exactly "Override" to a `[cairn:override <slug>]` question, the model's next `cairn advance --override "r"` for that plan is run by the mod with the secret. The CLI records the override with `source: mod`.
   - A second `--override` refuses.
-  - A grant older than 10 minutes refuses.
+  - An override answered more than 10 minutes earlier refuses.
+  - A command containing `;` or `$(` isn't run by the mod.
+  - No file under `<git common dir>/cairn/` stands for an override.
 - [FR-03] Each of these is denied, with the deny reason:
   - `cairn approve prd`
   - `node …/dist/cairn.mjs approve plan`
@@ -282,7 +294,7 @@ A Claude Code mod ships inside the cairn plugin. With it:
   - With one partial row and the rest aligned, it records yellow and the commit.
   - After a re-plan, no verdict remains.
 - [FR-20]
-  - With a red verdict, `approve phase` with mod proof refuses. With an override grant, it succeeds.
+  - With a red verdict, `approve phase` with mod proof refuses. After an "Override" answer, the mod-run `approve phase --override` succeeds.
   - With yellow, it succeeds.
   - With green and a later code commit, it refuses until the check runs again.
   - A commit that touches only `docs/sdlc/` doesn't refuse.
@@ -310,6 +322,12 @@ A Claude Code mod ships inside the cairn plugin. With it:
 - [FR-31] A node:test checks that every skill lists the named subcommands and none lists `repro` or `cairn:*`.
 - [FR-32] Editing the `test` command after plan approval makes `slice done` refuse. Re-approving the plan clears it.
 - [FR-33] A test command that prints `$CAIRN_APPROVER` prints nothing.
+- [FR-35] `new.md` contains no EnterWorktree step. `execute.md` runs `cairn` with `cd <plan worktree> &&`. Checked by a node:test.
+- [FR-36] When the test output ends with an `npm notice` line after `ℹ pass 12`, the recorded summary is `ℹ pass 12`.
+- [FR-37] STATUS.md shows "PRD approved … (you, in the menu)" for `source: mod` and "(you, in the terminal)" for `source: terminal`.
+- [FR-38] `cli.md` names `mod-secret.sha256`, `mod-heartbeat`, and the pending-override rule. The README states "Claude Code v2.1.287 or later".
+- [FR-39] A PRD with `**FR-02a**` makes `plan load` refuse and name the id.
+- [FR-40] A slice with `kind: prefactor` and `covers: []` loads. Without `kind: prefactor`, empty `covers` refuses.
 - [NFR-02]
   - An injected throwing guard denies the matched call and allows an unmatched one.
   - A throwing approval hook still returns the user's menu result.
@@ -318,7 +336,7 @@ A Claude Code mod ships inside the cairn plugin. With it:
 ## Unhappy paths
 - [FR-01] With `--human` and no TTY, it exits 2 with "run this in your own terminal". When the secret file is missing or unreadable, mod proof fails and the terminal path still works.
 - [FR-02] When the tag doesn't match the waiting stop, or `cairn approve` refuses, the hook's `context` and a toast carry the reason, and nothing is recorded. A dismissed dialog records nothing.
-- [FR-02a] When the grants folder is unwritable, the toast says so and no grant is created.
+- [FR-34] When the pending override has expired, or names another plan, the command runs normally and the CLI's refusal is returned.
 - [FR-03] When a guard throws, the matched call is denied (NFR-02).
 - [FR-05] When the user cancels the confirm dialog, nothing is recorded.
 - [FR-06] When the git common dir is unwritable, the heartbeat is skipped, `modActive` stays false, and the procedures use the terminal path.
@@ -337,8 +355,8 @@ A Claude Code mod ships inside the cairn plugin. With it:
 
 ## Security considerations
 - **Self-approval by the model.** The controls are layered:
-  - The CLI requires the mod's rotating secret, a TTY run, or a single-use grant (FR-01, FR-02a).
-  - The mod denies, by default, any Bash call that touches approvals, plan state, the secret, or grants (FR-03), and any other tool that writes those paths (FR-04).
+  - The CLI requires the mod's single-use secret, checked against an on-disk hash, or a TTY run (FR-01). Overrides run through the mod itself (FR-34), so there is no grant file to forge.
+  - The mod denies, by default, any Bash call that touches approvals, plan state, or the secret (FR-03), and any other tool that writes those paths (FR-04).
   - Every approval records its source, and STATUS.md shows it.
 - **Override as a bypass.** Overrides need the same human proof as approvals (FR-01).
 - **Menu wording.** The mod requires the exact label, a tag that matches the waiting stop, the tagged question's own answer, and a dialog the user actually answered (FR-02).
@@ -352,7 +370,7 @@ A Claude Code mod ships inside the cairn plugin. With it:
 ## Testing decisions
 - **CLI tests (node:test).** These cover:
   - approval and override proof, with an injectable TTY check and an injectable stdin reader
-  - secret rotation and grants
+  - the hash check, single use, and the hash file deleted after a match
   - evidence phase, scorecard parsing, and the commit check
   - the fix-track stages, repro with an injectable timeout, `escalate`, and the file count
   - `--file` and `--note-file`

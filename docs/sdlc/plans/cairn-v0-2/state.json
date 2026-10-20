@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T21:50:37.165Z",
-  "stage": "execute",
+  "updated": "2026-10-20T22:00:04.814Z",
+  "stage": "plan",
   "paused": null,
   "approvals": {
     "prd": {
@@ -15,12 +15,6 @@
       "via": "agent",
       "note": "bootstrap: approved in menu, relayed by agent because the mod does not exist yet",
       "hash": "5bde3d913b280c57"
-    },
-    "plan": {
-      "at": "2026-10-20T21:30:07.349Z",
-      "via": "agent",
-      "note": "bootstrap: approved in menu, relayed by agent",
-      "hash": "7c7dd8a96e0a502a"
     }
   },
   "phases": [
@@ -45,11 +39,10 @@
           "fixRound": 0,
           "branch": "sdlc-slice/cairn-v0-2/cli-split",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--cli-split",
-          "base": "1658017e523c57663d5b30b4fefe3cb8f8cee294",
-          "note": "resumed after the worktree lock was lifted",
-          "doneAt": "2026-10-20T21:36:01.631Z",
           "tip": "f46394b",
-          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'"
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'",
+          "doneAt": "2026-10-20T21:36:01.631Z",
+          "note": "resumed after the worktree lock was lifted"
         },
         {
           "id": "mod-guards",
@@ -77,10 +70,9 @@
           "complexity": "complex",
           "status": "in_progress",
           "fixRound": 0,
-          "substep": "implementing",
+          "substep": "reviewing",
           "branch": "sdlc-slice/cairn-v0-2/mod-guards",
-          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--mod-guards",
-          "base": "1658017e523c57663d5b30b4fefe3cb8f8cee294"
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--mod-guards"
         },
         {
           "id": "human-proof",
@@ -105,11 +97,10 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/human-proof",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--human-proof",
-          "base": "cf1fc07052e10bb1af9b27e0c30b9aa3c5c6b677",
-          "note": "hardening minors from review",
-          "doneAt": "2026-10-20T21:50:37.165Z",
           "tip": "2e40088",
-          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'"
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'",
+          "doneAt": "2026-10-20T21:50:37.165Z",
+          "note": "hardening minors from review"
         },
         {
           "id": "approval-procedures",
@@ -136,20 +127,39 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/approval-procedures",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--approval-procedures",
-          "base": "cf1fc07052e10bb1af9b27e0c30b9aa3c5c6b677",
-          "note": "review step 5 dead end; tighten tests; rename phase-end option",
-          "doneAt": "2026-10-20T21:43:27.377Z",
           "tip": "d3b1552",
-          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'"
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'",
+          "doneAt": "2026-10-20T21:43:27.377Z",
+          "note": "review step 5 dead end; tighten tests; rename phase-end option"
+        },
+        {
+          "id": "secret-hash",
+          "name": "Hashed single-use secret in the CLI",
+          "covers": [
+            "FR-01"
+          ],
+          "blockedBy": [
+            "human-proof"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/proof.ts",
+            "plugins/cairn/cli/src/shared.ts",
+            "plugins/cairn/cli/test/proof.test.ts",
+            "plugins/cairn/cli/test/lifecycle.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0
         },
         {
           "id": "menu-approval",
           "name": "Approve from the menu answer",
           "covers": [
-            "FR-02"
+            "FR-02",
+            "FR-34"
           ],
           "blockedBy": [
-            "human-proof",
+            "secret-hash",
             "mod-guards"
           ],
           "scope": [
@@ -348,6 +358,46 @@
           "complexity": "simple",
           "status": "pending",
           "fixRound": 0
+        },
+        {
+          "id": "dogfood-docs",
+          "name": "Unlocked orchestrator and documented formats",
+          "covers": [
+            "FR-35",
+            "FR-38"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/procedures/new.md",
+            "plugins/cairn/procedures/execute.md",
+            "plugins/cairn/references/cli.md",
+            "README.md",
+            "plugins/cairn/cli/test/dogfood-docs.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "cli-polish",
+          "name": "Test summary, approval sources, strict ids, prefactor slices",
+          "covers": [
+            "FR-36",
+            "FR-37",
+            "FR-39",
+            "FR-40"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/shared.ts",
+            "plugins/cairn/cli/src/render.ts",
+            "plugins/cairn/cli/src/plan-parse.ts",
+            "plugins/cairn/cli/src/types.ts",
+            "plugins/cairn/cli/test/polish.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0
         }
       ]
     }
@@ -468,7 +518,17 @@
       "at": "2026-10-20T21:50:37.165Z",
       "event": "slice done",
       "detail": "CLI human proof, grants, modActive"
+    },
+    {
+      "at": "2026-10-20T21:58:46.640Z",
+      "event": "slice reviewing",
+      "detail": "Mod skeleton, guards, heartbeat"
+    },
+    {
+      "at": "2026-10-20T22:00:04.814Z",
+      "event": "re-plan loaded",
+      "detail": "16 slices"
     }
   ],
-  "planHash": "7c7dd8a96e0a502a"
+  "planHash": "7e2fd7f5483bbce7"
 }

@@ -29,8 +29,8 @@ Every CLI call goes through one wrapper, `hooks/mod/cli.ts`, which runs `$.plugi
 - No new runtime dependencies.
 - Mod code uses only `$` APIs: no Node imports, no `require`, no dynamic `import()`.
 - The mod runs processes only with `$.process.run(argv, {cwd, env})`. Model text is never passed to a shell.
-- The mod secret lives at `<git common dir>/cairn/mod-secret` with mode 0600. It is rotated after each use.
-- Grants live at `<git common dir>/cairn/grants/<slug>.json`. They are single-use and expire after 10 minutes.
+- Only the SHA-256 of the mod secret is on disk, at `<git common dir>/cairn/mod-secret.sha256` with mode 0600. The mod keeps the secret in memory. The CLI deletes the hash file after a match, and the mod writes a fresh secret and hash after each use.
+- Overrides: after an exact "Override" answer, the mod holds a pending override for that plan for 10 minutes and runs the next matching plain `cairn … --override` command itself. There are no grant files.
 - The heartbeat lives at `<git common dir>/cairn/mod-heartbeat`. It is written every 2 s and counts as active when under 10 s old.
 - Exact approval labels are "Approve" and "Approve (Recommended)". The exact override label is "Override".
 - Tag formats are `[cairn:approve <kind> <slug>]` with kind prd, plan, phase, or ship, and `[cairn:override <slug>]`.
@@ -56,7 +56,9 @@ Every CLI call goes through one wrapper, `hooks/mod/cli.ts`, which runs `$.plugi
    Test this in mod-guards.
 
 ## Deferred requirements
-None. Every FR is covered. FR-02a (override grants) is covered explicitly by human-proof (CLI side) and menu-approval (mod side). The id parser only recognizes `FR-<digits>`, so the coverage check can't track FR-02a. That parser gap is a dogfood finding for a later fix plan.
+None. Every FR is covered.
+
+Re-plan, 2026-10-20: the secret is now hashed on disk, overrides are run by the mod, and dogfood findings were added as FR-35 to FR-40. FR-02a was renamed FR-34. The cli-split, human-proof, and approval-procedures slices are done and keep their progress.
 
 ## Phases
 - **Phase 1** proves the core claim end to end: the model can't approve, and your menu answer approves through the mod.
@@ -93,10 +95,16 @@ phases:
         blocked_by: [cli-split]
         scope: ["plugins/cairn/procedures/prd.md", "plugins/cairn/procedures/plan.md", "plugins/cairn/procedures/ship.md", "plugins/cairn/procedures/verify.md", "plugins/cairn/procedures/review.md", "plugins/cairn/procedures/phase-end.md", "plugins/cairn/references/cli.md", "plugins/cairn/references/reporting.md", "plugins/cairn/cli/test/procedures.test.ts"]
         complexity: simple
+      - id: secret-hash
+        name: Hashed single-use secret in the CLI
+        covers: [FR-01]
+        blocked_by: [human-proof]
+        scope: ["plugins/cairn/cli/src/proof.ts", "plugins/cairn/cli/src/shared.ts", "plugins/cairn/cli/test/proof.test.ts", "plugins/cairn/cli/test/lifecycle.test.ts"]
+        complexity: standard
       - id: menu-approval
         name: Approve from the menu answer
-        covers: [FR-02]
-        blocked_by: [human-proof, mod-guards]
+        covers: [FR-02, FR-34]
+        blocked_by: [secret-hash, mod-guards]
         scope: ["plugins/cairn/hooks/mod/approve.ts", "plugins/cairn/hooks/test/approve.test.ts"]
         complexity: complex
   - id: visibility
@@ -156,6 +164,18 @@ phases:
         blocked_by: []
         scope: ["plugins/cairn/skills/**", "plugins/cairn/cli/test/skills.test.ts"]
         complexity: simple
+      - id: dogfood-docs
+        name: Unlocked orchestrator and documented formats
+        covers: [FR-35, FR-38]
+        blocked_by: []
+        scope: ["plugins/cairn/procedures/new.md", "plugins/cairn/procedures/execute.md", "plugins/cairn/references/cli.md", "README.md", "plugins/cairn/cli/test/dogfood-docs.test.ts"]
+        complexity: simple
+      - id: cli-polish
+        name: Test summary, approval sources, strict ids, prefactor slices
+        covers: [FR-36, FR-37, FR-39, FR-40]
+        blocked_by: []
+        scope: ["plugins/cairn/cli/src/shared.ts", "plugins/cairn/cli/src/render.ts", "plugins/cairn/cli/src/plan-parse.ts", "plugins/cairn/cli/src/types.ts", "plugins/cairn/cli/test/polish.test.ts"]
+        complexity: standard
 ```
 
 ### Slice: cli-split
@@ -280,6 +300,29 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
 
 **Done when** the test passes and the procedures read cleanly.
 
+### Slice: secret-hash
+
+**Interfaces**
+- Consumes: `proof.ts` from human-proof.
+- Produces:
+  - `secretMatches` hashes `CAIRN_APPROVER` with SHA-256 and compares it, in constant time, to `<common>/cairn/mod-secret.sha256`. The file is read with O_NOFOLLOW and must be a regular file.
+  - After a match, it deletes the hash file, so each secret works once.
+  - It removes `rotateSecret` and all grant code (`consumeGrant`, grant caching in `shared.ts`).
+  - `--override` now needs the mod secret or a terminal run.
+  - The test helper writes a hash file for a known secret.
+
+**Test cases**
+- Happy: the correct secret approves and the hash file is gone afterwards.
+- Unhappy:
+  - A second use of the same secret refuses.
+  - A missing hash file refuses.
+  - A hash file that is a symlink or not a regular file refuses.
+- Security:
+  - Reading the hash file yields no usable secret: setting `CAIRN_APPROVER` to the hash's contents refuses.
+  - No grant path remains: `grep -r grant cli/src` finds nothing.
+
+**Done when** the tests pass and the earlier human-proof tests are updated to the hash model.
+
 ### Slice: menu-approval
 
 **Interfaces**
@@ -288,8 +331,10 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
   - `mod/approve.ts` exports `parseTags(questions): {kind?, slug, question, override?}[]` and `isApproveLabel(s)`, both pure.
   - It wires a `tool.call` hook on AskUserQuestion. The hook awaits `next(e)`, reads `answers[question]`, and ignores auto-answered dialogs.
   - It resolves the plan's worktree with `cairn status --all --json`.
-  - It reads the secret fresh, runs `approve`, writes grants for Override answers, and returns the outcome in `context` with a toast.
-  - It has no deny catch.
+  - It keeps the secret in memory. It writes `mod-secret.sha256` at session start and after each use, then runs `approve` with the secret. It returns the outcome in `context`, with a toast.
+  - For an exact "Override" answer to a `[cairn:override <slug>]` question, it records a pending override for 10 minutes.
+  - A `tool.call` hook on Bash: when an override is pending for the plan, a plain `cairn … --override …` command with no shell metacharacters is parsed into argv. The mod runs it with the secret, consumes the pending override, and returns the CLI output as the tool result.
+  - The AskUserQuestion hook has no deny catch.
 
 **Test cases**
 - Happy: "Approve (Recommended)" on a tagged question at the matching stop leads to:
@@ -302,7 +347,9 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
 - Security:
   - With two plans waiting on main, the tag's slug picks the right one (Review focus 1).
   - Back-to-back approvals read the rotated secret (Review focus 2).
-  - An "Override" answer writes a grant file. No grant is written for a label of "Override?" or "override".
+  - An "Override" answer makes the next plain `cairn advance --override "r"` run by the mod, with the secret in its environment, which the mocked process run asserts. No override is pending for "Override?" or "override".
+  - `cairn advance --override "r"; rm -rf x` and `$(…)` forms aren't run by the mod.
+  - An override pending more than 10 minutes isn't used.
 
 **Done when**
 - The tests pass.
@@ -487,3 +534,37 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
 - Security: the test fails when any skill pre-approves `cairn repro`.
 
 **Done when** the test passes.
+
+### Slice: dogfood-docs
+
+**Interfaces**
+- Consumes: decision 13 and the formats in Global constraints.
+- Produces:
+  - `new.md` runs `cairn new` and then tells the user the worktree path. It never calls EnterWorktree, and the orchestrator stays at the repo root.
+  - `execute.md` runs every `cairn` command with `cd <plan worktree> &&`.
+  - `cli.md` documents the hash, heartbeat, and pending override.
+  - The README states the Claude Code version requirement.
+
+**Test cases**
+- Happy: `dogfood-docs.test.ts` checks that `new.md` has no EnterWorktree and that `execute.md` uses `cd`.
+- Unhappy: the test fails when `cli.md` lacks `mod-secret.sha256`.
+- Security: `cli.md` never documents a grant file.
+
+**Done when** the test passes.
+
+### Slice: cli-polish
+
+**Interfaces**
+- Consumes: `shared.runTests`, `render.ts`, and `plan-parse.ts`.
+- Produces:
+  - Test summary extraction: the last line that matches pass/fail counts, falling back to the last line.
+  - STATUS.md approval and override sources.
+  - Strict FR ids in plan load.
+  - `kind: prefactor` slices.
+
+**Test cases**
+- Happy: an output ending with an `npm notice` line after `ℹ pass 12` records `ℹ pass 12`. STATUS.md shows the sources.
+- Unhappy: `**FR-02a**` in the PRD refuses and names the id. Empty `covers` without `kind: prefactor` refuses.
+- Security: no other plan-load check is loosened. A prefactor slice still needs `scope`.
+
+**Done when** the tests pass.
