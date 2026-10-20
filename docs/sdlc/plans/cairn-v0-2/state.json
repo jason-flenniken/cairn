@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T22:46:21.897Z",
-  "stage": "plan",
+  "updated": "2026-10-20T22:46:22.018Z",
+  "stage": "execute",
   "paused": null,
   "approvals": {
     "prd": {
@@ -539,6 +539,11 @@
       "at": "2026-10-20T22:46:21.897Z",
       "event": "plan approved",
       "detail": "agent"
+    },
+    {
+      "at": "2026-10-20T22:46:22.017Z",
+      "event": "advanced",
+      "detail": "execute"
     }
   ],
   "planHash": "7e2fd7f5483bbce7"
