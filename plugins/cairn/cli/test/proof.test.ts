@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readdirSync } from 'node:fs';
+import fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,7 +10,7 @@ import { after, afterEach, before, mock, test } from 'node:test';
 import { cmdApprove } from '../src/commands.ts';
 import { context } from '../src/locate.ts';
 import { parseArgs, run } from '../src/main.ts';
-import { consumeGrant, humanProof, modActive, rotateSecret } from '../src/proof.ts';
+import { humanProof, modActive, secretMatches } from '../src/proof.ts';
 import { Refusal } from '../src/util.ts';
 
 let repo: string;
@@ -16,19 +18,17 @@ let common: string;
 const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
 const g = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, env, encoding: 'utf8' }).trim();
 const cairnDir = () => join(common, 'cairn');
-const secretFile = () => join(cairnDir(), 'mod-secret');
-const readSecret = () => readFileSync(secretFile(), 'utf8');
-const writeSecret = (v: string) => {
+const secretFile = () => join(cairnDir(), 'mod-secret.sha256');
+const sha256 = (v: string) => createHash('sha256').update(v).digest('hex');
+const writeHash = (hex: string) => {
   mkdirSync(cairnDir(), { recursive: true });
-  writeFileSync(secretFile(), v, { mode: 0o600 });
+  writeFileSync(secretFile(), hex, { mode: 0o600 });
 };
+/** Store the hash of a known secret, as the mod does. */
+const writeSecret = (v: string) => writeHash(sha256(v));
 const writeHeartbeat = (ageMs: number) => {
   mkdirSync(cairnDir(), { recursive: true });
   writeFileSync(join(cairnDir(), 'mod-heartbeat'), String(Date.now() - ageMs));
-};
-const writeGrant = (slug: string, ageMs: number, body: Record<string, unknown> = {}) => {
-  mkdirSync(join(cairnDir(), 'grants'), { recursive: true });
-  writeFileSync(join(cairnDir(), 'grants', `${slug}.json`), JSON.stringify({ reason: 'Skip the interview? [cairn:override x]', createdAt: Date.now() - ageMs, slug, ...body }));
 };
 const tty = (typed: string, interactive = true) => ({ isTTY: () => interactive, readLine: () => typed });
 
@@ -58,24 +58,7 @@ test('modActive is false for a heartbeat 11 s old, and when there is none', () =
   assert.equal(modActive(common), false);
 });
 
-test('rotateSecret writes a new hex secret with mode 0600', () => {
-  writeSecret('old');
-  rotateSecret(common);
-  const s = readSecret();
-  assert.notEqual(s, 'old');
-  assert.match(s, /^[0-9a-f]{64}$/);
-  assert.equal(statSync(secretFile()).mode & 0o777, 0o600);
-});
-
-test('humanProof accepts the current secret as source mod and rotates it', () => {
-  writeSecret('abc123');
-  process.env.CAIRN_APPROVER = 'abc123';
-  assert.deepEqual(humanProof(context(repo), {}), { source: 'mod' });
-  assert.notEqual(readSecret(), 'abc123');
-  assert.equal(statSync(secretFile()).mode & 0o777, 0o600);
-});
-
-test('a stale secret is refused after rotation', () => {
+test('a secret works once: the second use is refused', () => {
   writeSecret('abc123');
   process.env.CAIRN_APPROVER = 'abc123';
   assert.ok(humanProof(context(repo), {}));
@@ -86,8 +69,8 @@ test('a wrong secret, an empty secret, or a missing secret file gives no proof',
   writeSecret('abc123');
   process.env.CAIRN_APPROVER = 'abc12';
   assert.equal(humanProof(context(repo), {}), undefined);
-  assert.equal(readSecret(), 'abc123', 'a failed match does not rotate');
-  writeSecret('');
+  assert.equal(readFileSync(secretFile(), 'utf8'), sha256('abc123'), 'a failed match keeps the hash file');
+  writeHash('');
   process.env.CAIRN_APPROVER = '';
   assert.equal(humanProof(context(repo), {}), undefined);
   rmSync(secretFile());
@@ -112,27 +95,6 @@ test('--human without a TTY refuses with "run this in your own terminal"', () =>
   );
 });
 
-test('a grant is consumed once and then refused', () => {
-  writeGrant('billing', 1_000);
-  assert.deepEqual(consumeGrant(common, 'billing'), { reason: 'Skip the interview? [cairn:override x]' });
-  assert.ok(!existsSync(join(cairnDir(), 'grants', 'billing.json')));
-  assert.equal(consumeGrant(common, 'billing'), undefined);
-});
-
-test('a grant older than 10 minutes is refused and removed', () => {
-  writeGrant('billing', 10 * 60_000 + 1_000);
-  assert.equal(consumeGrant(common, 'billing'), undefined);
-  assert.ok(!existsSync(join(cairnDir(), 'grants', 'billing.json')));
-});
-
-test('a grant dated in the future, for another slug, or with a bad slug is refused', () => {
-  writeGrant('billing', -60_000);
-  assert.equal(consumeGrant(common, 'billing'), undefined);
-  writeGrant('billing', 1_000, { slug: 'other' });
-  assert.equal(consumeGrant(common, 'billing'), undefined);
-  assert.equal(consumeGrant(common, '../billing'), undefined);
-});
-
 test('modActive is false for a heartbeat dated in the future', () => {
   writeHeartbeat(-5_000);
   assert.equal(modActive(common), false);
@@ -145,34 +107,52 @@ test('the --human prompt does not show the plan slug', () => {
   assert.ok(!prompt.includes('billing'));
 });
 
-test('rotateSecret does not follow or overwrite a file planted at a temp path', () => {
+test('a symlinked hash file gives no proof and is left in place', () => {
   mkdirSync(cairnDir(), { recursive: true });
-  const outside = join(repo, 'outside.txt');
-  writeFileSync(outside, 'keep');
-  symlinkSync(outside, `${secretFile()}.${process.pid}.tmp`);
-  rotateSecret(common);
-  assert.equal(readFileSync(outside, 'utf8'), 'keep');
-  assert.match(readSecret(), /^[0-9a-f]{64}$/);
-  rmSync(outside);
-});
-
-test('a symlinked secret file gives no proof', () => {
-  mkdirSync(cairnDir(), { recursive: true });
-  const outside = join(repo, 'planted-secret');
-  writeFileSync(outside, 'abc123');
+  const outside = join(repo, 'planted-hash');
+  writeFileSync(outside, sha256('abc123'));
   symlinkSync(outside, secretFile());
   process.env.CAIRN_APPROVER = 'abc123';
   assert.equal(humanProof(context(repo), {}), undefined);
+  assert.ok(existsSync(outside));
   rmSync(outside);
 });
 
-test('a symlinked grant file is refused', () => {
-  mkdirSync(join(cairnDir(), 'grants'), { recursive: true });
-  const outside = join(repo, 'planted-grant.json');
-  writeFileSync(outside, JSON.stringify({ reason: 'r', createdAt: Date.now(), slug: 'billing' }));
-  symlinkSync(outside, join(cairnDir(), 'grants', 'billing.json'));
-  assert.equal(consumeGrant(common, 'billing'), undefined);
-  rmSync(outside);
+test('a hash file that is not a regular file gives no proof', () => {
+  mkdirSync(secretFile(), { recursive: true });
+  process.env.CAIRN_APPROVER = 'abc123';
+  assert.equal(humanProof(context(repo), {}), undefined);
+});
+
+test('a missing hash file gives no proof', () => {
+  process.env.CAIRN_APPROVER = 'abc123';
+  assert.equal(humanProof(context(repo), {}), undefined);
+});
+
+test('a hash file with a trailing newline still matches', () => {
+  writeHash(`${sha256('abc123')}\n`);
+  assert.equal(secretMatches(common, 'abc123'), true);
+});
+
+test('of two uses of one secret, exactly one gets proof, and no claimed file is left behind', () => {
+  writeSecret('abc123');
+  const results = [secretMatches(common, 'abc123'), secretMatches(common, 'abc123')];
+  assert.deepEqual(results, [true, false]);
+  assert.deepEqual(readdirSync(cairnDir()), []);
+});
+
+test('a mismatch puts the original hash file back and leaves nothing else', () => {
+  writeSecret('abc123');
+  assert.equal(secretMatches(common, 'nope'), false);
+  assert.equal(readFileSync(secretFile(), 'utf8'), sha256('abc123'));
+  assert.deepEqual(readdirSync(cairnDir()), ['mod-secret.sha256']);
+});
+
+test('CAIRN_APPROVER set to the hash file contents is refused', () => {
+  writeSecret('abc123');
+  process.env.CAIRN_APPROVER = sha256('abc123');
+  assert.equal(humanProof(context(repo), {}), undefined);
+  assert.ok(existsSync(secretFile()), 'a refused match keeps the hash file');
 });
 
 // Command-level behavior: a real plan created with `cairn new`.
@@ -182,14 +162,11 @@ const PRD = '# P\n## Problem\np\n## Solution\ns\n## User stories\n1. u\n## Funct
 const mainCairn = () => join(main, '.git', 'cairn');
 const planState = (slug: string) => JSON.parse(readFileSync(join(main, `.claude/worktrees/sdlc-${slug}/docs/sdlc/plans/${slug}/state.json`), 'utf8'));
 const planWt = (slug: string) => join(main, `.claude/worktrees/sdlc-${slug}`);
+const hashFile = () => join(mainCairn(), 'mod-secret.sha256');
 const setSecret = (v: string) => {
   mkdirSync(mainCairn(), { recursive: true });
-  writeFileSync(join(mainCairn(), 'mod-secret'), v, { mode: 0o600 });
+  writeFileSync(hashFile(), sha256(v), { mode: 0o600 });
   process.env.CAIRN_APPROVER = v;
-};
-const grant = (slug: string, ageMs: number) => {
-  mkdirSync(join(mainCairn(), 'grants'), { recursive: true });
-  writeFileSync(join(mainCairn(), 'grants', `${slug}.json`), JSON.stringify({ reason: `Skip this check? [cairn:override ${slug}]`, createdAt: Date.now() - ageMs, slug }));
 };
 const refusedWith = (fn: () => unknown, pattern: RegExp) =>
   assert.throws(fn, (e: unknown) => e instanceof Refusal && pattern.test([e.message, ...e.fixes].join('\n')));
@@ -215,16 +192,16 @@ test('approve with no proof exits 2 and names the menu, the terminal command, an
   assert.equal(planState('billing').approvals.prd, undefined);
 });
 
-test('approve with CAIRN_APPROVER equal to the secret records source mod and rotates the secret', () => {
+test('approve with CAIRN_APPROVER matching the stored hash records source mod and deletes the hash file', () => {
   setSecret('s3cret');
   run(['approve', 'prd'], wt);
   const a = planState('billing').approvals.prd;
   assert.equal(a.source, 'mod');
   assert.equal(a.via, 'human');
-  assert.notEqual(readFileSync(join(mainCairn(), 'mod-secret'), 'utf8'), 's3cret');
+  assert.ok(!existsSync(hashFile()));
 });
 
-test('approve with a stale secret is refused after the secret rotated', () => {
+test('approve with a used secret is refused', () => {
   setSecret('first');
   run(['approve', 'prd'], wt);
   const at = planState('billing').approvals.prd.at;
@@ -245,34 +222,10 @@ test('approve --human without a TTY says "run this in your own terminal"', () =>
   refusedWith(() => cmdApprove(context(wt), 'prd', { human: true }, tty('billing', false)), /run this in your own terminal/);
 });
 
-test('an override grant is not proof for approve', () => {
-  grant('billing', 1_000);
-  refusedWith(() => run(['approve', 'prd'], wt), /cairn approve prd --human/);
-});
-
 test('--override with no proof is refused and changes nothing', () => {
   const swt = run(['new', 'spike', '--title', 'Spike'], main).data!.worktree as string;
-  refusedWith(() => run(['advance', '--override', 'model says skip'], swt), /override[\s\S]*\[cairn:override spike\]/);
+  refusedWith(() => run(['advance', '--override', 'model says skip'], swt), /override[\s\S]*needs proof/);
   assert.equal(planState('spike').stage, 'discover');
-});
-
-test('a grant lets one --override through, records its reason and source, and is then refused', () => {
-  grant('spike', 1_000);
-  run(['advance', '--override', 'model text'], planWt('spike'));
-  const s = planState('spike');
-  assert.equal(s.stage, 'prd');
-  const entry = s.log.find((l: { event: string }) => l.event === 'override: advance');
-  assert.equal(entry.override, 'Skip this check? [cairn:override spike]');
-  assert.match(entry.detail, /source: grant/);
-  assert.ok(!existsSync(join(mainCairn(), 'grants', 'spike.json')));
-  refusedWith(() => run(['advance', '--override', 'again'], planWt('spike')), /\[cairn:override spike\]/);
-  assert.equal(planState('spike').stage, 'prd');
-});
-
-test('a grant older than 10 minutes does not let --override through', () => {
-  grant('spike', 11 * 60_000);
-  refusedWith(() => run(['advance', '--override', 'late'], planWt('spike')), /\[cairn:override spike\]/);
-  assert.equal(planState('spike').stage, 'prd');
 });
 
 test('one proof covers every overridden check in a command', () => {
@@ -319,31 +272,19 @@ test('a wrong slug on a plan with no prior approval records nothing', () => {
   assert.equal(planState('fresh').approvals.prd, undefined);
 });
 
-test('when the secret covers an override, a waiting grant for the plan is consumed too', () => {
-  grant('fresh', 1_000);
-  setSecret('cover');
-  run(['approve', 'plan', '--override', 'user said go'], planWt('fresh'));
-  assert.ok(!existsSync(join(mainCairn(), 'grants', 'fresh.json')));
-  const o = planState('fresh').log.find((l: { event: string }) => l.event === 'override: approve plan');
-  assert.equal(o.override, 'user said go');
-  assert.match(o.detail, /source: mod/);
-});
-
-test('a failed --human proof is asked once per command, even across several overridden checks', () => {
-  // fresh is in plan with no RECORD.md and no test command: close fails three checks.
-  grant('fresh', 1_000);
-  const typed = Buffer.from('wrong\n');
+/** Run `cairn close --override … --human` with `typed` as the terminal answer; returns the prompts shown. */
+function closeAtTerminal(typed: string, prompts: string[]): void {
+  const bytes = Buffer.from(`${typed}\n`);
   let pos = 0;
-  const prompts: string[] = [];
-  const tty = (v: boolean | undefined) => {
+  const setTTY = (v: boolean | undefined) => {
     Object.defineProperty(process.stdin, 'isTTY', { value: v, configurable: true });
     Object.defineProperty(process.stdout, 'isTTY', { value: v, configurable: true });
   };
   const wasTTY = [process.stdin.isTTY, process.stdout.isTTY];
-  mock.method(fs, 'readSync', (_fd: number, buf: Buffer) => (pos < typed.length ? ((buf[0] = typed[pos++]), 1) : 0));
+  mock.method(fs, 'readSync', (_fd: number, buf: Buffer) => (pos < bytes.length ? ((buf[0] = bytes[pos++]), 1) : 0));
   mock.method(process.stderr, 'write', (chunk: string) => (prompts.push(String(chunk)), true));
   syncBuiltinESMExports();
-  tty(true);
+  setTTY(true);
   try {
     run(['close', '--override', 'user said close', '--human'], planWt('fresh'));
   } finally {
@@ -352,10 +293,37 @@ test('a failed --human proof is asked once per command, even across several over
     Object.defineProperty(process.stdin, 'isTTY', { value: wasTTY[0], configurable: true });
     Object.defineProperty(process.stdout, 'isTTY', { value: wasTTY[1], configurable: true });
   }
-  assert.equal(prompts.filter((p) => p.includes('Type the plan name')).length, 1);
+}
+const askedOnce = (prompts: string[]) => assert.equal(prompts.filter((p) => p.includes('Type the plan name')).length, 1);
+
+// fresh is in plan with no RECORD.md and no test command: close fails three checks.
+test('a failed --human proof is asked once per command, and the override is refused', () => {
+  const prompts: string[] = [];
+  const stage = planState('fresh').stage;
+  assert.throws(
+    () => closeAtTerminal('wrong', prompts),
+    (e: unknown) => e instanceof Refusal && /override needs proof/.test(e.message),
+  );
+  askedOnce(prompts);
+  assert.equal(planState('fresh').stage, stage);
+});
+
+test('one --human proof is asked once and covers every overridden check in a command', () => {
+  const prompts: string[] = [];
+  closeAtTerminal('fresh', prompts);
+  askedOnce(prompts);
   const s = planState('fresh');
   assert.equal(s.stage, 'closed');
   const overrides = s.log.filter((l: { event: string }) => l.event === 'override: close');
   assert.equal(overrides.length, 3);
-  for (const o of overrides) assert.match(o.detail, /source: grant/);
+  for (const o of overrides) assert.match(o.detail, /source: terminal/);
+});
+
+test('a grant file is not proof for --override', () => {
+  const swt = planWt('spike');
+  mkdirSync(join(mainCairn(), 'grants'), { recursive: true });
+  writeFileSync(join(mainCairn(), 'grants', 'spike.json'), JSON.stringify({ reason: 'r', createdAt: Date.now(), slug: 'spike' }));
+  const before = planState('spike').stage;
+  refusedWith(() => run(['advance', '--override', 'x'], swt), /needs proof/);
+  assert.equal(planState('spike').stage, before);
 });

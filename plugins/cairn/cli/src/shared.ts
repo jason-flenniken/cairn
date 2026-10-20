@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { loadConfig } from './config.ts';
 import { commitPath, commonDir } from './git.ts';
 import { planRel, requirePlan, type Ctx, type PlanRef } from './locate.ts';
-import { consumeGrant, humanProof, type ProofIO } from './proof.ts';
+import { humanProof, type ProofIO } from './proof.ts';
 import { emptySections, missingSections, RECORD_SECTIONS, RECORD_WORD_BUDGET, wordCount } from './sections.ts';
 import { loadState, log, saveState } from './state.ts';
 import type { Config, State } from './types.ts';
@@ -36,22 +36,15 @@ export interface TestRun {
 
 /**
  * The command being run, set by planCtx. Each kind of proof is checked at most once per command,
- * pass or fail: the secret rotates and a grant is consumed on first use, and --human asks once.
+ * pass or fail: the secret is spent on first use, and --human asks once.
  * null records a check that failed.
  */
-let current: { ctx: Ctx; human?: { source: 'mod' | 'terminal' } | null; grant?: { reason: string } | null } | undefined;
+let current: { ctx: Ctx; human?: { source: 'mod' | 'terminal' } | null } | undefined;
 
 function humanOnce(opts: Opts, io?: ProofIO): { source: 'mod' | 'terminal' } | undefined {
   if (!current) return undefined;
   if (current.human === undefined) current.human = humanProof(current.ctx, opts, io) ?? null;
   return current.human ?? undefined;
-}
-
-/** Take the plan's grant once per command, even when other proof covers the override, so none is left waiting. */
-function grantOnce(slug: string): { reason: string } | undefined {
-  if (!current) return undefined;
-  if (current.grant === undefined) current.grant = consumeGrant(commonDir(current.ctx.mainRoot), slug) ?? null;
-  return current.grant ?? undefined;
 }
 
 /** Approvals come from the user: the mod's menu or pane, or a terminal run with --human. */
@@ -70,13 +63,12 @@ export function gate(ok: boolean, s: State, event: string, opts: Opts, message: 
   if (ok) return;
   if (opts.override) {
     const human = humanOnce(opts);
-    const grant = grantOnce(s.slug);
-    if (!human && !grant)
+    if (!human)
       throw new Refusal(`${message}; an override needs proof that the user chose it`, [
-        `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], then retry within 10 minutes`,
+        `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], and the mod runs the command`,
         'or the user runs this command, with --override, in their own terminal with --human',
       ]);
-    log(s, `override: ${event}`, `${message} (source: ${human?.source ?? 'grant'})`, human ? opts.override : grant!.reason);
+    log(s, `override: ${event}`, `${message} (source: ${human.source})`, opts.override);
     return;
   }
   throw new Refusal(message, [...fixes, `or, if the user chose to skip this: add --override "<reason>"`]);
