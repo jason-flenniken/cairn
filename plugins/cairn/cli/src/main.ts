@@ -24,7 +24,7 @@ import {
 } from './commands.ts';
 import { CliError, Refusal } from './util.ts';
 
-const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree']);
+const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human']);
 
 export function parseArgs(argv: string[]): { pos: string[]; opts: Opts } {
   const pos: string[] = [];

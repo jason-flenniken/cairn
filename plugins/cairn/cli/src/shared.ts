@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { loadConfig } from './config.ts';
 import { commitPath, commonDir } from './git.ts';
 import { planRel, requirePlan, type Ctx, type PlanRef } from './locate.ts';
+import { consumeGrant, humanProof, type ProofIO } from './proof.ts';
 import { emptySections, missingSections, RECORD_SECTIONS, RECORD_WORD_BUDGET, wordCount } from './sections.ts';
 import { loadState, log, saveState } from './state.ts';
 import type { Config, State } from './types.ts';
@@ -33,11 +34,50 @@ export interface TestRun {
   tail: string;
 }
 
-/** Refuse unless the condition holds; an override lets it through and is logged. */
+interface Proof {
+  source: 'mod' | 'terminal' | 'grant';
+  /** A grant's reason: the question the user answered "Override" to. */
+  reason?: string;
+}
+
+/**
+ * The command being run, set by planCtx. Proof is checked once per command: the secret rotates
+ * and a grant is consumed on first use, so later checks in the same command reuse the result.
+ */
+let current: { ctx: Ctx; proof?: Proof } | undefined;
+
+function commandProof(opts: Opts, grantSlug?: string, io?: ProofIO): Proof | undefined {
+  if (!current) return undefined;
+  if (!current.proof) {
+    const human = humanProof(current.ctx, opts, io);
+    const grant = !human && grantSlug ? consumeGrant(commonDir(current.ctx.mainRoot), grantSlug) : undefined;
+    current.proof = human ?? (grant && { source: 'grant', reason: grant.reason });
+  }
+  return current.proof;
+}
+
+/** Approvals come from the user: the mod's menu or pane, or a terminal run with --human. */
+export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO): 'mod' | 'terminal' {
+  const p = commandProof(opts, undefined, io);
+  if (p?.source === 'mod' || p?.source === 'terminal') return p.source;
+  throw new Refusal('approvals come from the user, and this command has no proof that one did', [
+    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${current?.ctx.plan?.slug}]`,
+    `or the user runs, in their own terminal: cairn approve ${kind} --human`,
+    'or the user presses Approve in the cairn pane (or runs /cairn:approve)',
+  ]);
+}
+
+/** Refuse unless the condition holds; an override with the user's proof lets it through and is logged. */
 export function gate(ok: boolean, s: State, event: string, opts: Opts, message: string, fixes: string[] = []): void {
   if (ok) return;
   if (opts.override) {
-    log(s, `override: ${event}`, message, opts.override);
+    const p = commandProof(opts, s.slug);
+    if (!p)
+      throw new Refusal(`${message}; an override needs proof that the user chose it`, [
+        `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], then retry within 10 minutes`,
+        'or the user runs this command, with --override, in their own terminal with --human',
+      ]);
+    log(s, `override: ${event}`, `${message} (source: ${p.source})`, p.reason ?? opts.override);
     return;
   }
   throw new Refusal(message, [...fixes, `or, if the user chose to skip this: add --override "<reason>"`]);
@@ -45,6 +85,7 @@ export function gate(ok: boolean, s: State, event: string, opts: Opts, message: 
 
 export function planCtx(ctx: Ctx): PlanCtx {
   const plan = requirePlan(ctx);
+  current = { ctx };
   return { ctx, plan, cfg: loadConfig(plan.worktree, ctx.mainRoot) };
 }
 
