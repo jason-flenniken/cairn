@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T21:26:48.429Z",
+  "updated": "2026-10-20T21:29:49.195Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -17,7 +17,310 @@
       "hash": "5bde3d913b280c57"
     }
   },
-  "phases": [],
+  "phases": [
+    {
+      "id": "proof",
+      "name": "Proof of the user",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "cli-split",
+          "name": "Split CLI commands into modules",
+          "covers": [
+            "FR-33"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/**",
+            "plugins/cairn/cli/test/**"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "mod-guards",
+          "name": "Mod skeleton, guards, heartbeat",
+          "covers": [
+            "FR-03",
+            "FR-04"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/register.tsx",
+            "plugins/cairn/hooks/hooks.json",
+            "plugins/cairn/hooks/mod/guards.ts",
+            "plugins/cairn/hooks/mod/heartbeat.ts",
+            "plugins/cairn/hooks/mod/cli.ts",
+            "plugins/cairn/hooks/mod/approve.ts",
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/guards.test.ts",
+            "plugins/cairn/hooks/NOTES.md",
+            "plugins/cairn/types/**",
+            "plugins/cairn/.claude-plugin/plugin.json",
+            "package.json"
+          ],
+          "complexity": "complex",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "human-proof",
+          "name": "CLI human proof, grants, modActive",
+          "covers": [
+            "FR-01",
+            "FR-06"
+          ],
+          "blockedBy": [
+            "cli-split"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/proof.ts",
+            "plugins/cairn/cli/src/shared.ts",
+            "plugins/cairn/cli/src/commands/stages.ts",
+            "plugins/cairn/cli/src/commands/status.ts",
+            "plugins/cairn/cli/test/proof.test.ts",
+            "plugins/cairn/cli/test/lifecycle.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "approval-procedures",
+          "name": "Tagged approval menus in procedures",
+          "covers": [
+            "FR-07"
+          ],
+          "blockedBy": [
+            "cli-split"
+          ],
+          "scope": [
+            "plugins/cairn/procedures/prd.md",
+            "plugins/cairn/procedures/plan.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/procedures/verify.md",
+            "plugins/cairn/procedures/review.md",
+            "plugins/cairn/procedures/phase-end.md",
+            "plugins/cairn/references/cli.md",
+            "plugins/cairn/references/reporting.md",
+            "plugins/cairn/cli/test/procedures.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "menu-approval",
+          "name": "Approve from the menu answer",
+          "covers": [
+            "FR-02"
+          ],
+          "blockedBy": [
+            "human-proof",
+            "mod-guards"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/approve.ts",
+            "plugins/cairn/hooks/test/approve.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "pending",
+          "fixRound": 0
+        }
+      ]
+    },
+    {
+      "id": "visibility",
+      "name": "Pane, pause, resume, verdict",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "pause-resume",
+          "name": "Instant pause, Stop now, fresh resume",
+          "covers": [
+            "FR-13",
+            "FR-14",
+            "FR-15",
+            "FR-16"
+          ],
+          "blockedBy": [
+            "menu-approval"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/test/pause.test.ts",
+            "plugins/cairn/cli/src/commands/pause.ts",
+            "plugins/cairn/cli/test/pause.test.ts",
+            "plugins/cairn/procedures/execute.md",
+            "plugins/cairn/procedures/pause.md",
+            "plugins/cairn/procedures/resume.md",
+            "plugins/cairn/templates/config.json"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "direction-cli",
+          "name": "Computed drift verdict in the CLI",
+          "covers": [
+            "FR-19",
+            "FR-20",
+            "FR-22"
+          ],
+          "blockedBy": [
+            "human-proof"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/direction.ts",
+            "plugins/cairn/cli/src/commands/evidence.ts",
+            "plugins/cairn/cli/src/commands/stages.ts",
+            "plugins/cairn/cli/src/commands/planload.ts",
+            "plugins/cairn/cli/test/direction.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "pane",
+          "name": "Live pane and status line",
+          "covers": [
+            "FR-05",
+            "FR-08",
+            "FR-09",
+            "FR-10",
+            "FR-11",
+            "FR-12",
+            "FR-17"
+          ],
+          "blockedBy": [
+            "pause-resume"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx"
+          ],
+          "complexity": "complex",
+          "status": "pending",
+          "fixRound": 0
+        }
+      ]
+    },
+    {
+      "id": "drift-and-fix",
+      "name": "Drift check and fast lane",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "direction-procedure",
+          "name": "Direction check procedure and command",
+          "covers": [
+            "FR-18",
+            "FR-21",
+            "FR-30"
+          ],
+          "blockedBy": [
+            "direction-cli"
+          ],
+          "scope": [
+            "plugins/cairn/procedures/phase-end.md",
+            "plugins/cairn/procedures/direction.md",
+            "plugins/cairn/skills/direction/**",
+            "plugins/cairn/agents/direction-checker.md",
+            "plugins/cairn/cli/test/templates.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "fix-cli",
+          "name": "Fix track in the CLI",
+          "covers": [
+            "FR-24",
+            "FR-25",
+            "FR-27",
+            "FR-28",
+            "FR-32"
+          ],
+          "blockedBy": [
+            "direction-cli"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/commands/fix.ts",
+            "plugins/cairn/cli/src/commands/stages.ts",
+            "plugins/cairn/cli/src/commands/slices.ts",
+            "plugins/cairn/cli/src/commands/plans.ts",
+            "plugins/cairn/cli/src/render.ts",
+            "plugins/cairn/cli/src/sections.ts",
+            "plugins/cairn/cli/test/fix.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "fix-procedure",
+          "name": "Fix procedure and command",
+          "covers": [
+            "FR-23",
+            "FR-26"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/procedures/fix.md",
+            "plugins/cairn/skills/fix/**",
+            "plugins/cairn/templates/record-fix.md",
+            "plugins/cairn/cli/test/fix-procedure.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0
+        }
+      ]
+    },
+    {
+      "id": "dogfood",
+      "name": "Dogfood fixes",
+      "status": "pending",
+      "slices": [
+        {
+          "id": "file-input",
+          "name": "Decisions and notes from files",
+          "covers": [
+            "FR-29"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/main.ts",
+            "plugins/cairn/cli/src/commands/plans.ts",
+            "plugins/cairn/cli/test/fileinput.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "skill-permissions",
+          "name": "Named pre-approved cairn commands",
+          "covers": [
+            "FR-31"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/skills/**",
+            "plugins/cairn/cli/test/skills.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0
+        }
+      ]
+    }
+  ],
   "evidence": {},
   "drift": [],
   "log": [
@@ -39,6 +342,12 @@
       "at": "2026-10-20T21:26:48.428Z",
       "event": "advanced",
       "detail": "plan"
+    },
+    {
+      "at": "2026-10-20T21:29:49.194Z",
+      "event": "plan loaded",
+      "detail": "4 phases, 13 slices"
     }
-  ]
+  ],
+  "planHash": "7c7dd8a96e0a502a"
 }
