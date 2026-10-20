@@ -83,6 +83,8 @@ export interface State {
 }
 
 export interface Config {
+  /** Run in every new plan and slice worktree (e.g. install dependencies). CAIRN_MAIN_ROOT is set. */
+  setup?: string;
   test?: string;
   build?: string;
   start?: string;

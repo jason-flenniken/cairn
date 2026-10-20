@@ -79,7 +79,8 @@ before(() => {
   repo = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-')));
   g(repo, 'init', '-q', '-b', 'main');
   write(join(repo, 'README.md'), 'hi\n');
-  write(join(repo, '.sdlc/config.json'), JSON.stringify({ test: 'test ! -f ../cairn-test-FAIL', maxParallel: 3 }));
+  write(join(repo, '.gitignore'), '.setup-ran\n');
+  write(join(repo, '.sdlc/config.json'), JSON.stringify({ setup: 'touch .setup-ran', test: 'test ! -f ../cairn-test-FAIL', maxParallel: 3 }));
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'init');
 });
@@ -92,6 +93,7 @@ test('full lifecycle with every checkpoint', () => {
   assert.equal(wt, join(repo, '.claude/worktrees/sdlc-billing'));
   assert.equal(g(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc/billing');
   assert.match(readFileSync(join(repo, '.git/info/exclude'), 'utf8'), /\.claude\/worktrees\//);
+  assert.ok(existsSync(join(wt, '.setup-ran')), 'setup ran in the plan worktree');
   assert.equal(state().stage, 'discover');
   refused(repo, /already exists/, 'new', 'billing');
 
@@ -130,7 +132,7 @@ test('full lifecycle with every checkpoint', () => {
   refused(wt, /waiting on charge|not in the current phase/, 'slice', 'start', 'receipt');
   const chargeWt = ok(wt, 'slice', 'start', 'charge').data!.worktree as string;
   const refundWt = ok(wt, 'slice', 'start', 'refund').data!.worktree as string;
-  assert.ok(existsSync(chargeWt));
+  assert.ok(existsSync(join(chargeWt, '.setup-ran')), 'setup ran in the slice worktree');
   assert.equal(g(chargeWt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc-slice/billing/charge');
 
   // drift from a slice worktree is logged against the plan worktree's state

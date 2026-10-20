@@ -17,7 +17,7 @@ Refusable commands accept `--override "reason"`. The override is logged in state
   - `state.json`, `STATUS.md`: CLI only
 - Slice branches: `sdlc-slice/<slug>/<slice>`, each in its own worktree. Slice workers never touch `docs/sdlc/`.
 - Product track, on main: `docs/sdlc/product/PRD.md` and `docs/sdlc/product/decisions/`.
-- Repo config: `.sdlc/config.json`, with keys `test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `worktreeRoot`, `autoCommit`.
+- Repo config: `.sdlc/config.json`, with keys `setup` (run in every new plan or slice worktree, for example to install dependencies), `test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `worktreeRoot`, `autoCommit`.
 - The active plan is decided by the current git branch: `sdlc/<slug>` or `sdlc-slice/<slug>/…`. On any other branch the CLI works on the index of all plans.
 
 ## Stages

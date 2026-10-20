@@ -7947,6 +7947,13 @@ function testsGate(t, s, event, opts) {
   gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail})`, ["fix the failing tests, then retry"]);
   return t;
 }
+function runSetup(cfg, wt, mainRoot) {
+  if (!cfg.setup) return "";
+  const r = spawnSync2("sh", ["-c", cfg.setup], { cwd: wt, encoding: "utf8", env: { ...process.env, CAIRN_MAIN_ROOT: mainRoot }, maxBuffer: 64 * 1024 * 1024 });
+  return r.status === 0 ? `
+Setup ran: ${cfg.setup}` : `
+Setup failed (\`${cfg.setup}\`, exit ${r.status}): ${(r.stderr || r.stdout).trim().split("\n").slice(-3).join(" ")}`;
+}
 function docProblems(md, file, required) {
   if (md === void 0) return [`${file} does not exist`];
   const p = [];
@@ -8007,9 +8014,10 @@ Append-only. Written by \`cairn decide\` as each decision is made.
 `);
   saveState(dir, newState(slug, title, track, branch, base));
   if (cfg.autoCommit) commitPath(wt, planRel(slug), `cairn(${slug}): start plan "${title}"`);
+  const setup = opts["no-worktree"] ? "" : runSetup(cfg, wt, ctx.mainRoot);
   return {
     message: [
-      `Started plan "${title}" on ${branch} (from ${base}).`,
+      `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
       `Worktree: ${wt}`,
       `Next: switch into the worktree (EnterWorktree with path ${wt}, or \`cd ${wt} && claude\`), then run /cairn:next.`
     ].join("\n"),
@@ -8218,15 +8226,17 @@ function sliceStart(pc, id, opts) {
     const waiting = ready.waiting.find((w) => w.slice.id === id);
     gate(ready.ready.some((x) => x.id === id), s, "slice start", opts, waiting ? `slice "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `slice "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base = git(["rev-parse", planBranch(plan.slug)], plan.worktree);
+    let setup = "";
     if (!existsSync3(path)) {
       if (branchExists(branch, plan.worktree)) git(["worktree", "add", "-q", path, branch], plan.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, planBranch(plan.slug)], plan.worktree);
+      setup = runSetup(cfg, path, ctx.mainRoot);
     }
     Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base });
     const phase = s.phases.find((p) => p.slices.includes(sl));
     if (phase.status === "pending") phase.status = "in_progress";
     log(s, "slice started", sl.name);
-    return { message: `Started slice "${sl.name}" in ${path} (branch ${branch}).`, data: { worktree: path, branch, planBranch: planBranch(plan.slug) } };
+    return { message: `Started slice "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: planBranch(plan.slug) } };
   });
   ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
   return r;
