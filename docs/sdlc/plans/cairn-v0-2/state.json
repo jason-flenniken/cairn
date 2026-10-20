@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "slug": "cairn-v0-2",
+  "title": "cairn v0.2",
+  "track": "feature",
+  "branch": "sdlc/cairn-v0-2",
+  "base": "main",
+  "created": "2026-10-20T21:00:43.533Z",
+  "updated": "2026-10-20T21:00:43.533Z",
+  "stage": "discover",
+  "paused": null,
+  "approvals": {},
+  "phases": [],
+  "evidence": {},
+  "drift": [],
+  "log": [
+    {
+      "at": "2026-10-20T21:00:43.533Z",
+      "event": "created"
+    }
+  ]
+}
