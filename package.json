@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "esbuild plugins/cairn/cli/src/main.ts --bundle --platform=node --target=node20 --format=esm --outfile=plugins/cairn/dist/cairn.mjs --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
-    "test": "node --test 'plugins/cairn/cli/test/*.test.ts'",
+    "test": "node --test 'plugins/cairn/cli/test/*.test.ts' && npm run test:mod",
+    "test:mod": "if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
     "typecheck": "tsc -p plugins/cairn/cli"
   },
   "devDependencies": {
