@@ -7502,7 +7502,7 @@ function requirePlan(ctx) {
 
 // plugins/cairn/cli/src/shared.ts
 import { spawnSync as spawnSync2 } from "node:child_process";
-import { appendFileSync, mkdirSync as mkdirSync3 } from "node:fs";
+import { appendFileSync, mkdirSync as mkdirSync2 } from "node:fs";
 import { join as join6 } from "node:path";
 
 // plugins/cairn/cli/src/config.ts
@@ -7525,13 +7525,12 @@ function loadConfig(...roots) {
 var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join3(mainRoot, cfg.worktreeRoot) : join3(mainRoot, ".claude", "worktrees");
 
 // plugins/cairn/cli/src/proof.ts
-import { randomBytes, timingSafeEqual } from "node:crypto";
-import { chmodSync, closeSync, constants, fstatSync, mkdirSync as mkdirSync2, openSync, readFileSync as readFileSync2, readSync, renameSync, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { createHash as createHash2, randomBytes, timingSafeEqual } from "node:crypto";
+import { closeSync, constants, fstatSync, linkSync, openSync, readFileSync as readFileSync2, readSync, renameSync, rmSync } from "node:fs";
 import { join as join4 } from "node:path";
 var HEARTBEAT_FRESH_MS = 1e4;
-var GRANT_TTL_MS = 10 * 6e4;
 var cairnDir = (common) => join4(common, "cairn");
-var secretPath = (common) => join4(cairnDir(common), "mod-secret");
+var hashPath = (common) => join4(cairnDir(common), "mod-secret.sha256");
 function readLineFromStdin(prompt) {
   process.stderr.write(prompt);
   const buf = Buffer.alloc(1);
@@ -7565,57 +7564,39 @@ function readRegularFile(path) {
     closeSync(fd);
   }
 }
-function rotateSecret(common) {
-  const tmp = `${secretPath(common)}.${randomBytes(8).toString("hex")}.tmp`;
-  mkdirSync2(cairnDir(common), { recursive: true });
-  let created = false;
-  try {
-    writeFileSync2(tmp, randomBytes(32).toString("hex"), { mode: 384, flag: "wx" });
-    created = true;
-    chmodSync(tmp, 384);
-    renameSync(tmp, secretPath(common));
-  } catch (e) {
-    if (created) rmSync(tmp, { force: true });
-    throw e;
-  }
-}
 function secretMatches(common, given) {
   if (!given) return false;
-  const secret = readRegularFile(secretPath(common))?.trim() ?? "";
-  const a = Buffer.from(secret);
-  const b = Buffer.from(given);
-  return a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+  const original = hashPath(common);
+  const claimed = `${original}.claimed.${randomBytes(8).toString("hex")}`;
+  try {
+    renameSync(original, claimed);
+  } catch {
+    return false;
+  }
+  const stored = readRegularFile(claimed)?.trim() ?? "";
+  const a = Buffer.from(stored);
+  const b = Buffer.from(createHash2("sha256").update(given).digest("hex"));
+  const match = a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+  if (!match) {
+    try {
+      linkSync(claimed, original);
+    } catch {
+    }
+  }
+  try {
+    rmSync(claimed, { force: true });
+  } catch {
+  }
+  return match;
 }
 function humanProof(ctx, opts, io = terminalIO) {
   const common = commonDir(ctx.mainRoot);
-  if (secretMatches(common, process.env.CAIRN_APPROVER)) {
-    rotateSecret(common);
-    return { source: "mod" };
-  }
+  if (secretMatches(common, process.env.CAIRN_APPROVER)) return { source: "mod" };
   if (!opts.human) return void 0;
   if (!io.isTTY()) throw new Refusal("--human needs an interactive terminal: run this in your own terminal, not through the agent");
   const slug = ctx.plan?.slug;
   const typed = io.readLine("Type the plan name to confirm: ").trim();
   return slug && typed === slug ? { source: "terminal" } : void 0;
-}
-function consumeGrant(common, slug) {
-  if (!SLUG.test(slug)) return void 0;
-  const file = join4(cairnDir(common), "grants", `${slug}.json`);
-  const raw = readRegularFile(file);
-  if (raw === void 0) return void 0;
-  try {
-    rmSync(file);
-  } catch {
-    return void 0;
-  }
-  try {
-    const g = JSON.parse(raw);
-    const age = Date.now() - Number(g.createdAt);
-    if (g.slug !== slug || typeof g.reason !== "string" || !(age >= 0 && age <= GRANT_TTL_MS)) return void 0;
-    return { reason: g.reason };
-  } catch {
-    return void 0;
-  }
 }
 function modActive(common) {
   const t = Number(readText(join4(cairnDir(common), "mod-heartbeat"))?.trim());
@@ -7841,11 +7822,6 @@ function humanOnce(opts, io) {
   if (current.human === void 0) current.human = humanProof(current.ctx, opts, io) ?? null;
   return current.human ?? void 0;
 }
-function grantOnce(slug) {
-  if (!current) return void 0;
-  if (current.grant === void 0) current.grant = consumeGrant(commonDir(current.ctx.mainRoot), slug) ?? null;
-  return current.grant ?? void 0;
-}
 function requireHumanProof(kind, opts, io) {
   const p = humanOnce(opts, io);
   if (p) return p.source;
@@ -7859,13 +7835,12 @@ function gate(ok, s, event, opts, message, fixes = []) {
   if (ok) return;
   if (opts.override) {
     const human = humanOnce(opts);
-    const grant = grantOnce(s.slug);
-    if (!human && !grant)
+    if (!human)
       throw new Refusal(`${message}; an override needs proof that the user chose it`, [
-        `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], then retry within 10 minutes`,
+        `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], and the mod runs the command`,
         "or the user runs this command, with --override, in their own terminal with --human"
       ]);
-    log(s, `override: ${event}`, `${message} (source: ${human?.source ?? "grant"})`, human ? opts.override : grant.reason);
+    log(s, `override: ${event}`, `${message} (source: ${human.source})`, opts.override);
     return;
   }
   throw new Refusal(message, [...fixes, `or, if the user chose to skip this: add --override "<reason>"`]);
@@ -7931,7 +7906,7 @@ function ensureExcluded(mainRoot, pattern) {
   const file = join6(commonDir(mainRoot), "info", "exclude");
   const cur = readText(file) ?? "";
   if (!cur.split("\n").includes(pattern)) {
-    mkdirSync3(join6(commonDir(mainRoot), "info"), { recursive: true });
+    mkdirSync2(join6(commonDir(mainRoot), "info"), { recursive: true });
     appendFileSync(file, `${cur.endsWith("\n") || !cur ? "" : "\n"}${pattern}
 `);
   }
