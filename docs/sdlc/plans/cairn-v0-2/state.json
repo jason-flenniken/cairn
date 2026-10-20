@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T22:46:22.018Z",
+  "updated": "2026-10-20T22:50:03.820Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -75,10 +75,11 @@
           ],
           "complexity": "complex",
           "status": "in_progress",
-          "fixRound": 0,
-          "substep": "reviewing",
+          "fixRound": 1,
+          "substep": "fixing",
           "branch": "sdlc-slice/cairn-v0-2/mod-guards",
-          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--mod-guards"
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--mod-guards",
+          "note": "false positives on git/grep/commit; glob bypass; timer stacking"
         },
         {
           "id": "human-proof",
@@ -154,8 +155,15 @@
             "plugins/cairn/cli/test/lifecycle.test.ts"
           ],
           "complexity": "standard",
-          "status": "pending",
-          "fixRound": 0
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/secret-hash",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--secret-hash",
+          "base": "ec6de0d3da830d953c1cabbb254d68259f359b2d",
+          "note": "atomic claim of the hash file",
+          "doneAt": "2026-10-20T22:50:03.820Z",
+          "tip": "5e6ad42",
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'"
         },
         {
           "id": "menu-approval",
@@ -544,6 +552,36 @@
       "at": "2026-10-20T22:46:22.017Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-10-20T22:46:22.143Z",
+      "event": "slice fixing",
+      "detail": "Mod skeleton, guards, heartbeat (round 1): false positives on git/grep/commit; glob bypass; timer stacking"
+    },
+    {
+      "at": "2026-10-20T22:46:22.800Z",
+      "event": "slice started",
+      "detail": "Hashed single-use secret in the CLI"
+    },
+    {
+      "at": "2026-10-20T22:48:18.598Z",
+      "event": "slice reviewing",
+      "detail": "Hashed single-use secret in the CLI"
+    },
+    {
+      "at": "2026-10-20T22:49:07.642Z",
+      "event": "slice fixing",
+      "detail": "Hashed single-use secret in the CLI (round 1): atomic claim of the hash file"
+    },
+    {
+      "at": "2026-10-20T22:49:55.348Z",
+      "event": "slice merging",
+      "detail": "Hashed single-use secret in the CLI"
+    },
+    {
+      "at": "2026-10-20T22:50:03.820Z",
+      "event": "slice done",
+      "detail": "Hashed single-use secret in the CLI"
     }
   ],
   "planHash": "7e2fd7f5483bbce7"
