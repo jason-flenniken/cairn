@@ -55,8 +55,9 @@ function withSecret<T>($: EngineInterface, use: (secret: string) => Promise<T>):
     try {
       return await use(secret ?? (await rotate($)))
     } finally {
+      // The used secret is gone either way; a failed write leaves the next use to make one.
       secret = undefined
-      await rotate($)
+      await rotate($).catch(() => undefined)
     }
   })
   uses = turn.catch(() => undefined)

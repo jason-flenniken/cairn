@@ -18,7 +18,7 @@ async function sha256(text: string): Promise<string> {
  * `plans`, and `cairn approve`/`--override` act as the CLI's proof does: the env's
  * CAIRN_APPROVER must hash to the last hash written, and a match spends it.
  */
-function world(on: On, plans: Plan[], { refuse, cwd = '/repo' }: { refuse?: string; cwd?: string } = {}) {
+function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infinity }: { refuse?: string; cwd?: string; writable?: number } = {}) {
   const runs: Run[] = []
   const hashes: string[] = []
   const toasts: string[] = []
@@ -44,6 +44,7 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo' }: { refuse?: stri
     return answer(2, '✗ Refused: no human proof\n')
   })
   on('fs.write', (_$, e) => {
+    if (e.path === HASH_FILE && hashes.length >= writable) return { deny: 'EACCES: permission denied' }
     if (e.path === HASH_FILE) {
       hashes.push(e.text)
       onDisk = e.text
@@ -189,6 +190,16 @@ describe('menu approval (FR-02)', () => {
     expect(approveRuns()).toEqual([])
     expect(got.context?.join('\n')).toMatch(/not waiting for prd approval/)
     expect(toasts.join('\n')).toMatch(/not waiting for prd approval/)
+  })
+
+  test('an approval that landed is reported even when the next secret cannot be written', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'unwritable', stage: 'prd', worktree: '/wt/unwritable' }], { writable: 1 })
+    const q = 'Approve? [cairn:approve prd unwritable]'
+    dialog(on, { [q]: 'Approve' })
+    const got = await $.tool.call(ask(q))
+    expect(approveRuns()).toHaveLength(1)
+    expect(got.context?.join()).toMatch(/prd approved/)
+    expect(toasts.join()).toMatch(/prd approved/)
   })
 
   test('a phase tag approves only while the current phase awaits approval', async ($, on) => {
