@@ -7,30 +7,47 @@ const REASON = /approvals and plan state come from the user and the CLI/
 describe('bashVerdict', () => {
   // FR-03 deny table, plus the spellings a model would try next.
   const denied = [
+    // An approve call, however the CLI is reached.
     'cairn approve prd',
     'node plugins/cairn/dist/cairn.mjs approve plan',
+    '"${CLAUDE_PLUGIN_ROOT}/bin/cairn" approve prd',
+    'cairn --note "looks good" approve phase',
+    'env FOO=1 cairn approve ship',
+    'echo $(cairn approve ship)',
+    'echo "`cairn approve ship`"',
+    "bash -c 'cairn --json approve phase'",
+    // Setting the proof variable.
     'CAIRN_APPROVER=x cairn status',
     'export CAIRN_APPROVER=x',
-    'cat mod-secret',
-    'cat /repo/.git/cairn/mod-secret',
-    'ls /repo/.git/cairn/grants',
+    'export CAIRN_APPROVER',
+    'read CAIRN_APPROVER < /tmp/s',
+    // Writers of a plan's state.json.
     `python -c "import json; json.dump({}, open('docs/sdlc/plans/x/state.json', 'w'))"`,
+    `node -e "require('fs').writeFileSync('state.json', '{}')"`,
     "sed -i '' 's/execute/ship/' docs/sdlc/plans/x/state.json",
-    'git checkout -- docs/sdlc/plans/x/state.json',
-    '"${CLAUDE_PLUGIN_ROOT}/bin/cairn" approve prd',
     'cd docs/sdlc/plans/x && sed -i s/a/b/ state.json',
-    'echo $(cairn approve ship)',
-    "bash -c 'cairn --json approve phase'",
-    'cat docs/sdlc/plans/x/state.json > /tmp/copy',
+    "perl -pi -e 's/prd/plan/' docs/sdlc/plans/x/state.json",
+    'git checkout -- docs/sdlc/plans/x/state.json',
+    'git restore docs/sdlc/plans/x/state.json',
+    'echo {} > docs/sdlc/plans/x/state.json',
+    'jq .x state.json >>state.json',
+    'jq .x a.json | tee docs/sdlc/plans/x/state.json',
+    'cp /tmp/forged.json docs/sdlc/plans/x/state.json',
+    'mv /tmp/forged.json docs/sdlc/plans/x/state.json',
     'cat docs/sdlc/plans/x/state.json; rm docs/sdlc/plans/x/state.json',
-    // Anything written under <git common dir>/cairn/ is trusted by the CLI.
+    'dd if=/tmp/f of=docs/sdlc/plans/x/state.json',
+    // The cairn folder under the git common dir: no writes, no reads but the heartbeat.
+    'cat /repo/.git/cairn/mod-secret',
+    'cat /repo/.git/cairn/mod-secret.sha256',
+    'cd /repo/.git/cairn && cat mod-secret.sha256',
     'echo {} > /repo/.git/cairn/grants/x.json',
     'echo 99999999999999 > /repo/.git/cairn/mod-heartbeat',
     'touch "$(git rev-parse --git-common-dir)/cairn/mod-heartbeat"',
-    `cd "$(git rev-parse --git-common-dir)/cairn" && echo '{}' > grants/x.json`,
-    // Reads that reach the secret without naming it.
+    'cat "$(git rev-parse --git-common-dir)/cairn/mod-secret.sha256"',
     'cat .git/cairn/*',
     'head .git/cairn/m*',
+    'cat .git/c*/m*',
+    'cat ../../.git/ca[i]rn/mod-s*',
     'grep -r . .git/cairn',
     'grep -r . .git',
     'grep -rn x /repo/.git/',
@@ -51,20 +68,40 @@ describe('bashVerdict', () => {
     })
   }
 
-  // FR-03 allow table and Review focus 5: normal orchestrator commands.
+  // FR-03 allow table, Review focus 5, and the orchestrator's everyday commands.
   const allowed = [
     'cat docs/sdlc/plans/x/state.json',
     'jq .stage docs/sdlc/plans/x/state.json',
     'cat docs/sdlc/plans/x/state.json | jq .stage',
+    'cp docs/sdlc/plans/x/state.json /tmp/backup.json',
+    'cat docs/sdlc/plans/x/state.json > /tmp/copy',
     'cairn status',
+    'cairn ready --json',
+    'cairn slice done x',
+    'cairn decide "approve the wording?" "yes"',
     'grep approve README.md',
+    'cat bin/cairn | grep approve',
     'git merge --no-ff sdlc-slice/cairn-v0-2/menu-approval',
+    'git merge --no-ff sdlc-slice/cairn-v0-2/grants-x',
     'git -C /repo/.claude/worktrees/sdlc-cairn-v0-2--approval-procedures diff sdlc/cairn-v0-2...HEAD',
     'npm test',
-    'cairn ready --json',
-    'cat bin/cairn | grep approve',
-    'cat /repo/.git/cairn/mod-heartbeat',
     'npm run script',
+    'grep -rn CAIRN_APPROVER plugins/cairn/cli/src',
+    'grep -rn mod-secret plugins/cairn',
+    'git commit -m "human-proof: CAIRN_APPROVER check"',
+    'git commit -m "rebuild dist/ after approve slice merge"',
+    'git add docs/sdlc/plans/x/state.json',
+    'git diff -- docs/sdlc/plans/x/state.json',
+    'git show HEAD:docs/sdlc/plans/x/state.json',
+    'git log -- state.json',
+    'ls docs/sdlc/plans/x/state.json',
+    'sed -n 1,5p state.json',
+    'python3 -m json.tool state.json',
+    'git rev-parse --git-common-dir',
+    'ls .git',
+    'cat /repo/.git/cairn/mod-heartbeat',
+    'cat .git/cairn/mod-heartbeat 2>/dev/null',
+    'npm test 2>&1 | tail -5',
   ]
   for (const cmd of allowed) {
     test(`allows: ${cmd}`, () => {
@@ -145,6 +182,8 @@ describe('path guard (FR-04)', () => {
     ['mcp__files__write_file', { path: '/repo/docs/sdlc/plans/x/state.json', content: '{}' }],
     ['NotebookEdit', { notebook_path: '/repo/docs/sdlc/plans/x/state.json', new_source: '' }],
     ['Read', { file_path: '/repo/.git/cairn/mod-secret' }],
+    ['Read', { file_path: '/repo/.git/cairn/mod-secret.sha256' }],
+    ['Write', { file_path: '/repo/.git/cairn/mod-secret.sha256', content: 'x' }],
     ['Grep', { pattern: '.', path: '/repo/.git' }],
     ['Glob', { pattern: '**/*', path: '/repo/.git/cairn' }],
   ]

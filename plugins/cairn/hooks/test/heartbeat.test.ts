@@ -53,3 +53,12 @@ test('a beat that cannot be written is skipped and the next one still lands', as
   await clock.advance(2_000)
   expect(writes).toEqual(['1000', '3000'])
 })
+
+test('a second session.start replaces the timer rather than adding one', async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000 })
+  const { writes } = engine(on, { exitCode: 0, stdout: '/repo/.git\n' })
+  await $.session.start({ cwd: '/repo', surface: null, isInteractive: false })
+  await $.session.start({ cwd: '/repo', surface: null, isInteractive: false })
+  await clock.advance(2_000)
+  expect(writes.map(w => w.text)).toEqual(['1000', '1000', '3000'])
+})

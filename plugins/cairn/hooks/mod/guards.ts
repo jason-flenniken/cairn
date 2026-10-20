@@ -1,80 +1,252 @@
 // FR-03 and FR-04: the model may not approve, override, or edit plan state.
 // Approvals and plan state come from the user (through the mod) and the CLI.
+// The Bash guard is a best-effort deny-list on spellings; the CLI's proof is the real control.
 import type { EngineInterface, On } from 'claude-code'
 
 const WHY = 'approvals and plan state come from the user and the CLI, not from tool calls.'
 const REASON = `cairn: ${WHY}`
 
-// Always denied, even for a read-only command: the secret, the grants, the proof variable.
-const SECRET = /CAIRN_APPROVER|mod-secret|cairn\/grants/i
-// A plan state file: denied unless the command only reads.
-const STATE_FILE = /(?<![\w.-])state\.json(?!\w)/i
-const READ_ONLY = new Set(['cat', 'head', 'tail', 'grep', 'wc', 'less', 'jq'])
+// Words run before the real command: `env FOO=1 cairn`, `timeout 5 cairn`.
+const PREFIXES = new Set(['env', 'exec', 'command', 'nohup', 'nice', 'time', 'sudo', 'xargs', 'timeout'])
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh'])
+const RUNTIMES = new Set(['node', 'nodejs', 'bun', 'deno'])
+const INTERPRETERS = /^(python[\d.]*|node|nodejs|bun|deno|perl|ruby|php|osascript)$/
+const DECLARERS = new Set(['export', 'declare', 'typeset', 'readonly', 'local', 'read'])
 // A pseudo-terminal around cairn would fake the CLI's terminal proof (FR-01).
 const PTY_WRAPPERS = new Set(['script', 'expect', 'unbuffer', 'tmux', 'screen'])
+const RECURSIVE_READERS = new Set(['rg', 'ag', 'ack', 'find', 'tar', 'zip', 'rsync', 'rgrep'])
+const CAIRN_DIR_WORD = /(^|\/)\.git\/cairn(\/|$)/i
+const HEARTBEAT_WORD = /(^|\/)\.git\/cairn\/mod-heartbeat$/i
+
+/** A simple command: its words (quotes removed) and its redirect targets. */
+type Command = { words: string[]; redirects: string[] }
 
 /** The FR-03 verdict on a Bash command: `{ deny }` with the reason, or `{}`. */
 export function bashVerdict(cmd: string): { deny?: string } {
+  return isDenied(cmd) ? { deny: REASON } : {}
+}
+
+function isDenied(cmd: string): boolean {
+  // Command substitutions run too, inside double quotes as well.
+  for (const [, dollar, backtick] of cmd.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) {
+    if (isDenied(dollar ?? backtick ?? '')) return true
+  }
+  if (/(\$\(|`)[^)`]*--(git-common-dir|git-dir|absolute-git-dir)/.test(cmd)) return true
   const mentionsCairn = /cairn/i.test(cmd)
-  if (SECRET.test(cmd) || (mentionsCairn && /(?<![\w.-])grants(\/|\b)/i.test(cmd))) return { deny: REASON }
-  if (mentionsCairn && segments(cmd).some(wrapsInPty)) return { deny: REASON }
-  if (touchesGitFolder(cmd)) return { deny: REASON }
-  const isGuarded = STATE_FILE.test(cmd) || segments(cmd).some(approvesThroughCli)
-  if (isGuarded && !isReadOnly(cmd)) return { deny: REASON }
-  return {}
+  return commands(cmd).some(command =>
+    approves(command) ||
+    setsApprover(command) ||
+    writes(command, isStateFile) ||
+    runsCodeNamingStateFile(command) ||
+    writes(command, word => HEARTBEAT_WORD.test(word)) ||
+    reachesCairnFolder(command) ||
+    (mentionsCairn && wrapsInPty(command)),
+  )
 }
 
 /**
- * The cairn folder (`.git/cairn`, the common dir, the heartbeat) or a whole `.git`
- * folder, which a recursive read would reach the secret through. The one exception
- * is a read-only command naming the heartbeat file exactly, with no glob.
+ * Splits a command line into simple commands, the way a shell would at unquoted
+ * `;`, `&&`, `||`, `|`, `&`, newlines, and parentheses. Quotes and backslashes are
+ * removed from words; `>`, `>>`, `&>` take the next word as a redirect target.
  */
-function touchesGitFolder(cmd: string): boolean {
-  const named = segments(cmd).flatMap(words).filter(word =>
-    /\.git\/cairn|git-common-dir|mod-heartbeat|(^|\/)\.git\/?$/i.test(word))
-  if (named.length === 0) return false
-  const isHeartbeatRead = (word: string) => /\.git\/cairn\/mod-heartbeat$/i.test(word) && !/[*?[]/.test(word)
-  return !(isReadOnly(cmd) && named.every(isHeartbeatRead))
+function commands(cmd: string): Command[] {
+  const out: Command[] = []
+  let words: string[] = []
+  let redirects: string[] = []
+  let word = ''
+  let hasWord = false
+  let quote = ''
+  let isRedirect = false
+  const endWord = () => {
+    if (hasWord) {
+      ;(isRedirect ? redirects : words).push(word)
+      isRedirect = false
+    }
+    word = ''
+    hasWord = false
+  }
+  const endCommand = () => {
+    endWord()
+    if (words.length > 0 || redirects.length > 0) out.push({ words, redirects })
+    words = []
+    redirects = []
+    isRedirect = false
+  }
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i] as string
+    const next = cmd[i + 1] ?? ''
+    if (quote === "'") {
+      if (c === "'") quote = ''
+      else word += c
+      continue
+    }
+    if (c === '\\' && next !== '') {
+      word += next
+      hasWord = true
+      i++
+      continue
+    }
+    if (quote === '"') {
+      if (c === '"') quote = ''
+      else word += c
+      continue
+    }
+    if (c === "'" || c === '"') {
+      quote = c
+      hasWord = true
+    } else if (c === '>' || (c === '&' && next === '>')) {
+      word = word.replace(/^\d+$/, '')
+      if (word === '') hasWord = false
+      endWord()
+      while (cmd[i + 1] === '>' || cmd[i + 1] === '|' || (cmd[i + 1] === '&' && /\d|-/.test(cmd[i + 2] ?? ''))) i++
+      isRedirect = true
+    } else if (c === '<') {
+      endWord()
+    } else if (/\s/.test(c) && c !== '\n') {
+      endWord()
+    } else if (c === ';' || c === '\n' || c === '|' || c === '&' || c === '(' || c === ')') {
+      endCommand()
+      if ((c === '&' || c === '|') && next === c) i++
+    } else {
+      word += c
+      hasWord = true
+    }
+  }
+  endCommand()
+  return out
 }
 
-/** The simple commands of a command line, split at `;`, `&&`, `||`, `|`, `&`, newlines. */
-function segments(cmd: string): string[] {
-  return cmd.split(/&&|\|\||[;|&\n]/)
+function base(word: string): string {
+  return word.slice(word.lastIndexOf('/') + 1)
 }
 
-/** Words of one simple command, quotes dropped and `$(`, backticks, parens as breaks. */
-function words(segment: string): string[] {
-  return segment.replace(/["']/g, '').split(/[\s()`$]+/).filter(word => word !== '')
+/** Where the real command starts, past `env`, `VAR=x`, and prefixes' flags and counts. */
+function commandAt(words: string[]): number {
+  let isAfterPrefix = false
+  for (let at = 0; at < words.length; at++) {
+    const word = words[at] as string
+    if (PREFIXES.has(base(word))) isAfterPrefix = true
+    else if (/^\w+\+?=/.test(word)) continue
+    else if (!(isAfterPrefix && /^-|^\d+[smhd]?$/.test(word))) return at
+  }
+  return words.length
 }
 
-/** An `approve` word after `cairn`, `cairn.mjs`, `.../bin/cairn`, or a `dist/` path. */
-function approvesThroughCli(segment: string): boolean {
-  const list = words(segment)
-  const cli = list.findIndex(word => {
-    const base = word.slice(word.lastIndexOf('/') + 1)
-    return base === 'cairn' || base === 'cairn.mjs' || word.includes('dist/')
-  })
-  return cli >= 0 && list.slice(cli + 1).includes('approve')
+/** The command's name and its arguments. */
+function split({ words }: Command): [string, string[]] {
+  const at = commandAt(words)
+  return [base(words[at] ?? ''), words.slice(at + 1)]
 }
 
-/** A pty wrapper, or python/perl naming `pty`, as the command run (by basename, past `env` and `VAR=x`). */
-function wrapsInPty(segment: string): boolean {
-  const list = words(segment)
-  const at = list.findIndex(word => word !== 'env' && !/^\w+=/.test(word))
-  const run = (list[at] ?? '').slice((list[at] ?? '').lastIndexOf('/') + 1)
-  return PTY_WRAPPERS.has(run) || (/^(python[\d.]*|perl)$/.test(run) && /pty/i.test(segment))
+/** `approve` as an argument of cairn, `node …/cairn.mjs`, or a shell's `-c` script that does it. */
+function approves(command: Command): boolean {
+  const [name, args] = split(command)
+  if (name === 'cairn' || name === 'cairn.mjs') return args.includes('approve')
+  if (RUNTIMES.has(name)) {
+    const script = args.findIndex(arg => !arg.startsWith('-'))
+    return base(args[script] ?? '') === 'cairn.mjs' && args.slice(script + 1).includes('approve')
+  }
+  if (SHELLS.has(name) || name === 'eval') {
+    const flag = args.findIndex(arg => /^-\w*c\w*$/.test(arg))
+    const script = name === 'eval' ? args.join(' ') : args[flag + 1]
+    return (name === 'eval' || flag >= 0) && script !== undefined && isDenied(script)
+  }
+  return false
 }
 
-/** Every simple command is a listed reader, with no redirect, substitution, or `jq -i`. */
-function isReadOnly(cmd: string): boolean {
-  if (/[<>`]|\$\(/.test(cmd)) return false
-  return segments(cmd)
-    .map(words)
-    .filter(list => list.length > 0)
-    .every(([first, ...rest]) => {
-      if (first === undefined || !READ_ONLY.has(first)) return false
-      return first !== 'jq' || !rest.some(word => word === '-i' || word.startsWith('--in-place'))
-    })
+/** `CAIRN_APPROVER=…` anywhere a shell reads an assignment, or `export`/`read` and kin naming it. */
+function setsApprover({ words }: Command): boolean {
+  const at = commandAt(words)
+  if (words.slice(0, at + 1).some(word => /^CAIRN_APPROVER\+?=/.test(word))) return true
+  const [name, args] = split({ words, redirects: [] })
+  if (!DECLARERS.has(name) && !(name === 'printf' && args.includes('-v'))) return false
+  return args.some(arg => /^CAIRN_APPROVER(\+?=|$)/.test(arg))
+}
+
+function isStateFile(word: string): boolean {
+  return base(word).toLowerCase() === 'state.json'
+}
+
+/** True when the command writes, moves, or deletes a file `isTarget` picks out. */
+function writes(command: Command, isTarget: (word: string) => boolean): boolean {
+  if (command.redirects.some(isTarget)) return true
+  const [name, args] = split(command)
+  const files = args.filter(arg => !arg.startsWith('-'))
+  switch (name) {
+    case 'sed':
+    case 'gsed':
+    case 'perl':
+    case 'ruby':
+      if (args.some(arg => /^-[a-zA-Z]*i/.test(arg) || arg.startsWith('--in-place'))) return files.some(isTarget)
+      break
+    case 'tee':
+    case 'sponge':
+    case 'rm':
+    case 'unlink':
+    case 'shred':
+    case 'truncate':
+    case 'touch':
+    case 'mv':
+      return files.some(isTarget)
+    case 'cp':
+    case 'ln':
+    case 'install':
+    case 'rsync':
+      return isTarget(files.at(-1) ?? '')
+    case 'dd':
+      return args.some(arg => arg.startsWith('of=') && isTarget(arg.slice(3)))
+    case 'git': {
+      const sub = args.findIndex((arg, i) => !arg.startsWith('-') && args[i - 1] !== '-C')
+      return ['checkout', 'restore', 'rm', 'mv'].includes(args[sub] ?? '') && args.slice(sub + 1).some(isTarget)
+    }
+  }
+  return false
+}
+
+/** Interpreter code given inline (`python -c`, `node -e`) that names a state.json. */
+function runsCodeNamingStateFile(command: Command): boolean {
+  const [name, args] = split(command)
+  return INTERPRETERS.test(name) && args.some(arg => /^-\w*[ce]$|^--eval$/.test(arg)) &&
+    args.some(arg => /state\.json/i.test(arg))
+}
+
+/**
+ * Anything under <git common dir>/cairn/ but the heartbeat file named exactly, a glob
+ * that could reach into a `.git` folder, or a recursive read of a whole `.git` folder.
+ */
+function reachesCairnFolder(command: Command): boolean {
+  const all = [...command.words, ...command.redirects]
+  if (all.some(word => CAIRN_DIR_WORD.test(word) && !(HEARTBEAT_WORD.test(word) && !/[*?[]/.test(word)))) {
+    return true
+  }
+  if (all.some(globsIntoGit)) return true
+  const [name, args] = split(command)
+  const isRecursive = RECURSIVE_READERS.has(name) ||
+    (/^[ef]?grep$/.test(name) && args.some(arg => /^-\w*[rR]|^--recursive$/.test(arg))) ||
+    (name === 'cp' && args.some(arg => /^-\w*[rRa]/.test(arg)))
+  return isRecursive && args.some(arg => /(^|\/)\.git\/?$/i.test(arg))
+}
+
+/** A path with a glob in or after a component that could be `.git`. */
+function globsIntoGit(word: string): boolean {
+  const parts = word.split('/')
+  const at = parts.findIndex(part => globRegex(part).test('.git'))
+  return at >= 0 && at < parts.length - 1 && parts.slice(at).some(part => /[*?[]/.test(part))
+}
+
+function globRegex(glob: string): RegExp {
+  const source = glob.replace(/[.+^${}()|\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')
+  try {
+    return new RegExp(`^${source}$`, 'i')
+  } catch {
+    return /^\.git$/i
+  }
+}
+
+/** A pty wrapper, or python/perl naming `pty`, as the command run. */
+function wrapsInPty(command: Command): boolean {
+  const [name] = split(command)
+  return PTY_WRAPPERS.has(name) || (/^(python[\d.]*|perl)$/.test(name) && command.words.some(word => /pty/.test(word)))
 }
 
 // A plan's state.json or STATUS.md, and the <git common dir>/cairn/ folder. Case-insensitive:

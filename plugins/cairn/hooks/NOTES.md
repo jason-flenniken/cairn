@@ -19,15 +19,18 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - Before `fs.stat` sees a path, the engine has already made it absolute against the session folder and folded `..` lexically.
 - A missing path rejects with `ENOENT`. For a missing path, the guard resolves the deepest existing ancestor and appends the rest, because a Write creates folders. Any other stat error propagates, and the `.catch` denies.
 - A path starting with `~` is denied, because the guard can't tell where the tool would land it.
-- Read, Grep, and Glob may read plan state. No tool may read under `.git/cairn/`, which holds the secret.
+- Read, Grep, and Glob may read plan state. No tool may read or write under `.git/cairn/`, which holds the secret's hash (`mod-secret.sha256`) and the heartbeat.
   - Grep and Glob may not search a `.git` folder at all.
   - Native builds don't register Grep or Glob, so those searches go through Bash.
-- The Bash guard denies a few more things:
-  - any mention of `.git/cairn`, `--git-common-dir`, or a bare `.git` folder
-  - `grants` next to `cairn`
-  - a pseudo-terminal wrapper (`script`, `expect`, `unbuffer`, `tmux`, `screen`, python/perl `pty`) around `cairn`
+- The Bash guard tokenizes the command the way a shell would: quotes, `;` `&&` `||` `|` `&`, subshells, `$(…)`, backticks, `sh -c`, and `eval`. It denies only these:
+  - an `approve` argument to `cairn`, `…/bin/cairn`, or `node …/cairn.mjs`
+  - setting `CAIRN_APPROVER`, by assignment or with `export`, `declare`, `read`, and the like
+  - writes to a `state.json`: redirects, `sed -i`/`perl -pi`, `tee`, `cp`/`mv`/`rm`/`truncate`/`dd`/`ln`, `git checkout`/`restore`, or interpreter `-c`/`-e` code that names it
+  - anything under `.git/cairn/`, except a read of `.git/cairn/mod-heartbeat` named exactly
+  - a glob in or after a path component that could be `.git`, a recursive read of a `.git` folder, and `$(git rev-parse --git-common-dir)`-style paths
+  - a pseudo-terminal wrapper around `cairn` (`script`, `expect`, `unbuffer`, `tmux`, `screen`, python/perl `pty`)
 
-  The one exception is a read-only command naming `.git/cairn/mod-heartbeat` exactly. The Bash guard is a best-effort deny-list on spellings. The CLI's proof is the real control.
+  Reading a plan's state, grepping for names like `CAIRN_APPROVER`, and git commands other than checkout/restore/rm/mv all run. The guard is a best-effort deny-list on spellings. The CLI's proof is the real control. `grep -r . .` from the repo root can still reach `.git`.
 
 ## Testing
 
