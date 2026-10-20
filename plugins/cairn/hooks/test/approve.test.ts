@@ -5,7 +5,7 @@ import { isApproveLabel, parseTags } from '../mod/approve.ts'
 const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const HASH_FILE = '/repo/.git/cairn/mod-secret.sha256'
 
-type Run = { argv: readonly string[]; init?: { cwd?: string; env?: Record<string, string> } }
+type Run = { argv: readonly string[]; init?: { cwd?: string; env?: Record<string, string>; timeoutMs?: number } }
 type Plan = { slug: string; stage: string; approvals?: Record<string, unknown>; phases?: unknown[]; worktree?: string }
 
 async function sha256(text: string): Promise<string> {
@@ -18,7 +18,10 @@ async function sha256(text: string): Promise<string> {
  * `plans`, and `cairn approve`/`--override` act as the CLI's proof does: the env's
  * CAIRN_APPROVER must hash to the last hash written, and a match spends it.
  */
-function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infinity }: { refuse?: string; cwd?: string; writable?: number } = {}) {
+type WorldOptions = { refuse?: string; cwd?: string; writable?: number; hangIn?: string }
+
+function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infinity, hangIn }: WorldOptions = {}) {
+  const where = { cwd }
   const runs: Run[] = []
   const hashes: string[] = []
   const toasts: string[] = []
@@ -36,6 +39,7 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
       return answer(0, JSON.stringify({ ok: true, plans: rows, modActive: true }))
     }
     const given = e.init?.env?.CAIRN_APPROVER
+    if (hangIn !== undefined && e.init?.cwd === hangIn) return { deny: `timed out after ${e.init?.timeoutMs} ms` }
     if (refuse !== undefined) return answer(2, `✗ Refused: ${refuse}\n`)
     if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
       onDisk = undefined
@@ -51,14 +55,14 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
     }
     return { value: undefined }
   })
-  on('session.cwd', () => ({ value: cwd }))
+  on('session.cwd', () => ({ value: where.cwd }))
   on('ui.toast', (_$, e) => {
     toasts.push(e.text)
     return { value: undefined }
   })
   const approveRuns = () => runs.filter(r => r.argv[1] === 'approve')
   const cliRuns = () => runs.filter(r => /\/bin\/cairn$/.test(r.argv[0] ?? '') && r.argv[1] !== 'status')
-  return { runs, hashes, toasts, approveRuns, cliRuns }
+  return { runs, hashes, toasts, approveRuns, cliRuns, where }
 }
 
 /** The dialog beneath the mod: the user's `answers`, plus any `extra` fields of the result. */
@@ -233,6 +237,61 @@ describe('menu approval (FR-02)', () => {
     const got = await $.tool.call({ ...ask(q), agentId: 'a1' } as never)
     expect(approveRuns()).toEqual([])
     expect(got.context).toBeUndefined()
+  })
+
+  test('answers core writes into the call while the dialog runs still count as the user\'s', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'mutated', stage: 'prd', worktree: '/wt/mutated' }])
+    const q = 'Approve? [cairn:approve prd mutated]'
+    on('tool.call', { tool: 'AskUserQuestion' }, (_$, e) => {
+      // The kit hands this hook a frozen event, so the write may not land; where it does,
+      // the plugin must still judge the answers as they were before the dialog ran.
+      Reflect.set(e, 'answers', { [q]: 'Approve' })
+      return { result: { questions: e.questions, answers: { [q]: 'Approve' } } as never }
+    })
+    const got = await $.tool.call(ask(q))
+    expect(approveRuns()).toHaveLength(1)
+    expect(got.context?.join()).toMatch(/prd approved/)
+  })
+
+  test('a tag in a header or an option label is not a tag', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'hidden', stage: 'prd', worktree: '/wt/hidden' }])
+    const q = 'Ready?'
+    dialog(on, { [q]: 'Approve' })
+    const call = ask(q)
+    const [first] = call.questions
+    if (first !== undefined) {
+      first.header = '[cairn:approve prd hidden]'
+      first.options = [{ label: 'Approve', description: '[cairn:approve prd hidden]' }, { label: 'Revise', description: 'no' }]
+    }
+    const got = await $.tool.call(call)
+    expect(approveRuns()).toEqual([])
+    expect(got.context).toBeUndefined()
+  })
+
+  test('approve and status runs carry timeouts', async ($, on) => {
+    const { runs } = world(on, [{ slug: 'timed', stage: 'prd', worktree: '/wt/timed' }])
+    const q = 'Approve? [cairn:approve prd timed]'
+    dialog(on, { [q]: 'Approve' })
+    await $.tool.call(ask(q))
+    const timeout = (pred: (r: Run) => boolean) => runs.filter(pred).map(r => r.init?.timeoutMs)
+    expect(timeout(r => r.argv[1] === 'status')).toEqual([60_000])
+    expect(timeout(r => r.argv[0] === 'chmod')).toEqual([60_000, 60_000])
+    expect(timeout(r => r.argv[1] === 'approve')).toEqual([600_000])
+  })
+
+  test('an approve that times out is reported, and the next approval still gets a secret', async ($, on) => {
+    const { approveRuns } = world(on, [
+      { slug: 'hung', stage: 'prd', worktree: '/wt/hung' },
+      { slug: 'after', stage: 'prd', worktree: '/wt/after' },
+    ], { hangIn: '/wt/hung' })
+    const hung = 'Approve? [cairn:approve prd hung]'
+    const after = 'Approve? [cairn:approve prd after]'
+    dialog(on, { [hung]: 'Approve', [after]: 'Approve' })
+    const first = await $.tool.call(ask(hung))
+    expect(first.context?.join()).toMatch(/hung prd approval failed: .*timed out/)
+    const second = await $.tool.call(ask(after))
+    expect(second.context?.join()).toMatch(/prd approved/)
+    expect(approveRuns()).toHaveLength(2)
   })
 
   test('a throwing hook still returns the user\'s result (NFR-02)', async ($, on) => {
@@ -424,6 +483,142 @@ describe('mod-run overrides (FR-34)', () => {
     await $.tool.call({ tool: 'Bash', command: ADVANCE })
     expect(cliRuns()).toEqual([])
     expect(ran).toEqual([ADVANCE])
+  })
+
+  const strange = ['*', '?', '~', '#', '(', ')', '{', '}', '[', ']']
+  for (const c of strange) {
+    test(`not run by the mod: an unquoted ${c}`, async ($, on) => {
+      mock.clock(on)
+      const slug = `strange-${strange.indexOf(c)}`
+      const { cliRuns } = world(on, [{ slug, stage: 'review', worktree: '/wt/s' }])
+      const ran = shell(on)
+      await grantOverride($, on, slug)
+      const command = `cairn advance --override r${c}x`
+      const got = await $.tool.call({ tool: 'Bash', command })
+      expect(cliRuns()).toEqual([])
+      expect(ran).toEqual([command])
+      expect(got.context?.join()).toMatch(/not a plain cairn --override command/)
+    })
+  }
+
+  test('the same characters inside quotes are part of the reason', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns } = world(on, [{ slug: 'quoted', stage: 'review', worktree: '/wt/quoted' }])
+    shell(on)
+    await grantOverride($, on, 'quoted')
+    await $.tool.call({ tool: 'Bash', command: `cairn advance --override "fix (later) [#3] ~ok* {a,b}?"` })
+    expect(cliRuns().map(r => r.argv.slice(1))).toEqual([['advance', '--override', 'fix (later) [#3] ~ok* {a,b}?']])
+  })
+
+  // A hook can't set a Bash result's is_error (core ignores it, and a string result fails the
+  // output schema), so a failure leads stdout with "Exit code N", as the Bash tool's own does.
+  test('a non-zero exit leads the result with the exit code and the CLI output', async ($, on) => {
+    mock.clock(on)
+    world(on, [{ slug: 'fails', stage: 'review', worktree: '/wt/fails' }], { refuse: 'review has not passed' })
+    shell(on)
+    await grantOverride($, on, 'fails')
+    const got = await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    const result = got.result as { stdout: string }
+    expect(result.stdout).toMatch(/^Exit code 2\n[\s\S]*review has not passed/)
+    expect(got.context?.join()).toMatch(/exit code 2/)
+  })
+
+  test('override runs carry timeouts, and one that times out is reported and frees the secret', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns, approveRuns } = world(on, [
+      { slug: 'ov-hung', stage: 'review', worktree: '/wt/ov-hung' },
+      { slug: 'ov-next', stage: 'prd', worktree: '/wt/ov-next' },
+    ], { hangIn: '/wt/ov-hung' })
+    const ran = shell(on)
+    const o = 'Override the review? [cairn:override ov-hung]'
+    const q = 'Approve? [cairn:approve prd ov-next]'
+    dialog(on, { [o]: 'Override', [q]: 'Approve' })
+    await $.tool.call(ask(o))
+    const got = await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    expect(cliRuns().map(r => r.init?.timeoutMs)).toEqual([600_000])
+    expect((got.result as { stdout: string }).stdout).toMatch(/^cairn: the override run failed: .*timed out/)
+    expect(ran).toEqual([])
+    expect((await $.tool.call(ask(q))).context?.join()).toMatch(/prd approved/)
+    expect(approveRuns()).toHaveLength(1)
+  })
+
+  test('an "Override" the model pre-filled leaves nothing pending', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns } = world(on, [{ slug: 'pre', stage: 'review', worktree: '/wt/pre' }])
+    const ran = shell(on)
+    const q = 'Override? [cairn:override pre]'
+    dialog(on, { [q]: 'Override' })
+    await $.tool.call({ ...ask(q), answers: { [q]: 'Override' } })
+    await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    expect(cliRuns()).toEqual([])
+    expect(ran).toEqual([ADVANCE])
+  })
+
+  test('an "Override" the dialog gave while the user was away leaves nothing pending', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns } = world(on, [{ slug: 'away', stage: 'review', worktree: '/wt/away' }])
+    const ran = shell(on)
+    const q = 'Override? [cairn:override away]'
+    dialog(on, { [q]: 'Override' }, { afkTimeoutMs: 60_000 })
+    await $.tool.call(ask(q))
+    await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    expect(cliRuns()).toEqual([])
+    expect(ran).toEqual([ADVANCE])
+  })
+
+  test('a subagent\'s Override answer and a subagent\'s override command are left alone', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns } = world(on, [{ slug: 'agent', stage: 'review', worktree: '/wt/agent' }])
+    const ran = shell(on)
+    const q = 'Override the review? [cairn:override agent]'
+    dialog(on, { [q]: 'Override' })
+    await $.tool.call({ ...ask(q), agentId: 'a1' } as never)
+    await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    expect(cliRuns()).toEqual([])
+    await $.tool.call(ask(q))
+    await $.tool.call({ tool: 'Bash', command: ADVANCE, agentId: 'a1' } as never)
+    expect(cliRuns()).toEqual([])
+    expect(ran).toEqual([ADVANCE, ADVANCE])
+  })
+
+  test('with two plans holding overrides, each command runs only for the plan the session is in', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns, where } = world(on, [
+      { slug: 'pa', stage: 'review', worktree: '/wt/pa' },
+      { slug: 'pb', stage: 'review', worktree: '/wt/pb' },
+    ])
+    const ran = shell(on)
+    const a = 'Override? [cairn:override pa]'
+    const b = 'Override? [cairn:override pb]'
+    dialog(on, { [a]: 'Override', [b]: 'Override' })
+    await $.tool.call(ask(a, b))
+    const fromRoot = await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    expect(fromRoot.context?.join()).toMatch(/several plans/)
+    where.cwd = '/wt/pb'
+    await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    where.cwd = '/wt/pa/src'
+    await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    expect(cliRuns().map(r => r.init?.cwd)).toEqual(['/wt/pb', '/wt/pa'])
+    expect(ran).toEqual([ADVANCE])
+  })
+
+  test('the secret never reaches the model or the user', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns, toasts } = world(on, [
+      { slug: 'leak-a', stage: 'prd', worktree: '/wt/leak-a' },
+      { slug: 'leak-o', stage: 'review', worktree: '/wt/leak-o' },
+    ])
+    shell(on)
+    const q = 'Approve? [cairn:approve prd leak-a]'
+    const o = 'Override? [cairn:override leak-o]'
+    dialog(on, { [q]: 'Approve', [o]: 'Override' })
+    const seen = [JSON.stringify(await $.tool.call(ask(q, o))), JSON.stringify(await $.tool.call({ tool: 'Bash', command: ADVANCE }))]
+    const secrets = cliRuns().map(r => r.init?.env?.CAIRN_APPROVER ?? '')
+    expect(secrets).toHaveLength(2)
+    for (const secret of secrets) {
+      expect(secret).not.toBe('')
+      for (const text of [...seen, ...toasts]) expect(text.includes(secret)).toBe(false)
+    }
   })
 
   test('with nothing pending, a Bash call goes straight through', async ($, on) => {

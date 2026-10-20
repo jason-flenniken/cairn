@@ -1,6 +1,6 @@
 // FR-02 menu approval and FR-34 mod-run overrides. The secret that proves the user to
 // the CLI lives only here, in memory; only its SHA-256 is on disk, and each use spends it.
-import type { EngineInterface, On } from 'claude-code'
+import type { EngineInterface, On, ProcessRunInit } from 'claude-code'
 import type { CairnRun } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
@@ -10,6 +10,9 @@ export type Tag = { kind?: Kind; slug: string; question: string; override?: true
 
 const APPROVE_TAG = /\[cairn:approve (prd|plan|phase|ship) ([^\s\]]+)\]/
 const OVERRIDE_TAG = /\[cairn:override ([^\s\]]+)\]/
+// How long a child may run: quick reads, and the commands that hold the secret.
+const QUICK_MS = 60_000
+const CLI_MS = 10 * 60_000
 
 /** The cairn tags in a dialog's questions, each with the question text its answer is keyed by. */
 export function parseTags(questions: readonly { question?: unknown }[]): Tag[] {
@@ -44,7 +47,7 @@ async function rotate($: EngineInterface): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(next))
   const file = `${await commonDir($)}/cairn/mod-secret.sha256`
   await $.fs.write(file, hex(new Uint8Array(digest)))
-  await $.process.run(['chmod', '600', file])
+  await $.process.run(['chmod', '600', file], { timeoutMs: QUICK_MS })
   secret = next
   return next
 }
@@ -64,12 +67,24 @@ function withSecret<T>($: EngineInterface, use: (secret: string) => Promise<T>):
   return turn
 }
 
+const quick: ProcessRunInit = { timeoutMs: QUICK_MS }
+
+/** Runs bin/cairn with the secret in its env; the timeout keeps a hung CLI from holding the secret's turn. */
+function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promise<CairnRun> {
+  return withSecret($, s => {
+    const init: ProcessRunInit = { cwd, env: { CAIRN_APPROVER: s }, timeoutMs: CLI_MS }
+    return cairn($, args, init)
+  })
+}
+
+const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
+
 type PlanState = { slug?: string; stage?: string; approvals?: Record<string, unknown>; phases?: { status?: string }[] }
 type PlanRow = { state?: PlanState; worktree?: string }
 
 /** Every plan, from `cairn status --all --json` run where the session is. */
 async function planRows($: EngineInterface): Promise<PlanRow[]> {
-  return (await cairn($, ['status', '--all', '--json'])).json?.plans ?? []
+  return (await cairn($, ['status', '--all', '--json'], quick)).json?.plans ?? []
 }
 
 /** The stop a plan's state is waiting on, if any. */
@@ -92,8 +107,8 @@ async function approve($: EngineInterface, kind: Kind, slug: string): Promise<st
   if (row?.state === undefined) return `cairn: no plan "${slug}", so nothing was approved.`
   if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so nothing was approved.`
   if (waitingStop(row.state) !== kind) return `cairn: plan "${slug}" is not waiting for ${kind} approval, so nothing was approved.`
-  const cwd = row.worktree
-  const ran = await withSecret($, s => cairn($, ['approve', kind], { cwd, env: { CAIRN_APPROVER: s } }))
+  const ran = await cairnWithSecret($, ['approve', kind], row.worktree).catch((err: unknown) => message(err))
+  if (typeof ran === 'string') return `cairn: ${slug} ${kind} approval failed: ${ran}`
   const said = `${ran.stdout}${ran.stderr}`.trim()
   return ran.exitCode === 0 ? `cairn: ${slug}: ${said}` : `cairn: ${slug} ${kind} approval refused: ${said}`
 }
@@ -101,9 +116,10 @@ async function approve($: EngineInterface, kind: Kind, slug: string): Promise<st
 // FR-34: plan slug -> when the user answered "Override". Memory only: no file stands for one.
 const OVERRIDE_MS = 10 * 60_000
 const pendingOverrides = new Map<string, number>()
-const NOT_PLAIN = 'it is not a plain cairn --override command (no ; | & $ ` > < newline or backslash, quotes closed)'
+const NOT_PLAIN =
+  'it is not a plain cairn --override command (no ; | & $ ` > < newline or backslash; no unquoted # * ? ~ ( ) { } [ ]; quotes closed)'
 
-/** A command's words, quotes joined as a shell joins them; undefined when it has any other shell syntax. */
+/** A command's words, quotes joined as a shell joins them; undefined when a shell would read anything more into it. */
 function plainArgv(cmd: string): string[] | undefined {
   if (/[;|&$`<>\n\r\\]/.test(cmd)) return undefined
   const words: string[] = []
@@ -116,6 +132,8 @@ function plainArgv(cmd: string): string[] | undefined {
     } else if (c === '"' || c === "'") {
       quote = c
       word ??= ''
+    } else if (/[#*?~(){}[\]]/.test(c)) {
+      return undefined
     } else if (/\s/.test(c)) {
       if (word !== undefined) words.push(word)
       word = undefined
@@ -134,25 +152,26 @@ function hasOverride(argv: string[]): boolean {
 }
 
 /**
- * Runs a plain `cairn … --override` in the worktree of the plan the user's Override named,
- * spending that override. `{}` when none is pending; `{ why }` when it can't be used.
+ * Runs a plain `cairn … --override` for the plan the user's Override named, spending it: the plan whose
+ * worktree the session is in, or the one plan holding an override. `{}` when none is pending;
+ * `{ why }` when the override can't be used.
  */
-async function runOverride($: EngineInterface, argv: string[]): Promise<{ ran?: CairnRun; why?: string }> {
+async function runOverride($: EngineInterface, argv: string[]): Promise<{ ran?: CairnRun | string; why?: string }> {
   const now = await $.clock.now()
   for (const [slug, at] of pendingOverrides) if (now - at > OVERRIDE_MS) pendingOverrides.delete(slug)
-  const slugs = [...pendingOverrides.keys()]
-  if (slugs.length === 0) return {}
-  if (slugs.length > 1) return { why: `overrides are pending for several plans (${slugs.join(', ')}), so cairn can't tell which this is for` }
-  const slug = slugs[0] as string
+  if (pendingOverrides.size === 0) return {}
   const plans = await planRows($)
+  const cwd = await $.session.cwd()
+  const here = plans.find(p => p.worktree !== undefined && (cwd === p.worktree || cwd.startsWith(`${p.worktree}/`)))
+  const slug = here?.state?.slug ?? (pendingOverrides.size === 1 ? [...pendingOverrides.keys()][0] : undefined)
+  if (slug === undefined) {
+    return { why: `overrides are pending for several plans (${[...pendingOverrides.keys()].join(', ')}), so run it from the plan's worktree` }
+  }
+  if (!pendingOverrides.has(slug)) return { why: `this session is in plan "${slug}", and your override is for another plan` }
   const worktree = plans.find(p => p.state?.slug === slug)?.worktree
   if (worktree === undefined) return { why: `plan "${slug}" is not checked out` }
-  const cwd = await $.session.cwd()
-  const inside = (wt: string) => cwd === wt || cwd.startsWith(`${wt}/`)
-  const other = plans.find(p => p.worktree !== undefined && p.worktree !== worktree && inside(p.worktree))
-  if (other !== undefined) return { why: `the override is for plan "${slug}", and this session is in plan "${other.state?.slug}"` }
   pendingOverrides.delete(slug)
-  return { ran: await withSecret($, s => cairn($, argv.slice(1), { cwd: worktree, env: { CAIRN_APPROVER: s } })) }
+  return { ran: await cairnWithSecret($, argv.slice(1), worktree).catch((err: unknown) => message(err)) }
 }
 
 export function install(on: On): void {
@@ -169,9 +188,15 @@ export function install(on: On): void {
     const isPlain = argv !== undefined && !argv.includes('approve') && hasOverride(argv)
     const out = isPlain ? await runOverride($, argv) : { why: NOT_PLAIN }
     if (out.ran !== undefined) {
+      // Core keeps no is_error from a hook's Bash result, so a failure reads as the Bash tool's does.
+      const proof = 'cairn ran this --override itself, with your Override answer as proof'
+      if (typeof out.ran === 'string') {
+        return { result: { stdout: `cairn: the override run failed: ${out.ran}`, stderr: '', interrupted: false }, context: [`${proof}.`] }
+      }
       const { stdout, stderr, exitCode } = out.ran
-      const said = `cairn ran this --override itself, with your Override answer as proof${exitCode === 0 ? '' : ` (exit ${exitCode})`}.`
-      return { result: { stdout, stderr, interrupted: false }, context: [said] }
+      const lead = exitCode === 0 ? '' : `Exit code ${exitCode}\n`
+      const said = exitCode === 0 ? `${proof}.` : `${proof}; it failed with exit code ${exitCode}.`
+      return { result: { stdout: `${lead}${stdout}`, stderr, interrupted: false }, context: [said] }
     }
     const ran = await next(e)
     if (out.why === undefined || ran.deny !== undefined) return ran
@@ -180,6 +205,8 @@ export function install(on: On): void {
 
   // No deny catch (NFR-02): a hook that fails is skipped, and the user's answer goes on as it was.
   on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
+    // Answers the model wrote into its own call are not the user's: read them before the dialog runs.
+    const prefilled = { ...(e as { answers?: Record<string, unknown> }).answers }
     const ran = await next(e)
     // A dismissed or failed dialog answered nothing; a subagent's is not the user's menu.
     if (ran.deny !== undefined || ran.isError || e.agentId !== undefined) return ran
@@ -187,8 +214,6 @@ export function install(on: On): void {
     if (tags.length === 0) return ran
     const result = ran.result as { answers?: Record<string, unknown>; afkTimeoutMs?: number } | undefined
     const answers = result?.answers ?? {}
-    // Answers the model wrote into its own call are not the user's.
-    const prefilled = (e as { answers?: Record<string, unknown> }).answers ?? {}
     const notes: string[] = []
     for (const tag of tags) {
       if (tag.override) {

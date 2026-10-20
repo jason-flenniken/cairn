@@ -37,8 +37,14 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - The secret lives only in `mod/approve.ts`'s memory. `<git common dir>/cairn/mod-secret.sha256` holds its SHA-256 as lowercase hex, written with `$.fs.write` and then `chmod 600`, because `$.fs.write` takes no mode.
 - The hash file doesn't exist until the first approval or override. The mod writes the secret and its hash just before first use, and writes a fresh pair after every use, whatever the CLI answered. Uses run one at a time, so two approvals that land together each get their own secret.
 - The engine allows only one `session.start` hook without a matcher per module. The heartbeat owns it, so approve.ts has none.
-- The approval hook reads only `result.answers` from the dialog. It ignores answers the model put in its own call's input, a result with `afkTimeoutMs`, a dismissed or failed dialog, and subagents' dialogs. It has no `.catch`: if it throws, the hook is skipped and the user's answer goes on unchanged.
-- An "Override" answer is held in memory for 10 minutes. With exactly one held, the Bash hook runs the model's plain `cairn … --override "…"` itself, in that plan's worktree, and returns the CLI's output as the tool's result. A command with `; | & $ \` > <`, a newline, or a backslash runs as written, with a context line saying why the override wasn't used. So does `cd <wt> && cairn …`. A command that includes `approve` is never run this way.
+- The approval hook reads only `result.answers` from the dialog. It ignores answers the model put in its own call's input, which it copies before the dialog runs, a result with `afkTimeoutMs`, a dismissed or failed dialog, and subagents' dialogs. It has no `.catch`: if it throws, the hook is skipped and the user's answer goes on unchanged.
+- Every `process.run` the mod makes has a timeout: 60 s for `status` and `chmod`, 10 minutes for `approve` and an override. A hung CLI then can't hold up later uses of the secret, and its failure is reported.
+- An "Override" answer is held in memory for 10 minutes. The Bash hook runs the model's plain `cairn … --override "…"` itself and returns the CLI's output as the tool's result. It runs the command for the plan whose worktree the session is in, or for the one plan holding an override. Commands run as written, with a context line saying why the override wasn't used, when they contain any of these:
+  - `; | & $ \` > <`, a newline, or a backslash
+  - an unquoted `# * ? ~ ( ) { } [ ]`
+
+  That includes `cd <wt> && cairn …`. A command that includes `approve` is never run this way.
+- A hook can't mark a Bash result as an error. Core ignores `isError` on a hook's Bash result, and a string result fails Bash's output schema (checked in a `-p` probe). So a failed override's stdout starts with `Exit code N`, the way the Bash tool's own does, and its context line names the exit code. The probe also showed that a hook's `{ stdout, stderr, interrupted }` result and its `context` reach the model.
 
 ## Testing
 
