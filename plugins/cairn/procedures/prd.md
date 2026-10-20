@@ -37,16 +37,22 @@ Merge the findings. Apply each fix that follows from a recorded decision straigh
 **Done when:** every finding is applied, answered, or dismissed with a one-line reason, and `prd.md` has no `- [ ]` item that the user has already answered.
 
 ## 5. Stop for approval
-Present about five lines: the problem, the solution, the number of requirements, the sharpest non-goal, and the main security point. Then ask with AskUserQuestion:
-- Approve (Recommended)
-- Revise: ask what to change, apply, rerun steps 3-4 for the changed parts
-- Pause: go to the pause procedure
+Present about five lines: the problem, the solution, the number of requirements, the sharpest non-goal, and the main security point.
+
+Run `cairn status --json` and read `modActive`.
+- True: ask with AskUserQuestion. The question text includes `[cairn:approve prd <slug>]`, with the plan slug from the status output. Options:
+  - Approve (Recommended)
+  - Revise: ask what to change, apply, rerun steps 3-4 for the changed parts
+  - Pause: go to the pause procedure
+- False: the mod can't record a menu answer. Tell the user to run `cairn approve prd --human` in their own terminal, then wait for them to say it's done.
 
 Do not approve on the user's behalf.
 
-**Done when:** the user chose Approve.
+**Done when:** the user chose Approve, or said the terminal approval ran.
 
-## 6. Approve and advance
-Run `cairn approve prd`. If refused (a missing section, or an open `- [ ]` question), fix what it names, show the user the change, and rerun. Then run `cairn advance`.
+## 6. Confirm and advance
+Run `cairn status --json` and check that the PRD approval is recorded. If it is not, say what the menu outcome or the terminal output reported, fix what it names (a missing section, or an open `- [ ]` question), show the user the change, and return to step 5.
+
+Once the approval is recorded, run `cairn advance`.
 
 **Done when:** the stage is `plan`. Then run `cairn next --json` and follow the procedure it names.

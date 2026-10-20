@@ -23,7 +23,7 @@ Dispatch the `acceptance-checker` agent (`model: sonnet`) with the paths to `prd
 
 ## 4. Resolve gaps
 For each partial or missing item, ask with AskUserQuestion (grouped when many): Fix it (Recommended) / Accept the gap (recorded as a deviation).
-- Fix it: add a fix slice to `plan.md` in a new final phase (own scope, `covers` the requirement, concrete test cases). Run `cairn plan load --replan`, get the user's approval of the changed plan with `cairn approve plan`, run `cairn next --json` to execute it, and return here once its phase is approved.
+- Fix it: add a fix slice to `plan.md` in a new final phase (own scope, `covers` the requirement, concrete test cases). Run `cairn plan load --replan`. Then get the user's approval of the changed plan: run `cairn status --json` and read `modActive`. When true, ask with AskUserQuestion, with the question text including `[cairn:approve plan <slug>]`: Approve (Recommended) / Revise. When false, tell the user to run `cairn approve plan --human` in their own terminal and wait. Then run `cairn status --json` to confirm the approval, run `cairn next --json` to execute the fix, and return here once its phase is approved.
 - Accept: note it for the record's Deviations section with the user's reason.
 
 **Done when:** no item is partial or missing, or each remaining one is accepted with a reason.
