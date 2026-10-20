@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { loadConfig } from './config.ts';
 import { commitPath, commonDir } from './git.ts';
 import { planRel, requirePlan, type Ctx, type PlanRef } from './locate.ts';
+import { consumeGrant, humanProof, type ProofIO } from './proof.ts';
 import { emptySections, missingSections, RECORD_SECTIONS, RECORD_WORD_BUDGET, wordCount } from './sections.ts';
 import { loadState, log, saveState } from './state.ts';
 import type { Config, State } from './types.ts';
@@ -33,11 +34,49 @@ export interface TestRun {
   tail: string;
 }
 
-/** Refuse unless the condition holds; an override lets it through and is logged. */
+/**
+ * The command being run, set by planCtx. Each kind of proof is checked at most once per command,
+ * pass or fail: the secret rotates and a grant is consumed on first use, and --human asks once.
+ * null records a check that failed.
+ */
+let current: { ctx: Ctx; human?: { source: 'mod' | 'terminal' } | null; grant?: { reason: string } | null } | undefined;
+
+function humanOnce(opts: Opts, io?: ProofIO): { source: 'mod' | 'terminal' } | undefined {
+  if (!current) return undefined;
+  if (current.human === undefined) current.human = humanProof(current.ctx, opts, io) ?? null;
+  return current.human ?? undefined;
+}
+
+/** Take the plan's grant once per command, even when other proof covers the override, so none is left waiting. */
+function grantOnce(slug: string): { reason: string } | undefined {
+  if (!current) return undefined;
+  if (current.grant === undefined) current.grant = consumeGrant(commonDir(current.ctx.mainRoot), slug) ?? null;
+  return current.grant ?? undefined;
+}
+
+/** Approvals come from the user: the mod's menu or pane, or a terminal run with --human. */
+export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO): 'mod' | 'terminal' {
+  const p = humanOnce(opts, io);
+  if (p) return p.source;
+  throw new Refusal('approvals come from the user, and this command has no proof that one did', [
+    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${current?.ctx.plan?.slug}]`,
+    `or the user runs, in their own terminal: cairn approve ${kind} --human`,
+    'or the user presses Approve in the cairn pane (or runs /cairn:approve)',
+  ]);
+}
+
+/** Refuse unless the condition holds; an override with the user's proof lets it through and is logged. */
 export function gate(ok: boolean, s: State, event: string, opts: Opts, message: string, fixes: string[] = []): void {
   if (ok) return;
   if (opts.override) {
-    log(s, `override: ${event}`, message, opts.override);
+    const human = humanOnce(opts);
+    const grant = grantOnce(s.slug);
+    if (!human && !grant)
+      throw new Refusal(`${message}; an override needs proof that the user chose it`, [
+        `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], then retry within 10 minutes`,
+        'or the user runs this command, with --override, in their own terminal with --human',
+      ]);
+    log(s, `override: ${event}`, `${message} (source: ${human?.source ?? 'grant'})`, human ? opts.override : grant!.reason);
     return;
   }
   throw new Refusal(message, [...fixes, `or, if the user chose to skip this: add --override "<reason>"`]);
@@ -45,6 +84,7 @@ export function gate(ok: boolean, s: State, event: string, opts: Opts, message: 
 
 export function planCtx(ctx: Ctx): PlanCtx {
   const plan = requirePlan(ctx);
+  current = { ctx };
   return { ctx, plan, cfg: loadConfig(plan.worktree, ctx.mainRoot) };
 }
 

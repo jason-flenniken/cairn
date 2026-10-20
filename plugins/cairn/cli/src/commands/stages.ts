@@ -7,15 +7,19 @@ import { PRD_SECTIONS, sections, uncheckedItems } from '../sections.ts';
 import { log } from '../state.ts';
 import { STAGES, type Stage } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
-import { docProblems, gate, mutate, planCtx, planFile, recordProblems, runTests, testsGate, type Opts, type Result } from '../shared.ts';
+import type { ProofIO } from '../proof.ts';
+import { docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type Result } from '../shared.ts';
 
 const STAGE_ORDER: Stage[] = [...STAGES];
 const nextStage = (s: Stage): Stage | undefined => STAGE_ORDER[STAGE_ORDER.indexOf(s) + 1];
-const via = (opts: Opts): 'agent' | 'human' => (opts.via === 'human' ? 'human' : 'agent');
+const APPROVAL_KINDS = ['prd', 'plan', 'phase', 'ship'];
+const APPROVE_USAGE = 'usage: cairn approve prd|plan|phase|ship [--human] [--note "…"]';
 
-export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts): Result {
+export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: ProofIO): Result {
+  if (!kind || !APPROVAL_KINDS.includes(kind)) throw new CliError(APPROVE_USAGE);
   const pc = planCtx(ctx);
-  const approval = () => ({ at: now(), via: via(opts), ...(opts.note ? { note: String(opts.note) } : {}) });
+  const source = requireHumanProof(kind, opts, io);
+  const approval = () => ({ at: now(), via: 'human' as const, source, ...(opts.note ? { note: String(opts.note) } : {}) });
   switch (kind) {
     case 'prd': {
       const md = readText(planFile(pc, 'prd.md'));
@@ -26,7 +30,7 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts): Resu
         if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(' | ')}`);
         gate(!problems.length, s, 'approve prd', opts, problems.join('; '), ['finish prd.md, resolving open questions with the user']);
         s.approvals.prd = { ...approval(), hash: md ? hashText(md) : undefined };
-        log(s, 'PRD approved', s.approvals.prd.via);
+        log(s, 'PRD approved', source);
         return { message: 'PRD approved. Next: `cairn advance` to planning.' };
       });
     }
@@ -37,7 +41,7 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts): Resu
         gate(s.phases.length > 0, s, 'approve plan', opts, 'no plan is loaded', ['cairn plan load']);
         gate(!!md && s.planHash === hashText(md), s, 'approve plan', opts, 'plan.md changed since it was loaded', ['cairn plan load']);
         s.approvals.plan = { ...approval(), hash: s.planHash };
-        log(s, 'plan approved', s.approvals.plan.via);
+        log(s, 'plan approved', source);
         return { message: 'Plan approved. Next: `cairn advance` to execution.' };
       });
     }
@@ -50,7 +54,7 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts): Resu
         const drift = s.drift.filter((d) => !d.acked);
         gate(!drift.length, s, 'approve phase', opts, `drift not reviewed: ${drift.map((d) => d.path).join(', ')}`, ['review each with the user, then cairn drift ack <path> --note "…" (or --all)']);
         phase.status = 'done';
-        log(s, 'phase approved', phase.name);
+        log(s, 'phase approved', `${phase.name} (source: ${source})`);
         const following = currentPhase(s);
         if (following) {
           following.status = 'in_progress';
@@ -67,11 +71,11 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts): Resu
         const problems = recordProblems(pc);
         gate(!problems.length, s, 'approve ship', opts, problems.join('; '), ['write RECORD.md from templates/record.md']);
         s.approvals.ship = approval();
-        log(s, 'ship approved', s.approvals.ship.via);
+        log(s, 'ship approved', source);
         return { message: 'Ship approved. Next: open the PR, then `cairn advance`.' };
       });
     default:
-      throw new CliError('usage: cairn approve prd|plan|phase|ship [--note "…"]');
+      throw new CliError(APPROVE_USAGE);
   }
 }
 
