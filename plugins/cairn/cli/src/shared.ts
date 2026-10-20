@@ -34,32 +34,30 @@ export interface TestRun {
   tail: string;
 }
 
-interface Proof {
-  source: 'mod' | 'terminal' | 'grant';
-  /** A grant's reason: the question the user answered "Override" to. */
-  reason?: string;
+/**
+ * The command being run, set by planCtx. Each kind of proof is checked at most once per command,
+ * pass or fail: the secret rotates and a grant is consumed on first use, and --human asks once.
+ * null records a check that failed.
+ */
+let current: { ctx: Ctx; human?: { source: 'mod' | 'terminal' } | null; grant?: { reason: string } | null } | undefined;
+
+function humanOnce(opts: Opts, io?: ProofIO): { source: 'mod' | 'terminal' } | undefined {
+  if (!current) return undefined;
+  if (current.human === undefined) current.human = humanProof(current.ctx, opts, io) ?? null;
+  return current.human ?? undefined;
 }
 
-/**
- * The command being run, set by planCtx. Proof is checked once per command: the secret rotates
- * and a grant is consumed on first use, so later checks in the same command reuse the result.
- */
-let current: { ctx: Ctx; proof?: Proof } | undefined;
-
-function commandProof(opts: Opts, grantSlug?: string, io?: ProofIO): Proof | undefined {
+/** Take the plan's grant once per command, even when other proof covers the override, so none is left waiting. */
+function grantOnce(slug: string): { reason: string } | undefined {
   if (!current) return undefined;
-  if (!current.proof) {
-    const human = humanProof(current.ctx, opts, io);
-    const grant = !human && grantSlug ? consumeGrant(commonDir(current.ctx.mainRoot), grantSlug) : undefined;
-    current.proof = human ?? (grant && { source: 'grant', reason: grant.reason });
-  }
-  return current.proof;
+  if (current.grant === undefined) current.grant = consumeGrant(commonDir(current.ctx.mainRoot), slug) ?? null;
+  return current.grant ?? undefined;
 }
 
 /** Approvals come from the user: the mod's menu or pane, or a terminal run with --human. */
 export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO): 'mod' | 'terminal' {
-  const p = commandProof(opts, undefined, io);
-  if (p?.source === 'mod' || p?.source === 'terminal') return p.source;
+  const p = humanOnce(opts, io);
+  if (p) return p.source;
   throw new Refusal('approvals come from the user, and this command has no proof that one did', [
     `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${current?.ctx.plan?.slug}]`,
     `or the user runs, in their own terminal: cairn approve ${kind} --human`,
@@ -71,13 +69,14 @@ export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO): 'mod'
 export function gate(ok: boolean, s: State, event: string, opts: Opts, message: string, fixes: string[] = []): void {
   if (ok) return;
   if (opts.override) {
-    const p = commandProof(opts, s.slug);
-    if (!p)
+    const human = humanOnce(opts);
+    const grant = grantOnce(s.slug);
+    if (!human && !grant)
       throw new Refusal(`${message}; an override needs proof that the user chose it`, [
         `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], then retry within 10 minutes`,
         'or the user runs this command, with --override, in their own terminal with --human',
       ]);
-    log(s, `override: ${event}`, `${message} (source: ${p.source})`, p.reason ?? opts.override);
+    log(s, `override: ${event}`, `${message} (source: ${human?.source ?? 'grant'})`, human ? opts.override : grant!.reason);
     return;
   }
   throw new Refusal(message, [...fixes, `or, if the user chose to skip this: add --override "<reason>"`]);

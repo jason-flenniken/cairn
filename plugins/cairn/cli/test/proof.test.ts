@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, afterEach, before, test } from 'node:test';
+import { after, afterEach, before, mock, test } from 'node:test';
 import { cmdApprove } from '../src/commands.ts';
 import { context } from '../src/locate.ts';
 import { parseArgs, run } from '../src/main.ts';
@@ -130,6 +131,48 @@ test('a grant dated in the future, for another slug, or with a bad slug is refus
   writeGrant('billing', 1_000, { slug: 'other' });
   assert.equal(consumeGrant(common, 'billing'), undefined);
   assert.equal(consumeGrant(common, '../billing'), undefined);
+});
+
+test('modActive is false for a heartbeat dated in the future', () => {
+  writeHeartbeat(-5_000);
+  assert.equal(modActive(common), false);
+});
+
+test('the --human prompt does not show the plan slug', () => {
+  let prompt = '';
+  humanProof(context(repo), { human: true }, { isTTY: () => true, readLine: (p) => ((prompt = p), 'billing') });
+  assert.match(prompt, /Type the plan name to confirm:/);
+  assert.ok(!prompt.includes('billing'));
+});
+
+test('rotateSecret does not follow or overwrite a file planted at a temp path', () => {
+  mkdirSync(cairnDir(), { recursive: true });
+  const outside = join(repo, 'outside.txt');
+  writeFileSync(outside, 'keep');
+  symlinkSync(outside, `${secretFile()}.${process.pid}.tmp`);
+  rotateSecret(common);
+  assert.equal(readFileSync(outside, 'utf8'), 'keep');
+  assert.match(readSecret(), /^[0-9a-f]{64}$/);
+  rmSync(outside);
+});
+
+test('a symlinked secret file gives no proof', () => {
+  mkdirSync(cairnDir(), { recursive: true });
+  const outside = join(repo, 'planted-secret');
+  writeFileSync(outside, 'abc123');
+  symlinkSync(outside, secretFile());
+  process.env.CAIRN_APPROVER = 'abc123';
+  assert.equal(humanProof(context(repo), {}), undefined);
+  rmSync(outside);
+});
+
+test('a symlinked grant file is refused', () => {
+  mkdirSync(join(cairnDir(), 'grants'), { recursive: true });
+  const outside = join(repo, 'planted-grant.json');
+  writeFileSync(outside, JSON.stringify({ reason: 'r', createdAt: Date.now(), slug: 'billing' }));
+  symlinkSync(outside, join(cairnDir(), 'grants', 'billing.json'));
+  assert.equal(consumeGrant(common, 'billing'), undefined);
+  rmSync(outside);
 });
 
 // Command-level behavior: a real plan created with `cairn new`.
@@ -261,4 +304,58 @@ test('status --json and next --json report modActive from the heartbeat', () => 
 
 test('--human parses as a flag', () => {
   assert.deepEqual(parseArgs(['approve', 'prd', '--human']), { pos: ['approve', 'prd'], opts: { human: true } });
+});
+
+test('approve --via human with no proof is refused', () => {
+  refusedWith(() => run(['approve', 'prd', '--via', 'human'], wt), /cairn approve prd --human/);
+});
+
+test('a wrong slug on a plan with no prior approval records nothing', () => {
+  const fwt = run(['new', 'fresh', '--title', 'Fresh'], main).data!.worktree as string;
+  run(['decide', 'q', 'a'], fwt);
+  run(['advance'], fwt);
+  writeFileSync(join(fwt, 'docs/sdlc/plans/fresh/prd.md'), PRD);
+  refusedWith(() => cmdApprove(context(fwt), 'prd', { human: true }, tty('billing')), /cairn approve fresh --human|cairn approve prd --human/);
+  assert.equal(planState('fresh').approvals.prd, undefined);
+});
+
+test('when the secret covers an override, a waiting grant for the plan is consumed too', () => {
+  grant('fresh', 1_000);
+  setSecret('cover');
+  run(['approve', 'plan', '--override', 'user said go'], planWt('fresh'));
+  assert.ok(!existsSync(join(mainCairn(), 'grants', 'fresh.json')));
+  const o = planState('fresh').log.find((l: { event: string }) => l.event === 'override: approve plan');
+  assert.equal(o.override, 'user said go');
+  assert.match(o.detail, /source: mod/);
+});
+
+test('a failed --human proof is asked once per command, even across several overridden checks', () => {
+  // fresh is in plan with no RECORD.md and no test command: close fails three checks.
+  grant('fresh', 1_000);
+  const typed = Buffer.from('wrong\n');
+  let pos = 0;
+  const prompts: string[] = [];
+  const tty = (v: boolean | undefined) => {
+    Object.defineProperty(process.stdin, 'isTTY', { value: v, configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: v, configurable: true });
+  };
+  const wasTTY = [process.stdin.isTTY, process.stdout.isTTY];
+  mock.method(fs, 'readSync', (_fd: number, buf: Buffer) => (pos < typed.length ? ((buf[0] = typed[pos++]), 1) : 0));
+  mock.method(process.stderr, 'write', (chunk: string) => (prompts.push(String(chunk)), true));
+  syncBuiltinESMExports();
+  tty(true);
+  try {
+    run(['close', '--override', 'user said close', '--human'], planWt('fresh'));
+  } finally {
+    mock.restoreAll();
+    syncBuiltinESMExports();
+    Object.defineProperty(process.stdin, 'isTTY', { value: wasTTY[0], configurable: true });
+    Object.defineProperty(process.stdout, 'isTTY', { value: wasTTY[1], configurable: true });
+  }
+  assert.equal(prompts.filter((p) => p.includes('Type the plan name')).length, 1);
+  const s = planState('fresh');
+  assert.equal(s.stage, 'closed');
+  const overrides = s.log.filter((l: { event: string }) => l.event === 'override: close');
+  assert.equal(overrides.length, 3);
+  for (const o of overrides) assert.match(o.detail, /source: grant/);
 });
