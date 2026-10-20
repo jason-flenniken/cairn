@@ -1,0 +1,8 @@
+{
+  "setup": "npm ci --silent --no-audit --no-fund",
+  "test": "npm run typecheck && npm test",
+  "build": "npm run build",
+  "appTypes": [],
+  "maxParallel": 3,
+  "autoCommit": true
+}
