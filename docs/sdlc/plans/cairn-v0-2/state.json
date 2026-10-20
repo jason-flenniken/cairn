@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T22:00:04.814Z",
+  "updated": "2026-10-20T22:46:21.897Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -15,6 +15,12 @@
       "via": "agent",
       "note": "bootstrap: approved in menu, relayed by agent because the mod does not exist yet",
       "hash": "5bde3d913b280c57"
+    },
+    "plan": {
+      "at": "2026-10-20T22:46:21.896Z",
+      "via": "agent",
+      "note": "re-plan approved in menu, relayed by agent (bootstrap)",
+      "hash": "7e2fd7f5483bbce7"
     }
   },
   "phases": [
@@ -528,6 +534,11 @@
       "at": "2026-10-20T22:00:04.814Z",
       "event": "re-plan loaded",
       "detail": "16 slices"
+    },
+    {
+      "at": "2026-10-20T22:46:21.897Z",
+      "event": "plan approved",
+      "detail": "agent"
     }
   ],
   "planHash": "7e2fd7f5483bbce7"
