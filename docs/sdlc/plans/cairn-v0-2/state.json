@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T21:30:07.470Z",
+  "updated": "2026-10-20T21:36:01.632Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -41,8 +41,15 @@
             "plugins/cairn/cli/test/**"
           ],
           "complexity": "standard",
-          "status": "pending",
-          "fixRound": 0
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/cli-split",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--cli-split",
+          "base": "1658017e523c57663d5b30b4fefe3cb8f8cee294",
+          "note": "resumed after the worktree lock was lifted",
+          "doneAt": "2026-10-20T21:36:01.631Z",
+          "tip": "f46394b",
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'"
         },
         {
           "id": "mod-guards",
@@ -68,8 +75,12 @@
             "package.json"
           ],
           "complexity": "complex",
-          "status": "pending",
-          "fixRound": 0
+          "status": "in_progress",
+          "fixRound": 0,
+          "substep": "implementing",
+          "branch": "sdlc-slice/cairn-v0-2/mod-guards",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--mod-guards",
+          "base": "1658017e523c57663d5b30b4fefe3cb8f8cee294"
         },
         {
           "id": "human-proof",
@@ -363,6 +374,36 @@
       "at": "2026-10-20T21:30:07.469Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-10-20T21:30:13.458Z",
+      "event": "slice started",
+      "detail": "Split CLI commands into modules"
+    },
+    {
+      "at": "2026-10-20T21:30:14.576Z",
+      "event": "slice started",
+      "detail": "Mod skeleton, guards, heartbeat"
+    },
+    {
+      "at": "2026-10-20T21:32:37.110Z",
+      "event": "slice implementing",
+      "detail": "Split CLI commands into modules: resumed after the worktree lock was lifted"
+    },
+    {
+      "at": "2026-10-20T21:35:16.021Z",
+      "event": "slice reviewing",
+      "detail": "Split CLI commands into modules"
+    },
+    {
+      "at": "2026-10-20T21:35:53.807Z",
+      "event": "slice merging",
+      "detail": "Split CLI commands into modules"
+    },
+    {
+      "at": "2026-10-20T21:36:01.632Z",
+      "event": "slice done",
+      "detail": "Split CLI commands into modules"
     }
   ],
   "planHash": "7c7dd8a96e0a502a"

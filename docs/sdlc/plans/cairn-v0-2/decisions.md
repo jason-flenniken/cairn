@@ -61,3 +61,8 @@ _2026-10-20 21:23_
 **Decision:** Every override needs the same human proof as an approval, granted by a tagged Override menu answer or a terminal run. The mod authenticates to the CLI with a per-session secret instead of a fixed value. Guards deny by default any Bash command that mentions plan state, the secret, or a cairn approval, allowing only a short read list, and cover every tool by canonical path; guard errors deny. Child commands run with the secret removed from their environment. A change to the repo config commands after plan approval blocks running them. A re-plan or a later code commit invalidates a drift verdict; decision 10 supersedes decision 4 on yellow. The drift check includes the product PRD when present. Stdin input is dropped because the worktree guard parses heredoc text like arguments. The fix-track record cap stays at 300 words.
 **Why:** Applies the security, feasibility, coherence, testability, and scope review findings that follow from earlier decisions.
 _2026-10-20 21:23_
+
+### 13. How does the orchestrator relate to plan and slice worktrees?
+**Decision:** The orchestrator session runs from the repo root without a worktree lock and runs cairn from the plan worktree with cd. A worktree-locked session blocks its subagents from editing and committing in slice worktrees. Dogfood finding: new.md must stop entering the plan worktree with EnterWorktree; added to the dogfood phase at the next re-plan.
+**Why:** Implementers were blocked in the first parallel phase; the scope guard and drift logging still police what each slice touches.
+_2026-10-20 21:32_
