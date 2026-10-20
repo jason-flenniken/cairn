@@ -71,3 +71,8 @@ _2026-10-20 21:32_
 **Decision:** Only a SHA-256 hash of the mod secret is stored on disk; the mod keeps the secret in memory and generates a new one (and a new hash) after each use. Override grant files are removed: when the user picks Override, the mod records a pending override for that plan (10 minutes); when the model next runs a cairn command with --override for that plan, the mod runs it itself with the secret and returns the CLI output as the tool result. FR-02a is renamed FR-34 so the coverage check tracks it.
 **Why:** A broad search could pull a plaintext secret into the model context, and a script could forge a grant file; with a hash on disk and mod-run overrides there is nothing usable to read or forge.
 _2026-10-20 21:59_
+
+### 15. Engine limit: one unmatched session.start hook per module
+**Decision:** The approval secret hash is written lazily before first use, not at session start. Pause and pane need session start too, so register.tsx gets a single session.start fan-out that calls each module; added to those slices at the phase-end re-plan. Re-plan bug: carrying slice progress across a re-plan dropped each slice start commit; fix added to the CLI polish slice at the same re-plan.
+**Why:** Found while building menu approval and closing the mod-guards slice.
+_2026-10-20 23:05_
