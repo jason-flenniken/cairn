@@ -32,6 +32,14 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 
   Reading a plan's state, grepping for names like `CAIRN_APPROVER`, and git commands other than checkout/restore/rm/mv all run. The guard is a best-effort deny-list on spellings. The CLI's proof is the real control. `grep -r . .` from the repo root can still reach `.git`.
 
+## Menu approval and overrides (FR-02, FR-34)
+
+- The secret lives only in `mod/approve.ts`'s memory. `<git common dir>/cairn/mod-secret.sha256` holds its SHA-256 as lowercase hex, written with `$.fs.write` and then `chmod 600`, because `$.fs.write` takes no mode.
+- The hash file doesn't exist until the first approval or override. The mod writes the secret and its hash just before first use, and writes a fresh pair after every use, whatever the CLI answered. Uses run one at a time, so two approvals that land together each get their own secret.
+- The engine allows only one `session.start` hook without a matcher per module. The heartbeat owns it, so approve.ts has none.
+- The approval hook reads only `result.answers` from the dialog. It ignores answers the model put in its own call's input, a result with `afkTimeoutMs`, a dismissed or failed dialog, and subagents' dialogs. It has no `.catch`: if it throws, the hook is skipped and the user's answer goes on unchanged.
+- An "Override" answer is held in memory for 10 minutes. With exactly one held, the Bash hook runs the model's plain `cairn … --override "…"` itself, in that plan's worktree, and returns the CLI's output as the tool's result. A command with `; | & $ \` > <`, a newline, or a backslash runs as written, with a context line saying why the override wasn't used. So does `cd <wt> && cairn …`. A command that includes `approve` is never run this way.
+
 ## Testing
 
 `claude plugin test <dir>` runs every `*.test.ts` under `<dir>`, skipping only `node_modules` and dot-folders. That includes `cli/test`, whose node:test files can't load in the mod environment.
