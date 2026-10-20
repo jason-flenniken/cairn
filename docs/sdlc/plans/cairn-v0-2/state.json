@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T21:36:01.632Z",
+  "updated": "2026-10-20T21:43:27.378Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -101,8 +101,12 @@
             "plugins/cairn/cli/test/lifecycle.test.ts"
           ],
           "complexity": "complex",
-          "status": "pending",
-          "fixRound": 0
+          "status": "in_progress",
+          "fixRound": 0,
+          "substep": "implementing",
+          "branch": "sdlc-slice/cairn-v0-2/human-proof",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--human-proof",
+          "base": "cf1fc07052e10bb1af9b27e0c30b9aa3c5c6b677"
         },
         {
           "id": "approval-procedures",
@@ -125,8 +129,15 @@
             "plugins/cairn/cli/test/procedures.test.ts"
           ],
           "complexity": "simple",
-          "status": "pending",
-          "fixRound": 0
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/approval-procedures",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--approval-procedures",
+          "base": "cf1fc07052e10bb1af9b27e0c30b9aa3c5c6b677",
+          "note": "review step 5 dead end; tighten tests; rename phase-end option",
+          "doneAt": "2026-10-20T21:43:27.377Z",
+          "tip": "d3b1552",
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'"
         },
         {
           "id": "menu-approval",
@@ -404,6 +415,36 @@
       "at": "2026-10-20T21:36:01.632Z",
       "event": "slice done",
       "detail": "Split CLI commands into modules"
+    },
+    {
+      "at": "2026-10-20T21:36:08.299Z",
+      "event": "slice started",
+      "detail": "CLI human proof, grants, modActive"
+    },
+    {
+      "at": "2026-10-20T21:36:08.779Z",
+      "event": "slice started",
+      "detail": "Tagged approval menus in procedures"
+    },
+    {
+      "at": "2026-10-20T21:40:27.733Z",
+      "event": "slice reviewing",
+      "detail": "Tagged approval menus in procedures"
+    },
+    {
+      "at": "2026-10-20T21:41:21.395Z",
+      "event": "slice fixing",
+      "detail": "Tagged approval menus in procedures (round 1): review step 5 dead end; tighten tests; rename phase-end option"
+    },
+    {
+      "at": "2026-10-20T21:43:20.245Z",
+      "event": "slice merging",
+      "detail": "Tagged approval menus in procedures"
+    },
+    {
+      "at": "2026-10-20T21:43:27.378Z",
+      "event": "slice done",
+      "detail": "Tagged approval menus in procedures"
     }
   ],
   "planHash": "7c7dd8a96e0a502a"
