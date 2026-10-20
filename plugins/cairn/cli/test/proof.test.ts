@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { readdirSync } from 'node:fs';
 import fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -9,7 +10,7 @@ import { after, afterEach, before, mock, test } from 'node:test';
 import { cmdApprove } from '../src/commands.ts';
 import { context } from '../src/locate.ts';
 import { parseArgs, run } from '../src/main.ts';
-import { humanProof, modActive } from '../src/proof.ts';
+import { humanProof, modActive, secretMatches } from '../src/proof.ts';
 import { Refusal } from '../src/util.ts';
 
 let repo: string;
@@ -126,6 +127,25 @@ test('a hash file that is not a regular file gives no proof', () => {
 test('a missing hash file gives no proof', () => {
   process.env.CAIRN_APPROVER = 'abc123';
   assert.equal(humanProof(context(repo), {}), undefined);
+});
+
+test('a hash file with a trailing newline still matches', () => {
+  writeHash(`${sha256('abc123')}\n`);
+  assert.equal(secretMatches(common, 'abc123'), true);
+});
+
+test('of two uses of one secret, exactly one gets proof, and no claimed file is left behind', () => {
+  writeSecret('abc123');
+  const results = [secretMatches(common, 'abc123'), secretMatches(common, 'abc123')];
+  assert.deepEqual(results, [true, false]);
+  assert.deepEqual(readdirSync(cairnDir()), []);
+});
+
+test('a mismatch puts the original hash file back and leaves nothing else', () => {
+  writeSecret('abc123');
+  assert.equal(secretMatches(common, 'nope'), false);
+  assert.equal(readFileSync(secretFile(), 'utf8'), sha256('abc123'));
+  assert.deepEqual(readdirSync(cairnDir()), ['mod-secret.sha256']);
 });
 
 test('CAIRN_APPROVER set to the hash file contents is refused', () => {

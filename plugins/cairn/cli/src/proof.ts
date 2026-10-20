@@ -1,5 +1,5 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
-import { closeSync, constants, fstatSync, openSync, readFileSync, readSync, rmSync } from 'node:fs';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { closeSync, constants, fstatSync, linkSync, openSync, readFileSync, readSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { commonDir } from './git.ts';
 import type { Ctx } from './locate.ts';
@@ -55,15 +55,36 @@ function readRegularFile(path: string): string | undefined {
   }
 }
 
-/** True when the given secret hashes to the one-time hash the mod stored. The file is deleted on a match, so each secret works once. */
-function secretMatches(common: string, given: string | undefined): boolean {
+/**
+ * True when the given secret hashes to the one-time hash the mod stored. The file is claimed by an atomic
+ * rename first, so of any concurrent callers only one can see it. A match spends it; a mismatch puts it back.
+ */
+export function secretMatches(common: string, given: string | undefined): boolean {
   if (!given) return false;
-  const stored = readRegularFile(hashPath(common))?.trim() ?? '';
+  const original = hashPath(common);
+  const claimed = `${original}.claimed.${randomBytes(8).toString('hex')}`;
+  try {
+    renameSync(original, claimed);
+  } catch {
+    return false;
+  }
+  const stored = readRegularFile(claimed)?.trim() ?? '';
   const a = Buffer.from(stored);
   const b = Buffer.from(createHash('sha256').update(given).digest('hex'));
-  if (a.length === 0 || a.length !== b.length || !timingSafeEqual(a, b)) return false;
-  rmSync(hashPath(common), { force: true });
-  return true;
+  const match = a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+  if (!match) {
+    try {
+      linkSync(claimed, original); // no-clobber: a fresh hash may already exist
+    } catch {
+      // EEXIST or an unrestorable file: nothing more to do
+    }
+  }
+  try {
+    rmSync(claimed, { force: true });
+  } catch {
+    // a non-file planted here stays; it is not proof
+  }
+  return match;
 }
 
 /**
