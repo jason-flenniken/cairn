@@ -7364,13 +7364,12 @@ var require_dist = __commonJS({
 // plugins/cairn/cli/src/main.ts
 import { readFileSync as readFileSync3 } from "node:fs";
 
-// plugins/cairn/cli/src/commands.ts
-import { spawnSync as spawnSync2 } from "node:child_process";
-import { appendFileSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync2 } from "node:fs";
-import { dirname as dirname3, isAbsolute, join as join5, relative, resolve } from "node:path";
+// plugins/cairn/cli/src/locate.ts
+import { existsSync as existsSync2 } from "node:fs";
+import { basename, dirname as dirname2, join as join2 } from "node:path";
 
-// plugins/cairn/cli/src/config.ts
-import { join as join2 } from "node:path";
+// plugins/cairn/cli/src/git.ts
+import { execFileSync, spawnSync } from "node:child_process";
 
 // plugins/cairn/cli/src/util.ts
 import { createHash } from "node:crypto";
@@ -7428,26 +7427,7 @@ function withLock(dir, fn) {
   }
 }
 
-// plugins/cairn/cli/src/config.ts
-var CONFIG_REL = ".sdlc/config.json";
-var DEFAULTS = { maxParallel: 3, autoCommit: true };
-function loadConfig(...roots) {
-  for (const root of roots) {
-    if (!root) continue;
-    const raw = readText(join2(root, CONFIG_REL));
-    if (raw === void 0) continue;
-    try {
-      return { ...DEFAULTS, ...JSON.parse(raw) };
-    } catch (e) {
-      throw new CliError(`${CONFIG_REL} is not valid JSON: ${e.message}`);
-    }
-  }
-  return { ...DEFAULTS };
-}
-var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join2(mainRoot, cfg.worktreeRoot) : join2(mainRoot, ".claude", "worktrees");
-
 // plugins/cairn/cli/src/git.ts
-import { execFileSync, spawnSync } from "node:child_process";
 function git(args, cwd) {
   const r = spawnSync("git", args, { cwd, encoding: "utf8" });
   if (r.status !== 0) throw new CliError(`git ${args.join(" ")} failed: ${(r.stderr || r.stdout).trim()}`);
@@ -7478,41 +7458,7 @@ function commitPath(cwd, path, message) {
   return true;
 }
 
-// plugins/cairn/cli/src/glob.ts
-function globToRegex(glob) {
-  let re = "";
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (c === "*") {
-      if (glob[i + 1] === "*") {
-        i++;
-        if (glob[i + 1] === "/") {
-          i++;
-          re += "(?:.*/)?";
-        } else re += ".*";
-      } else re += "[^/]*";
-    } else if (c === "?") re += "[^/]";
-    else re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  }
-  if (!/[*?]/.test(glob)) re = re.replace(/\/$/, "") + "(?:/.*)?";
-  return new RegExp(`^${re}$`);
-}
-var matchesAny = (path, globs) => globs.some((g) => globToRegex(g).test(path));
-var staticPrefix = (glob) => glob.split(/[*?[]/)[0];
-function scopesOverlap(a, b) {
-  for (const x of a)
-    for (const y of b) {
-      if (globToRegex(x).test(y) || globToRegex(y).test(x)) return true;
-      const px = staticPrefix(x);
-      const py = staticPrefix(y);
-      if (px.startsWith(py) || py.startsWith(px)) return true;
-    }
-  return false;
-}
-
 // plugins/cairn/cli/src/locate.ts
-import { existsSync as existsSync2 } from "node:fs";
-import { basename, dirname as dirname2, join as join3 } from "node:path";
 var PLAN_PREFIX = "sdlc/";
 var SLICE_PREFIX = "sdlc-slice/";
 var PLANS_DIR = "docs/sdlc/plans";
@@ -7529,7 +7475,7 @@ function parseBranch(branch) {
 }
 function planRef(slug, wts) {
   const wt = wts.find((w) => w.branch === planBranch(slug));
-  return wt ? { slug, worktree: wt.path, dir: join3(wt.path, planRel(slug)) } : { slug };
+  return wt ? { slug, worktree: wt.path, dir: join2(wt.path, planRel(slug)) } : { slug };
 }
 function context(cwd, slugOverride) {
   let top;
@@ -7549,13 +7495,34 @@ function context(cwd, slugOverride) {
 function requirePlan(ctx) {
   const p = ctx.plan;
   if (!p) throw new CliError(`not on a plan branch (current: ${ctx.branch}). Use \`cairn status --all\` to list plans, or \`cairn new <slug>\`.`);
-  if (!p.worktree || !p.dir || !existsSync2(join3(p.dir, "state.json")))
+  if (!p.worktree || !p.dir || !existsSync2(join2(p.dir, "state.json")))
     throw new CliError(`plan "${p.slug}" has no checked-out worktree with state. Check out ${planBranch(p.slug)} first.`);
   return p;
 }
 
-// plugins/cairn/cli/src/plan-parse.ts
-var import_yaml = __toESM(require_dist(), 1);
+// plugins/cairn/cli/src/shared.ts
+import { spawnSync as spawnSync2 } from "node:child_process";
+import { appendFileSync, mkdirSync as mkdirSync2 } from "node:fs";
+import { join as join5 } from "node:path";
+
+// plugins/cairn/cli/src/config.ts
+import { join as join3 } from "node:path";
+var CONFIG_REL = ".sdlc/config.json";
+var DEFAULTS = { maxParallel: 3, autoCommit: true };
+function loadConfig(...roots) {
+  for (const root of roots) {
+    if (!root) continue;
+    const raw = readText(join3(root, CONFIG_REL));
+    if (raw === void 0) continue;
+    try {
+      return { ...DEFAULTS, ...JSON.parse(raw) };
+    } catch (e) {
+      throw new CliError(`${CONFIG_REL} is not valid JSON: ${e.message}`);
+    }
+  }
+  return { ...DEFAULTS };
+}
+var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join3(mainRoot, cfg.worktreeRoot) : join3(mainRoot, ".claude", "worktrees");
 
 // plugins/cairn/cli/src/sections.ts
 function sections(md) {
@@ -7610,141 +7577,8 @@ var RECORD_WORD_BUDGET = 900;
 var FR_ID = /\bFR-\d+\b/g;
 var ids = (text = "") => [...new Set(text.match(FR_ID) ?? [])];
 
-// plugins/cairn/cli/src/plan-parse.ts
-var BLOCK = /```ya?ml\s+cairn-slices\s*\n([\s\S]*?)```/;
-var COMPLEXITY = ["simple", "standard", "complex"];
-var strList = (v) => Array.isArray(v) && v.every((x) => typeof x === "string") ? v : void 0;
-function parsePlan(planMd, prdMd) {
-  const problems = [];
-  const missing = missingSections(planMd, PLAN_SECTIONS);
-  if (missing.length) problems.push(`plan.md is missing sections: ${missing.join(", ")}`);
-  const block = planMd.match(BLOCK)?.[1];
-  if (!block) return { phases: [], problems: [...problems, "plan.md has no ```yaml cairn-slices block under ## Phases"] };
-  let doc;
-  try {
-    doc = (0, import_yaml.parse)(block);
-  } catch (e) {
-    return { phases: [], problems: [...problems, `cairn-slices YAML does not parse: ${e.message}`] };
-  }
-  const rawPhases = doc?.phases;
-  if (!Array.isArray(rawPhases) || rawPhases.length === 0)
-    return { phases: [], problems: [...problems, "cairn-slices needs a non-empty `phases:` list"] };
-  const prdIds = new Set(ids(sections(prdMd).get("functional requirements")));
-  const phases = [];
-  const phaseOf = /* @__PURE__ */ new Map();
-  const seenPhase = /* @__PURE__ */ new Set();
-  rawPhases.forEach((rp, pi) => {
-    const pid = String(rp?.id ?? "");
-    if (!SLUG.test(pid)) problems.push(`phase #${pi + 1}: id "${pid}" must be kebab-case`);
-    if (seenPhase.has(pid)) problems.push(`phase id "${pid}" is used twice`);
-    seenPhase.add(pid);
-    const slices = [];
-    if (!Array.isArray(rp?.slices) || rp.slices.length === 0) problems.push(`phase "${pid}" has no slices`);
-    for (const rs of rp?.slices ?? []) {
-      const sid = String(rs?.id ?? "");
-      const where = `slice "${sid}"`;
-      if (!SLUG.test(sid)) problems.push(`${where}: id must be kebab-case`);
-      if (phaseOf.has(sid)) problems.push(`${where}: id is used twice`);
-      phaseOf.set(sid, pi);
-      const covers = strList(rs?.covers) ?? [];
-      const blockedBy = strList(rs?.blocked_by ?? []) ?? [];
-      const scope = strList(rs?.scope) ?? [];
-      const complexity = rs?.complexity ?? "standard";
-      if (!covers.length) problems.push(`${where}: \`covers\` must list the PRD FR ids it implements`);
-      for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Functional requirements`);
-      if (!scope.length) problems.push(`${where}: \`scope\` must list the file globs it may touch`);
-      if (!COMPLEXITY.includes(complexity)) problems.push(`${where}: complexity must be simple, standard, or complex`);
-      slices.push({ id: sid, name: String(rs?.name ?? sid), covers, blockedBy, scope, complexity, status: "pending", fixRound: 0 });
-    }
-    phases.push({ id: pid, name: String(rp?.name ?? pid), status: "pending", slices });
-  });
-  const all = phases.flatMap((p) => p.slices);
-  for (const [pi, p] of phases.entries())
-    for (const s of p.slices)
-      for (const b of s.blockedBy) {
-        if (!phaseOf.has(b)) problems.push(`slice "${s.id}": blocked_by "${b}" is not a slice in this plan`);
-        else if (phaseOf.get(b) > pi) problems.push(`slice "${s.id}": blocked_by "${b}" is in a later phase`);
-      }
-  const cycle = findCycle(all);
-  if (cycle) problems.push(`blocked_by has a cycle: ${cycle.join(" \u2192 ")}`);
-  const covered = new Set(all.flatMap((s) => s.covers));
-  const deferred = new Set(ids(sections(planMd).get("deferred requirements")));
-  const uncovered = [...prdIds].filter((id) => !covered.has(id) && !deferred.has(id));
-  if (uncovered.length)
-    problems.push(`PRD requirements not covered by any slice: ${uncovered.join(", ")}. Cover them or list them under ## Deferred requirements`);
-  return { phases, problems };
-}
-function findCycle(slices) {
-  const deps = new Map(slices.map((s) => [s.id, s.blockedBy]));
-  const state = /* @__PURE__ */ new Map();
-  const stack = [];
-  const visit = (id) => {
-    if (state.get(id) === 2) return;
-    if (state.get(id) === 1) return [...stack.slice(stack.indexOf(id)), id];
-    state.set(id, 1);
-    stack.push(id);
-    for (const d of deps.get(id) ?? []) {
-      const c = visit(d);
-      if (c) return c;
-    }
-    stack.pop();
-    state.set(id, 2);
-  };
-  for (const s of slices) {
-    const c = visit(s.id);
-    if (c) return c;
-  }
-}
-function mergeProgress(next, prev) {
-  const old = new Map(prev.flatMap((p) => p.slices).map((s) => [s.id, s]));
-  const kept = /* @__PURE__ */ new Set();
-  for (const p of next)
-    for (const [i, s] of p.slices.entries()) {
-      const o = old.get(s.id);
-      if (!o) continue;
-      kept.add(s.id);
-      p.slices[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
-    }
-  const lostDone = [...old.values()].filter((s) => s.status !== "pending" && !kept.has(s.id)).map((s) => s.id);
-  for (const p of next) p.status = phaseStatus(p, prev.find((q) => q.id === p.id)?.status);
-  return { phases: next, lostDone };
-}
-function phaseStatus(p, prior) {
-  if (p.slices.every((s) => s.status === "done")) return prior === "done" ? "done" : "awaiting_approval";
-  if (p.slices.some((s) => s.status !== "pending") || prior === "in_progress") return "in_progress";
-  return "pending";
-}
-
-// plugins/cairn/cli/src/ready.ts
-var currentPhase = (s) => s.phases.find((p) => p.status !== "done");
-var allSlices = (s) => s.phases.flatMap((p) => p.slices);
-var findSlice = (s, id) => allSlices(s).find((x) => x.id === id);
-function readySet(s, maxParallel) {
-  const phase = currentPhase(s);
-  const done = new Set(allSlices(s).filter((x) => x.status === "done").map((x) => x.id));
-  const inProgress = allSlices(s).filter((x) => x.status === "in_progress");
-  const result = { ready: [], inProgress, waiting: [], phase };
-  if (!phase || s.stage !== "execute" || s.paused) return result;
-  let room = Math.max(0, maxParallel - inProgress.length);
-  const taken = inProgress.map((x) => x.scope);
-  for (const sl of phase.slices) {
-    if (sl.status !== "pending") continue;
-    const on = sl.blockedBy.filter((b) => !done.has(b));
-    if (on.length) {
-      result.waiting.push({ slice: sl, on });
-      continue;
-    }
-    const clash = taken.some((t) => scopesOverlap(t, sl.scope));
-    if (clash || room === 0) {
-      result.waiting.push({ slice: sl, on: clash ? ["scope overlap with running work"] : ["parallel cap"] });
-      continue;
-    }
-    result.ready.push(sl);
-    taken.push(sl.scope);
-    room--;
-  }
-  return result;
-}
+// plugins/cairn/cli/src/state.ts
+import { join as join4 } from "node:path";
 
 // plugins/cairn/cli/src/render.ts
 var STAGE_LABEL = {
@@ -7861,7 +7695,6 @@ function renderIndex(rows) {
 }
 
 // plugins/cairn/cli/src/state.ts
-import { join as join4 } from "node:path";
 var statePath = (dir) => join4(dir, "state.json");
 function loadState(dir) {
   const raw = readText(statePath(dir));
@@ -7902,12 +7735,7 @@ function newState(slug, title, track, branch, base) {
   };
 }
 
-// plugins/cairn/cli/src/types.ts
-var STAGES = ["discover", "prd", "plan", "execute", "verify", "review", "ship", "learn", "closed"];
-var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
-
-// plugins/cairn/cli/src/commands.ts
-var MAX_FIX_ROUNDS = 5;
+// plugins/cairn/cli/src/shared.ts
 function gate(ok, s, event, opts, message, fixes = []) {
   if (ok) return;
   if (opts.override) {
@@ -7931,10 +7759,13 @@ function mutate(pc, commitMsg, fn) {
   return r;
 }
 var planFile = (pc, name) => join5(pc.plan.dir, name);
-var via = (opts) => opts.via === "human" ? "human" : "agent";
+function childEnv() {
+  const { CAIRN_APPROVER: _approver, ...rest } = process.env;
+  return rest;
+}
 function runTests(cfg, cwd) {
   if (!cfg.test) return void 0;
-  const r = spawnSync2("sh", ["-c", cfg.test], { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync2("sh", ["-c", cfg.test], { cwd, encoding: "utf8", env: childEnv(), maxBuffer: 64 * 1024 * 1024 });
   const lines = `${r.stdout ?? ""}
 ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
   return { ok: r.status === 0, cmd: cfg.test, tail: lines.slice(-1)[0] ?? `exit ${r.status}` };
@@ -7949,7 +7780,7 @@ function testsGate(t, s, event, opts) {
 }
 function runSetup(cfg, wt, mainRoot) {
   if (!cfg.setup) return "";
-  const r = spawnSync2("sh", ["-c", cfg.setup], { cwd: wt, encoding: "utf8", env: { ...process.env, CAIRN_MAIN_ROOT: mainRoot }, maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync2("sh", ["-c", cfg.setup], { cwd: wt, encoding: "utf8", env: { ...childEnv(), CAIRN_MAIN_ROOT: mainRoot }, maxBuffer: 64 * 1024 * 1024 });
   return r.status === 0 ? `
 Setup ran: ${cfg.setup}` : `
 Setup failed (\`${cfg.setup}\`, exit ${r.status}): ${(r.stderr || r.stdout).trim().split("\n").slice(-3).join(" ")}`;
@@ -7969,8 +7800,6 @@ function recordProblems(pc) {
   if (md && wordCount(md) > RECORD_WORD_BUDGET) p.push(`RECORD.md is ${wordCount(md)} words; the budget is ${RECORD_WORD_BUDGET}`);
   return p;
 }
-var STAGE_ORDER = [...STAGES];
-var nextStage = (s) => STAGE_ORDER[STAGE_ORDER.indexOf(s) + 1];
 function ensureExcluded(mainRoot, pattern) {
   const file = join5(commonDir(mainRoot), "info", "exclude");
   const cur = readText(file) ?? "";
@@ -7987,6 +7816,10 @@ function template(name) {
     return void 0;
   }
 }
+
+// plugins/cairn/cli/src/commands/plans.ts
+import { existsSync as existsSync3 } from "node:fs";
+import { join as join6 } from "node:path";
 function cmdNew(ctx, slug, opts) {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "\u2026"');
   const branch = planBranch(slug);
@@ -8004,11 +7837,11 @@ function cmdNew(ctx, slug, opts) {
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-    wt = join5(root, `sdlc-${slug}`);
+    wt = join6(root, `sdlc-${slug}`);
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
-  const dir = join5(wt, planRel(slug));
-  writeText(join5(dir, "decisions.md"), `# Decisions: ${title}
+  const dir = join6(wt, planRel(slug));
+  writeText(join6(dir, "decisions.md"), `# Decisions: ${title}
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
@@ -8025,11 +7858,11 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   };
 }
 function cmdProductInit(ctx) {
-  const dir = join5(ctx.top, "docs/sdlc/product");
-  const prd = join5(dir, "PRD.md");
+  const dir = join6(ctx.top, "docs/sdlc/product");
+  const prd = join6(dir, "PRD.md");
   if (existsSync3(prd)) throw new Refusal("docs/sdlc/product/PRD.md already exists", ["edit it with the product procedure instead"]);
   writeText(prd, template("product-prd.md") ?? "# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n");
-  writeText(join5(dir, "decisions", ".gitkeep"), "");
+  writeText(join6(dir, "decisions", ".gitkeep"), "");
   return { message: `Created docs/sdlc/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
 }
 function cmdDecide(ctx, question, answer, opts) {
@@ -8047,6 +7880,81 @@ _${now().slice(0, 16).replace("T", " ")}_
 `);
   return { message: `Recorded decision ${n}: ${answer}`, data: { number: n } };
 }
+
+// plugins/cairn/cli/src/commands/stages.ts
+import { join as join7 } from "node:path";
+
+// plugins/cairn/cli/src/glob.ts
+function globToRegex(glob) {
+  let re = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*") {
+      if (glob[i + 1] === "*") {
+        i++;
+        if (glob[i + 1] === "/") {
+          i++;
+          re += "(?:.*/)?";
+        } else re += ".*";
+      } else re += "[^/]*";
+    } else if (c === "?") re += "[^/]";
+    else re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  if (!/[*?]/.test(glob)) re = re.replace(/\/$/, "") + "(?:/.*)?";
+  return new RegExp(`^${re}$`);
+}
+var matchesAny = (path, globs) => globs.some((g) => globToRegex(g).test(path));
+var staticPrefix = (glob) => glob.split(/[*?[]/)[0];
+function scopesOverlap(a, b) {
+  for (const x of a)
+    for (const y of b) {
+      if (globToRegex(x).test(y) || globToRegex(y).test(x)) return true;
+      const px = staticPrefix(x);
+      const py = staticPrefix(y);
+      if (px.startsWith(py) || py.startsWith(px)) return true;
+    }
+  return false;
+}
+
+// plugins/cairn/cli/src/ready.ts
+var currentPhase = (s) => s.phases.find((p) => p.status !== "done");
+var allSlices = (s) => s.phases.flatMap((p) => p.slices);
+var findSlice = (s, id) => allSlices(s).find((x) => x.id === id);
+function readySet(s, maxParallel) {
+  const phase = currentPhase(s);
+  const done = new Set(allSlices(s).filter((x) => x.status === "done").map((x) => x.id));
+  const inProgress = allSlices(s).filter((x) => x.status === "in_progress");
+  const result = { ready: [], inProgress, waiting: [], phase };
+  if (!phase || s.stage !== "execute" || s.paused) return result;
+  let room = Math.max(0, maxParallel - inProgress.length);
+  const taken = inProgress.map((x) => x.scope);
+  for (const sl of phase.slices) {
+    if (sl.status !== "pending") continue;
+    const on = sl.blockedBy.filter((b) => !done.has(b));
+    if (on.length) {
+      result.waiting.push({ slice: sl, on });
+      continue;
+    }
+    const clash = taken.some((t) => scopesOverlap(t, sl.scope));
+    if (clash || room === 0) {
+      result.waiting.push({ slice: sl, on: clash ? ["scope overlap with running work"] : ["parallel cap"] });
+      continue;
+    }
+    result.ready.push(sl);
+    taken.push(sl.scope);
+    room--;
+  }
+  return result;
+}
+
+// plugins/cairn/cli/src/types.ts
+var STAGES = ["discover", "prd", "plan", "execute", "verify", "review", "ship", "learn", "closed"];
+var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
+
+// plugins/cairn/cli/src/commands/stages.ts
+var STAGE_ORDER = [...STAGES];
+var nextStage = (s) => STAGE_ORDER[STAGE_ORDER.indexOf(s) + 1];
+var via = (opts) => opts.via === "human" ? "human" : "agent";
 function cmdApprove(ctx, kind, opts) {
   const pc = planCtx(ctx);
   const approval = () => ({ at: now(), via: via(opts), ...opts.note ? { note: String(opts.note) } : {} });
@@ -8151,6 +8059,127 @@ function cmdAdvance(ctx, opts) {
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRel(pc.plan.slug), `cairn(${pc.plan.slug}): advance to ${to}`);
   return r;
 }
+function cmdClose(ctx, opts) {
+  const pc = planCtx(ctx);
+  const problems = recordProblems(pc);
+  const tests = runTests(pc.cfg, pc.plan.worktree);
+  return mutate(pc, "closed", (s) => {
+    gate(s.stage === "learn", s, "close", opts, `the plan is in ${s.stage}, not learn`);
+    gate(!problems.length, s, "close", opts, problems.join("; "), ["write RECORD.md from templates/record.md"]);
+    testsGate(tests, s, "close", opts);
+    s.stage = "closed";
+    log(s, "closed");
+    return { message: `Closed "${s.title}". The record is ${join7(pc.plan.dir, "RECORD.md")}.` };
+  });
+}
+
+// plugins/cairn/cli/src/plan-parse.ts
+var import_yaml = __toESM(require_dist(), 1);
+var BLOCK = /```ya?ml\s+cairn-slices\s*\n([\s\S]*?)```/;
+var COMPLEXITY = ["simple", "standard", "complex"];
+var strList = (v) => Array.isArray(v) && v.every((x) => typeof x === "string") ? v : void 0;
+function parsePlan(planMd, prdMd) {
+  const problems = [];
+  const missing = missingSections(planMd, PLAN_SECTIONS);
+  if (missing.length) problems.push(`plan.md is missing sections: ${missing.join(", ")}`);
+  const block = planMd.match(BLOCK)?.[1];
+  if (!block) return { phases: [], problems: [...problems, "plan.md has no ```yaml cairn-slices block under ## Phases"] };
+  let doc;
+  try {
+    doc = (0, import_yaml.parse)(block);
+  } catch (e) {
+    return { phases: [], problems: [...problems, `cairn-slices YAML does not parse: ${e.message}`] };
+  }
+  const rawPhases = doc?.phases;
+  if (!Array.isArray(rawPhases) || rawPhases.length === 0)
+    return { phases: [], problems: [...problems, "cairn-slices needs a non-empty `phases:` list"] };
+  const prdIds = new Set(ids(sections(prdMd).get("functional requirements")));
+  const phases = [];
+  const phaseOf = /* @__PURE__ */ new Map();
+  const seenPhase = /* @__PURE__ */ new Set();
+  rawPhases.forEach((rp, pi) => {
+    const pid = String(rp?.id ?? "");
+    if (!SLUG.test(pid)) problems.push(`phase #${pi + 1}: id "${pid}" must be kebab-case`);
+    if (seenPhase.has(pid)) problems.push(`phase id "${pid}" is used twice`);
+    seenPhase.add(pid);
+    const slices = [];
+    if (!Array.isArray(rp?.slices) || rp.slices.length === 0) problems.push(`phase "${pid}" has no slices`);
+    for (const rs of rp?.slices ?? []) {
+      const sid = String(rs?.id ?? "");
+      const where = `slice "${sid}"`;
+      if (!SLUG.test(sid)) problems.push(`${where}: id must be kebab-case`);
+      if (phaseOf.has(sid)) problems.push(`${where}: id is used twice`);
+      phaseOf.set(sid, pi);
+      const covers = strList(rs?.covers) ?? [];
+      const blockedBy = strList(rs?.blocked_by ?? []) ?? [];
+      const scope = strList(rs?.scope) ?? [];
+      const complexity = rs?.complexity ?? "standard";
+      if (!covers.length) problems.push(`${where}: \`covers\` must list the PRD FR ids it implements`);
+      for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Functional requirements`);
+      if (!scope.length) problems.push(`${where}: \`scope\` must list the file globs it may touch`);
+      if (!COMPLEXITY.includes(complexity)) problems.push(`${where}: complexity must be simple, standard, or complex`);
+      slices.push({ id: sid, name: String(rs?.name ?? sid), covers, blockedBy, scope, complexity, status: "pending", fixRound: 0 });
+    }
+    phases.push({ id: pid, name: String(rp?.name ?? pid), status: "pending", slices });
+  });
+  const all = phases.flatMap((p) => p.slices);
+  for (const [pi, p] of phases.entries())
+    for (const s of p.slices)
+      for (const b of s.blockedBy) {
+        if (!phaseOf.has(b)) problems.push(`slice "${s.id}": blocked_by "${b}" is not a slice in this plan`);
+        else if (phaseOf.get(b) > pi) problems.push(`slice "${s.id}": blocked_by "${b}" is in a later phase`);
+      }
+  const cycle = findCycle(all);
+  if (cycle) problems.push(`blocked_by has a cycle: ${cycle.join(" \u2192 ")}`);
+  const covered = new Set(all.flatMap((s) => s.covers));
+  const deferred = new Set(ids(sections(planMd).get("deferred requirements")));
+  const uncovered = [...prdIds].filter((id) => !covered.has(id) && !deferred.has(id));
+  if (uncovered.length)
+    problems.push(`PRD requirements not covered by any slice: ${uncovered.join(", ")}. Cover them or list them under ## Deferred requirements`);
+  return { phases, problems };
+}
+function findCycle(slices) {
+  const deps = new Map(slices.map((s) => [s.id, s.blockedBy]));
+  const state = /* @__PURE__ */ new Map();
+  const stack = [];
+  const visit = (id) => {
+    if (state.get(id) === 2) return;
+    if (state.get(id) === 1) return [...stack.slice(stack.indexOf(id)), id];
+    state.set(id, 1);
+    stack.push(id);
+    for (const d of deps.get(id) ?? []) {
+      const c = visit(d);
+      if (c) return c;
+    }
+    stack.pop();
+    state.set(id, 2);
+  };
+  for (const s of slices) {
+    const c = visit(s.id);
+    if (c) return c;
+  }
+}
+function mergeProgress(next, prev) {
+  const old = new Map(prev.flatMap((p) => p.slices).map((s) => [s.id, s]));
+  const kept = /* @__PURE__ */ new Set();
+  for (const p of next)
+    for (const [i, s] of p.slices.entries()) {
+      const o = old.get(s.id);
+      if (!o) continue;
+      kept.add(s.id);
+      p.slices[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
+    }
+  const lostDone = [...old.values()].filter((s) => s.status !== "pending" && !kept.has(s.id)).map((s) => s.id);
+  for (const p of next) p.status = phaseStatus(p, prev.find((q) => q.id === p.id)?.status);
+  return { phases: next, lostDone };
+}
+function phaseStatus(p, prior) {
+  if (p.slices.every((s) => s.status === "done")) return prior === "done" ? "done" : "awaiting_approval";
+  if (p.slices.some((s) => s.status !== "pending") || prior === "in_progress") return "in_progress";
+  return "pending";
+}
+
+// plugins/cairn/cli/src/commands/planload.ts
 function cmdPlanLoad(ctx, opts) {
   const pc = planCtx(ctx);
   const planMd = readText(planFile(pc, "plan.md"));
@@ -8180,6 +8209,11 @@ function cmdPlanLoad(ctx, opts) {
     };
   });
 }
+
+// plugins/cairn/cli/src/commands/slices.ts
+import { existsSync as existsSync4 } from "node:fs";
+import { join as join8 } from "node:path";
+var MAX_FIX_ROUNDS = 5;
 function cmdReady(ctx) {
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -8215,7 +8249,7 @@ function cmdSlice(ctx, action, id, rest, opts) {
 function sliceStart(pc, id, opts) {
   const { plan, ctx, cfg } = pc;
   const branch = sliceBranch(plan.slug, id);
-  const path = join5(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${plan.slug}--${id}`);
+  const path = join8(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${plan.slug}--${id}`);
   const r = mutate(pc, void 0, (s) => {
     const sl = findSlice(s, id);
     if (!sl) throw new Refusal(`no slice "${id}" in this plan`, ["cairn ready"]);
@@ -8227,7 +8261,7 @@ function sliceStart(pc, id, opts) {
     gate(ready.ready.some((x) => x.id === id), s, "slice start", opts, waiting ? `slice "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `slice "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base = git(["rev-parse", planBranch(plan.slug)], plan.worktree);
     let setup = "";
-    if (!existsSync3(path)) {
+    if (!existsSync4(path)) {
       if (branchExists(branch, plan.worktree)) git(["worktree", "add", "-q", path, branch], plan.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, planBranch(plan.slug)], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
@@ -8264,7 +8298,7 @@ function sliceDone(pc, id, opts) {
   if (sl.status !== "in_progress" || !sl.branch) throw new Refusal(`slice "${sl.name}" is not running`);
   const pb = planBranch(plan.slug);
   const merged = branchExists(sl.branch, plan.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan.worktree);
-  const dirty = sl.worktree && existsSync3(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync4(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan.worktree) ? git(["rev-parse", "--short", sl.branch], plan.worktree) : void 0;
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRel(plan.slug)}`], plan.worktree);
@@ -8286,10 +8320,12 @@ function sliceDone(pc, id, opts) {
       data: { phaseComplete: !left }
     };
   });
-  if (merged && sl.worktree && existsSync3(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan.worktree);
+  if (merged && sl.worktree && existsSync4(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan.worktree);
   if (merged) gitOk(["branch", "-d", sl.branch], plan.worktree);
   return r;
 }
+
+// plugins/cairn/cli/src/commands/evidence.ts
 function cmdEvidence(ctx, kind, result, opts) {
   if (kind !== "verify" && kind !== "review" || result !== "pass" && result !== "fail")
     throw new CliError('usage: cairn evidence verify|review pass|fail [--note "\u2026"] [--blocking N]');
@@ -8314,72 +8350,13 @@ function cmdDriftAck(ctx, path, opts) {
     return { message: `Marked ${hits.length} drift entr${hits.length === 1 ? "y" : "ies"} as reviewed.` };
   });
 }
-function cmdPause(ctx, opts) {
-  const pc = planCtx(ctx);
-  const md = readText(planFile(pc, "handoff.md"));
-  return mutate(pc, "paused", (s) => {
-    if (s.stage === "closed") throw new Refusal("the plan is closed");
-    if (s.paused) throw new Refusal("the plan is already paused", ["cairn resume"]);
-    const problems = docProblems(md, "handoff.md", HANDOFF_SECTIONS);
-    const hash = md ? hashText(md) : void 0;
-    const lastHash = [...s.log].reverse().find((l) => l.event === "paused")?.detail;
-    if (hash && hash === lastHash) problems.push("handoff.md is unchanged since the last pause");
-    gate(!problems.length, s, "pause", opts, problems.join("; "), ["write handoff.md from templates/handoff.md: what is in flight, open questions, the next action"]);
-    s.paused = { at: now(), mode: opts.now ? "now" : "drain", handoffHash: hash };
-    log(s, "paused", hash);
-    return { message: `Paused "${s.title}". To pick up later: open Claude Code in this worktree and run /cairn:next (or /cairn:resume ${s.slug} from main).` };
-  });
-}
-function cmdResume(ctx, slug, opts) {
-  if (slug && ctx.plan?.slug !== slug) {
-    const ref = planRef(slug, ctx.worktrees);
-    if (!branchExists(planBranch(slug), ctx.top)) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
-    if (!ref.worktree) {
-      const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join5(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
-      git(["worktree", "add", "-q", wt, planBranch(slug)], ctx.top);
-      ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-      ref.worktree = wt;
-    }
-    return {
-      message: `Plan "${slug}" lives in ${ref.worktree}. Switch into it (EnterWorktree with that path, or \`cd ${ref.worktree} && claude\`), then run /cairn:resume.`,
-      data: { slug, worktree: ref.worktree, switchRequired: true }
-    };
-  }
-  const pc = planCtx(ctx);
-  const wasPaused = !!loadState(pc.plan.dir).paused;
-  const r = mutate(pc, wasPaused ? "resumed" : void 0, (s) => {
-    if (s.paused) {
-      log(s, "resumed", `paused since ${s.paused.at.slice(0, 10)}`);
-      s.paused = null;
-    }
-    const next = nextFor(s);
-    const running = allSlices(s).filter((x) => x.status === "in_progress");
-    return {
-      message: [
-        wasPaused ? `Resumed "${s.title}".` : `"${s.title}" was not paused.`,
-        summary(s),
-        ...running.map((x) => `  in flight: ${x.name} (${x.substep}${x.fixRound ? `, fix round ${x.fixRound}` : ""}) at ${x.worktree}`),
-        `Next: ${next.text}`
-      ].join("\n"),
-      data: { procedure: procedurePath(next.procedure), handoff: readText(planFile(pc, "handoff.md")) ?? null }
-    };
-  });
-  return r;
-}
-function cmdClose(ctx, opts) {
-  const pc = planCtx(ctx);
-  const problems = recordProblems(pc);
-  const tests = runTests(pc.cfg, pc.plan.worktree);
-  return mutate(pc, "closed", (s) => {
-    gate(s.stage === "learn", s, "close", opts, `the plan is in ${s.stage}, not learn`);
-    gate(!problems.length, s, "close", opts, problems.join("; "), ["write RECORD.md from templates/record.md"]);
-    testsGate(tests, s, "close", opts);
-    s.stage = "closed";
-    log(s, "closed");
-    return { message: `Closed "${s.title}". The record is ${join5(pc.plan.dir, "RECORD.md")}.` };
-  });
-}
+
+// plugins/cairn/cli/src/commands/pause.ts
+import { join as join10 } from "node:path";
+
+// plugins/cairn/cli/src/commands/status.ts
+import { existsSync as existsSync5, readFileSync as readFileSync2 } from "node:fs";
+import { join as join9 } from "node:path";
 function listPlans(ctx) {
   const refs = git(["for-each-ref", "--format=%(refname:short)", "refs/heads/sdlc/"], ctx.top).split("\n").filter(Boolean);
   const rows = [];
@@ -8387,7 +8364,7 @@ function listPlans(ctx) {
     const slug = b.slice("sdlc/".length);
     const ref = planRef(slug, ctx.worktrees);
     try {
-      const raw = ref.dir && existsSync3(join5(ref.dir, "state.json")) ? readFileSync2(join5(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
+      const raw = ref.dir && existsSync5(join9(ref.dir, "state.json")) ? readFileSync2(join9(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
       rows.push({ state: parseState(raw), live: !!ref.dir, worktree: ref.worktree });
     } catch {
     }
@@ -8422,7 +8399,7 @@ ${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.st
     data: { state: s, next, warnings: w, slice: ctx.slice ?? null, planWorktree: pc.plan.worktree }
   };
 }
-var procedurePath = (name) => join5(pluginRoot(), "procedures", `${name}.md`);
+var procedurePath = (name) => join9(pluginRoot(), "procedures", `${name}.md`);
 function cmdNext(ctx) {
   if (!ctx.plan) {
     const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
@@ -8448,16 +8425,75 @@ function cmdRender(ctx) {
   if (ctx.plan) {
     const pc = planCtx(ctx);
     withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
-    return { message: `Rendered ${join5(pc.plan.dir, "STATUS.md")}.` };
+    return { message: `Rendered ${join9(pc.plan.dir, "STATUS.md")}.` };
   }
-  const out = join5(ctx.top, "docs/sdlc/INDEX.md");
+  const out = join9(ctx.top, "docs/sdlc/INDEX.md");
   writeText(out, renderIndex(listPlans(ctx)));
   return { message: `Rendered ${out}.` };
 }
+
+// plugins/cairn/cli/src/commands/pause.ts
+function cmdPause(ctx, opts) {
+  const pc = planCtx(ctx);
+  const md = readText(planFile(pc, "handoff.md"));
+  return mutate(pc, "paused", (s) => {
+    if (s.stage === "closed") throw new Refusal("the plan is closed");
+    if (s.paused) throw new Refusal("the plan is already paused", ["cairn resume"]);
+    const problems = docProblems(md, "handoff.md", HANDOFF_SECTIONS);
+    const hash = md ? hashText(md) : void 0;
+    const lastHash = [...s.log].reverse().find((l) => l.event === "paused")?.detail;
+    if (hash && hash === lastHash) problems.push("handoff.md is unchanged since the last pause");
+    gate(!problems.length, s, "pause", opts, problems.join("; "), ["write handoff.md from templates/handoff.md: what is in flight, open questions, the next action"]);
+    s.paused = { at: now(), mode: opts.now ? "now" : "drain", handoffHash: hash };
+    log(s, "paused", hash);
+    return { message: `Paused "${s.title}". To pick up later: open Claude Code in this worktree and run /cairn:next (or /cairn:resume ${s.slug} from main).` };
+  });
+}
+function cmdResume(ctx, slug, opts) {
+  if (slug && ctx.plan?.slug !== slug) {
+    const ref = planRef(slug, ctx.worktrees);
+    if (!branchExists(planBranch(slug), ctx.top)) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
+    if (!ref.worktree) {
+      const cfg = loadConfig(ctx.top, ctx.mainRoot);
+      const wt = join10(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
+      git(["worktree", "add", "-q", wt, planBranch(slug)], ctx.top);
+      ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
+      ref.worktree = wt;
+    }
+    return {
+      message: `Plan "${slug}" lives in ${ref.worktree}. Switch into it (EnterWorktree with that path, or \`cd ${ref.worktree} && claude\`), then run /cairn:resume.`,
+      data: { slug, worktree: ref.worktree, switchRequired: true }
+    };
+  }
+  const pc = planCtx(ctx);
+  const wasPaused = !!loadState(pc.plan.dir).paused;
+  const r = mutate(pc, wasPaused ? "resumed" : void 0, (s) => {
+    if (s.paused) {
+      log(s, "resumed", `paused since ${s.paused.at.slice(0, 10)}`);
+      s.paused = null;
+    }
+    const next = nextFor(s);
+    const running = allSlices(s).filter((x) => x.status === "in_progress");
+    return {
+      message: [
+        wasPaused ? `Resumed "${s.title}".` : `"${s.title}" was not paused.`,
+        summary(s),
+        ...running.map((x) => `  in flight: ${x.name} (${x.substep}${x.fixRound ? `, fix round ${x.fixRound}` : ""}) at ${x.worktree}`),
+        `Next: ${next.text}`
+      ].join("\n"),
+      data: { procedure: procedurePath(next.procedure), handoff: readText(planFile(pc, "handoff.md")) ?? null }
+    };
+  });
+  return r;
+}
+
+// plugins/cairn/cli/src/commands/hooks.ts
+import { existsSync as existsSync6 } from "node:fs";
+import { dirname as dirname3, isAbsolute, join as join11, relative, resolve } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync3(join5(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync6(join11(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return "";
@@ -8477,9 +8513,9 @@ function hookPostEdit(input) {
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve(input.cwd ?? process.cwd(), file);
   let dir = dirname3(abs);
-  while (!existsSync3(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
+  while (!existsSync6(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync3(join5(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync6(join11(ctx.plan.dir, "state.json"))) return "";
   const rel = relative(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (rel.startsWith("docs/sdlc/") || rel.startsWith(".sdlc/") || rel.startsWith(".claude/")) return "";
