@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T21:30:07.349Z",
-  "stage": "plan",
+  "updated": "2026-10-20T21:30:07.470Z",
+  "stage": "execute",
   "paused": null,
   "approvals": {
     "prd": {
@@ -27,7 +27,7 @@
     {
       "id": "proof",
       "name": "Proof of the user",
-      "status": "pending",
+      "status": "in_progress",
       "slices": [
         {
           "id": "cli-split",
@@ -358,6 +358,11 @@
       "at": "2026-10-20T21:30:07.349Z",
       "event": "plan approved",
       "detail": "agent"
+    },
+    {
+      "at": "2026-10-20T21:30:07.469Z",
+      "event": "advanced",
+      "detail": "execute"
     }
   ],
   "planHash": "7c7dd8a96e0a502a"
