@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:28:20.524Z",
+  "updated": "2026-10-21T22:32:50.507Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -51,9 +51,14 @@
             "plugins/cairn/hooks/NOTES.md"
           ],
           "complexity": "complex",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "substep": "implementing",
+          "branch": "task/pane-status-bar-and-polish/pinned-bar",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--pinned-bar",
+          "base": "11adf57e4e0abc18283d5630663bfa13db8e7fec",
+          "startedAt": "2026-10-21T22:28:24.382Z"
         },
         {
           "id": "late-steps",
@@ -70,10 +75,18 @@
             "plugins/cairn/references/cli.md"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "a new CLI command takes arguments from procedures and writes plan state"
+          "riskReason": "a new CLI command takes arguments from procedures and writes plan state",
+          "branch": "task/pane-status-bar-and-polish/late-steps",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--late-steps",
+          "base": "11adf57e4e0abc18283d5630663bfa13db8e7fec",
+          "startedAt": "2026-10-21T22:28:24.838Z",
+          "doneAt": "2026-10-21T22:32:50.506Z",
+          "tip": "42a8e0a",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "cbc6771263136451287f35a6d4fba6c3538c77a4"
         }
       ]
     },
@@ -236,6 +249,41 @@
       "at": "2026-10-21T22:28:20.524Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T22:28:24.382Z",
+      "event": "task started",
+      "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:28:24.838Z",
+      "event": "task started",
+      "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:29:01.390Z",
+      "event": "task implementing",
+      "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:29:01.461Z",
+      "event": "task implementing",
+      "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:30:50.318Z",
+      "event": "task reviewing",
+      "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:32:23.062Z",
+      "event": "task merging",
+      "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:32:50.507Z",
+      "event": "task done",
+      "detail": "Record check, review and ship steps"
     }
   ],
   "suggestions": [
@@ -278,6 +326,46 @@
       "from": "user",
       "at": "2026-10-21T22:13:01.854Z",
       "declines": "cleaner-pane-and-records:s20"
+    },
+    {
+      "id": "s4",
+      "area": "quality",
+      "text": "cairn step stores --count for any step but only shows it with fixing; refuse --count on other steps, and build the (count) suffix once",
+      "where": [
+        "plugins/cairn/cli/src/commands/step.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:11.939Z"
+    },
+    {
+      "id": "s5",
+      "area": "tests",
+      "text": "Cover --count 1000000 (over the cap) and --count with no value in step.test.ts",
+      "where": [
+        "plugins/cairn/cli/test/step.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:12.023Z"
+    },
+    {
+      "id": "s6",
+      "area": "security",
+      "text": "(security review) stepText trusts state.step from state.json: show only known step names and integer counts, or strip a bad step in normalize()",
+      "where": [
+        "plugins/cairn/cli/src/render.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:22.920Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "(security review) Assert approvals, planHash and evidence are unchanged after a step; add count edge cases (1.5, 1e3, ' 3', newline) and make the refusal text say 0 to 999999",
+      "where": [
+        "plugins/cairn/cli/test/step.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:22.991Z"
     }
   ],
   "planHash": "0eaa106a32c142a9",
