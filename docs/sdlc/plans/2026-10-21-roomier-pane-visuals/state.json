@@ -6,8 +6,8 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:32:04.977Z",
-  "stage": "discover",
+  "updated": "2026-10-21T20:38:13.633Z",
+  "stage": "prd",
   "paused": null,
   "approvals": {},
   "phases": [],
@@ -17,6 +17,38 @@
     {
       "at": "2026-10-21T20:32:04.977Z",
       "event": "created"
+    },
+    {
+      "at": "2026-10-21T20:38:13.633Z",
+      "event": "advanced",
+      "detail": "prd"
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "ux",
+      "text": "Resolved cleaner-pane-and-records:s22",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T20:36:47.028Z",
+      "resolves": "cleaner-pane-and-records:s22",
+      "note": "brought into roomier-pane-visuals"
+    },
+    {
+      "id": "s2",
+      "area": "tests",
+      "text": "Declined cleaner-pane-and-records:s20",
+      "where": [
+        "plugins/cairn/cli/test/**",
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T20:36:47.229Z",
+      "declines": "cleaner-pane-and-records:s20"
     }
   ]
 }
