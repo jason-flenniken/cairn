@@ -185,16 +185,18 @@ async function openPane($: EngineInterface): Promise<string> {
 export async function onSessionStart($: EngineInterface, _e: SessionStartInput): Promise<void> {
   for (const spec of COMMANDS) await $.command.register(spec).catch(() => undefined)
   common = await commonDir($).catch(() => undefined)
-  // Outside a git repo there are no plans: the commands are all (FR-08).
-  if (common === undefined) return
+  // Outside a git repo there are no plans, but the agent cards still apply: the pane opens anyway.
+  if (common === undefined) {
+    await openPane($)
+    return
+  }
   isRetrying = !(await refresh($))
   const v = await read($, view)
   seen = await signature($, watched(v?.plans ?? []))
   ticking?.cancel()
   ticking = $.clock.every(EVERY_MS, () => void poll($).catch(() => undefined))
-  // Only a plan in progress opens it unasked; the engine seats an unasked pane just on a wide fullscreen terminal.
-  const here = v?.plans.find(r => r.state.slug === v.here)
-  if (here !== undefined && isActive(here) && (!v?.isFallback || v.plans.filter(isActive).length === 1)) await openPane($)
+  // Always open: the engine seats an unasked pane once the terminal is wide enough (144 columns, 110 after the user has opened it once).
+  await openPane($)
 }
 
 const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${kind} stop of plan ${slug}?`
@@ -389,7 +391,7 @@ export function install(on: On): void {
               split(`task:${x.id ?? x.name}`, `   ${x.status === 'done' ? '✓' : '●'} ${x.name ?? x.id ?? '?'}`, x.status === 'done' && spanOf(x) >= 0 ? fmtDuration(spanOf(x), true) : '', x.status === 'done' ? 'green' : undefined)),
           ]
         }),
-        drift.length > 0 && <Text key="drift" color="yellow">{`${drift.length} unreviewed drift:`}</Text>,
+        drift.length > 0 && <Text key="drift" color="yellow">{`${drift.length} out-of-scope edit${drift.length === 1 ? "" : "s"}:`}</Text>,
         ...drift.slice(0, DRIFT_SHOWN).map((d, i) => <Text key={`drift:${i}`} dimColor wrap="truncate-end">{`  ${d.path ?? '?'}`}</Text>),
         ...recent.map((l, i) => <Text key={`recent:${i}`} dimColor wrap="truncate-end">{l}</Text>),
         buttons,
@@ -398,10 +400,13 @@ export function install(on: On): void {
 
     return (
       <Box flexDirection="column">
-        {here !== undefined
+        {here !== undefined && isActive(here)
           ? planLines(here)
           : [
-              <Text key="none" dimColor>{v === null ? 'No cairn plans read yet.' : 'This session is not in a plan worktree.'}</Text>,
+              <Text key="head" bold>cairn</Text>,
+              <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>,
+              (v?.plans[0]?.openSuggestions ?? 0) > 0 && <Text key="sugg" dimColor>{`${v?.plans[0]?.openSuggestions} open suggestions · /cairn:suggestions`}</Text>,
+              ...(isInline ? agentLines() : [<Text key="now" bold>NOW</Text>, ...cards.map(agentCard), mainCard()]),
               <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
             ]}
         {others.length > 0 && <Text bold>Other active plans</Text>}

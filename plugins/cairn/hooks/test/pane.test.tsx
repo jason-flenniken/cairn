@@ -237,7 +237,7 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await start($, WT)
       const ui = await mount($, surface)
       const text = await drawn(ui)
-      expect(text).toMatch(/6 unreviewed drift/)
+      expect(text).toMatch(/6 out-of-scope edits/)
       for (const n of [1, 2, 3, 4, 5]) expect(text).toContain(`src/stray${n}.ts`)
       expect(text).not.toContain('src/stray6.ts')
       expect(text).not.toContain('src/acked.ts')
@@ -446,10 +446,10 @@ describe('opening the pane (FR-08)', () => {
     expect(w.opens).toEqual(['cairn'])
   })
 
-  test('on main with several active plans it does not open unasked', async ($, on) => {
+  test('on main with several active plans it still opens', async ($, on) => {
     const { w } = world(on, { cwd: MAIN, rows: [row(plan(), WT), row(plan({ slug: 'beta' }), '/repo/.claude/worktrees/sdlc-beta')] })
     await start($, MAIN)
-    expect(w.opens).toEqual([])
+    expect(w.opens).toEqual(['cairn'])
   })
 
   test('when the pane is not placed, the reason is a toast', async ($, on) => {
@@ -463,19 +463,19 @@ describe('opening the pane (FR-08)', () => {
     const { w } = world(on, { cwd: MAIN, rows: [row(plan(), WT), row(plan({ slug: 'beta' }), undefined)] })
     await start($, MAIN)
     expect((await command($, 'cairn-pane')).text).toMatch(/open/)
-    expect(w.opens).toEqual(['cairn'])
+    expect(w.opens).toEqual(['cairn', 'cairn'])
     w.placed = 'the terminal is 100 columns; a pane needs 110'
     const out = await command($, 'cairn-pane')
     expect(out.text).toContain('the terminal is 100 columns; a pane needs 110')
     expect(w.toasts.join('\n')).toContain('the terminal is 100 columns; a pane needs 110')
   })
 
-  test('outside a git repo only the commands are registered', async ($, on) => {
+  test('outside a git repo it opens with no plan reads', async ($, on) => {
     const { w } = world(on, { rows: [row(plan(), WT)], cwd: '/tmp', isGitRepo: false })
     await start($, '/tmp')
     expect(w.registered).toEqual(expect.arrayContaining(['cairn-pane', 'cairn-approve']))
     expect(w.runs).toEqual([])
-    expect(w.opens).toEqual([])
+    expect(w.opens).toEqual(['cairn'])
   })
 })
 
@@ -677,10 +677,10 @@ describe('agent cards', () => {
     expect(w.statuses.at(-1)).toBe('cairn · Build 1/4 tasks · 1 working · ~18m left')
   })
 
-  test('a closed plan does not open the pane unasked', async ($, on) => {
+  test('a closed plan still opens the pane, showing no plan in progress', async ($, on) => {
     const { w } = world(on, { rows: [row(plan({ stage: 'closed' }), WT)] })
     await start($, WT)
-    expect(w.opens).toEqual([])
+    expect(w.opens).toEqual(['cairn'])
   })
 })
 
