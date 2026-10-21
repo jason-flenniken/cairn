@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:56:19.337Z",
+  "updated": "2026-10-21T14:57:39.784Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -146,14 +146,17 @@
             "plugins/cairn/references/**"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": false,
-          "substep": "implementing",
           "branch": "task/cleaner-pane-and-records/followup-rules",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--followup-rules",
           "base": "c7a19c21f30f1deaff25c9aa001c31f51a73c0d7",
-          "startedAt": "2026-10-21T14:53:28.672Z"
+          "startedAt": "2026-10-21T14:53:28.672Z",
+          "doneAt": "2026-10-21T14:57:39.784Z",
+          "tip": "95b4da6",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "d8f8f13e69d2585a15014892c1a1bd93d5d5753f"
         },
         {
           "id": "findings",
@@ -326,6 +329,12 @@
       "at": "2026-10-21T14:56:19.336Z",
       "reason": "changed outside task \"History tab\" scope (found at task done)",
       "task": "pane-history"
+    },
+    {
+      "path": "plugins/cairn/templates/record.md",
+      "at": "2026-10-21T14:57:39.783Z",
+      "reason": "changed outside task \"Follow-up cap, merge, decline and expiry\" scope (found at task done)",
+      "task": "followup-rules"
     }
   ],
   "log": [
@@ -527,6 +536,21 @@
       "at": "2026-10-21T14:56:19.337Z",
       "event": "task done",
       "detail": "History tab"
+    },
+    {
+      "at": "2026-10-21T14:57:12.591Z",
+      "event": "task merging",
+      "detail": "Follow-up cap, merge, decline and expiry"
+    },
+    {
+      "at": "2026-10-21T14:57:39.784Z",
+      "event": "drift",
+      "detail": "plugins/cairn/templates/record.md"
+    },
+    {
+      "at": "2026-10-21T14:57:39.784Z",
+      "event": "task done",
+      "detail": "Follow-up cap, merge, decline and expiry"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
@@ -591,6 +615,16 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T14:52:49.937Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "Set plan stage and follow-up age through a test helper instead of editing the saved plan record.",
+      "where": [
+        "plugins/cairn/cli/test/followups.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:57:12.518Z"
     }
   ]
 }
