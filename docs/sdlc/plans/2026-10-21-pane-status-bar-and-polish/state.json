@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:32:50.507Z",
+  "updated": "2026-10-21T22:50:37.741Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -27,7 +27,7 @@
     {
       "id": "frame",
       "name": "Pinned bar and late-stage steps",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "pinned-bar",
@@ -51,14 +51,17 @@
             "plugins/cairn/hooks/NOTES.md"
           ],
           "complexity": "complex",
-          "status": "in_progress",
-          "fixRound": 0,
+          "status": "done",
+          "fixRound": 1,
           "risky": false,
-          "substep": "implementing",
           "branch": "task/pane-status-bar-and-polish/pinned-bar",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--pinned-bar",
           "base": "11adf57e4e0abc18283d5630663bfa13db8e7fec",
-          "startedAt": "2026-10-21T22:28:24.382Z"
+          "startedAt": "2026-10-21T22:28:24.382Z",
+          "doneAt": "2026-10-21T22:50:37.741Z",
+          "tip": "6afa563",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2c997ba20dd894e73fee553fc015b0c8b0d4bdc1"
         },
         {
           "id": "late-steps",
@@ -284,6 +287,26 @@
       "at": "2026-10-21T22:32:50.507Z",
       "event": "task done",
       "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:47:14.682Z",
+      "event": "task reviewing",
+      "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:48:23.141Z",
+      "event": "task fixing",
+      "detail": "Split the pane and pin the bar (attempt 1)"
+    },
+    {
+      "at": "2026-10-21T22:50:11.332Z",
+      "event": "task merging",
+      "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:50:37.741Z",
+      "event": "task done",
+      "detail": "Split the pane and pin the bar"
     }
   ],
   "suggestions": [
@@ -366,6 +389,46 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T22:32:22.991Z"
+    },
+    {
+      "id": "s8",
+      "area": "quality",
+      "text": "execute.md and review.md tell the orchestrator to log with --from security-review, but cairn suggest add refuses it (allowed: task-review, branch-review, check, implementer, plan, user); add security-review",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:55.863Z"
+    },
+    {
+      "id": "s9",
+      "area": "quality",
+      "text": "Declare the records and openRecord atoms in PluginState",
+      "where": [
+        "plugins/cairn/types/index.d.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T22:47:14.615Z"
+    },
+    {
+      "id": "s10",
+      "area": "tests",
+      "text": "Test that a ui.scroll move runs the mod's hook and redraws (stub invalidate or count renders); note in NOTES.md that an engine-made move (end-follow, clamp, focus) can leave the bar off the bottom until the next 1 s redraw",
+      "where": [
+        "plugins/cairn/hooks/test/bar.test.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:48:23.001Z"
+    },
+    {
+      "id": "s11",
+      "area": "ux",
+      "text": "Inline already passes 7 rows when paused or with working agents (before this plan); fold rows so every inline state fits",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:48:23.069Z"
     }
   ],
   "planHash": "0eaa106a32c142a9",
