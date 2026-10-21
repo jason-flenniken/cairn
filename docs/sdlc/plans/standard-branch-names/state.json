@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T13:51:40.536Z",
+  "updated": "2026-10-21T13:56:09.170Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -47,9 +47,14 @@
             "plugins/cairn/dist/**"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "substep": "implementing",
+          "branch": "sdlc-task/standard-branch-names/cli-branches",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--cli-branches",
+          "base": "8fe4c16177a99f697cd1a9ffc5268092eb4c5672",
+          "startedAt": "2026-10-21T13:51:46.859Z"
         },
         {
           "id": "pane-watch",
@@ -62,9 +67,14 @@
             "plugins/cairn/hooks/**"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "substep": "implementing",
+          "branch": "sdlc-task/standard-branch-names/pane-watch",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--pane-watch",
+          "base": "8fe4c16177a99f697cd1a9ffc5268092eb4c5672",
+          "startedAt": "2026-10-21T13:51:47.418Z"
         },
         {
           "id": "docs-names",
@@ -80,9 +90,17 @@
             "plugins/cairn/skills/**"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "sdlc-task/standard-branch-names/docs-names",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--docs-names",
+          "base": "8fe4c16177a99f697cd1a9ffc5268092eb4c5672",
+          "startedAt": "2026-10-21T13:51:47.941Z",
+          "doneAt": "2026-10-21T13:56:09.169Z",
+          "tip": "0e55221",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "6b145c2ebb5b18ebed20769416e947da41e843b2"
         }
       ]
     },
@@ -177,6 +195,46 @@
       "at": "2026-10-21T13:51:40.536Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T13:51:46.859Z",
+      "event": "task started",
+      "detail": "CLI branch names and plan discovery"
+    },
+    {
+      "at": "2026-10-21T13:51:46.946Z",
+      "event": "task implementing",
+      "detail": "CLI branch names and plan discovery"
+    },
+    {
+      "at": "2026-10-21T13:51:47.419Z",
+      "event": "task started",
+      "detail": "Pane notices plans on the new prefixes"
+    },
+    {
+      "at": "2026-10-21T13:51:47.506Z",
+      "event": "task implementing",
+      "detail": "Pane notices plans on the new prefixes"
+    },
+    {
+      "at": "2026-10-21T13:51:47.942Z",
+      "event": "task started",
+      "detail": "Docs and procedures use the new names"
+    },
+    {
+      "at": "2026-10-21T13:51:48.035Z",
+      "event": "task implementing",
+      "detail": "Docs and procedures use the new names"
+    },
+    {
+      "at": "2026-10-21T13:53:23.966Z",
+      "event": "task merging",
+      "detail": "Docs and procedures use the new names"
+    },
+    {
+      "at": "2026-10-21T13:56:09.169Z",
+      "event": "task done",
+      "detail": "Docs and procedures use the new names"
     }
   ],
   "suggestions": [
@@ -201,6 +259,16 @@
       "at": "2026-10-21T13:49:57.205Z",
       "resolves": "standard-branch-names:s1",
       "note": "added as task pane-approvals"
+    },
+    {
+      "id": "s3",
+      "area": "docs",
+      "text": "fix.md describes the fix-track branch and folder in words; check it against fix/<slug> naming and use the same plan-branch wording as the other procedures.",
+      "where": [
+        "plugins/cairn/procedures/fix.md"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T13:53:23.889Z"
     }
   ],
   "planHash": "ac8f391969859259",
