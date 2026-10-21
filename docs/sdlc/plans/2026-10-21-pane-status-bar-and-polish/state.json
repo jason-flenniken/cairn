@@ -6,8 +6,8 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:08:54.056Z",
-  "stage": "discover",
+  "updated": "2026-10-21T22:22:49.815Z",
+  "stage": "prd",
   "paused": null,
   "approvals": {},
   "phases": [],
@@ -17,6 +17,53 @@
     {
       "at": "2026-10-21T22:08:54.056Z",
       "event": "created"
+    },
+    {
+      "at": "2026-10-21T22:22:49.815Z",
+      "event": "advanced",
+      "detail": "prd"
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "tests",
+      "text": "Resolved roomier-pane-visuals:s15",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx",
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:13:01.400Z",
+      "resolves": "roomier-pane-visuals:s15",
+      "note": "brought into pane-status-bar-and-polish"
+    },
+    {
+      "id": "s2",
+      "area": "tests",
+      "text": "Resolved sharper-interview-and-review:s27",
+      "where": [
+        "plugins/cairn/cli/test/close-merged.test.ts",
+        "plugins/cairn/hooks/test/pane.test.tsx",
+        "plugins/cairn/cli/test/fix.test.ts",
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:13:01.631Z",
+      "resolves": "sharper-interview-and-review:s27",
+      "note": "brought into pane-status-bar-and-polish"
+    },
+    {
+      "id": "s3",
+      "area": "tests",
+      "text": "Declined cleaner-pane-and-records:s20",
+      "where": [
+        "plugins/cairn/cli/test/**",
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:13:01.854Z",
+      "declines": "cleaner-pane-and-records:s20"
     }
   ]
 }
