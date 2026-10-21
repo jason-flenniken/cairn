@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T14:16:11.424Z",
+  "updated": "2026-10-21T14:17:21.674Z",
   "stage": "ship",
   "paused": null,
   "approvals": {
@@ -21,6 +21,11 @@
       "via": "human",
       "source": "mod",
       "hash": "ac8f391969859259"
+    },
+    "ship": {
+      "at": "2026-10-21T14:17:21.673Z",
+      "via": "human",
+      "source": "mod"
     }
   },
   "phases": [
@@ -369,6 +374,11 @@
       "at": "2026-10-21T14:16:11.424Z",
       "event": "advanced",
       "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T14:17:21.674Z",
+      "event": "ship approved",
+      "detail": "mod"
     }
   ],
   "suggestions": [
