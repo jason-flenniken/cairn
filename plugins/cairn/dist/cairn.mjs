@@ -7261,7 +7261,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse2(src, reviver, options) {
+    function parse3(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7302,7 +7302,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse2;
+    exports.parse = parse3;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
     exports.stringify = stringify;
@@ -7892,8 +7892,8 @@ function docProblems(md, file, required) {
   const p = [];
   const missing = missingSections(md, required);
   if (missing.length) p.push(`${file} is missing sections: ${missing.join(", ")}`);
-  const empty = emptySections(md, required);
-  if (empty.length) p.push(`${file} has empty sections: ${empty.join(", ")}`);
+  const empty2 = emptySections(md, required);
+  if (empty2.length) p.push(`${file} has empty sections: ${empty2.join(", ")}`);
   return p;
 }
 function recordProblems(pc) {
@@ -8096,6 +8096,12 @@ function cmdApprove(ctx, kind, opts, io) {
         gate(phase.status === "awaiting_approval", s, "approve phase", opts, `phase "${phase.name}" still has unfinished slices`, ["finish them (cairn ready / cairn slice done)"]);
         const drift = s.drift.filter((d) => !d.acked);
         gate(!drift.length, s, "approve phase", opts, `drift not reviewed: ${drift.map((d) => d.path).join(", ")}`, ['review each with the user, then cairn drift ack <path> --note "\u2026" (or --all)']);
+        const v = phase.verdict;
+        gate(!!v, s, "approve phase", opts, "no direction verdict is recorded for this phase", ["run the direction check, then cairn evidence phase"]);
+        if (v) {
+          gate(v.result !== "red", s, "approve phase", opts, `the direction verdict is red${v.note ? ` (${v.note})` : ""}`, ["fix what the report flags, then re-run the check and cairn evidence phase"]);
+          gate(gitOk(["diff", "--quiet", v.commit, "HEAD", "--", ".", ":!docs/sdlc"], pc.plan.worktree), s, "approve phase", opts, `code changed since the direction check (verdict at ${v.commit.slice(0, 7)})`, ["re-run the direction check, then cairn evidence phase"]);
+        }
         phase.status = "done";
         log(s, "phase approved", `${phase.name} (source: ${source})`);
         const following = currentPhase(s);
@@ -8306,6 +8312,7 @@ function cmdPlanLoad(ctx, opts) {
       delete s.approvals.plan;
       delete s.evidence.verify;
       delete s.evidence.review;
+      for (const p of s.phases) delete p.verdict;
       log(s, "re-plan loaded", `${allSlices(s).length} slices`);
     } else log(s, "plan loaded", `${s.phases.length} phases, ${allSlices(s).length} slices`);
     return {
@@ -8430,10 +8437,87 @@ function sliceDone(pc, id, opts) {
   return r;
 }
 
+// plugins/cairn/cli/src/direction.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+var BLOCK2 = /```ya?ml[ \t]+cairn-direction[ \t]*\r?\n([\s\S]*?)```/g;
+var VERDICTS = ["aligned", "partial", "missing", "contradicted"];
+var CLASSES = ["pulled-forward", "unplanned", "non-goal-breach", "supporting"];
+var PATH_LINE = /^\S.*:\d+(-\d+)?$/;
+var empty = () => ({ requirements: [], unplanned: [], nfr: [] });
+function parseScorecard(md) {
+  const blocks = [...md.replace(/\r\n/g, "\n").matchAll(BLOCK2)];
+  if (!blocks.length) return { rows: empty(), problems: ["the report has no ```yaml cairn-direction block"] };
+  if (blocks.length > 1) return { rows: empty(), problems: ["the report has more than one cairn-direction block; keep exactly one"] };
+  let doc;
+  try {
+    doc = (0, import_yaml2.parse)(blocks[0][1]);
+  } catch (e) {
+    return { rows: empty(), problems: [`cairn-direction YAML does not parse: ${e.message}`] };
+  }
+  const problems = [];
+  const list = (key) => {
+    const v = doc?.[key] ?? [];
+    if (!Array.isArray(v)) {
+      problems.push(`\`${key}\` must be a list`);
+      return [];
+    }
+    return v;
+  };
+  const evidence = (label, r) => {
+    if (typeof r?.evidence !== "string" || !PATH_LINE.test(r.evidence.trim())) problems.push(`${label}: evidence must be path:line (got ${JSON.stringify(r?.evidence)})`);
+  };
+  const rows = empty();
+  for (const key of ["requirements", "nfr"])
+    for (const r of list(key)) {
+      const label = `${key} row ${r?.id ?? "(no id)"}`;
+      if (typeof r?.id !== "string" || !r.id) problems.push(`${label}: needs an id`);
+      if (!VERDICTS.includes(r?.verdict)) problems.push(`${label}: verdict must be one of ${VERDICTS.join("|")}`);
+      evidence(label, r);
+      rows[key].push(r);
+    }
+  for (const r of list("unplanned")) {
+    const label = `unplanned row "${r?.what ?? "(no description)"}"`;
+    if (typeof r?.what !== "string" || !r.what) problems.push(`${label}: needs \`what\``);
+    if (!CLASSES.includes(r?.class)) problems.push(`${label}: class must be one of ${CLASSES.join("|")}`);
+    evidence(label, r);
+    rows.unplanned.push(r);
+  }
+  return { rows, problems };
+}
+function computeVerdict(rows) {
+  const scored = [...rows.requirements, ...rows.nfr];
+  if (scored.some((r) => r.verdict === "contradicted" || r.verdict === "missing") || rows.unplanned.some((u) => u.class === "non-goal-breach")) return "red";
+  if (scored.some((r) => r.verdict === "partial") || rows.unplanned.some((u) => u.class !== "supporting")) return "yellow";
+  return "green";
+}
+
 // plugins/cairn/cli/src/commands/evidence.ts
+function cmdEvidencePhase(ctx, opts) {
+  const pc = planCtx(ctx);
+  return mutate(pc, "phase direction verdict", (s) => {
+    const phase = currentPhase(s);
+    if (s.stage !== "execute" || !phase || phase.status !== "awaiting_approval") throw new Refusal("no phase is waiting for approval", ["finish the phase's slices first (cairn ready / cairn slice done)"]);
+    const rel = `direction/${phase.id}.md`;
+    const md = readText(planFile(pc, rel));
+    if (md === void 0) throw new Refusal(`${rel} does not exist`, ["run the direction check and write the report with a cairn-direction scorecard"]);
+    const { rows, problems } = parseScorecard(md);
+    const covered = [...new Set(phase.slices.flatMap((x) => x.covers))];
+    const have = new Set(rows.requirements.map((r) => r?.id));
+    const missing = covered.filter((id) => !have.has(id));
+    if (missing.length) problems.push(`no row for covered requirement(s): ${missing.join(", ")}`);
+    if (problems.length) throw new Refusal(`${rel} is not a valid scorecard:
+  - ${problems.join("\n  - ")}`);
+    const result = computeVerdict(rows);
+    const commit = git(["rev-parse", "HEAD"], pc.plan.worktree);
+    phase.verdict = { result, at: now(), commit, ...opts.note ? { note: String(opts.note) } : {} };
+    log(s, `direction ${result}`, phase.name);
+    return { message: `Recorded the direction verdict for "${phase.name}": ${result} at ${commit.slice(0, 7)}.`, data: { verdict: result, commit } };
+  });
+}
 function cmdEvidence(ctx, kind, result, opts) {
+  if (kind === "phase") return cmdEvidencePhase(ctx, opts);
   if (kind !== "verify" && kind !== "review" || result !== "pass" && result !== "fail")
-    throw new CliError('usage: cairn evidence verify|review pass|fail [--note "\u2026"] [--blocking N]');
+    throw new CliError('usage: cairn evidence verify|review pass|fail [--note "\u2026"] [--blocking N] | evidence phase [--note "\u2026"]');
   const pc = planCtx(ctx);
   return mutate(pc, `${kind} ${result}`, (s) => {
     gate(s.stage === kind, s, `evidence ${kind}`, opts, `the plan is in ${s.stage}, not ${kind}`);
