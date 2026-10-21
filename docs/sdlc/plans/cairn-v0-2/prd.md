@@ -69,7 +69,7 @@ A Claude Code mod ships inside the cairn plugin. With it:
   - the `<git common dir>/cairn/` folder
 
   Reads are allowed.
-- **FR-05 Pane Approve and `/cairn:approve`.** When a stop is waiting, the pane shows an Approve button on that plan's line. `/cairn:approve [kind]` does the same job. Either one confirms with a dialog (`$.ui.ask`) whose wording the mod fixes, then approves as in FR-02. With no kind given, the command approves the stop waiting on the session's current plan.
+- **FR-05 Pane Approve and `/cairn-approve`.** When a stop is waiting, the pane shows an Approve button on that plan's line. `/cairn-approve [kind]` does the same job. Either one confirms with a dialog (`$.ui.ask`) whose wording the mod fixes, then approves as in FR-02. With no kind given, the command approves the stop waiting on the session's current plan.
 
   The mod resolves the current plan, the plan worktree, and the waiting stop by running `bin/cairn status --json` from the session's project root. That command also resolves slice worktrees. The mod finds `bin/cairn` under `$.plugin.root`.
 - **FR-06 Mod heartbeat.** On each 2-second poll, the mod writes a timestamp to `<git common dir>/cairn/mod-heartbeat`. `cairn status --json` and `cairn next --json` report `modActive: true` when that timestamp is under 10 seconds old.
@@ -81,7 +81,7 @@ A Claude Code mod ships inside the cairn plugin. With it:
 
 **Pane and status line**
 
-- **FR-08 Opening the pane.** The pane opens at session start when the session's project root is a plan worktree or a slice worktree. Unasked, Claude Code places it from 144 columns; below that it waits. `/cairn:pane` asks for it, which places it from 110 columns. When `$.ui.open` returns `isPlaced: false`, the mod shows its reason as a toast.
+- **FR-08 Opening the pane.** The pane opens at session start when the session's project root is a plan worktree or a slice worktree. Unasked, Claude Code places it from 144 columns; below that it waits. `/cairn-pane` asks for it, which places it from 110 columns. When `$.ui.open` returns `isPlaced: false`, the mod shows its reason as a toast.
 - **FR-09 Pane content.**
   - A header: title, stage, and phase n of m.
   - The phase and slice tree, with status icons. A running slice shows its substep and fix round. A waiting slice shows what it waits on.
@@ -102,6 +102,9 @@ A Claude Code mod ships inside the cairn plugin. With it:
   - Status: always shown. It runs `/cairn:status`.
 
 **Pause and resume**
+
+Mod commands are registered as `cairn-pane`, `cairn-approve`, `cairn-pause-now`, `cairn-pause-mod`, and `cairn-resume-mod`, because the engine forbids ":" in names a mod registers. The plugin's skills keep their `/cairn:` names.
+
 
 - **FR-13 Pause.** Pause works at any time, including mid-turn:
   1. The mod writes `handoff.md` from state:
@@ -255,15 +258,15 @@ A Claude Code mod ships inside the cairn plugin. With it:
   - Write to `docs/sdlc/plans/x/state.json` is denied, as is Write to a relative path with `..` that resolves to it.
   - Write through a symlink to it is denied.
   - Read is allowed.
-- [FR-05] With a stop waiting, pressing Approve and confirming records the approval. With no stop waiting, the button is absent and `/cairn:approve` refuses with "nothing is waiting".
+- [FR-05] With a stop waiting, pressing Approve and confirming records the approval. With no stop waiting, the button is absent and `/cairn-approve` refuses with "nothing is waiting".
 - [FR-06] With the mod running, `modActive` is true. Ten seconds after the heartbeat stops, it is false.
 - [FR-07] A node:test checks the procedures:
   - Each approval procedure contains the tag and the `--human` fallback text.
   - No procedure contains the command `cairn approve`.
 - [FR-08]
   - With a 160-column terminal mock in a plan worktree, the pane is placed.
-  - At 100 columns it isn't, and `/cairn:pane` shows the placement reason.
-  - At 120 columns, `/cairn:pane` places it.
+  - At 100 columns it isn't, and `/cairn-pane` shows the placement reason.
+  - At 120 columns, `/cairn-pane` places it.
 - [FR-09] Fixture states render the expected text:
   - discover
   - execute with one running slice in fix round 2 and one waiting slice

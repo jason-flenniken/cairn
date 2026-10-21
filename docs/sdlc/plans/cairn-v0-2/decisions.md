@@ -91,3 +91,13 @@ _2026-10-21 09:30_
 **Decision:** A one-time flaky test failure (slice reported not merged in a test setup helper) is investigated at Verify. The CLI usage text in main.ts gets evidence phase in the file-input slice. references/cli.md gets evidence phase in the dogfood-docs slice.
 **Why:** Reported by the drift-verdict slice; kept so nothing is lost.
 _2026-10-21 09:40_
+
+### 19. Pane follow-ups
+**Decision:** Logged for Verify: the first pane refresh waits on a CLI run during session start (up to the 60 s timeout); away-answered pane confirms cannot be detected, so Cancel is listed first; live checks at 160 columns and on desktop and VS Code are still due.
+**Why:** Minor items from the pane review, kept for the Verify stage.
+_2026-10-21 10:08_
+
+### 20. Phase 2 end: re-plan with the findings
+**Decision:** Added slices stop-now-fix (Stop now runs pause --now itself after the abort; pause shows the clear tip) and test-flake (root-cause the 1-in-3 git invalid-object failure) to phase 3. The PRD now names the mod commands cairn-pane, cairn-approve, cairn-pause-now, cairn-pause-mod, and cairn-resume-mod because the engine forbids colons. hooks/NOTES.md joins the dogfood-docs slice.
+**Why:** Phase 2 alignment check and test runs.
+_2026-10-21 10:11_

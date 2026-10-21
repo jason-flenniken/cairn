@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T10:08:58.389Z",
-  "stage": "execute",
+  "updated": "2026-10-21T10:11:42.102Z",
+  "stage": "plan",
   "paused": null,
   "approvals": {
     "prd": {
@@ -15,12 +15,6 @@
       "via": "agent",
       "note": "bootstrap: approved in menu, relayed by agent because the mod does not exist yet",
       "hash": "5bde3d913b280c57"
-    },
-    "plan": {
-      "at": "2026-10-21T09:30:43.364Z",
-      "via": "agent",
-      "note": "re-plan approved in menu, relayed (bootstrap)",
-      "hash": "77b962c0908b30bb"
     }
   },
   "phases": [
@@ -228,11 +222,10 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/pause-resume",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--pause-resume",
-          "base": "f5bbaa5ddf075eb24e29beebc9ef1ca8a70dd5c7",
-          "note": "stop message tied to aborted turn id; null-safe handoff; real fan-out isolation test",
-          "doneAt": "2026-10-21T09:43:46.170Z",
           "tip": "6c04334",
-          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T09:43:46.170Z",
+          "note": "stop message tied to aborted turn id; null-safe handoff; real fan-out isolation test"
         },
         {
           "id": "direction-cli",
@@ -257,11 +250,10 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/direction-cli",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--direction-cli",
-          "base": "f5bbaa5ddf075eb24e29beebc9ef1ca8a70dd5c7",
-          "note": "CRLF block match and hunt-case tests",
-          "doneAt": "2026-10-21T09:40:05.665Z",
           "tip": "eba5574",
-          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T09:40:05.665Z",
+          "note": "CRLF block match and hunt-case tests"
         },
         {
           "id": "pane",
@@ -289,10 +281,9 @@
           "fixRound": 0,
           "branch": "sdlc-slice/cairn-v0-2/pane",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--pane",
-          "base": "58e5e9247867ca0d83794ae268a1afb4ddbae60c",
-          "doneAt": "2026-10-21T10:08:58.388Z",
           "tip": "023f6be",
-          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:08:58.388Z"
         }
       ]
     },
@@ -344,6 +335,38 @@
             "plugins/cairn/cli/src/render.ts",
             "plugins/cairn/cli/src/sections.ts",
             "plugins/cairn/cli/test/fix.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "stop-now-fix",
+          "name": "Stop now records the pause; pause shows the clear tip",
+          "covers": [
+            "FR-13",
+            "FR-14"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/test/pause.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
+          "id": "test-flake",
+          "name": "Find and fix the flaky git invalid-object test failure",
+          "covers": [
+            "FR-19"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/test/**",
+            "plugins/cairn/cli/src/shared.ts",
+            "plugins/cairn/cli/src/git.ts"
           ],
           "complexity": "complex",
           "status": "pending",
@@ -418,6 +441,7 @@
             "plugins/cairn/procedures/execute.md",
             "plugins/cairn/procedures/review.md",
             "plugins/cairn/references/cli.md",
+            "plugins/cairn/hooks/NOTES.md",
             "README.md",
             "plugins/cairn/cli/test/dogfood-docs.test.ts"
           ],
@@ -761,7 +785,12 @@
       "at": "2026-10-21T10:08:58.389Z",
       "event": "slice done",
       "detail": "Live pane and status line"
+    },
+    {
+      "at": "2026-10-21T10:11:42.101Z",
+      "event": "re-plan loaded",
+      "detail": "18 slices"
     }
   ],
-  "planHash": "77b962c0908b30bb"
+  "planHash": "8c7f32988aef9d04"
 }

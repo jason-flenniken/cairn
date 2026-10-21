@@ -143,6 +143,18 @@ phases:
         blocked_by: [direction-cli]
         scope: ["plugins/cairn/cli/src/commands/fix.ts", "plugins/cairn/cli/src/commands/stages.ts", "plugins/cairn/cli/src/commands/slices.ts", "plugins/cairn/cli/src/commands/plans.ts", "plugins/cairn/cli/src/render.ts", "plugins/cairn/cli/src/sections.ts", "plugins/cairn/cli/test/fix.test.ts"]
         complexity: complex
+      - id: stop-now-fix
+        name: Stop now records the pause; pause shows the clear tip
+        covers: [FR-13, FR-14]
+        blocked_by: []
+        scope: ["plugins/cairn/hooks/mod/pause.ts", "plugins/cairn/hooks/test/pause.test.ts"]
+        complexity: standard
+      - id: test-flake
+        name: Find and fix the flaky git invalid-object test failure
+        covers: [FR-19]
+        blocked_by: []
+        scope: ["plugins/cairn/cli/test/**", "plugins/cairn/cli/src/shared.ts", "plugins/cairn/cli/src/git.ts"]
+        complexity: complex
       - id: fix-procedure
         name: Fix procedure and command
         covers: [FR-23, FR-26]
@@ -168,7 +180,7 @@ phases:
         name: Unlocked orchestrator and documented formats
         covers: [FR-35, FR-38]
         blocked_by: []
-        scope: ["plugins/cairn/procedures/new.md", "plugins/cairn/procedures/execute.md", "plugins/cairn/procedures/review.md", "plugins/cairn/references/cli.md", "README.md", "plugins/cairn/cli/test/dogfood-docs.test.ts"]
+        scope: ["plugins/cairn/procedures/new.md", "plugins/cairn/procedures/execute.md", "plugins/cairn/procedures/review.md", "plugins/cairn/references/cli.md", "plugins/cairn/hooks/NOTES.md", "README.md", "plugins/cairn/cli/test/dogfood-docs.test.ts"]
         complexity: simple
       - id: cli-polish
         name: Test summary, approval sources, strict ids, prefactor slices
@@ -577,3 +589,31 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
 - Security: no other plan-load check is loosened. A prefactor slice still needs `scope`.
 
 **Done when** the tests pass.
+
+### Slice: stop-now-fix
+
+**Interfaces**
+- Consumes: `pause.ts` `stopNow`, `pause`, and `stopMessageFor`.
+- Produces:
+  - With a running turn, Stop now first runs `pause($, 'now')`, which writes the handoff and runs `cairn pause --now`. It then aborts the turn and sends the fixed message on that turn's completion, as now.
+  - Both Pause and Stop now show a one-line tip after a successful pause: "/clear is safe now; the handoff has everything" (FR-13).
+
+**Test cases**
+- Happy: Stop now with a running turn leaves state paused with mode `now` and the handoff written, aborts the turn, and sends one message when that turn completes. A successful drain pause shows the tip.
+- Unhappy: when `cairn pause --now` refuses, the abort still happens and a toast shows the refusal. When the pause fails, no tip appears.
+- Security: the message stays fixed text with no plan or slice text.
+
+**Done when** the tests pass.
+
+### Slice: test-flake
+
+**Interfaces**
+- Consumes: the CLI test suites and the CLI's git helpers.
+- Produces: a diagnosis of the 1-in-3 failure, "invalid object … for docs/sdlc/plans/notes.md" during `git commit`, seen in `cli/test/direction.test.ts` and earlier as "slice … is not merged". It ends with a root-cause fix, in tests or in CLI code if the bug is in the CLI.
+
+**Test cases**
+- Happy: the full CLI suite passes 20 runs in a row.
+- Unhappy: if the cause is shared state between parallel test files, the suite isolates it, for example with a unique repo per test or a GIT_* environment leak removed.
+- Security: no test is weakened or skipped to pass. A fix that changes CLI behavior has its own test.
+
+**Done when** the suite has 20 green runs in a row and the root cause is written in the commit message.
