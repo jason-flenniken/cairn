@@ -6,8 +6,8 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:02:06.482Z",
-  "stage": "discover",
+  "updated": "2026-10-21T21:16:33.892Z",
+  "stage": "prd",
   "paused": null,
   "approvals": {},
   "phases": [],
@@ -17,6 +17,51 @@
     {
       "at": "2026-10-21T21:02:06.482Z",
       "event": "created"
+    },
+    {
+      "at": "2026-10-21T21:16:33.891Z",
+      "event": "advanced",
+      "detail": "prd"
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "ux",
+      "text": "Resolved roomier-pane-visuals:s9",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T21:10:05.981Z",
+      "resolves": "roomier-pane-visuals:s9",
+      "note": "brought into sharper-interview-and-review"
+    },
+    {
+      "id": "s2",
+      "area": "ux",
+      "text": "Resolved roomier-pane-visuals:s10",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T21:10:06.214Z",
+      "resolves": "roomier-pane-visuals:s10",
+      "note": "brought into sharper-interview-and-review"
+    },
+    {
+      "id": "s3",
+      "area": "docs",
+      "text": "Resolved cleaner-pane-and-records:s23",
+      "where": [
+        "plugins/cairn/procedures/fix.md",
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T21:10:06.456Z",
+      "resolves": "cleaner-pane-and-records:s23",
+      "note": "brought into sharper-interview-and-review"
     }
   ]
 }
