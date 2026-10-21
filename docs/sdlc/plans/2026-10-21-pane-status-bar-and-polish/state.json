@@ -6,8 +6,8 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T23:15:10.834Z",
-  "stage": "execute",
+  "updated": "2026-10-21T23:15:13.800Z",
+  "stage": "verify",
   "paused": null,
   "approvals": {
     "prd": {
@@ -96,7 +96,7 @@
     {
       "id": "fill",
       "name": "Fill the pane",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "usage-lines",
@@ -603,6 +603,16 @@
       "at": "2026-10-21T23:15:10.834Z",
       "event": "task done",
       "detail": "Tighter pane, approval and close tests"
+    },
+    {
+      "at": "2026-10-21T23:15:13.799Z",
+      "event": "phase finished",
+      "detail": "Fill the pane (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T23:15:13.800Z",
+      "event": "advanced",
+      "detail": "verify"
     }
   ],
   "suggestions": [
