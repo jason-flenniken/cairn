@@ -272,6 +272,19 @@ describe('menu approval (FR-02)', () => {
     expect(toasts.join('\n')).toMatch(/prd approved/)
   })
 
+  test('security: a stop tagged twice, Revise then a clicked "Yes" option, records no approval', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'yes', stage: 'prd', worktree: '/wt/yes' }])
+    const a = 'Approve the PRD? [cairn:approve prd yes]'
+    const b = 'Really approve the PRD? [cairn:approve prd yes]'
+    dialog(on, { [a]: 'Revise', [b]: 'Yes' })
+    const call = ask(a, b)
+    for (const q of call.questions) q.options.push({ label: 'Yes', description: 'Yes' })
+    const got = await $.tool.call(call)
+    expect(approveRuns()).toEqual([])
+    expect(got.context?.join('\n')).not.toMatch(/prd approved/)
+    expect(toasts).toEqual([])
+  })
+
   test('FR-18: a question payload that is not a list passes through untouched', async ($, on) => {
     const { approveRuns, toasts } = world(on, [{ slug: 'odd', stage: 'prd', worktree: '/wt/odd' }])
     const answers = { 'Approve? [cairn:approve prd odd]': 'Approve' }
