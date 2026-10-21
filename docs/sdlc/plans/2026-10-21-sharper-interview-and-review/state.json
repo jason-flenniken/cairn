@@ -6,7 +6,7 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:24:55.374Z",
+  "updated": "2026-10-21T21:25:33.005Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -72,14 +72,17 @@
             "plugins/cairn/cli/test/review-doc.test.ts"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": false,
-          "substep": "implementing",
           "branch": "task/sharper-interview-and-review/review-checklist",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--review-checklist",
           "base": "0d0470bab883ef9c08c80678bf900c6031037951",
-          "startedAt": "2026-10-21T21:22:29.715Z"
+          "startedAt": "2026-10-21T21:22:29.715Z",
+          "doneAt": "2026-10-21T21:25:33.005Z",
+          "tip": "fee77bb",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "e3483d73b3454dda22c58e8388cc6f2ae95b720f"
         },
         {
           "id": "security-checklist",
@@ -127,10 +130,15 @@
             "plugins/cairn/dist/**"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "changes when the CLI refuses to close a plan; a wrong check blocks every close"
+          "riskReason": "changes when the CLI refuses to close a plan; a wrong check blocks every close",
+          "substep": "implementing",
+          "branch": "task/sharper-interview-and-review/close-when-merged",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--close-when-merged",
+          "base": "10a2ae48e9ab05108dc15dc632a0c0e07a324e81",
+          "startedAt": "2026-10-21T21:24:56.209Z"
         }
       ]
     },
@@ -299,6 +307,26 @@
       "at": "2026-10-21T21:24:55.374Z",
       "event": "task done",
       "detail": "Security checklist, reviewer and credit"
+    },
+    {
+      "at": "2026-10-21T21:24:56.210Z",
+      "event": "task started",
+      "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:24:56.305Z",
+      "event": "task implementing",
+      "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:25:01.168Z",
+      "event": "task merging",
+      "detail": "Review checklist and reviewers"
+    },
+    {
+      "at": "2026-10-21T21:25:33.005Z",
+      "event": "task done",
+      "detail": "Review checklist and reviewers"
     }
   ],
   "suggestions": [
