@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T12:41:15.805Z",
-  "stage": "review",
+  "updated": "2026-10-21T12:41:15.918Z",
+  "stage": "ship",
   "paused": null,
   "approvals": {
     "prd": {
@@ -1250,6 +1250,11 @@
       "at": "2026-10-21T12:41:15.805Z",
       "event": "review pass",
       "detail": "whole-branch review: 2 blocking found and fixed in 4ab58d8; 152 CLI and 304 mod tests pass"
+    },
+    {
+      "at": "2026-10-21T12:41:15.918Z",
+      "event": "advanced",
+      "detail": "ship"
     }
   ],
   "planHash": "cc54213ff13f0bd3",
