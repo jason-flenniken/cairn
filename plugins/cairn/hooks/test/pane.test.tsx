@@ -1027,3 +1027,69 @@ describe('Records tab (FR-08, FR-09)', () => {
     expect(w.runs.filter(a => a[0] === 'status')).toHaveLength(1)
   })
 })
+
+describe('roomier layout (side padding, blank lines between sections)', () => {
+  const rec = (slug: string, date: string) => ({
+    slug, title: `Plan ${slug}`, date, stage: 'closed', why: `why ${slug}`, record: `/repo/docs/sdlc/plans/${slug}/RECORD.md`, followUps: [],
+  })
+  const mountAs = ($: any, over: Record<string, unknown>) =>
+    $.ui.mount({ plugin: 'cairn', surface: 'terminal', component: 'Pane', requestId: 'cairn', props: { ...PANE_PROPS, ...over } })
+  const boxes = async (ui: any): Promise<{ key?: string; props: Record<string, unknown> }[]> => ui.findAll({ type: 'Box' })
+  const root = async (ui: any) => (await boxes(ui))[0]!
+
+  test('docked: every tab root is padded by 1 and spaces its children by 1', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20'), rec('b', '2026-09-03')]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    for (const key of ['tab:now', 'tab:history', 'tab:records']) {
+      await ui.press({ key })
+      expect((await root(ui)).props).toMatchObject({ paddingX: 1, gap: 1 })
+    }
+    await ui.press({ key: 'record:a' })
+    expect((await root(ui)).props).toMatchObject({ paddingX: 1, gap: 1 })
+    await ui.unmount()
+  })
+
+  test('inline: padded by 1 with no gap', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    const r = await root(ui)
+    expect(r.props).toMatchObject({ paddingX: 1, gap: 0 })
+    expect(r.props.backgroundColor).toBeUndefined()
+    for (const b of await boxes(ui)) expect(b.props.marginTop).toBeUndefined()
+    await ui.unmount()
+  })
+
+  test('History keeps its lines together in one gapless box', async ($, on) => {
+    const log = [1, 2, 3].map(n => ({ at: `2026-03-01T11:0${n}:00.000Z`, event: 'task done', detail: `t${n}` }))
+    world(on, { rows: [row(plan({ log }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:history' })
+    const timeline = (await boxes(ui)).find(b => b.key === 'timeline')!
+    expect(timeline.props.gap).toBeUndefined()
+    expect(await ui.findAll({ type: 'Text' })).toHaveLength(3)
+    await ui.unmount()
+  })
+
+  test('the progress bar line fits the padded width at 48 columns', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 48 })
+    const bar = (await ui.findAll({ type: 'Text' })).find((t: { text: string }) => t.text.includes('█') || t.text.includes('░'))
+    expect([...bar.text].length).toBeLessThanOrEqual(46)
+    await ui.unmount()
+  })
+
+  test('the header with its bar, and the drift heading with its paths, are one box each', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'verify', drift: [{ path: 'src/a.ts', at: 'x', reason: 'r' }] }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    const keys = (await boxes(ui)).map(b => b.key)
+    expect(keys).toContain('header')
+    expect(keys).toContain('drift:box')
+    await ui.unmount()
+  })
+})
