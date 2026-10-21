@@ -125,3 +125,8 @@ _2026-10-21 11:49_
 **Decision:** Logged for Verify or a later fix plan: the recorded test summary is the last count line (node prints fail 0 last), so prefer the pass line; drift re-flags a path already reviewed from the edit hook; cairn resume still suggests EnterWorktree; a sandboxed repro timeout cannot kill descendants when setpgid is refused.
 **Why:** Minor review items, kept so they are not lost.
 _2026-10-21 11:54_
+
+### 26. Ship blockers fixed directly on the plan branch
+**Decision:** The final review found two blocking bugs (mod could not find the plan from the repo root; terminal approval command not runnable). At the user request they were fixed directly on the plan branch in one commit, outside a tracked slice, to avoid another re-plan round.
+**Why:** User asked to fix now without getting bogged down.
+_2026-10-21 12:41_

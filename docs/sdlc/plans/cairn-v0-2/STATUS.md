@@ -36,12 +36,14 @@ Branch `sdlc/cairn-v0-2` from `main` · started 2026-10-20 · updated 2026-10-21
 - PRD approved 2026-10-20 (relayed by agent)
 - Plan approved 2026-10-21 (you, in the menu)
 - Verify: pass (typecheck clean, 151 CLI tests and mod tests pass, validate passes; live: mod approvals, mod-run override, and pane all exercised during the build)
+- Review: pass (whole-branch review: 2 blocking found and fixed in 4ab58d8; 152 CLI and 304 mod tests pass)
 
 ## Overrides
 - 2026-10-20 override: slice done: user chose Override: re-plan dropped the slice base commit (cairn bug); 3 reviewed commits are merged
 - 2026-10-21 override: slice done: user chose Override in the menu because the re-plan dropped the slice base commit which the cli-polish slice fixes (you, in the menu)
 
 ## Recent activity
+- 2026-10-21 12:41 review pass: whole-branch review: 2 blocking found and fixed in 4ab58d8; 152 CLI and 304 mod tests pass
 - 2026-10-21 11:59 advanced: review
 - 2026-10-21 11:59 verify pass: typecheck clean, 151 CLI tests and mod tests pass, validate passes; live: mod approvals, mod-run override, and pane all exercised during the build
 - 2026-10-21 11:58 advanced: verify
@@ -49,4 +51,3 @@ Branch `sdlc/cairn-v0-2` from `main` · started 2026-10-20 · updated 2026-10-21
 - 2026-10-21 11:57 drift reviewed: plugins/cairn/hooks/NOTES.md, plugins/cairn/cli/test/templates.test.ts, plugins/cairn/cli/test/fix-procedure.test.ts, plugins/cairn/cli/src/commands/fix.ts
 - 2026-10-21 11:56 direction yellow: Dogfood fixes
 - 2026-10-21 11:54 slice done: Test summary, approval sources, strict ids, prefactor slices
-- 2026-10-21 11:54 drift: plugins/cairn/cli/src/commands/fix.ts
