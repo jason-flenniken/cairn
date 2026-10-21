@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { CairnPlanState } from '../../types/index.d.ts'
 import { stageSteps, type BarLine } from '../mod/bar.tsx'
-import { mount, mountAs, PANE_PROPS, plan, row, start, task, world, WT, type Row } from './world.tsx'
+import { MAIN, mount, mountAs, PANE_PROPS, plan, row, start, task, world, WT, type Row } from './world.tsx'
 
 type El = { type: string; props: Record<string, unknown>; children: (El | string)[] }
 
@@ -77,15 +77,22 @@ describe('the bar on every tab (FR-01)', () => {
     await ui.unmount()
   })
 
-  const FIXTURES: [string, () => Row][] = [['Build 2/3', () => row(BUILD_2_OF_3, WT)], ['fix at Review', () => row(FIX_REVIEW, WT)], ['closed, PR open', closedRow]]
-  for (const [name, make] of FIXTURES) {
-    test(`NFR-01: at bodyColumns 46 no bar line is wider than 46 cells (${name})`, async ($, on) => {
+  // What each fixture's bar must and must not show, docked.
+  const FIXTURES: [string, () => Row, string[], string[]][] = [
+    ['Build 2/3', () => row(BUILD_2_OF_3, WT), ['✓ Plan', '● Build 2/3', '○ Learn'], ['Repro']],
+    ['fix at Review', () => row(FIX_REVIEW, WT), ['✓ Build', '● Review', '○ Ship'], ['Disc', 'Check', 'Learn']],
+    ['closed, PR open', closedRow, ['✓ Disc', '✓ Learn', 'PR open'], ['○', '●']],
+  ]
+  for (const [name, make, shown, absent] of FIXTURES) {
+    test(`FR-02, NFR-01: at bodyColumns 46 the steps show and no bar line is wider than 46 cells (${name})`, async ($, on) => {
       world(on, { rows: [make()] })
       await start($, WT)
       const ui = await mountAs($, { bodyColumns: 46 })
       const rows = await barRows(ui)
       expect(rows.length).toBeGreaterThan(0)
       for (const line of rows) expect(width(line)).toBeLessThanOrEqual(46)
+      for (const text of shown) expect(rows.join('\n')).toContain(text)
+      for (const text of absent) expect(rows.join('\n')).not.toContain(text)
       await ui.unmount()
     })
   }
@@ -100,6 +107,28 @@ describe('the bar on every tab (FR-01)', () => {
     expect((await barRows(ui)).map(line => line.trimEnd())).toEqual(['● Build 2/3'])
     await ui.unmount()
   })
+
+  test('inline, a closed plan with its PR open: Closed, then PR open', async ($, on) => {
+    world(on, { rows: [closedRow()] })
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    expect((await barRows(ui)).map(line => line.trimEnd())).toEqual(['✓ Closed  PR open'])
+    await ui.unmount()
+  })
+
+  /** Rows a tree takes: a column Box its children's, anything else one. */
+  const rowsOf = (n: El): number =>
+    n.type === 'Box' && n.props.flexDirection === 'column' ? n.children.reduce((k, c) => k + (typeof c === 'string' ? 1 : rowsOf(c)), 0) : 1
+
+  for (const [where, cwd] of [['in the plan worktree', WT], ['from the repo root', MAIN]] as const) {
+    test(`inline, ${where}, the pane with its bar line stays within 7 rows`, async ($, on) => {
+      world(on, { cwd, rows: [row(BUILD_2_OF_3, WT)] })
+      await start($, cwd)
+      const ui = await mountAs($, { placement: 'inline' })
+      expect(rowsOf((await ui.findAll({ type: 'Box' }))[0] as El)).toBeLessThanOrEqual(7)
+      await ui.unmount()
+    })
+  }
 })
 
 describe('pinning (FR-01)', () => {
