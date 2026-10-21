@@ -1,5 +1,5 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { loadConfig, worktreeRoot } from '../config.ts';
 import { branchExists, commitPath, git, gitOk } from '../git.ts';
 import { planBranch, planRel, type Ctx } from '../locate.ts';
@@ -55,9 +55,24 @@ export function cmdProductInit(ctx: Ctx): Result {
 }
 
 export function cmdDecide(ctx: Ctx, question: string | undefined, answer: string | undefined, opts: Opts): Result {
-  if (!question || !answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "…"]');
-  const n = appendDecision(planCtx(ctx), question, answer, typeof opts.why === 'string' ? opts.why : undefined);
-  return { message: `Recorded decision ${n}: ${answer}`, data: { number: n } };
+  const d = typeof opts.file === 'string' ? readDecisionFile(ctx.cwd, opts.file) : { question, answer, why: typeof opts.why === 'string' ? opts.why : undefined };
+  if (!d.question || !d.answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "…"] | cairn decide --file <path>');
+  const n = appendDecision(planCtx(ctx), d.question, d.answer, d.why);
+  return { message: `Recorded decision ${n}: ${d.answer}`, data: { number: n } };
+}
+
+/** Read `{question, answer, why?}` from a JSON file; relative paths resolve from `cwd`. */
+function readDecisionFile(cwd: string, file: string): { question: string; answer: string; why?: string } {
+  let data: unknown;
+  try {
+    data = JSON.parse(readFileSync(resolve(cwd, file), 'utf8'));
+  } catch (e) {
+    throw new CliError(`cannot read decision file ${file}: ${(e as Error).message}`);
+  }
+  const obj = data as Record<string, unknown> | null;
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj) || typeof obj.question !== 'string' || typeof obj.answer !== 'string' || (obj.why !== undefined && typeof obj.why !== 'string'))
+    throw new CliError(`decision file ${file} must be a JSON object {"question": "…", "answer": "…", "why": "…"} (why optional)`);
+  return { question: obj.question, answer: obj.answer, why: obj.why as string | undefined };
 }
 
 /** Append a numbered decision to decisions.md; returns its number. */
