@@ -361,10 +361,10 @@ function reachesCairnFolder(command: Command): boolean {
   return isRecursive && args.some(arg => /(^|\/)\.git\/?$/i.test(arg))
 }
 
-/** A path with a glob in or after a component that could be `.git`. */
+/** A path with a glob in or after a component that could be `.git`. A shell's `*` and `?` never match a leading dot. */
 function globsIntoGit(word: string): boolean {
   const parts = word.split('/')
-  const at = parts.findIndex(part => globRegex(part).test('.git'))
+  const at = parts.findIndex(part => /^[.[]/.test(part) && globRegex(part).test('.git'))
   return at >= 0 && at < parts.length - 1 && parts.slice(at).some(part => /[*?[]/.test(part))
 }
 

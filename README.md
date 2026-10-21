@@ -23,7 +23,7 @@ In repos that use cairn, disable Superpowers and Compound Engineering. Their aut
 | `/cairn:fix` | The fix lane for one bug: a failing repro, a fix in one task, a review only when the fix is risky, and a short record. |
 | `/cairn:direction` | An on-demand check of the code against the PRD: a green, yellow, or red on-track result per phase. |
 | `/cairn:suggestions` | Lists the recommended follow-ups collected across plans (tests, security, perf, …) and lets you start a fix, add one to a plan, or dismiss it. |
-| `/cairn-pane` | Opens the pane that stays beside the chat with the plan's stage, tasks, and pending stops. |
+| `/cairn-pane` | Shows or hides the live pane beside the chat (`on`, `off`, or no word to toggle). The choice sticks across sessions; closing the pane by hand also turns it off. |
 | `/cairn:status` | Shows every plan: where it is, what's done, what's next, what's blocked. |
 | `/cairn:pause` / `/cairn:resume` | Stop at any point with a handoff note, and pick up exactly there later. |
 

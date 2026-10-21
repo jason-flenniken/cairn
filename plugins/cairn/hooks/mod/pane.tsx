@@ -18,6 +18,7 @@ const view = atom({ plugin: 'cairn', key: 'view' } as const, null as CairnView |
 const isTurnRunning = atom({ plugin: 'cairn', key: 'isTurnRunning' } as const, false)
 
 const PANE = 'cairn'
+const PANE_PREF = 'pane'
 const EVERY_MS = 2_000
 const DRIFT_SHOWN = 5
 const APPROVE = 'Approve'
@@ -36,7 +37,7 @@ const STAGE_LABEL: Record<string, string> = {
 }
 
 const COMMANDS = [
-  { name: 'cairn-pane', description: 'Show the cairn plan pane.' },
+  { name: 'cairn-pane', description: 'Show or hide the cairn pane: on, off, or with no word, toggle. The choice sticks across sessions.' },
   {
     name: 'cairn-approve',
     description: 'Approve the stop this cairn plan is waiting on, after a confirm.',
@@ -187,7 +188,7 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
   common = await commonDir($).catch(() => undefined)
   // Outside a git repo there are no plans, but the agent cards still apply: the pane opens anyway.
   if (common === undefined) {
-    await openPane($)
+    if (!(await isOff($))) await openPane($)
     return
   }
   isRetrying = !(await refresh($))
@@ -195,8 +196,26 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
   seen = await signature($, watched(v?.plans ?? []))
   ticking?.cancel()
   ticking = $.clock.every(EVERY_MS, () => void poll($).catch(() => undefined))
-  // Always open: the engine seats an unasked pane once the terminal is wide enough (144 columns, 110 after the user has opened it once).
-  await openPane($)
+  // Open unless the user turned it off: the engine seats an unasked pane once the terminal is wide enough (144 columns, 110 after the user has opened it once).
+  if (!(await isOff($))) await openPane($)
+}
+
+/** The user's on/off choice, kept across sessions; a store that fails reads as on. */
+async function isOff($: EngineInterface): Promise<boolean> {
+  return (await $.store.get(PANE_PREF).catch(() => undefined)) === 'off'
+}
+
+/** /cairn-pane [on|off]: with no word, hides the pane when shown and shows it when hidden. */
+async function togglePane($: EngineInterface, arg: string): Promise<string> {
+  if (!['', 'on', 'off'].includes(arg)) return 'cairn: use /cairn-pane, /cairn-pane on, or /cairn-pane off.'
+  const isShown = (await $.ui.panes().catch(() => [])).some(p => p.id === PANE && p.isShown)
+  if (arg === 'off' || (arg === '' && isShown)) {
+    await $.store.set(PANE_PREF, 'off').catch(() => undefined)
+    await $.ui.close({ id: PANE }).catch(() => undefined)
+    return 'cairn: the pane is off, in this and later sessions. /cairn-pane brings it back.'
+  }
+  await $.store.set(PANE_PREF, 'on').catch(() => undefined)
+  return openPane($)
 }
 
 const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${kind} stop of plan ${slug}?`
@@ -263,7 +282,12 @@ function recentLines(s: CairnPlanState, feed: { at: number; text: string }[]): s
 export function install(on: On): void {
   // The engine heads a command's output with the plugin's name, so its text drops the toast's "cairn: ".
   const asOutput = (said: string) => ({ text: said.replace(/^cairn: /, '') })
-  on('command.run', { command: 'cairn-pane' }, async $ => asOutput(await openPane($).catch(message)))
+  on('command.run', { command: 'cairn-pane' }, async ($, e) => asOutput(await togglePane($, (e.args ?? '').trim().toLowerCase()).catch(message)))
+  // Closing it by hand turns it off too, so it doesn't come back next session.
+  on('ui.close', { id: PANE }, async ($, e, next) => {
+    if (e.origin.kind === 'person') await $.store.set(PANE_PREF, 'off').catch(() => undefined)
+    return next(e)
+  })
   on('command.run', { command: 'cairn-approve' }, async ($, e) => asOutput(await approveCommand($, (e.args ?? '').trim()).catch(message)))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
