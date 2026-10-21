@@ -12,7 +12,7 @@ import { CliError, now, Refusal } from '../util.ts';
 import { ensureExcluded, gate, mutate, planCtx, runSetup, runTests, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
 
-const MAX_FIX_ROUNDS = 5;
+const MAX_FIX_ROUNDS = 2;
 const DEFAULT_FIX_MAX_FILES = 8;
 
 export function cmdReady(ctx: Ctx): Result {
@@ -23,7 +23,7 @@ export function cmdReady(ctx: Ctx): Result {
   const lines = [
     r.phase ? `Phase "${r.phase.name}": ${r.ready.length} ready, ${r.inProgress.length} running, ${r.waiting.length} waiting.` : 'No phase in progress.',
     ...r.ready.map((x) => `  ready: ${x.id} (${x.name}) model=${tier[x.complexity]}`),
-    ...r.inProgress.map((x) => `  running: ${x.id} (${x.substep ?? 'implementing'}${x.fixRound ? `, fix round ${x.fixRound}` : ''}) at ${x.worktree}`),
+    ...r.inProgress.map((x) => `  running: ${x.id} (${x.substep ?? 'implementing'}${x.fixRound ? `, fix attempt ${x.fixRound}` : ''}) at ${x.worktree}`),
     ...r.waiting.map((w) => `  waiting: ${w.task.id} on ${w.on.join(', ')}`),
   ];
   if (s.paused) lines.unshift('The plan is paused: start nothing new.');
@@ -78,7 +78,7 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
       else git(['worktree', 'add', '-q', '-b', branch, path, planBranch(plan.slug)], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
     }
-    Object.assign(sl, { status: 'in_progress', substep: 'implementing', fixRound: 0, branch, worktree: path, base: sl.base ?? base });
+    Object.assign(sl, { status: 'in_progress', substep: 'implementing', fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now() });
     const phase = s.phases.find((p) => p.tasks.includes(sl))!;
     if (phase.status === 'pending') phase.status = 'in_progress';
     log(s, 'task started', sl.name);
@@ -94,13 +94,13 @@ function taskStep(pc: PlanCtx, id: string, step: string | undefined, opts: Opts)
     const sl = findTask(s, id);
     if (!sl || sl.status !== 'in_progress') throw new Refusal(`task "${id}" is not running`, ['cairn task start ' + id]);
     if (step === 'fixing') {
-      gate(sl.fixRound < MAX_FIX_ROUNDS, s, 'task fix round', opts, `task "${sl.name}" has used ${MAX_FIX_ROUNDS} fix rounds`, ['stop and ask the user: split the task, re-plan, or take it over']);
+      gate(sl.fixRound < MAX_FIX_ROUNDS, s, 'task fix round', opts, `task "${sl.name}" has used ${MAX_FIX_ROUNDS} fix attempts`, ['stop and ask the user: split the task, re-plan, or take it over']);
       sl.fixRound++;
     }
     sl.substep = step as Substep;
     if (opts.note) sl.note = String(opts.note);
-    log(s, `task ${step}`, `${sl.name}${step === 'fixing' ? ` (round ${sl.fixRound})` : ''}${opts.note ? `: ${opts.note}` : ''}`);
-    return { message: `Task "${sl.name}": ${step}${step === 'fixing' ? `, round ${sl.fixRound} of ${MAX_FIX_ROUNDS}` : ''}.` };
+    log(s, `task ${step}`, `${sl.name}${step === 'fixing' ? ` (attempt ${sl.fixRound})` : ''}${opts.note ? `: ${opts.note}` : ''}`);
+    return { message: `Task "${sl.name}": ${step}${step === 'fixing' ? `, attempt ${sl.fixRound} of ${MAX_FIX_ROUNDS}` : ''}.` };
   });
 }
 
@@ -121,6 +121,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRel(plan.slug)}`], plan.worktree);
   const checkable = merged && !dirty && !planDirty;
   const tests = checkable ? runTests(pc.cfg, plan.worktree) : undefined;
+  const testedCommit = tests ? git(['rev-parse', 'HEAD'], plan.worktree) : undefined;
   // The fix track adds: the repro now passes, and the fix stays small (FR-25). Both are checked even when an
   // override waives the checks above: the repro whenever the task is merged, the size whenever there is a base.
   // The size counts the task branch and the plan branch from the task base, so commits made beside the task count.
@@ -148,7 +149,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
         s.drift.push({ path, at: now(), reason: `changed outside task "${cur.name}" scope (found at task done)`, task: cur.id });
         log(s, 'drift', path);
       }
-    Object.assign(cur, { status: 'done', substep: undefined, doneAt: now(), tip, tests: tests ? `${tests.cmd} → ${tests.tail}` : undefined });
+    Object.assign(cur, { status: 'done', substep: undefined, doneAt: now(), tip, tests: tests ? `${tests.cmd} → ${tests.tail}` : undefined, testedCommit: tests?.ok ? testedCommit : undefined });
     const phase = s.phases.find((p) => p.tasks.some((x) => x.id === id))!;
     phase.status = phaseStatus(phase, phase.status);
     // The fix track has no phase stop: the single phase is done with its task.
@@ -156,7 +157,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
     log(s, 'task done', cur.name);
     const left = phase.tasks.filter((x) => x.status !== 'done').length;
     return {
-      message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ''}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : `Phase "${phase.name}" is built: run the phase-end review.`}`,
+      message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : `Phase "${phase.name}" is built: run \`cairn phase finish\`.`}`,
       data: { phaseComplete: !left },
     };
   });

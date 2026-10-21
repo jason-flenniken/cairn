@@ -15,8 +15,9 @@ Per plan, give these lines, using names rather than ids:
 - **Done:** phases and tasks complete, as counts and names.
 - **Next:** the next action (`cairn next --json` for the current plan).
 - **Blocked:** blocked tasks with their note.
-- **Drift:** unacknowledged edits outside task scopes, by path.
-- **Pending stops:** the approval waiting on the user (PRD, plan, phase, ship), if any.
+- **Out-of-scope edits:** edits outside task scopes, by path.
+- **Follow-ups:** the open recommended follow-up count (`openSuggestions`); `/cairn:suggestions` lists them.
+- **Pending stops:** the approval waiting on the user (PRD, plan, ship), if any.
 
 For several plans, use one compact block per plan, the one needing the user first. Leave out lines with nothing to say.
 

@@ -100,10 +100,10 @@ describe('parseTags', () => {
     ])
   })
 
-  test('takes each of the four kinds and nothing else', () => {
+  test('takes each of the three kinds and nothing else', () => {
     const tag = (kind: string) => ({ question: `ok? [cairn:approve ${kind} x]` })
-    expect(parseTags(['prd', 'plan', 'phase', 'ship'].map(tag)).map(t => t.kind)).toEqual(['prd', 'plan', 'phase', 'ship'])
-    expect(parseTags([tag('deploy'), tag('PRD'), { question: '[cairn:approve prd]' }])).toEqual([])
+    expect(parseTags(['prd', 'plan', 'ship'].map(tag)).map(t => t.kind)).toEqual(['prd', 'plan', 'ship'])
+    expect(parseTags([tag('deploy'), tag('phase'), tag('PRD'), { question: '[cairn:approve prd]' }])).toEqual([])
   })
 
   test('ignores questions that are not strings', () => {
@@ -112,22 +112,24 @@ describe('parseTags', () => {
 })
 
 describe('isApproveLabel', () => {
-  test('is true only for the exact labels', () => {
+  test('is true for a label starting Approve and for approving free text', () => {
     expect(isApproveLabel('Approve')).toBe(true)
     expect(isApproveLabel('Approve (Recommended)')).toBe(true)
-    for (const label of ['approve', 'Approve ', 'Approve the revised wording', 'Revise', 'Approve,Revise', '', undefined]) {
+    for (const label of ['Approve the revised wording', 'approve', 'Approved', 'LGTM', 'yes, ship it', 'Yes']) {
+      expect(isApproveLabel(label)).toBe(true)
+    }
+    for (const label of ['Revise', 'Do not approve', 'yesterday', 'lgtmx', '', undefined]) {
       expect(isApproveLabel(label)).toBe(false)
     }
   })
 })
 
 describe('waitingStop', () => {
-  test('names the unapproved prd, plan or ship stop, or a phase awaiting approval, and nothing else', () => {
+  test('names the unapproved prd, plan or ship stop and nothing else; a finished phase waits for no one', () => {
     expect(waitingStop({ stage: 'prd' })).toBe('prd')
     expect(waitingStop({ stage: 'prd', approvals: { prd: { at: 'x' } } })).toBeUndefined()
     expect(waitingStop({ stage: 'ship', approvals: {} })).toBe('ship')
-    expect(waitingStop({ stage: 'execute', phases: [{ status: 'done' }, { status: 'awaiting_approval' }] })).toBe('phase')
-    expect(waitingStop({ stage: 'execute', phases: [{ status: 'in_progress' }, { status: 'awaiting_approval' }] })).toBeUndefined()
+    expect(waitingStop({ stage: 'execute' })).toBeUndefined()
     expect(waitingStop({ stage: 'discover' })).toBeUndefined()
   })
 })
@@ -155,7 +157,7 @@ describe('menu approval (FR-02)', () => {
   })
 
   const unanswered: [string, string][] = [
-    ['Approve the revised wording', /answer was not "Approve"/.source],
+    ['Request changes', /answer was not "Approve"/.source],
     ['Revise', /answer was not "Approve"/.source],
   ]
   for (const [answer, why] of unanswered) {
@@ -217,16 +219,12 @@ describe('menu approval (FR-02)', () => {
     expect(toasts.join()).toMatch(/prd approved/)
   })
 
-  test('a phase tag approves only while the current phase awaits approval', async ($, on) => {
-    const { approveRuns } = world(on, [
-      { slug: 'ph-ready', stage: 'execute', worktree: '/wt/ph-ready', phases: [{ status: 'done' }, { status: 'awaiting_approval' }] },
-      { slug: 'ph-busy', stage: 'execute', worktree: '/wt/ph-busy', phases: [{ status: 'in_progress' }] },
-    ])
-    const ready = 'Approve? [cairn:approve phase ph-ready]'
-    const busy = 'Approve? [cairn:approve phase ph-busy]'
-    dialog(on, { [ready]: 'Approve', [busy]: 'Approve' })
-    await $.tool.call(ask(ready, busy))
-    expect(approveRuns().map(r => r.init?.cwd)).toEqual(['/wt/ph-ready'])
+  test('a phase tag is not a tag any more: nothing is approved', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'ph', stage: 'execute', worktree: '/wt/ph' }])
+    const q = 'Approve? [cairn:approve phase ph]'
+    dialog(on, { [q]: 'Approve' })
+    await $.tool.call(ask(q))
+    expect(approveRuns()).toEqual([])
   })
 
   test('a refusal from cairn approve is carried in context and a toast', async ($, on) => {
@@ -429,12 +427,9 @@ describe('mod-run overrides (FR-34)', () => {
 
   const unplain = [
     'cairn advance --override "r"; rm -rf x',
-    'cairn advance --override "$(cat /tmp/r)"',
-    'cairn advance --override "`whoami`"',
     'cairn advance --override r && echo ok',
     'cairn advance --override r | tee log',
     'cairn advance --override r > log',
-    'cairn advance --override "r\nx"',
     'cairn advance --override "r',
     'cd /wt/x && cairn advance --override r',
   ]
@@ -451,6 +446,15 @@ describe('mod-run overrides (FR-34)', () => {
       expect(got.context?.join()).toMatch(/not a plain cairn --override command/)
     })
   }
+
+  test('any character inside quotes is one argument: the mod runs argv, never a shell', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns } = world(on, [{ slug: 'quoted', stage: 'review', worktree: '/wt/quoted' }])
+    shell(on)
+    await grantOverride($, on, 'quoted')
+    await $.tool.call({ tool: 'Bash', command: 'cairn advance --override "r; $(whoami) `x`\nnext" --note \'a | b > c\'' })
+    expect(cliRuns().map(r => r.argv.slice(1))).toEqual([['advance', '--override', 'r; $(whoami) `x`\nnext', '--note', 'a | b > c']])
+  })
 
   test('a quoted reason glued to --override= is one argument, as a shell reads it', async ($, on) => {
     mock.clock(on)

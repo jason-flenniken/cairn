@@ -2,6 +2,7 @@
 // Approvals and plan state come from the user (through the mod) and the CLI.
 // The Bash guard is a best-effort deny-list on spellings; the CLI's proof is the real control.
 import type { EngineInterface, On } from 'claude-code'
+import { after, before } from './activity.ts'
 
 const WHY = 'approvals and plan state come from the user and the CLI, not from tool calls.'
 const REASON = `cairn: ${WHY}`
@@ -442,7 +443,6 @@ export function install(on: On): void {
 
   on('tool.call', async ($, e, next) => {
     const paths = targetPaths(e)
-    if (paths.length === 0) return next(e)
     const tool = String(e.tool)
     const isBlocked = (real: string) =>
       SEARCH_TOOLS.has(tool) ? GIT_DIR.test(real) : READ_TOOLS.has(tool) ? CAIRN_DIR.test(real) : pathProtected(real)
@@ -453,7 +453,13 @@ export function install(on: On): void {
         return { deny: `cairn: ${path} is plan state or cairn's own folder; ${WHY}` }
       }
     }
-    return next(e)
+    // Allowed: the pane's card shows the call while it runs. The engine allows one unmatched tool.call hook per module.
+    await before($, e)
+    try {
+      return await next(e)
+    } finally {
+      await after($, e)
+    }
   }).catch(($, e, next) => {
     if (next.called || targetPaths(e).length === 0) return next(e)
     return { deny: 'cairn: its path guard failed, so the call is refused.' }

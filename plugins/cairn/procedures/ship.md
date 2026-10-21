@@ -10,12 +10,12 @@ Run `cairn status --json`. The stage must be `ship`. Any other stage: say which 
 **Done when:** the stage is `ship` and verify and review evidence are recorded.
 
 ## 2. Draft the record
-Dispatch the `recorder` agent (`model: sonnet`). Give it: the output of `cairn status --json`, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, accepted drift, overruled findings, advisory findings, and `git log <base>..<plan-branch>`. It writes `docs/sdlc/plans/<slug>/RECORD.md` from the record template in at most 900 words.
+Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open-suggestion counts, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, and `git log <base>..<plan-branch>`. It writes `docs/sdlc/plans/<slug>/RECORD.md` from the record template in at most 500 words.
 
-**Done when:** `RECORD.md` exists with every template heading and is within 900 words (`wc -w`).
+**Done when:** `RECORD.md` exists with every template heading and is within 500 words (`wc -w`).
 
 ## 3. Show and stop
-Show the user the record. Run `cairn status --json` and read `modActive`.
+Show the user the record, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json` and read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output:
   - Approve (Recommended): approve the record, then open the PR
   - Revise the record: ask what to change, edit, recheck the word count

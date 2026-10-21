@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { commitPath, gitOk } from '../git.ts';
+import { commitPath } from '../git.ts';
 import { planRel, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
@@ -40,8 +40,8 @@ function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: strin
   gate(!record.problems.length, s, 'close', opts, record.problems.join('; '), [record.fix]);
   testsGate(tests, s, 'close', opts);
 }
-const APPROVAL_KINDS = ['prd', 'plan', 'phase', 'ship'];
-const APPROVE_USAGE = 'usage: cairn approve prd|plan|phase|ship [--human] [--note "…"]';
+const APPROVAL_KINDS = ['prd', 'plan', 'ship'];
+const APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "…"]';
 
 export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: ProofIO): Result {
   if (!kind || !APPROVAL_KINDS.includes(kind)) throw new CliError(APPROVE_USAGE);
@@ -80,31 +80,6 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         return { message: 'Plan approved. Next: `cairn advance` to execution.' };
       });
     }
-    case 'phase':
-      return mutate(pc, 'phase approved', (s) => {
-        const phase = currentPhase(s);
-        if (!phase) throw new Refusal('every phase is already approved');
-        gate(s.stage === 'execute', s, 'approve phase', opts, `the plan is in ${s.stage}, not execute`);
-        gate(phase.status === 'awaiting_approval', s, 'approve phase', opts, `phase "${phase.name}" still has unfinished tasks`, ['finish them (cairn ready / cairn task done)']);
-        const drift = s.drift.filter((d) => !d.acked);
-        gate(!drift.length, s, 'approve phase', opts, `drift not reviewed: ${drift.map((d) => d.path).join(', ')}`, ['review each with the user, then cairn drift ack <path> --note "…" (or --all)']);
-        const v = phase.verdict;
-        gate(!!v, s, 'approve phase', opts, 'no direction verdict is recorded for this phase', ['run the direction check, then cairn evidence phase']);
-        if (v) {
-          gate(v.result !== 'red', s, 'approve phase', opts, `the direction verdict is red${v.note ? ` (${v.note})` : ''}`, ['fix what the report flags, then re-run the check and cairn evidence phase']);
-          gate(gitOk(['diff', '--quiet', v.commit, 'HEAD', '--', '.', ':!docs/sdlc'], pc.plan.worktree), s, 'approve phase', opts, `code changed since the direction check (verdict at ${v.commit.slice(0, 7)})`, ['re-run the direction check, then cairn evidence phase']);
-        }
-        phase.status = 'done';
-        log(s, 'phase approved', `${phase.name} (source: ${source})`);
-        const following = currentPhase(s);
-        if (following) {
-          following.status = 'in_progress';
-          return { message: `Phase "${phase.name}" approved. Next phase: "${following.name}".` };
-        }
-        s.stage = 'verify';
-        log(s, 'advanced', 'verify');
-        return { message: `Phase "${phase.name}" approved. All phases done; the plan moved to Verify.` };
-      });
     case 'ship':
       return mutate(pc, 'ship approved', (s) => {
         gate(s.stage === 'ship', s, 'approve ship', opts, `the plan is in ${s.stage}, not ship`);
@@ -152,7 +127,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         gate(!!s.approvals.plan && s.phases.length > 0, s, 'advance', opts, 'the plan is not approved', ['cairn approve plan']);
         break;
       case 'execute':
-        gate(s.phases.every((p) => p.status === 'done'), s, 'advance', opts, 'not every phase is approved', ['finish and approve the remaining phases']);
+        gate(s.phases.every((p) => p.status === 'done'), s, 'advance', opts, 'not every phase is finished', ['cairn phase finish']);
         break;
       case 'verify':
         gate(s.evidence.verify?.result === 'pass', s, 'advance', opts, 'verification has not passed', ['cairn evidence verify pass --note "…"']);

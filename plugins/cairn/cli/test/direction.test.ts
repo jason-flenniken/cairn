@@ -42,7 +42,7 @@ p
 s
 ## User stories
 1. As a user I pay.
-## Functional requirements
+## Requirements
 - FR-01 charge
 - FR-02 refund
 ## Non-functional requirements
@@ -187,30 +187,30 @@ test('evidence phase records yellow and the plan commit for one partial row', ()
   assert.equal(v.commit, head);
 });
 
-test('evidence phase records green for aligned and supporting rows, and approval then succeeds', () => {
+test('evidence phase records green for aligned and supporting rows, and the phase then finishes', () => {
   const { wt, dir, state } = awaiting();
   report(dir, card({ unplanned: [{ what: 'helper', class: 'supporting', evidence: 'src/a.ts:3' }] }));
   ok(wt, 'evidence', 'phase');
   assert.equal(state().phases[0].verdict.result, 'green');
-  byUser(wt, 'approve', 'phase');
+  ok(wt, 'phase', 'finish');
   assert.equal(state().phases[0].status, 'done');
 });
 
-test('approval succeeds on yellow', () => {
+test('phase finish succeeds on yellow', () => {
   const { wt, dir, state } = awaiting();
   report(dir, card({ requirements: [aligned('FR-01'), { ...aligned('FR-02'), verdict: 'partial' }] }));
   ok(wt, 'evidence', 'phase');
-  byUser(wt, 'approve', 'phase');
+  ok(wt, 'phase', 'finish');
   assert.equal(state().phases[0].status, 'done');
 });
 
-test('evidence phase refuses when the phase is not waiting for approval', () => {
+test('evidence phase refuses when the phase is not built and waiting to finish', () => {
   const { wt, dir } = awaiting();
   report(dir, card({}));
   ok(wt, 'evidence', 'phase');
-  byUser(wt, 'approve', 'phase');
+  ok(wt, 'phase', 'finish');
   // the next phase is in progress, not waiting
-  refused(wt, /no phase is waiting for approval|not waiting for approval/, 'evidence', 'phase');
+  refused(wt, /no phase is built and waiting to finish/, 'evidence', 'phase');
 });
 
 test('evidence phase refuses with no report, naming the path', () => {
@@ -242,65 +242,24 @@ test('evidence phase refuses a row without path:line evidence', () => {
   refused(wt, /FR-02.*path:line/, 'evidence', 'phase');
 });
 
-test('approve phase refuses when no verdict was recorded', () => {
-  const { wt } = awaiting();
-  refusedByUser(wt, /no direction verdict/, 'approve', 'phase');
-});
-
-test('a red verdict refuses approval with proof alone, and an override with proof succeeds and is logged', () => {
+test('a red verdict refuses phase finish with proof alone, and an override with proof succeeds and is logged', () => {
   const { wt, dir, state } = awaiting();
   report(dir, card({ requirements: [aligned('FR-01'), { ...aligned('FR-02'), verdict: 'contradicted' }] }));
   ok(wt, 'evidence', 'phase');
   assert.equal(state().phases[0].verdict.result, 'red');
-  refusedByUser(wt, /direction verdict is red/, 'approve', 'phase');
+  refused(wt, /on-track check for "Core" is red/, 'phase', 'finish');
   assert.equal(state().phases[0].status, 'awaiting_approval');
-  refused(wt, /^approvals come from the user, and this command has no proof that one did$/, 'approve', 'phase', '--override', 'ship it');
-  byUser(wt, 'approve', 'phase', '--override', 'user accepts the gap');
+  refused(wt, /an override needs proof/, 'phase', 'finish', '--override', 'ship it');
+  byUser(wt, 'phase', 'finish', '--override', 'user accepts the gap');
   assert.equal(state().phases[0].status, 'done');
   assert.ok(state().log.some((l: { override?: string }) => l.override === 'user accepts the gap'));
-});
-
-test('a green verdict followed by a code commit refuses until the check is re-run', () => {
-  const { wt, dir, state } = awaiting();
-  report(dir, card({}));
-  ok(wt, 'evidence', 'phase');
-  write(join(wt, 'src/late.ts'), 'export {};\n');
-  g(wt, 'add', '-A');
-  g(wt, 'commit', '-q', '-m', 'late change');
-  refusedByUser(wt, /code changed since the direction check/, 'approve', 'phase');
-  const head = g(wt, 'rev-parse', 'HEAD');
-  ok(wt, 'evidence', 'phase');
-  assert.equal(state().phases[0].verdict.commit, head);
-  byUser(wt, 'approve', 'phase');
-  assert.equal(state().phases[0].status, 'done');
-});
-
-test('a commit touching only docs/sdlc does not make the verdict stale', () => {
-  const { wt, dir, state } = awaiting();
-  report(dir, card({}));
-  ok(wt, 'evidence', 'phase');
-  write(join(wt, 'docs/sdlc/plans/notes.md'), 'note\n');
-  g(wt, 'add', '-A');
-  g(wt, 'commit', '-q', '-m', 'docs only');
-  byUser(wt, 'approve', 'phase');
-  assert.equal(state().phases[0].status, 'done');
-});
-
-test('a code file moved into docs/sdlc after the verdict makes it stale', () => {
-  const { wt, dir } = awaiting();
-  report(dir, card({}));
-  ok(wt, 'evidence', 'phase');
-  mkdirSync(join(wt, 'docs/sdlc/plans'), { recursive: true });
-  g(wt, 'mv', 'src/charge/index.ts', 'docs/sdlc/plans/moved.ts');
-  g(wt, 'commit', '-q', '-m', 'move code under docs/sdlc');
-  refusedByUser(wt, /code changed since the direction check/, 'approve', 'phase');
 });
 
 test('a re-plan clears every recorded phase verdict, on more than one phase', () => {
   const { wt, dir, state } = awaiting();
   report(dir, card({}));
   ok(wt, 'evidence', 'phase');
-  byUser(wt, 'approve', 'phase');
+  ok(wt, 'phase', 'finish');
   const swt = ok(wt, 'task', 'start', 'receipt').data!.worktree as string;
   write(join(swt, 'src/receipt/index.ts'), 'export const r = 1;\n');
   g(swt, 'add', '-A');

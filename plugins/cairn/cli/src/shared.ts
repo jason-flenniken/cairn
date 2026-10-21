@@ -112,10 +112,10 @@ export function runTests(cfg: Config, cwd: string): TestRun | undefined {
   return { ok: r.status === 0, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
 }
 
-/** Refuse (or log an override) when the tests failed or don't exist. Tests run before the state lock is taken. */
+/** Refuse (or log an override) when the tests failed. No test command is a warning, not a refusal. Tests run before the state lock is taken. */
 export function testsGate(t: TestRun | undefined, s: State, event: string, opts: Opts): TestRun | undefined {
   if (!t) {
-    gate(false, s, event, opts, 'no test command configured', ['add "test": "<command>" to .sdlc/config.json']);
+    log(s, `warning: ${event}`, 'no test command configured, so nothing was run');
     return undefined;
   }
   gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` → ${t.tail})`, ['fix the failing tests, then retry']);

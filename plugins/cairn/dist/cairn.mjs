@@ -6345,15 +6345,15 @@ var require_parser = __commonJS({
     var node_process = __require("process");
     var cst = require_cst();
     var lexer = require_lexer();
-    function includesToken(list, type) {
-      for (let i = 0; i < list.length; ++i)
-        if (list[i].type === type)
+    function includesToken(list2, type) {
+      for (let i = 0; i < list2.length; ++i)
+        if (list2[i].type === type)
           return true;
       return false;
     }
-    function findNonEmptyIndex(list) {
-      for (let i = 0; i < list.length; ++i) {
-        switch (list[i].type) {
+    function findNonEmptyIndex(list2) {
+      for (let i = 0; i < list2.length; ++i) {
+        switch (list2[i].type) {
           case "space":
           case "comment":
           case "newline":
@@ -7440,14 +7440,14 @@ function gitOk(args, cwd) {
 }
 function worktrees(cwd) {
   const out = execFileSync("git", ["worktree", "list", "--porcelain"], { cwd, encoding: "utf8" });
-  const list = [];
+  const list2 = [];
   for (const block of out.split("\n\n")) {
     const path = block.match(/^worktree (.+)$/m)?.[1];
     if (!path) continue;
     const branch = block.match(/^branch refs\/heads\/(.+)$/m)?.[1];
-    list.push({ path, branch });
+    list2.push({ path, branch });
   }
-  return list;
+  return list2;
 }
 var currentBranch = (cwd) => git(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
 var topLevel = (cwd) => git(["rev-parse", "--show-toplevel"], cwd);
@@ -7641,24 +7641,13 @@ function emptySections(md, required) {
 var uncheckedItems = (body = "") => body.split("\n").filter((l) => /^\s*[-*]\s+\[ \]/.test(l)).map((l) => l.trim());
 var wordCount = (md) => md.replace(/<!--[\s\S]*?-->/g, "").split(/\s+/).filter(Boolean).length;
 var proseWordCount = (md) => wordCount(md.replace(/<!--[\s\S]*?-->/g, "").split("\n").filter((l) => !/^\s*#{1,6}\s/.test(l)).join("\n"));
-var PRD_SECTIONS = [
-  "Problem",
-  "Solution",
-  "User stories",
-  "Functional requirements",
-  "Non-functional requirements",
-  "Non-goals",
-  "Acceptance criteria",
-  "Unhappy paths",
-  "Security considerations",
-  "Open questions"
-];
-var PLAN_SECTIONS = ["Goal", "Architecture", "Global constraints", "Review focus", "Phases"];
-var RECORD_SECTIONS = ["Links", "Why", "What was built", "How it works", "Evidence", "Deviations", "Follow-ups"];
+var PRD_SECTIONS = ["Problem", "Solution", "Requirements", "Non-goals", "Open questions"];
+var PLAN_SECTIONS = ["Goal", "Architecture", "Phases"];
+var RECORD_SECTIONS = ["Links", "Why", "What was built", "How it works", "Follow-ups"];
 var HANDOFF_SECTIONS = ["In flight", "Open questions", "Next action"];
-var RECORD_WORD_BUDGET = 900;
+var RECORD_WORD_BUDGET = 500;
 var FIX_RECORD_SECTIONS = ["Links", "Bug", "Cause", "Fix", "Evidence"];
-var FIX_RECORD_WORD_BUDGET = 300;
+var FIX_RECORD_WORD_BUDGET = 200;
 var FR_ID = /\bFR-\d+\b/g;
 var ids = (text = "") => [...new Set(text.match(FR_ID) ?? [])];
 
@@ -7680,6 +7669,8 @@ var STAGE_LABEL = {
   closed: "Closed"
 };
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
+var SUGGESTION_AREAS = ["tests", "security", "perf", "quality", "ux", "docs"];
+var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user"];
 
 // plugins/cairn/cli/src/render.ts
 var day = (iso) => iso ? iso.slice(0, 10) : "";
@@ -7693,7 +7684,7 @@ function nextFor(s) {
     case "discover":
       return { procedure: "discover", text: "Interview: settle the open decisions, then move on to the PRD." };
     case "prd":
-      return s.approvals.prd ? { procedure: "prd", substep: "advance", text: "PRD approved. Advance to planning." } : { procedure: "prd", text: "Draft the PRD, review it, and get it approved." };
+      return s.approvals.prd ? { procedure: "prd", substep: "advance", text: "PRD approved. Advance to planning." } : { procedure: "prd", text: "Draft the PRD and get it approved." };
     case "plan":
       return s.approvals.plan ? { procedure: "plan", substep: "advance", text: "Plan approved. Advance to execution." } : { procedure: "plan", text: "Write the phased plan, load it, and get it approved." };
     case "execute": {
@@ -7701,7 +7692,7 @@ function nextFor(s) {
       if (!phase && s.track === "fix" && s.repro) return { procedure: "review", text: "The fix is built. Advance to review." };
       if (!phase) return { procedure: "verify", text: "All phases are done. Advance to verification." };
       if (phase.status === "awaiting_approval")
-        return { procedure: "phase-end", text: `Phase "${phase.name}" is built. Review it and approve it to continue.` };
+        return { procedure: "phase-end", text: `Phase "${phase.name}" is built. Run \`cairn phase finish\` to continue.` };
       const running = all.filter((x) => x.status === "in_progress");
       if (running.length)
         return { procedure: "execute", substep: "continue", text: `Continue running tasks: ${running.map((x) => `${x.name} (${x.substep ?? "implementing"})`).join(", ")}.` };
@@ -7760,7 +7751,7 @@ function renderStatus(s) {
   if (s.phases.length) {
     out.push("", "## Phases");
     for (const p of s.phases) {
-      out.push(`- ${phaseIcon(p)} ${p.name}${p.status === "awaiting_approval" ? " (built, waiting for approval)" : ""}`);
+      out.push(`- ${phaseIcon(p)} ${p.name}${p.status === "awaiting_approval" ? " (built, ready to finish)" : ""}`);
       for (const x of p.tasks) {
         let tail = "";
         if (x.status === "in_progress") tail = ` (${x.substep ?? "implementing"}${x.fixRound ? `, fix attempt ${x.fixRound}` : ""})`;
@@ -7906,7 +7897,7 @@ ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
 }
 function testsGate(t, s, event, opts) {
   if (!t) {
-    gate(false, s, event, opts, "no test command configured", ['add "test": "<command>" to .sdlc/config.json']);
+    log(s, `warning: ${event}`, "no test command configured, so nothing was run");
     return void 0;
   }
   gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail})`, ["fix the failing tests, then retry"]);
@@ -8212,8 +8203,8 @@ function closeGates(pc, s, opts, record, tests) {
   gate(!record.problems.length, s, "close", opts, record.problems.join("; "), [record.fix]);
   testsGate(tests, s, "close", opts);
 }
-var APPROVAL_KINDS = ["prd", "plan", "phase", "ship"];
-var APPROVE_USAGE = 'usage: cairn approve prd|plan|phase|ship [--human] [--note "\u2026"]';
+var APPROVAL_KINDS = ["prd", "plan", "ship"];
+var APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "\u2026"]';
 function cmdApprove(ctx, kind, opts, io) {
   if (!kind || !APPROVAL_KINDS.includes(kind)) throw new CliError(APPROVE_USAGE);
   const pc = planCtx(ctx);
@@ -8250,31 +8241,6 @@ function cmdApprove(ctx, kind, opts, io) {
         return { message: "Plan approved. Next: `cairn advance` to execution." };
       });
     }
-    case "phase":
-      return mutate(pc, "phase approved", (s) => {
-        const phase = currentPhase(s);
-        if (!phase) throw new Refusal("every phase is already approved");
-        gate(s.stage === "execute", s, "approve phase", opts, `the plan is in ${s.stage}, not execute`);
-        gate(phase.status === "awaiting_approval", s, "approve phase", opts, `phase "${phase.name}" still has unfinished tasks`, ["finish them (cairn ready / cairn task done)"]);
-        const drift = s.drift.filter((d) => !d.acked);
-        gate(!drift.length, s, "approve phase", opts, `drift not reviewed: ${drift.map((d) => d.path).join(", ")}`, ['review each with the user, then cairn drift ack <path> --note "\u2026" (or --all)']);
-        const v = phase.verdict;
-        gate(!!v, s, "approve phase", opts, "no direction verdict is recorded for this phase", ["run the direction check, then cairn evidence phase"]);
-        if (v) {
-          gate(v.result !== "red", s, "approve phase", opts, `the direction verdict is red${v.note ? ` (${v.note})` : ""}`, ["fix what the report flags, then re-run the check and cairn evidence phase"]);
-          gate(gitOk(["diff", "--quiet", v.commit, "HEAD", "--", ".", ":!docs/sdlc"], pc.plan.worktree), s, "approve phase", opts, `code changed since the direction check (verdict at ${v.commit.slice(0, 7)})`, ["re-run the direction check, then cairn evidence phase"]);
-        }
-        phase.status = "done";
-        log(s, "phase approved", `${phase.name} (source: ${source})`);
-        const following = currentPhase(s);
-        if (following) {
-          following.status = "in_progress";
-          return { message: `Phase "${phase.name}" approved. Next phase: "${following.name}".` };
-        }
-        s.stage = "verify";
-        log(s, "advanced", "verify");
-        return { message: `Phase "${phase.name}" approved. All phases done; the plan moved to Verify.` };
-      });
     case "ship":
       return mutate(pc, "ship approved", (s) => {
         gate(s.stage === "ship", s, "approve ship", opts, `the plan is in ${s.stage}, not ship`);
@@ -8318,7 +8284,7 @@ function cmdAdvance(ctx, opts) {
         gate(!!s.approvals.plan && s.phases.length > 0, s, "advance", opts, "the plan is not approved", ["cairn approve plan"]);
         break;
       case "execute":
-        gate(s.phases.every((p) => p.status === "done"), s, "advance", opts, "not every phase is approved", ["finish and approve the remaining phases"]);
+        gate(s.phases.every((p) => p.status === "done"), s, "advance", opts, "not every phase is finished", ["cairn phase finish"]);
         break;
       case "verify":
         gate(s.evidence.verify?.result === "pass", s, "advance", opts, "verification has not passed", ['cairn evidence verify pass --note "\u2026"']);
@@ -8378,7 +8344,8 @@ function parsePlan(planMd, prdMd) {
   const rawPhases = doc?.phases;
   if (!Array.isArray(rawPhases) || rawPhases.length === 0)
     return { phases: [], problems: [...problems, "cairn-tasks needs a non-empty `phases:` list"] };
-  const requirements = sections(prdMd).get("functional requirements");
+  const prdSections = sections(prdMd);
+  const requirements = prdSections.get("requirements") ?? prdSections.get("functional requirements");
   const prdIds = new Set(ids(requirements));
   problems.push(...badRequirementIds(requirements));
   const phases = [];
@@ -8404,10 +8371,13 @@ function parsePlan(planMd, prdMd) {
       const kind = rs?.kind === void 0 ? void 0 : String(rs.kind);
       if (kind !== void 0 && !KINDS.includes(kind)) problems.push(`${where}: kind must be ${KINDS.join(" or ")}, or left out`);
       if (!covers.length && kind !== "prefactor") problems.push(`${where}: \`covers\` must list the PRD FR ids it implements (only kind: prefactor may leave it empty)`);
-      for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Functional requirements`);
+      for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Requirements`);
       if (!scope.length) problems.push(`${where}: \`scope\` must list the file globs it may touch`);
       if (!COMPLEXITY.includes(complexity)) problems.push(`${where}: complexity must be simple, standard, or complex`);
-      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...kind === "prefactor" ? { kind } : {}, covers, blockedBy, scope, complexity, status: "pending", fixRound: 0 });
+      const risky = rs?.risky === true;
+      if (rs?.risky !== void 0 && typeof rs.risky !== "boolean") problems.push(`${where}: risky must be true or false`);
+      const riskReason = typeof rs?.riskReason === "string" && rs.riskReason.trim() ? rs.riskReason.trim() : void 0;
+      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...kind === "prefactor" ? { kind } : {}, covers, blockedBy, scope, complexity, status: "pending", fixRound: 0, risky, ...risky && riskReason ? { riskReason } : {} });
     }
     phases.push({ id: pid, name: String(rp?.name ?? pid), status: "pending", tasks });
   });
@@ -8464,7 +8434,7 @@ function mergeProgress(next, prev) {
       const o = old.get(s.id);
       if (!o) continue;
       kept.add(s.id);
-      p.tasks[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
+      p.tasks[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, testedCommit: o.testedCommit, doneAt: o.doneAt, startedAt: o.startedAt, note: o.note };
     }
   const lostDone = [...old.values()].filter((s) => s.status !== "pending" && !kept.has(s.id)).map((s) => s.id);
   for (const p of next) p.status = phaseStatus(p, prev.find((q) => q.id === p.id)?.status);
@@ -8513,7 +8483,7 @@ function cmdPlanLoad(ctx, opts) {
 // plugins/cairn/cli/src/commands/tasks.ts
 import { existsSync as existsSync5 } from "node:fs";
 import { join as join10 } from "node:path";
-var MAX_FIX_ROUNDS = 5;
+var MAX_FIX_ROUNDS = 2;
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
   const pc = planCtx(ctx);
@@ -8523,7 +8493,7 @@ function cmdReady(ctx) {
   const lines = [
     r.phase ? `Phase "${r.phase.name}": ${r.ready.length} ready, ${r.inProgress.length} running, ${r.waiting.length} waiting.` : "No phase in progress.",
     ...r.ready.map((x) => `  ready: ${x.id} (${x.name}) model=${tier[x.complexity]}`),
-    ...r.inProgress.map((x) => `  running: ${x.id} (${x.substep ?? "implementing"}${x.fixRound ? `, fix round ${x.fixRound}` : ""}) at ${x.worktree}`),
+    ...r.inProgress.map((x) => `  running: ${x.id} (${x.substep ?? "implementing"}${x.fixRound ? `, fix attempt ${x.fixRound}` : ""}) at ${x.worktree}`),
     ...r.waiting.map((w) => `  waiting: ${w.task.id} on ${w.on.join(", ")}`)
   ];
   if (s.paused) lines.unshift("The plan is paused: start nothing new.");
@@ -8575,7 +8545,7 @@ function taskStart(pc, id, opts) {
       else git(["worktree", "add", "-q", "-b", branch, path, planBranch(plan.slug)], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
     }
-    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base });
+    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now() });
     const phase = s.phases.find((p) => p.tasks.includes(sl));
     if (phase.status === "pending") phase.status = "in_progress";
     log(s, "task started", sl.name);
@@ -8590,13 +8560,13 @@ function taskStep(pc, id, step, opts) {
     const sl = findTask(s, id);
     if (!sl || sl.status !== "in_progress") throw new Refusal(`task "${id}" is not running`, ["cairn task start " + id]);
     if (step === "fixing") {
-      gate(sl.fixRound < MAX_FIX_ROUNDS, s, "task fix round", opts, `task "${sl.name}" has used ${MAX_FIX_ROUNDS} fix rounds`, ["stop and ask the user: split the task, re-plan, or take it over"]);
+      gate(sl.fixRound < MAX_FIX_ROUNDS, s, "task fix round", opts, `task "${sl.name}" has used ${MAX_FIX_ROUNDS} fix attempts`, ["stop and ask the user: split the task, re-plan, or take it over"]);
       sl.fixRound++;
     }
     sl.substep = step;
     if (opts.note) sl.note = String(opts.note);
-    log(s, `task ${step}`, `${sl.name}${step === "fixing" ? ` (round ${sl.fixRound})` : ""}${opts.note ? `: ${opts.note}` : ""}`);
-    return { message: `Task "${sl.name}": ${step}${step === "fixing" ? `, round ${sl.fixRound} of ${MAX_FIX_ROUNDS}` : ""}.` };
+    log(s, `task ${step}`, `${sl.name}${step === "fixing" ? ` (attempt ${sl.fixRound})` : ""}${opts.note ? `: ${opts.note}` : ""}`);
+    return { message: `Task "${sl.name}": ${step}${step === "fixing" ? `, attempt ${sl.fixRound} of ${MAX_FIX_ROUNDS}` : ""}.` };
   });
 }
 function taskDone(pc, id, opts) {
@@ -8614,6 +8584,7 @@ function taskDone(pc, id, opts) {
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRel(plan.slug)}`], plan.worktree);
   const checkable = merged && !dirty && !planDirty;
   const tests = checkable ? runTests(pc.cfg, plan.worktree) : void 0;
+  const testedCommit = tests ? git(["rev-parse", "HEAD"], plan.worktree) : void 0;
   const fix = fastLane(pre);
   const repro = fix && merged && pre.repro ? runRepro(pre.repro.cmd, plan.worktree, pc.cfg) : void 0;
   const heads = [pb, ...tip ? [sl.branch] : []];
@@ -8637,14 +8608,14 @@ function taskDone(pc, id, opts) {
         s.drift.push({ path, at: now(), reason: `changed outside task "${cur.name}" scope (found at task done)`, task: cur.id });
         log(s, "drift", path);
       }
-    Object.assign(cur, { status: "done", substep: void 0, doneAt: now(), tip, tests: tests ? `${tests.cmd} \u2192 ${tests.tail}` : void 0 });
+    Object.assign(cur, { status: "done", substep: void 0, doneAt: now(), tip, tests: tests ? `${tests.cmd} \u2192 ${tests.tail}` : void 0, testedCommit: tests?.ok ? testedCommit : void 0 });
     const phase = s.phases.find((p) => p.tasks.some((x) => x.id === id));
     phase.status = phaseStatus(phase, phase.status);
     if (fastLane(s) && phase.status === "awaiting_approval") phase.status = "done";
     log(s, "task done", cur.name);
     const left = phase.tasks.filter((x) => x.status !== "done").length;
     return {
-      message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ""}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? "The fix is built: `cairn advance` to review." : `Phase "${phase.name}" is built: run the phase-end review.`}`,
+      message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : " (no test command configured: nothing was run)"}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? "The fix is built: `cairn advance` to review." : `Phase "${phase.name}" is built: run \`cairn phase finish\`.`}`,
       data: { phaseComplete: !left }
     };
   });
@@ -8653,110 +8624,62 @@ function taskDone(pc, id, opts) {
   return r;
 }
 
-// plugins/cairn/cli/src/direction.ts
-var import_yaml2 = __toESM(require_dist(), 1);
-var BLOCK2 = /```ya?ml[ \t]+cairn-direction[ \t]*\r?\n([\s\S]*?)```/g;
-var VERDICTS = ["aligned", "partial", "missing", "contradicted"];
-var CLASSES = ["pulled-forward", "unplanned", "non-goal-breach", "supporting"];
-var PATH_LINE = /^\S.*:\d+(-\d+)?$/;
-var empty = () => ({ requirements: [], unplanned: [], nfr: [] });
-function parseScorecard(md) {
-  const blocks = [...md.replace(/\r\n/g, "\n").matchAll(BLOCK2)];
-  if (!blocks.length) return { rows: empty(), problems: ["the report has no ```yaml cairn-direction block"] };
-  if (blocks.length > 1) return { rows: empty(), problems: ["the report has more than one cairn-direction block; keep exactly one"] };
-  let doc;
-  try {
-    doc = (0, import_yaml2.parse)(blocks[0][1]);
-  } catch (e) {
-    return { rows: empty(), problems: [`cairn-direction YAML does not parse: ${e.message}`] };
-  }
-  const problems = [];
-  const list = (key) => {
-    const v = doc?.[key] ?? [];
-    if (!Array.isArray(v)) {
-      problems.push(`\`${key}\` must be a list`);
-      return [];
+// plugins/cairn/cli/src/commands/phase.ts
+function newSuggestionsText(s) {
+  const since = [...s.log].reverse().find((l) => l.event === "phase finished" || l.event === "advanced" && l.detail === "execute")?.at ?? s.created;
+  const fresh = (s.suggestions ?? []).filter((x) => !x.resolves && x.at > since);
+  if (!fresh.length) return "0 new suggestions";
+  const by = /* @__PURE__ */ new Map();
+  for (const x of fresh) by.set(x.area, (by.get(x.area) ?? 0) + 1);
+  return `${fresh.length} new suggestion${fresh.length === 1 ? "" : "s"} (${[...by].map(([a, n]) => `${n} ${a}`).join(", ")})`;
+}
+function cmdPhase(ctx, action, opts) {
+  if (action !== "finish") throw new CliError("usage: cairn phase finish");
+  const pc = planCtx(ctx);
+  const { plan } = pc;
+  const pre = loadState(plan.dir);
+  const phase = currentPhase(pre);
+  if (pre.stage !== "execute" || !phase) throw new Refusal(`the plan is in ${pre.stage}, with no phase to finish`, ["cairn next"]);
+  if (pre.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
+  const unfinished = phase.tasks.filter((x) => x.status !== "done");
+  if (unfinished.length) throw new Refusal(`phase "${phase.name}" still has unfinished tasks: ${unfinished.map((x) => x.name).join(", ")}`, ["cairn ready"]);
+  const blocked = phase.tasks.filter((x) => x.substep === "blocked");
+  if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(", ")}`);
+  const dirty = git(["status", "--porcelain", "--", ".", `:!${planRel(plan.slug)}`], plan.worktree);
+  if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside docs/sdlc: ${dirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
+  const head = git(["rev-parse", "HEAD"], plan.worktree);
+  const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? "").localeCompare(b.doneAt ?? "")).pop();
+  const reused = !!(last?.testedCommit && last.tests && gitOk(["diff", "--quiet", last.testedCommit, head, "--", ".", ":!docs/sdlc"], plan.worktree));
+  const tests = reused ? void 0 : runTests(pc.cfg, plan.worktree);
+  return mutate(pc, `phase finished: ${phase.name}`, (s) => {
+    const cur = currentPhase(s);
+    gate(cur.verdict?.result !== "red", s, "phase finish", opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"]);
+    if (!reused) testsGate(tests, s, "phase finish", opts);
+    const testText = reused ? `tests green (${last.tests.split(" \u2192 ").pop()})` : tests ? `tests ${tests.ok ? "green" : "RED"} (${tests.tail})` : "no test command";
+    const suggestions = newSuggestionsText(s);
+    const drift = s.drift.filter((d) => !d.acked);
+    cur.status = "done";
+    log(s, "phase finished", `${cur.name} (${testText})`);
+    const following = currentPhase(s);
+    let next;
+    if (following) {
+      following.status = "in_progress";
+      next = `next phase "${following.name}"`;
+    } else {
+      s.stage = "verify";
+      log(s, "advanced", "verify");
+      next = "all phases done, moved to Check";
     }
-    return v;
-  };
-  const evidence = (label, r) => {
-    if (typeof r?.evidence !== "string" || !PATH_LINE.test(r.evidence.trim())) problems.push(`${label}: evidence must be path:line (got ${JSON.stringify(r?.evidence)})`);
-  };
-  const rows = empty();
-  for (const key of ["requirements", "nfr"])
-    for (const r of list(key)) {
-      const label = `${key} row ${r?.id ?? "(no id)"}`;
-      if (typeof r?.id !== "string" || !r.id) problems.push(`${label}: needs an id`);
-      if (!VERDICTS.includes(r?.verdict)) problems.push(`${label}: verdict must be one of ${VERDICTS.join("|")}`);
-      evidence(label, r);
-      rows[key].push(r);
-    }
-  for (const r of list("unplanned")) {
-    const label = `unplanned row "${r?.what ?? "(no description)"}"`;
-    if (typeof r?.what !== "string" || !r.what) problems.push(`${label}: needs \`what\``);
-    if (!CLASSES.includes(r?.class)) problems.push(`${label}: class must be one of ${CLASSES.join("|")}`);
-    evidence(label, r);
-    rows.unplanned.push(r);
-  }
-  return { rows, problems };
-}
-function computeVerdict(rows) {
-  const scored = [...rows.requirements, ...rows.nfr];
-  if (scored.some((r) => r.verdict === "contradicted" || r.verdict === "missing") || rows.unplanned.some((u) => u.class === "non-goal-breach")) return "red";
-  if (scored.some((r) => r.verdict === "partial") || rows.unplanned.some((u) => u.class !== "supporting")) return "yellow";
-  return "green";
-}
-
-// plugins/cairn/cli/src/commands/evidence.ts
-function cmdEvidencePhase(ctx, opts) {
-  const pc = planCtx(ctx);
-  return mutate(pc, "phase direction verdict", (s) => {
-    const phase = currentPhase(s);
-    if (s.stage !== "execute" || !phase || phase.status !== "awaiting_approval") throw new Refusal("no phase is waiting for approval", ["finish the phase's tasks first (cairn ready / cairn task done)"]);
-    const rel = `direction/${phase.id}.md`;
-    const md = readText(planFile(pc, rel));
-    if (md === void 0) throw new Refusal(`${rel} does not exist`, ["run the direction check and write the report with a cairn-direction scorecard"]);
-    const { rows, problems } = parseScorecard(md);
-    const covered = [...new Set(phase.tasks.flatMap((x) => x.covers))];
-    const have = new Set(rows.requirements.map((r) => r?.id));
-    const missing = covered.filter((id) => !have.has(id));
-    if (missing.length) problems.push(`no row for covered requirement(s): ${missing.join(", ")}`);
-    if (problems.length) throw new Refusal(`${rel} is not a valid scorecard:
-  - ${problems.join("\n  - ")}`);
-    const result = computeVerdict(rows);
-    const commit = git(["rev-parse", "HEAD"], pc.plan.worktree);
-    phase.verdict = { result, at: now(), commit, ...opts.note ? { note: String(opts.note) } : {} };
-    log(s, `direction ${result}`, phase.name);
-    return { message: `Recorded the direction verdict for "${phase.name}": ${result} at ${commit.slice(0, 7)}.`, data: { verdict: result, commit } };
-  });
-}
-function cmdEvidence(ctx, kind, result, opts) {
-  if (kind === "phase") return cmdEvidencePhase(ctx, opts);
-  if (kind !== "verify" && kind !== "review" || result !== "pass" && result !== "fail")
-    throw new CliError('usage: cairn evidence verify|review pass|fail [--note "\u2026"] [--blocking N] | evidence phase [--note "\u2026"]');
-  const pc = planCtx(ctx);
-  return mutate(pc, `${kind} ${result}`, (s) => {
-    gate(s.stage === kind, s, `evidence ${kind}`, opts, `the plan is in ${s.stage}, not ${kind}`);
-    const blocking = opts.blocking !== void 0 ? Number(opts.blocking) : void 0;
-    if (result === "pass" && blocking) throw new Refusal(`a review with ${blocking} blocking finding(s) can't pass`, ["turn them into fix tasks (cairn plan load --replan) or record fail"]);
-    s.evidence[kind] = { result, at: now(), ...opts.note ? { note: String(opts.note) } : {}, ...blocking !== void 0 ? { blocking } : {} };
-    log(s, `${kind} ${result}`, opts.note ? String(opts.note) : void 0);
-    return { message: `Recorded ${kind}: ${result}.` };
-  });
-}
-function cmdDriftAck(ctx, path, opts) {
-  if (!path && !opts.all) throw new CliError('usage: cairn drift ack <path>|--all [--note "\u2026"]');
-  const pc = planCtx(ctx);
-  return mutate(pc, void 0, (s) => {
-    const hits = s.drift.filter((d) => !d.acked && (opts.all || d.path === path));
-    if (!hits.length) throw new Refusal(`no unreviewed drift${path ? ` for ${path}` : ""}`);
-    for (const d of hits) d.acked = { at: now(), ...opts.note ? { note: String(opts.note) } : {} };
-    log(s, "drift reviewed", hits.map((d) => d.path).join(", "));
-    return { message: `Marked ${hits.length} drift entr${hits.length === 1 ? "y" : "ies"} as reviewed.` };
+    const driftText = drift.length ? `; ${drift.length} out-of-scope edit(s): ${drift.slice(0, 5).map((d) => d.path).join(", ")}` : "";
+    return {
+      message: `Phase "${cur.name}" finished: ${cur.tasks.length} tasks, ${testText}, ${suggestions}${driftText}; ${next}.`,
+      data: { phase: cur.id, next: following?.id ?? null, stage: s.stage }
+    };
   });
 }
 
-// plugins/cairn/cli/src/commands/pause.ts
+// plugins/cairn/cli/src/commands/suggest.ts
+import { existsSync as existsSync7, readdirSync } from "node:fs";
 import { join as join12 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
@@ -8794,7 +8717,7 @@ function cmdStatus(ctx, opts) {
     const lines = rows.length ? rows.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state)}
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state) })), modActive: modIsActive(ctx) } };
+${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state) })), modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -8802,7 +8725,7 @@ ${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.st
   const next = nextFor(s);
   return {
     message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []].join("\n"),
-    data: { state: s, next, warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
+    data: { state: s, next, warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
   };
 }
 var procedurePath = (name) => join11(pluginRoot(), "procedures", `${name}.md`);
@@ -8838,7 +8761,199 @@ function cmdRender(ctx) {
   return { message: `Rendered ${out}.` };
 }
 
+// plugins/cairn/cli/src/commands/suggest.ts
+var list = (v) => typeof v === "string" ? v.split("\n").filter(Boolean) : [];
+function allStates(ctx) {
+  const out = /* @__PURE__ */ new Map();
+  for (const r of listPlans(ctx)) out.set(r.state.slug, r.state);
+  const dir = join12(ctx.top, PLANS_DIR);
+  if (existsSync7(dir))
+    for (const name of readdirSync(dir)) {
+      const raw = readText(join12(dir, name, "state.json"));
+      if (raw === void 0) continue;
+      try {
+        const s = parseState(raw);
+        if (!out.has(s.slug)) out.set(s.slug, s);
+      } catch {
+      }
+    }
+  return [...out.values()];
+}
+function collectSuggestions(ctx) {
+  const states = allStates(ctx);
+  const closed = new Set(states.flatMap((s) => (s.suggestions ?? []).map((x) => x.resolves).filter((r) => !!r)));
+  return states.flatMap(
+    (s) => (s.suggestions ?? []).filter((x) => !x.resolves).map((x) => ({ ...x, slug: s.slug, key: `${s.slug}:${x.id}`, open: !closed.has(`${s.slug}:${x.id}`) }))
+  );
+}
+function openSuggestionCount(ctx) {
+  try {
+    return collectSuggestions(ctx).filter((x) => x.open).length;
+  } catch {
+    return 0;
+  }
+}
+var USAGE = "usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>]";
+function cmdSuggest(ctx, action, arg, opts) {
+  if (action === "add") return suggestAdd(ctx, opts);
+  if (action === "list") return suggestList(ctx, opts);
+  if (action === "resolve") return suggestResolve(ctx, arg, opts);
+  throw new CliError(USAGE);
+}
+function suggestAdd(ctx, opts) {
+  const area = String(opts.area ?? "");
+  if (!SUGGESTION_AREAS.includes(area)) throw new CliError(`--area must be one of ${SUGGESTION_AREAS.join(", ")}`);
+  const from = String(opts.from ?? "implementer");
+  if (!SUGGESTION_SOURCES.includes(from)) throw new CliError(`--from must be one of ${SUGGESTION_SOURCES.join(", ")}`);
+  const text = typeof opts.text === "string" ? opts.text.trim() : "";
+  if (!text) throw new CliError("--text or --text-file is required");
+  const pc = planCtx(ctx);
+  return mutate(pc, void 0, (s) => {
+    const all = s.suggestions ??= [];
+    const id = `s${all.length + 1}`;
+    all.push({ id, area, text, where: list(opts.where), from, at: now() });
+    return { message: `${s.slug}:${id}`, data: { id, key: `${s.slug}:${id}` } };
+  });
+}
+function suggestList(ctx, opts) {
+  const forGlobs = list(opts.for);
+  const rows = collectSuggestions(ctx).filter((x) => (!opts.open || x.open) && (!forGlobs.length || x.where.length > 0 && scopesOverlap(forGlobs, x.where)));
+  const lines = [];
+  for (const area of SUGGESTION_AREAS)
+    for (const x of rows.filter((r) => r.area === area))
+      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` \u2014 ${x.where.join(", ")}` : ""}${x.open ? "" : " [closed]"}`);
+  return {
+    message: lines.length ? lines.join("\n") : opts.open ? "No open suggestions." : "No suggestions.",
+    data: { suggestions: rows, open: rows.filter((x) => x.open).length }
+  };
+}
+function suggestResolve(ctx, key, opts) {
+  if (!key || !/^[a-z0-9-]+:s\d+$/.test(key)) throw new CliError(USAGE);
+  const target = collectSuggestions(ctx).find((x) => x.key === key);
+  if (!target) throw new Refusal(`no suggestion ${key}`, ["cairn suggest list"]);
+  const pc = planCtx(ctx);
+  return mutate(pc, void 0, (s) => {
+    const all = s.suggestions ??= [];
+    all.push({
+      id: `s${all.length + 1}`,
+      area: target.area,
+      text: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}`,
+      where: target.where,
+      from: "user",
+      at: now(),
+      resolves: key,
+      ...opts.dismiss ? { dismissed: true } : {},
+      ...opts.note ? { note: String(opts.note) } : {}
+    });
+    return { message: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}.` };
+  });
+}
+
+// plugins/cairn/cli/src/direction.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+var BLOCK2 = /```ya?ml[ \t]+cairn-direction[ \t]*\r?\n([\s\S]*?)```/g;
+var VERDICTS = ["aligned", "partial", "missing", "contradicted"];
+var CLASSES = ["pulled-forward", "unplanned", "non-goal-breach", "supporting"];
+var PATH_LINE = /^\S.*:\d+(-\d+)?$/;
+var empty = () => ({ requirements: [], unplanned: [], nfr: [] });
+function parseScorecard(md) {
+  const blocks = [...md.replace(/\r\n/g, "\n").matchAll(BLOCK2)];
+  if (!blocks.length) return { rows: empty(), problems: ["the report has no ```yaml cairn-direction block"] };
+  if (blocks.length > 1) return { rows: empty(), problems: ["the report has more than one cairn-direction block; keep exactly one"] };
+  let doc;
+  try {
+    doc = (0, import_yaml2.parse)(blocks[0][1]);
+  } catch (e) {
+    return { rows: empty(), problems: [`cairn-direction YAML does not parse: ${e.message}`] };
+  }
+  const problems = [];
+  const list2 = (key) => {
+    const v = doc?.[key] ?? [];
+    if (!Array.isArray(v)) {
+      problems.push(`\`${key}\` must be a list`);
+      return [];
+    }
+    return v;
+  };
+  const evidence = (label, r) => {
+    if (typeof r?.evidence !== "string" || !PATH_LINE.test(r.evidence.trim())) problems.push(`${label}: evidence must be path:line (got ${JSON.stringify(r?.evidence)})`);
+  };
+  const rows = empty();
+  for (const key of ["requirements", "nfr"])
+    for (const r of list2(key)) {
+      const label = `${key} row ${r?.id ?? "(no id)"}`;
+      if (typeof r?.id !== "string" || !r.id) problems.push(`${label}: needs an id`);
+      if (!VERDICTS.includes(r?.verdict)) problems.push(`${label}: verdict must be one of ${VERDICTS.join("|")}`);
+      evidence(label, r);
+      rows[key].push(r);
+    }
+  for (const r of list2("unplanned")) {
+    const label = `unplanned row "${r?.what ?? "(no description)"}"`;
+    if (typeof r?.what !== "string" || !r.what) problems.push(`${label}: needs \`what\``);
+    if (!CLASSES.includes(r?.class)) problems.push(`${label}: class must be one of ${CLASSES.join("|")}`);
+    evidence(label, r);
+    rows.unplanned.push(r);
+  }
+  return { rows, problems };
+}
+function computeVerdict(rows) {
+  const scored = [...rows.requirements, ...rows.nfr];
+  if (scored.some((r) => r.verdict === "contradicted" || r.verdict === "missing") || rows.unplanned.some((u) => u.class === "non-goal-breach")) return "red";
+  if (scored.some((r) => r.verdict === "partial") || rows.unplanned.some((u) => u.class !== "supporting")) return "yellow";
+  return "green";
+}
+
+// plugins/cairn/cli/src/commands/evidence.ts
+function cmdEvidencePhase(ctx, opts) {
+  const pc = planCtx(ctx);
+  return mutate(pc, "phase direction verdict", (s) => {
+    const phase = currentPhase(s);
+    if (s.stage !== "execute" || !phase || phase.status !== "awaiting_approval") throw new Refusal("no phase is built and waiting to finish", ["finish the phase's tasks first (cairn ready / cairn task done)"]);
+    const rel = `direction/${phase.id}.md`;
+    const md = readText(planFile(pc, rel));
+    if (md === void 0) throw new Refusal(`${rel} does not exist`, ["run the direction check and write the report with a cairn-direction scorecard"]);
+    const { rows, problems } = parseScorecard(md);
+    const covered = [...new Set(phase.tasks.flatMap((x) => x.covers))];
+    const have = new Set(rows.requirements.map((r) => r?.id));
+    const missing = covered.filter((id) => !have.has(id));
+    if (missing.length) problems.push(`no row for covered requirement(s): ${missing.join(", ")}`);
+    if (problems.length) throw new Refusal(`${rel} is not a valid scorecard:
+  - ${problems.join("\n  - ")}`);
+    const result = computeVerdict(rows);
+    const commit = git(["rev-parse", "HEAD"], pc.plan.worktree);
+    phase.verdict = { result, at: now(), commit, ...opts.note ? { note: String(opts.note) } : {} };
+    log(s, `direction ${result}`, phase.name);
+    return { message: `Recorded the direction verdict for "${phase.name}": ${result} at ${commit.slice(0, 7)}.`, data: { verdict: result, commit } };
+  });
+}
+function cmdEvidence(ctx, kind, result, opts) {
+  if (kind === "phase") return cmdEvidencePhase(ctx, opts);
+  if (kind !== "verify" && kind !== "review" || result !== "pass" && result !== "fail")
+    throw new CliError('usage: cairn evidence verify|review pass|fail [--note "\u2026"] [--blocking N] | evidence phase [--note "\u2026"]');
+  const pc = planCtx(ctx);
+  return mutate(pc, `${kind} ${result}`, (s) => {
+    gate(s.stage === kind, s, `evidence ${kind}`, opts, `the plan is in ${s.stage}, not ${kind}`);
+    const blocking = opts.blocking !== void 0 ? Number(opts.blocking) : void 0;
+    if (result === "pass" && blocking) throw new Refusal(`a review with ${blocking} blocking finding(s) can't pass`, ["fix them in place, then record the review with --blocking 0"]);
+    s.evidence[kind] = { result, at: now(), ...opts.note ? { note: String(opts.note) } : {}, ...blocking !== void 0 ? { blocking } : {} };
+    log(s, `${kind} ${result}`, opts.note ? String(opts.note) : void 0);
+    return { message: `Recorded ${kind}: ${result}.` };
+  });
+}
+function cmdDriftAck(ctx, path, opts) {
+  if (!path && !opts.all) throw new CliError('usage: cairn drift ack <path>|--all [--note "\u2026"]');
+  const pc = planCtx(ctx);
+  return mutate(pc, void 0, (s) => {
+    const hits = s.drift.filter((d) => !d.acked && (opts.all || d.path === path));
+    if (!hits.length) throw new Refusal(`no unreviewed drift${path ? ` for ${path}` : ""}`);
+    for (const d of hits) d.acked = { at: now(), ...opts.note ? { note: String(opts.note) } : {} };
+    log(s, "drift reviewed", hits.map((d) => d.path).join(", "));
+    return { message: `Marked ${hits.length} drift entr${hits.length === 1 ? "y" : "ies"} as reviewed.` };
+  });
+}
+
 // plugins/cairn/cli/src/commands/pause.ts
+import { join as join13 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -8861,7 +8976,7 @@ function cmdResume(ctx, slug, opts) {
     if (!branchExists(planBranch(slug), ctx.top)) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join12(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
+      const wt = join13(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
       git(["worktree", "add", "-q", wt, planBranch(slug)], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -8894,12 +9009,12 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync7 } from "node:fs";
-import { dirname as dirname3, isAbsolute, join as join13, relative, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync8 } from "node:fs";
+import { dirname as dirname3, isAbsolute, join as join14, relative, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync7(join13(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync8(join14(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return "";
@@ -8919,9 +9034,9 @@ function hookPostEdit(input) {
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
   let dir = dirname3(abs);
-  while (!existsSync7(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
+  while (!existsSync8(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync7(join13(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync8(join14(ctx.plan.dir, "state.json"))) return "";
   const rel = relative(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (rel.startsWith("docs/sdlc/") || rel.startsWith(".sdlc/") || rel.startsWith(".claude/")) return "";
@@ -8952,11 +9067,12 @@ function hookPostEdit(input) {
     saveState(pc.plan.dir, s);
     return `${rel} was edited ${where}`;
   });
-  return logged ? hookOut("PostToolUse", `cairn: ${logged}. Logged as drift; the user reviews it at the next checkpoint. If this was not intended, revert it.`) : "";
+  return logged ? hookOut("PostToolUse", `cairn: ${logged}. Logged as out-of-scope; it is listed in the phase summary. If this was not intended, revert it.`) : "";
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human", "open", "dismiss"]);
+var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];
   const opts = {};
@@ -8968,10 +9084,12 @@ function parseArgs(argv, cwd = process.cwd()) {
     }
     const [name, inline] = a.slice(2).split(/=(.*)/s, 2);
     if (BOOLEAN.has(name)) opts[name] = true;
-    else if (inline !== void 0) opts[name] = inline;
     else {
-      if (i + 1 >= argv.length) throw new CliError(`--${name} needs a value`);
-      opts[name] = argv[++i];
+      if (inline === void 0 && i + 1 >= argv.length) throw new CliError(`--${name} needs a value`);
+      const v = inline ?? argv[++i];
+      const prev = opts[name];
+      opts[name] = REPEATABLE.has(name) && typeof prev === "string" ? `${prev}
+${v}` : v;
     }
   }
   const noteFile = opts["note-file"];
@@ -8982,12 +9100,21 @@ function parseArgs(argv, cwd = process.cwd()) {
       throw new CliError(`cannot read --note-file ${noteFile}: ${e.message}`);
     }
   }
+  const textFile = opts["text-file"];
+  if (typeof textFile === "string") {
+    try {
+      opts.text = readFileSync5(resolve3(cwd, textFile), "utf8");
+    } catch (e) {
+      throw new CliError(`cannot read --text-file ${textFile}: ${e.message}`);
+    }
+  }
   return { pos, opts };
 }
-var USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
+var USAGE2 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd|plan|phase|ship | advance [--to <stage>] | plan load [--replan] | ready
-  task start|step|done <id> | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
+  task start|step|done <id> | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  suggest add|list|resolve \u2026
   pause [--now] | resume [<slug>] | close | render
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
@@ -9024,6 +9151,10 @@ function run(argv, cwd = process.cwd()) {
       return cmdTask(ctx(), a, b, rest, opts);
     case "evidence":
       return cmdEvidence(ctx(), a, b, opts);
+    case "phase":
+      return cmdPhase(ctx(), a, opts);
+    case "suggest":
+      return cmdSuggest(ctx(), a, b, opts);
     case "drift":
       if (a !== "ack") throw new CliError("usage: cairn drift ack <path>|--all");
       return cmdDriftAck(ctx(), b, opts);
@@ -9038,10 +9169,10 @@ function run(argv, cwd = process.cwd()) {
     case void 0:
     case "help":
     case "--help":
-      return { message: USAGE };
+      return { message: USAGE2 };
     default:
       throw new CliError(`unknown command "${cmd}"
-${USAGE}`);
+${USAGE2}`);
   }
 }
 function readStdin() {

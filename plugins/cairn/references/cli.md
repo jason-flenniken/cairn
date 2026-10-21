@@ -10,7 +10,7 @@ Every command accepts `--json`. Exit codes:
 Refusable commands accept `--override "reason"`. The override is logged in state with its reason and source, and shown at the next stop. It needs human proof (see Human proof below). Never pass `--override` on your own initiative: only when the user explicitly chose it through an Override menu.
 
 ## Human proof
-`cairn approve prd|plan|phase|ship` and any command run with `--override` succeed only with human proof. Each recorded approval or override notes its source.
+`cairn approve prd|plan|ship` and any command run with `--override` succeed only with human proof. Each recorded approval or override notes its source.
 - **Mod menu (`source: mod`).** The session's mod asks through AskUserQuestion and runs the approval when the user picks "Approve (Recommended)". The pane's Approve button and `/cairn-approve` run it the same way.
   - The mod keeps the secret in memory only. On disk, `<git common dir>/cairn/mod-secret.sha256` (mode 0600) holds the secret's SHA-256 as lowercase hex.
   - The mod passes the secret to the CLI in `CAIRN_APPROVER`. The CLI hashes it and compares. On a match the CLI claims and deletes the hash file, so a used secret can't be replayed. The mod then writes a fresh secret and hash.
@@ -63,19 +63,19 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 | Command | Gate (refused unless…) |
 |---|---|
 | `cairn advance` (to prd) | `decisions.md` has at least one decision |
-| `cairn approve prd` | stage is prd, `prd.md` has every required section, and Open questions has no unchecked `- [ ]` items |
+| `cairn approve prd` | stage is prd, `prd.md` has the five required sections (Problem, Solution, Requirements, Non-goals, Open questions), and Open questions has no unchecked `- [ ]` items |
 | `cairn advance` (to plan) | PRD approved |
-| `cairn plan load` | `plan.md` has the required sections and a valid `cairn-tasks` YAML block: unique ids, `blocked_by` only to the same or an earlier phase, no cycles, non-empty `scope`, `covers` ids exist in the PRD, and every PRD `FR-` id is covered or listed under `## Deferred requirements` |
+| `cairn plan load` | `plan.md` has Goal, Architecture and Phases and a valid `cairn-tasks` YAML block: unique ids, `blocked_by` only to the same or an earlier phase, no cycles, non-empty `scope`, `covers` ids exist in the PRD, and every PRD `FR-` id is covered or listed under `## Deferred requirements` |
 | `cairn approve plan` | the plan is loaded and `plan.md` is unchanged since it was loaded |
 | `cairn advance` (to execute) | plan approved |
 | `cairn task start <id>` | the task is in the ready set (`cairn ready`), and the config lock holds |
-| `cairn task done <id>` | the task branch is merged into the plan branch, the config `test` command passes in the plan worktree, and the config lock holds |
-| `cairn evidence phase` | the phase's direction report has one valid `cairn-direction` block with a row for every covered requirement |
-| `cairn approve phase` | every task in the current phase is done, all drift is acknowledged (`cairn drift ack`), and the direction verdict is recorded, not red, and current for the code |
-| (last phase approved) | stage moves to verify automatically |
+| `cairn task done <id>` | the task branch is merged into the plan branch, the config `test` command passes in the plan worktree (a missing test command is a warning, not a refusal), and the config lock holds |
+| `cairn evidence phase` | (on demand) the phase's direction report has one valid `cairn-direction` block with a row for every covered requirement |
+| `cairn phase finish` | every task in the current phase is done, nothing is blocked or paused, the plan worktree is clean, tests are green at the current commit (the last `task done` run is reused when no code changed), and no on-track check for the phase is red. No human step |
+| (last phase finished) | stage moves to verify automatically |
 | `cairn advance` (to review) | `cairn evidence verify pass` recorded |
 | `cairn advance` (to ship) | `cairn evidence review pass` recorded with no blocking findings |
-| `cairn approve ship` | `RECORD.md` has every section and is within its length budget |
+| `cairn approve ship` | `RECORD.md` has its five sections and is within 500 words |
 | `cairn advance` (to learn) | ship approved |
 | `cairn close` | stage is learn, `RECORD.md` is valid, tests pass, and the config lock holds |
 
@@ -91,15 +91,20 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `--note-file <path>`: works on any command that takes `--note`, and reads the note from the file.
   - Prefer `--file` and `--note-file` for text with quotes, apostrophes, or backticks, so the shell never parses it.
 - **Stage transitions**
-  - `cairn approve prd|plan|phase|ship [--note "…"]`: through the mod's menu, or `--human` in the user's terminal (see Human proof)
+  - `cairn approve prd|plan|ship [--note "…"]`: through the mod's menu, or `--human` in the user's terminal (see Human proof)
   - `cairn advance [--to <stage>]`
 - **Plan and tasks**
-  - `cairn plan load [--replan]`: parses `plan.md` into state. Use `--replan` during execute, verify, or review, for example to add fix tasks. Existing task progress is kept, the stage returns to plan, the plan needs approval again, and verify and review evidence is cleared, so both run again after the fixes are built.
+  - `cairn plan load [--replan]`: parses `plan.md` into state. Use `--replan` during execute, for example to change later phases. Existing task progress is kept, the stage returns to plan, the plan needs approval again, and verify and review evidence is cleared.
   - `cairn ready [--json]`: tasks that can start now (blockers done, no scope overlap, under the parallel cap).
   - `cairn task start <id>`: creates the task worktree and branch, and prints the path. On a fix plan at review, `cairn task start fix` reopens the fix (see Fix track).
-  - `cairn task step <id> implementing|reviewing|fixing|merging|blocked [--note "…"]`: `fixing` increments the fix round. After 5 rounds it is refused, so escalate or re-plan.
+  - `cairn task step <id> implementing|reviewing|fixing|merging|blocked [--note "…"]`: `fixing` increments the fix attempt. After 2 attempts it is refused: stop and ask the user.
   - `cairn task done <id>`
-- **Evidence and drift**
+  - `cairn phase finish`: finishes the current phase with no human proof and prints one summary line (tasks, tests, new suggestions, out-of-scope edits). It opens the next phase, or moves the plan to Check after the last one.
+- **Suggestions**
+  - `cairn suggest add --area tests|security|perf|quality|ux|docs [--where <glob>]... (--text "…" | --text-file <f>) [--from task-review|branch-review|check|implementer|plan|user]`: appends to the current plan and prints `<slug>:<id>`.
+  - `cairn suggest list [--open] [--for <glob>]... [--json]`: all plans (worktrees, plan branches, closed plans in this checkout), grouped by area. `--for` keeps suggestions whose `where` overlaps the globs.
+  - `cairn suggest resolve <slug>:<id> [--dismiss] [--note "…"]`: closes a suggestion from the current plan.
+- **Evidence and out-of-scope edits**
   - `cairn evidence verify|review pass|fail [--note "…"] [--blocking N]`
   - `cairn evidence phase [--note "…"]`: reads the phase's direction report and its one ` ```yaml cairn-direction ` block, the direction scorecard. The scorecard has three lists: `requirements`, `nfr`, and `unplanned`.
     - Each `requirements` and `nfr` row has `id`, `verdict` (`aligned`, `partial`, `missing`, or `contradicted`), `evidence` as `path:line`, and an optional `note`.
@@ -117,7 +122,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn render`: regenerates `STATUS.md`, plus `docs/sdlc/INDEX.md` when on main.
   - `cairn hook session-start|post-edit`: used by `hooks/hooks.json`. Reads hook JSON on stdin.
 
-The CLI commits the plan dir on the plan branch only at transitions: approve, advance, plan load, task done, pause, resume, and close.
+The CLI commits the plan dir on the plan branch only at transitions: approve, advance, plan load, task done, phase finish, pause, resume, and close.
 
 ## Fix track
 `cairn new <slug> --track fix` starts a plan at stage repro.
@@ -130,9 +135,9 @@ A blocking review finding has two exits. `cairn task start fix` reopens the task
 
 ## JSON shapes (`--json`)
 - `next`: `{ok, plan, stage, substep, procedure, summary, text, warnings[], planWorktree, modActive}`. On a non-plan branch: `{plan: null, procedure, plans[], modActive}`.
-- `status`: `{ok, state, next, warnings[], task, planWorktree, modActive}`.
-  - `state` is the full state.json: `phases[].tasks[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals`, `evidence`, `drift[]`, and `log[]`.
-  - `status --all`: `{plans: [{state, live, worktree, next}], modActive}`.
+- `status`: `{ok, state, next, warnings[], task, planWorktree, modActive, openSuggestions}`.
+  - `state` is the full state.json: `phases[].tasks[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals`, `evidence`, `drift[]`, `suggestions[]`, and `log[]`. A task also has `risky`, `riskReason`, and `startedAt`.
+  - `status --all`: `{plans: [{state, live, worktree, next}], modActive, openSuggestions}`.
 - `ready`: `{paused, phase, phaseStatus, ready: [task + model], inProgress: [task], waiting: [{id, on[]}]}`.
 - `task start`: `{worktree, branch, planBranch}`.
 - `new`: `{slug, branch, base, worktree, dir}`.

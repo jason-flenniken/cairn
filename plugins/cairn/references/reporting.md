@@ -34,12 +34,18 @@ When a decision is one the user would want to weigh in on, pause. Give both opti
 Restate every subagent result in this contract's terms. Subagents run on a bounded prompt and do not know this contract, so their wording is raw material. Keep their findings, `path:line` evidence, and counts; drop their ids, process narration, and self-praise.
 
 ## Stops
-At each human stop (PRD, plan, phase end, ship), present a short summary (about 5 lines) and a menu through AskUserQuestion. Wait for the answer.
+The human stops are the PRD, the plan, and ship, plus anything red, blocked, or paused. Present a short summary (about 5 lines) and a menu through AskUserQuestion, then wait for the answer. A finished phase is not a stop: when the tests are green, say one line (what finished, the new-suggestions count) and keep going.
 
 ## Refusals
 When the CLI refuses a command (exit code 2), read what it says is missing, do that, and rerun. An approval refusal is fixed and approved again, never overridden from a procedure.
 
 A refusal that the user may choose to overrule gets an Override menu: AskUserQuestion with `[cairn:override <slug>]` in the question text, and an option labeled exactly "Override". Rerun the command with `--override "<reason>"` only after the user picks Override, and report that an override was used.
+
+## Agent titles
+Every `Agent` call sets `description` to `"<Role> · <task name>"`, where Role is one of Build, Review, Fix, Check, Record. The pane shows it as the card title. Examples: "Build · Cart API", "Review · Cart API", "Fix · Cart API", "Check · acceptance", "Record · completion".
+
+## Suggestions
+Quality work worth doing later is logged, not argued about now: `cairn suggest add --area <tests|security|perf|quality|ux|docs> --where <glob> --text "…" --from <source>`. Log it in one line and move on. The count shows up in the phase summary, at ship, and in `/cairn:suggestions`.
 
 ## Plain words
 
@@ -49,6 +55,7 @@ Use the right-hand word in anything the user reads.
 | --- | --- |
 | slice | task |
 | drift | out-of-scope edits |
+| suggestion | recommended follow-up |
 | direction verdict / verdict | on-track check |
 | substep | step |
 | fix round | fix attempt |

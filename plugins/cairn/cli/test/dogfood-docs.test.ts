@@ -66,12 +66,6 @@ test('cli.md documents the heartbeat, the fix track, evidence phase, config keys
   assert.match(src, /`setup`/);
 });
 
-test('phase-end.md calls the follow-up option Start clean', () => {
-  const src = read('procedures/phase-end.md');
-  assert.match(src, /Start clean/);
-  assert.doesNotMatch(src, /Approve and start clean/);
-});
-
 test('fix.md offers the in-place reopen first, then escalate, then hold, and has no Follow-ups reference', () => {
   const src = read('procedures/fix.md');
   const fixIn = src.indexOf('Fix in place (Recommended when small)');

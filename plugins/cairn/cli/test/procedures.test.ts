@@ -12,14 +12,10 @@ const allProcedures = readdirSync(procedureDir)
   .map((f) => f.slice(0, -3));
 
 // Each procedure with an approval menu, and the kinds its tags may name.
-// Phase end approves a phase, and its fix-first and re-plan branches approve a plan.
 const APPROVALS: Record<string, string[]> = {
   prd: ['prd'],
   plan: ['plan'],
   ship: ['ship'],
-  verify: ['plan'],
-  review: ['plan'],
-  'phase-end': ['phase', 'plan'],
 };
 
 // Option labels that must not sit between an approval tag and its "Approve (Recommended)".

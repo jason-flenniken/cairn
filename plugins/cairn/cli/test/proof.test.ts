@@ -159,7 +159,7 @@ test('CAIRN_APPROVER set to the hash file contents is refused', () => {
 // Command-level behavior: a real plan created with `cairn new`.
 let main: string;
 let wt: string;
-const PRD = '# P\n## Problem\np\n## Solution\ns\n## User stories\n1. u\n## Functional requirements\n- FR-01 a\n## Non-functional requirements\n- NFR-01 b\n## Non-goals\n- c\n## Acceptance criteria\n- FR-01 d\n## Unhappy paths\n- FR-01 e\n## Security considerations\n- f\n## Open questions\n- [x] g\n';
+const PRD = '# P\n## Problem\np\n## Solution\ns\n## User stories\n1. u\n## Requirements\n- FR-01 a\n## Non-functional requirements\n- NFR-01 b\n## Non-goals\n- c\n## Acceptance criteria\n- FR-01 d\n## Unhappy paths\n- FR-01 e\n## Security considerations\n- f\n## Open questions\n- [x] g\n';
 const mainCairn = () => join(main, '.git', 'cairn');
 const planState = (slug: string) => JSON.parse(readFileSync(join(main, `.claude/worktrees/sdlc-${slug}/docs/sdlc/plans/${slug}/state.json`), 'utf8'));
 const planWt = (slug: string) => join(main, `.claude/worktrees/sdlc-${slug}`);
@@ -297,7 +297,7 @@ function closeAtTerminal(typed: string, prompts: string[]): void {
 }
 const askedOnce = (prompts: string[]) => assert.equal(prompts.filter((p) => p.includes('Type the plan name')).length, 1);
 
-// fresh is in plan with no RECORD.md and no test command: close fails three checks.
+// fresh is in plan with no RECORD.md: close fails two checks (the stage and the record); a missing test command only warns.
 test('a failed --human proof is asked once per command, and the override is refused', () => {
   const prompts: string[] = [];
   const stage = planState('fresh').stage;
@@ -316,7 +316,7 @@ test('one --human proof is asked once and covers every overridden check in a com
   const s = planState('fresh');
   assert.equal(s.stage, 'closed');
   const overrides = s.log.filter((l: { event: string }) => l.event === 'override: close');
-  assert.equal(overrides.length, 3);
+  assert.equal(overrides.length, 2);
   for (const o of overrides) assert.match(o.detail, /source: terminal/);
 });
 

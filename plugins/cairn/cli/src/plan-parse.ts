@@ -34,7 +34,8 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
   if (!Array.isArray(rawPhases) || rawPhases.length === 0)
     return { phases: [], problems: [...problems, 'cairn-tasks needs a non-empty `phases:` list'] };
 
-  const requirements = sections(prdMd).get('functional requirements');
+  const prdSections = sections(prdMd);
+  const requirements = prdSections.get('requirements') ?? prdSections.get('functional requirements');
   const prdIds = new Set(ids(requirements));
   problems.push(...badRequirementIds(requirements));
   const phases: Phase[] = [];
@@ -61,10 +62,13 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
       const kind = rs?.kind === undefined ? undefined : String(rs.kind);
       if (kind !== undefined && !KINDS.includes(kind)) problems.push(`${where}: kind must be ${KINDS.join(' or ')}, or left out`);
       if (!covers.length && kind !== 'prefactor') problems.push(`${where}: \`covers\` must list the PRD FR ids it implements (only kind: prefactor may leave it empty)`);
-      for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Functional requirements`);
+      for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Requirements`);
       if (!scope.length) problems.push(`${where}: \`scope\` must list the file globs it may touch`);
       if (!COMPLEXITY.includes(complexity)) problems.push(`${where}: complexity must be simple, standard, or complex`);
-      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, blockedBy, scope, complexity, status: 'pending', fixRound: 0 });
+      const risky = rs?.risky === true;
+      if (rs?.risky !== undefined && typeof rs.risky !== 'boolean') problems.push(`${where}: risky must be true or false`);
+      const riskReason = typeof rs?.riskReason === 'string' && rs.riskReason.trim() ? rs.riskReason.trim() : undefined;
+      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, blockedBy, scope, complexity, status: 'pending', fixRound: 0, risky, ...(risky && riskReason ? { riskReason } : {}) });
     }
     phases.push({ id: pid, name: String(rp?.name ?? pid), status: 'pending', tasks });
   });
@@ -131,7 +135,7 @@ export function mergeProgress(next: Phase[], prev: Phase[]): { phases: Phase[]; 
       const o = old.get(s.id);
       if (!o) continue;
       kept.add(s.id);
-      p.tasks[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
+      p.tasks[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, testedCommit: o.testedCommit, doneAt: o.doneAt, startedAt: o.startedAt, note: o.note };
     }
   const lostDone = [...old.values()].filter((s) => s.status !== 'pending' && !kept.has(s.id)).map((s) => s.id);
   for (const p of next) p.status = phaseStatus(p, prev.find((q) => q.id === p.id)?.status);

@@ -16,7 +16,7 @@ const g = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, e
 const sha256 = (v: string) => createHash('sha256').update(v).digest('hex');
 
 // A plan at the prd stage with a valid PRD, as the approval tests need.
-const PRD = '# P\n## Problem\np\n## Solution\ns\n## User stories\n1. u\n## Functional requirements\n- FR-01 a\n## Non-functional requirements\n- NFR-01 b\n## Non-goals\n- c\n## Acceptance criteria\n- FR-01 d\n## Unhappy paths\n- FR-01 e\n## Security considerations\n- f\n## Open questions\n- [x] g\n';
+const PRD = '# P\n## Problem\np\n## Solution\ns\n## User stories\n1. u\n## Requirements\n- FR-01 a\n## Non-functional requirements\n- NFR-01 b\n## Non-goals\n- c\n## Acceptance criteria\n- FR-01 d\n## Unhappy paths\n- FR-01 e\n## Security considerations\n- f\n## Open questions\n- [x] g\n';
 
 let main: string;
 let wt: string;

@@ -26,7 +26,7 @@ export function nextFor(s: State): Next {
     case 'prd':
       return s.approvals.prd
         ? { procedure: 'prd', substep: 'advance', text: 'PRD approved. Advance to planning.' }
-        : { procedure: 'prd', text: 'Draft the PRD, review it, and get it approved.' };
+        : { procedure: 'prd', text: 'Draft the PRD and get it approved.' };
     case 'plan':
       return s.approvals.plan
         ? { procedure: 'plan', substep: 'advance', text: 'Plan approved. Advance to execution.' }
@@ -36,7 +36,7 @@ export function nextFor(s: State): Next {
       if (!phase && s.track === 'fix' && s.repro) return { procedure: 'review', text: 'The fix is built. Advance to review.' };
       if (!phase) return { procedure: 'verify', text: 'All phases are done. Advance to verification.' };
       if (phase.status === 'awaiting_approval')
-        return { procedure: 'phase-end', text: `Phase "${phase.name}" is built. Review it and approve it to continue.` };
+        return { procedure: 'phase-end', text: `Phase "${phase.name}" is built. Run \`cairn phase finish\` to continue.` };
       const running = all.filter((x) => x.status === 'in_progress');
       if (running.length)
         return { procedure: 'execute', substep: 'continue', text: `Continue running tasks: ${running.map((x) => `${x.name} (${x.substep ?? 'implementing'})`).join(', ')}.` };
@@ -109,7 +109,7 @@ export function renderStatus(s: State): string {
   if (s.phases.length) {
     out.push('', '## Phases');
     for (const p of s.phases) {
-      out.push(`- ${phaseIcon(p)} ${p.name}${p.status === 'awaiting_approval' ? ' (built, waiting for approval)' : ''}`);
+      out.push(`- ${phaseIcon(p)} ${p.name}${p.status === 'awaiting_approval' ? ' (built, ready to finish)' : ''}`);
       for (const x of p.tasks) {
         let tail = '';
         if (x.status === 'in_progress') tail = ` (${x.substep ?? 'implementing'}${x.fixRound ? `, fix attempt ${x.fixRound}` : ''})`;

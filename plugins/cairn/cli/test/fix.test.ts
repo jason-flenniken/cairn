@@ -182,11 +182,11 @@ test('the full fix track runs repro, execute, review, ship, closed', () => {
   assert.equal(stateOf(wt, 'full').stage, 'ship');
   assert.match(ok(wt, 'next').data!.procedure as string, /procedures\/ship\.md$/);
 
-  write(join(dirOf(wt, 'full'), 'RECORD.md'), fixRecord(350));
-  refusedByUser(wt, /350 words; the budget is 300/, 'approve', 'ship');
-  write(join(dirOf(wt, 'full'), 'RECORD.md'), fixRecord(250).replace('## Cause', '## Why'));
-  refusedByUser(wt, /missing sections: Cause/, 'approve', 'ship');
   write(join(dirOf(wt, 'full'), 'RECORD.md'), fixRecord(250));
+  refusedByUser(wt, /250 words; the budget is 200/, 'approve', 'ship');
+  write(join(dirOf(wt, 'full'), 'RECORD.md'), fixRecord(150).replace('## Cause', '## Why'));
+  refusedByUser(wt, /missing sections: Cause/, 'approve', 'ship');
+  write(join(dirOf(wt, 'full'), 'RECORD.md'), fixRecord(150));
   byUser(wt, 'approve', 'ship');
   ok(wt, 'advance');
   s = stateOf(wt, 'full');
@@ -230,7 +230,7 @@ test('a renamed file counts once toward the fix file limit', () => {
   ok(wt, 'task', 'done', 'fix');
 });
 
-const PRD = `## Problem\np\n## Solution\ns\n## User stories\n1. u\n## Functional requirements\n- FR-01 x\n## Non-functional requirements\n- n\n## Non-goals\n- g\n## Acceptance criteria\n- FR-01 a\n## Unhappy paths\n- FR-01 u\n## Security considerations\n- s\n## Open questions\n- [x] none\n`;
+const PRD = `## Problem\np\n## Solution\ns\n## User stories\n1. u\n## Requirements\n- FR-01 x\n## Non-functional requirements\n- n\n## Non-goals\n- g\n## Acceptance criteria\n- FR-01 a\n## Unhappy paths\n- FR-01 u\n## Security considerations\n- s\n## Open questions\n- [x] none\n`;
 const PLAN = `## Goal\ng\n## Architecture\na\n## Global constraints\nc\n## Review focus\nr\n## Phases\n\`\`\`yaml cairn-tasks\nphases:\n  - id: core\n    name: Core\n    tasks:\n      - { id: one, name: One, covers: [FR-01], scope: ["src/**"] }\n\`\`\`\n`;
 
 /** A feature plan with an approved plan, in execute. */

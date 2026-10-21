@@ -1,5 +1,6 @@
 // Pause, Stop now, and resume (FR-13..FR-16): the mod writes the handoff, then asks the CLI.
 import type { EngineInterface, On, ProcessRunInit, SessionStartInput } from 'claude-code'
+import { turnComplete, turnStart } from './activity.ts'
 import { cairn } from './cli.ts'
 
 type Task = { id: string; status?: string; substep?: string; worktree?: string }
@@ -197,7 +198,8 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
 }
 
 export function install(on: On): void {
-  on('turn.start', (_$, e, next) => {
+  on('turn.start', async ($, e, next) => {
+    await turnStart($, e)
     if (e.agentId === undefined) {
       mainTurn = e.turnId
       // A different turn began, so the cut one will not report in time; the message is dropped.
@@ -207,6 +209,7 @@ export function install(on: On): void {
   })
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
+    await turnComplete($, e)
     if (e.agentId === undefined) {
       if (e.turnId === mainTurn) mainTurn = undefined
       if (e.turnId === stopMessageFor) {

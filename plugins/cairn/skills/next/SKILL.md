@@ -13,6 +13,8 @@ allowed-tools:
   - "Bash(cairn plan:*)"
   - "Bash(cairn ready:*)"
   - "Bash(cairn task:*)"
+  - "Bash(cairn phase:*)"
+  - "Bash(cairn suggest:*)"
   - "Bash(cairn evidence:*)"
   - "Bash(cairn drift:*)"
   - "Bash(cairn pause:*)"

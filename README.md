@@ -1,6 +1,6 @@
 # ai-workflow
 
-A personal Claude Code marketplace. It holds **cairn**, an agent-driven software lifecycle that runs every plan through the same fixed sequence: discover → PRD → phased parallel plan → execute → verify → review → ship → learn. A script owns each plan's state, so you always know where a plan stands and can stop and resume at any point.
+A personal Claude Code marketplace. It holds **cairn**, an agent-driven software lifecycle that runs every plan through the same fixed sequence: discover → PRD → phased parallel plan → build → check → review → ship → learn. The default is the bare minimum for basic quality: risky tasks get tests-first and a reviewer, everything else gets a lighter path, and quality work worth doing later is logged as recommended follow-ups. A script owns each plan's state, so you always know where a plan stands and can stop and resume at any point.
 
 ## Install
 
@@ -20,8 +20,9 @@ In repos that use cairn, disable Superpowers and Compound Engineering. Their aut
 | `/cairn:next` | Does the one correct next thing for the plan you're in. This is the only command you need to remember. |
 | `/cairn:new` | Starts a plan: its own branch and worktree, then the discovery interview. |
 | `/cairn:product` | Product-level PRD and roadmap (`docs/sdlc/product/`). |
-| `/cairn:fix` | The fix lane for one bug: a failing repro, a test-first fix in one task, a security-focused review, and a short record. |
-| `/cairn:direction` | Checks the code against the PRD and shows a green, yellow, or red verdict per phase. |
+| `/cairn:fix` | The fix lane for one bug: a failing repro, a fix in one task, a review only when the fix is risky, and a short record. |
+| `/cairn:direction` | An on-demand check of the code against the PRD: a green, yellow, or red on-track result per phase. |
+| `/cairn:suggestions` | Lists the recommended follow-ups collected across plans (tests, security, perf, …) and lets you start a fix, add one to a plan, or dismiss it. |
 | `/cairn-pane` | Opens the pane that stays beside the chat with the plan's stage, tasks, and pending stops. |
 | `/cairn:status` | Shows every plan: where it is, what's done, what's next, what's blocked. |
 | `/cairn:pause` / `/cairn:resume` | Stop at any point with a handoff note, and pick up exactly there later. |

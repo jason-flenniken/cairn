@@ -44,24 +44,13 @@ export const wordCount = (md: string): number =>
 export const proseWordCount = (md: string): number =>
   wordCount(md.replace(/<!--[\s\S]*?-->/g, '').split('\n').filter((l) => !/^\s*#{1,6}\s/.test(l)).join('\n'));
 
-export const PRD_SECTIONS = [
-  'Problem',
-  'Solution',
-  'User stories',
-  'Functional requirements',
-  'Non-functional requirements',
-  'Non-goals',
-  'Acceptance criteria',
-  'Unhappy paths',
-  'Security considerations',
-  'Open questions',
-] as const;
-export const PLAN_SECTIONS = ['Goal', 'Architecture', 'Global constraints', 'Review focus', 'Phases'] as const;
-export const RECORD_SECTIONS = ['Links', 'Why', 'What was built', 'How it works', 'Evidence', 'Deviations', 'Follow-ups'] as const;
+export const PRD_SECTIONS = ['Problem', 'Solution', 'Requirements', 'Non-goals', 'Open questions'] as const;
+export const PLAN_SECTIONS = ['Goal', 'Architecture', 'Phases'] as const;
+export const RECORD_SECTIONS = ['Links', 'Why', 'What was built', 'How it works', 'Follow-ups'] as const;
 export const HANDOFF_SECTIONS = ['In flight', 'Open questions', 'Next action'] as const;
-export const RECORD_WORD_BUDGET = 900;
+export const RECORD_WORD_BUDGET = 500;
 export const FIX_RECORD_SECTIONS = ['Links', 'Bug', 'Cause', 'Fix', 'Evidence'] as const;
-export const FIX_RECORD_WORD_BUDGET = 300;
+export const FIX_RECORD_WORD_BUDGET = 200;
 
 export const FR_ID = /\bFR-\d+\b/g;
 export const ids = (text = ''): string[] => [...new Set(text.match(FR_ID) ?? [])];

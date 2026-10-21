@@ -69,7 +69,7 @@ p
 s
 ## User stories
 1. As a user I pay.
-## Functional requirements
+## Requirements
 - FR-01 charge
 - FR-02 refund
 ## Non-functional requirements
@@ -250,7 +250,7 @@ test('a task started before a re-plan can be marked done after it, with no overr
 
 // FR-41
 
-test('task done logs each file changed outside the task scope as drift, and phase approval waits for review', () => {
+test('task done logs each file changed outside the task scope as drift, and phase finish lists it without a review step', () => {
   const repo = mkRepo();
   const { wt, dir } = featureInExecute(repo, 'driftcheck');
   buildTask(wt, 'driftcheck', 'charge', { 'src/charge/a.ts': '1\n', 'README.md': 'changed through bash\n' });
@@ -262,7 +262,7 @@ test('task done logs each file changed outside the task scope as drift, and phas
   buildTask(wt, 'driftcheck', 'refund', { 'src/refund/b.ts': '2\n' });
   ok(wt, 'task', 'done', 'refund');
   assert.equal(stateOf(dir).drift.length, 1, 'a task inside its scope adds no drift');
-  asUser(repo, () => refused(wt, /drift not reviewed: README\.md/, 'approve', 'phase'));
+  assert.match(ok(wt, 'phase', 'finish').message, /out-of-scope edit\(s\): README\.md/);
 });
 
 test('task done does not add drift for a path already logged and unreviewed', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
+import { etaMs, fmtDuration, phrase } from '../mod/activity.ts'
 
 const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const MAIN = '/repo'
@@ -194,7 +195,7 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       const text = await drawn(ui)
       expect(text).toContain('Acme Storefront')
       expect(text).toContain('Discover')
-      expect(text).toMatch(/Waiting on you: nothing/)
+      expect(text).not.toContain('Waiting on you')
       expect(await buttonKeys(ui)).toEqual(['pause', 'status'])
       await ui.unmount()
     })
@@ -209,17 +210,23 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await ui.unmount()
     })
 
-    test(`execute: phase 1 of 2, the running task's substep and fix round 2, the waiting task (${surface})`, async ($, on) => {
+    test(`execute: phase 1 of 2, progress, the running task, what is up next, the phases (${surface})`, async ($, on) => {
       world(on, { rows: [row(EXECUTE, WT)] })
       await start($, WT)
       const ui = await mount($, surface)
       const text = await drawn(ui)
       expect(text).toContain('Build')
       expect(text).toContain('phase 1 of 2')
-      expect(text).toMatch(/Cart \(fixing, fix attempt 2\)/)
-      expect(text).toMatch(/Payments \(waits on Cart\)/)
-      expect(text).toContain('Auth')
-      expect(text).toContain('Polish')
+      expect(text).toContain('1/4 tasks · ~18m left')
+      expect(text).toContain('NOW')
+      expect(text).toContain('Main session')
+      expect(text).toMatch(/UP NEXT .*Payments \(waits\)/)
+      expect(text).toContain('◐ 1 Core')
+      expect(text).toContain('● Cart')
+      expect(text).toContain('✓ Auth')
+      expect(text).toContain('○ 2 Polish')
+      expect(text).toContain('0 of 1')
+      expect(text).not.toContain('fix attempt')
       expect(await buttonKeys(ui)).toEqual(['pause', 'stop', 'status'])
       await ui.unmount()
     })
@@ -238,20 +245,31 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await ui.unmount()
     })
 
-    test(`a pending phase stop: Waiting on you names it, the last verdict shows, Approve appears (${surface})`, async ($, on) => {
-      const stop = plan({
-        phases: [
-          { id: 'p1', name: 'Core', status: 'awaiting_approval', verdict: { result: 'yellow', at: 'x', commit: 'abc' }, tasks: [task('cart', 'Cart', { status: 'done' })] },
-          { id: 'p2', name: 'Polish', status: 'pending', tasks: [] },
-        ],
-      })
-      world(on, { rows: [row(stop, WT)] })
+    test(`a pending stop: Waiting on you names it above the cards, and Approve appears (${surface})`, async ($, on) => {
+      world(on, { rows: [row(plan({ stage: 'prd' }), WT)] })
       await start($, WT)
       const ui = await mount($, surface)
       const text = await drawn(ui)
-      expect(text).toMatch(/Waiting on you: phase approval/)
-      expect(text).toMatch(/Last on-track check: Core: yellow/)
+      expect(text).toMatch(/Waiting on you: prd approval/)
+      expect(text.indexOf('Waiting on you')).toBeLessThan(text.indexOf('NOW'))
       expect(await buttonKeys(ui)).toEqual(['approve', 'pause', 'status'])
+      await ui.unmount()
+    })
+
+    test(`a phase that is built and done folds to one line with its task count (${surface})`, async ($, on) => {
+      const done = plan({
+        phases: [
+          { id: 'p1', name: 'Core', status: 'done', tasks: [task('a', 'A', { status: 'done', startedAt: '2026-03-01T10:00:00.000Z', doneAt: '2026-03-01T10:30:00.000Z' })] },
+          { id: 'p2', name: 'Polish', status: 'pending', tasks: [task('b', 'B')] },
+        ],
+      })
+      world(on, { rows: [row(done, WT)] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      const text = await drawn(ui)
+      expect(text).toContain('✓ 1 Core')
+      expect(text).toContain('1 tasks · 30m')
+      expect(text).toContain('◐ 2 Polish')
       await ui.unmount()
     })
 
@@ -305,21 +323,21 @@ describe('status line (FR-11)', () => {
   test('in a plan worktree it shows the plan summary', async ($, on) => {
     const { w } = world(on, { rows: [row(EXECUTE, WT)] })
     await start($, WT)
-    expect(w.statuses.at(-1)).toBe('Acme Storefront (shop): Build · phase 1 of 2 "Core" · 1/4 tasks done · 1 running')
+    expect(w.statuses.at(-1)).toBe('cairn · Build 1/4 tasks · ~18m left')
   })
 
   test('in a task worktree it shows its plan summary too', async ($, on) => {
     const inTask = plan({ phases: [{ id: 'p1', name: 'Core', status: 'in_progress', tasks: [task('cart', 'Cart', { status: 'in_progress', worktree: '/repo/.claude/worktrees/sdlc-shop--cart' })] }] })
     const { w } = world(on, { rows: [row(inTask, WT)], cwd: '/repo/.claude/worktrees/sdlc-shop--cart' })
     await start($, '/repo/.claude/worktrees/sdlc-shop--cart')
-    expect(w.statuses.at(-1)).toMatch(/^Acme Storefront \(shop\): /)
+    expect(w.statuses.at(-1)).toMatch(/^cairn · Build/)
   })
 
   test('a plan kept in the main checkout does not claim the other plans\' worktrees under it', async ($, on) => {
     const rows = [row(plan({ slug: 'inplace', title: 'In Place' }), MAIN), row(plan(), WT)]
     const { w } = world(on, { rows })
     await start($, WT)
-    expect(w.statuses.at(-1)).toMatch(/^Acme Storefront \(shop\): /)
+    expect(w.statuses.at(-1)).toMatch(/^cairn · Build/)
   })
 
   test('on main with two active plans it shows "2 active plans"', async ($, on) => {
@@ -357,7 +375,7 @@ describe('polling (FR-10, NFR-01)', () => {
     await clock.advance(2_000)
     expect(statusReads()).toBe(reads + 1)
     expect(await drawn(ui)).toContain('PRD')
-    expect(w.statuses.at(-1)).toMatch(/: PRD$/)
+    expect(w.statuses.at(-1)).toBe('cairn · PRD')
     await clock.advance(2_000)
     expect(statusReads()).toBe(reads + 1)
     await ui.unmount()
@@ -461,26 +479,24 @@ describe('opening the pane (FR-08)', () => {
   })
 })
 
-const PHASE_STOP = plan({
-  phases: [{ id: 'p1', name: 'Core', status: 'awaiting_approval', tasks: [task('cart', 'Cart', { status: 'done' })] }],
-})
+const SHIP_STOP = plan({ stage: 'ship' })
 
 describe('pane buttons (FR-05, FR-12, FR-17)', () => {
   test('Approve confirms with the mod\'s fixed wording, then approves once through the secret path', async ($, on) => {
-    const { w, ran, clock } = world(on, { rows: [row(PHASE_STOP, WT)] })
+    const { w, ran, clock } = world(on, { rows: [row(SHIP_STOP, WT)] })
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
     await clock.settle()
-    expect(w.asked).toEqual([{ question: 'Approve the phase stop of plan shop?', options: ['Cancel', 'Approve'] }])
-    expect(ran('approve')).toEqual([['approve', 'phase']])
+    expect(w.asked).toEqual([{ question: 'Approve the ship stop of plan shop?', options: ['Cancel', 'Approve'] }])
+    expect(ran('approve')).toEqual([['approve', 'ship']])
     expect(w.secrets).toHaveLength(1)
-    expect(w.toasts.join('\n')).toMatch(/phase approved/)
+    expect(w.toasts.join('\n')).toMatch(/ship approved/)
     await ui.unmount()
   })
 
   test('cancelling or dismissing the confirm approves nothing', async ($, on) => {
-    const { w, ran } = world(on, { rows: [row(PHASE_STOP, WT)], answer: 'Cancel' })
+    const { w, ran } = world(on, { rows: [row(SHIP_STOP, WT)], answer: 'Cancel' })
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
@@ -494,7 +510,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
 
   test('a menu approval and a button approval back to back each use their own secret, and both land (Review focus 2)', async ($, on) => {
     const { w, ran } = world(on, {
-      rows: [row(PHASE_STOP, WT), row(plan({ slug: 'beta', title: 'Beta', stage: 'prd' }), '/repo/.claude/worktrees/sdlc-beta')],
+      rows: [row(SHIP_STOP, WT), row(plan({ slug: 'beta', title: 'Beta', stage: 'prd' }), '/repo/.claude/worktrees/sdlc-beta')],
     })
     await start($, WT)
     const ui = await mount($, 'terminal')
@@ -504,10 +520,10 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
       questions: [{ question: q, header: 'cairn', multiSelect: false, options: [{ label: 'Approve', description: 'ok' }, { label: 'Revise', description: 'no' }] }],
     } as never)
     await ui.press({ key: 'approve' })
-    expect(ran('approve')).toEqual([['approve', 'prd'], ['approve', 'phase']])
+    expect(ran('approve')).toEqual([['approve', 'prd'], ['approve', 'ship']])
     expect(new Set(w.secrets).size).toBe(2)
     expect(menu.context?.join()).toMatch(/prd approved/)
-    expect(w.toasts.join('\n')).toMatch(/phase approved/)
+    expect(w.toasts.join('\n')).toMatch(/ship approved/)
     await ui.unmount()
   })
 
@@ -624,6 +640,83 @@ describe('/cairn-approve (FR-05)', () => {
     const out = await command($, 'cairn-approve')
     expect(out.text).toMatch(/not in a plan/)
     expect(ran('approve')).toEqual([])
+  })
+})
+
+describe('agent cards', () => {
+  test('a spawned agent gets a card with its steps and action; it finishes green, lingers, then drops off', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Pane cards', subagentType: 'cairn:implementer' })
+    await $.turn.start({ text: 'p', turnId: 't1', agentId: 'agent-1' })
+    await $.tool.call({ tool: 'Bash', command: 'npm test', agentId: 'agent-1' } as never)
+    await clock.advance(1_000)
+    let text = await drawn(ui)
+    expect(text).toContain('Build · Pane cards')
+    expect(text).toContain('sonnet')
+    expect(text).toContain('● working')
+    expect(text).toContain('1 step')
+    expect(text).not.toContain('1 steps')
+    await $.turn.complete({ turnId: 't1', agentId: 'agent-1', reason: 'answer', answer: 'done', durationMs: 372_000, usage: { input_tokens: 40_000, output_tokens: 2_000 } } as never)
+    text = await drawn(ui)
+    expect(text).toContain('✓ finished · 6m 12s · 42k tokens')
+    expect(text).toMatch(/Finished Build · Pane cards · 6m · 42k tokens/)
+    await clock.advance(11_000)
+    expect(await drawn(ui)).not.toContain('✓ finished')
+    await ui.unmount()
+  })
+
+  test('the status line counts working agents', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await clock.advance(2_000)
+    expect(w.statuses.at(-1)).toBe('cairn · Build 1/4 tasks · 1 working · ~18m left')
+  })
+
+  test('a closed plan does not open the pane unasked', async ($, on) => {
+    const { w } = world(on, { rows: [row(plan({ stage: 'closed' }), WT)] })
+    await start($, WT)
+    expect(w.opens).toEqual([])
+  })
+})
+
+describe('tool phrases and ETA', () => {
+  test('phrase names what a tool call does in plain words', () => {
+    expect(phrase({ tool: 'Edit', file_path: '/repo/plugins/cairn/hooks/mod/pane.tsx' })).toBe('editing mod/pane.tsx')
+    expect(phrase({ tool: 'Read', file_path: 'a.ts' })).toBe('reading a.ts')
+    expect(phrase({ tool: 'Grep' })).toBe('searching')
+    expect(phrase({ tool: 'Bash', command: 'npm test -- --watch' })).toBe('running tests')
+    expect(phrase({ tool: 'Bash', command: 'git merge sdlc/x' })).toBe('merging')
+    expect(phrase({ tool: 'Bash', command: 'cairn status --json' })).toBe('updating the plan')
+    expect(phrase({ tool: 'Bash', command: 'ls -la /a/very/long/path/that/goes/on/and/on/and/on' })).toBe('ls -la /a/very/long/path/that/goes/on/an')
+    expect(phrase({ tool: 'Agent' })).toBe('starting an agent')
+    expect(phrase({ tool: 'WebFetch' })).toBe('webfetch')
+  })
+
+  test('etaMs uses the median of done tasks by complexity, less what running tasks have spent, over the lanes', () => {
+    const min = 60_000
+    const at = (m: number) => new Date(Date.parse('2026-03-01T10:00:00.000Z') + m * min).toISOString()
+    const tasks = [
+      { id: 'a', status: 'done', complexity: 'standard', startedAt: at(0), doneAt: at(10) },
+      { id: 'b', status: 'done', complexity: 'standard', startedAt: at(0), doneAt: at(20) },
+      { id: 'c', status: 'in_progress', complexity: 'standard', startedAt: at(20) },
+      { id: 'd', status: 'pending', complexity: 'simple', blockedBy: ['c'] },
+      { id: 'e', status: 'pending', complexity: 'complex', blockedBy: [] },
+    ]
+    // standard median 15m, 5m spent on c -> 10m; d 5m (simple fallback); e 25m (complex fallback); 2 lanes (c running, e ready).
+    expect(etaMs(tasks, Date.parse(at(25)))).toBe(((10 + 5 + 25) * min) / 2)
+    expect(etaMs([{ status: 'done' }], 0)).toBe(0)
+  })
+
+  test('fmtDuration reads 6m 12s, 45s and 1h 05m', () => {
+    expect(fmtDuration(372_000)).toBe('6m 12s')
+    expect(fmtDuration(45_000)).toBe('45s')
+    expect(fmtDuration(3_900_000)).toBe('1h 05m')
+    expect(fmtDuration(2_400_000, true)).toBe('40m')
   })
 })
 

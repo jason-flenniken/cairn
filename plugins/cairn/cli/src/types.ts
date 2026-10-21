@@ -46,7 +46,14 @@ export interface Task {
   base?: string;
   tip?: string;
   tests?: string;
+  /** Plan-branch commit the task's recorded test run was made at. */
+  testedCommit?: string;
   doneAt?: string;
+  /** ISO time the task first started; kept on resume. */
+  startedAt?: string;
+  /** Risky tasks (auth, money, deletes data, migrations, public API) get TDD and a reviewer. */
+  risky?: boolean;
+  riskReason?: string;
 }
 
 export interface Phase {
@@ -70,6 +77,23 @@ export interface DriftEntry {
   reason: string;
   task?: string;
   acked?: { at: string; note?: string };
+}
+
+export const SUGGESTION_AREAS = ['tests', 'security', 'perf', 'quality', 'ux', 'docs'] as const;
+export const SUGGESTION_SOURCES = ['task-review', 'branch-review', 'check', 'implementer', 'plan', 'user'] as const;
+
+/** A recommended piece of future quality work. A suggestion with `resolves` closes another one. */
+export interface Suggestion {
+  id: string;
+  area: (typeof SUGGESTION_AREAS)[number];
+  text: string;
+  where: string[];
+  from: (typeof SUGGESTION_SOURCES)[number];
+  at: string;
+  /** `<slug>:<id>` of the suggestion this entry closes. */
+  resolves?: string;
+  dismissed?: boolean;
+  note?: string;
 }
 
 export interface LogEntry {
@@ -97,6 +121,7 @@ export interface State {
   phases: Phase[];
   evidence: { verify?: Evidence; review?: Evidence };
   drift: DriftEntry[];
+  suggestions?: Suggestion[];
   log: LogEntry[];
 }
 

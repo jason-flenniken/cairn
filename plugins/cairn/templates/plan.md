@@ -9,14 +9,9 @@ One sentence: what this plan builds.
 Two to three sentences: approach, key components, data flow. Name the existing patterns to follow.
 
 ## Global constraints
-Values from the PRD that bind every task, copied verbatim: versions, limits, copy, naming, platform rules. One line each.
+Optional. Only values from the PRD that bind every task (versions, limits, naming). One line each.
 
 - <constraint, exact value>
-
-## Review focus
-The five inputs or failure modes the PRD implies but no task's tests exercise directly, most likely first. Each line names the condition and the behavior a reasonable person expects. Add the test that pins each one to the task that owns the code.
-
-1. <condition> -> <expected behavior>
 
 ## Deferred requirements
 Optional. FR ids deliberately not covered by this plan, each with a reason.
@@ -37,18 +32,21 @@ phases:
         blocked_by: []         # task ids in this or an earlier phase
         scope: ["src/cart/**", "test/cart/**"]   # globs the task may touch
         complexity: standard   # simple | standard | complex -> haiku | sonnet | opus
+        risky: false           # true when it touches auth, money, deletes data, migrations, or a public API
+        # riskReason: "deletes carts"   # one line, when risky
 ```
 
 ### Task: cart-api
 
+**Check:** <one line: the observable result that shows this task works, for example "POST /cart returns 201 with the created cart">
+
 **Interfaces**
 - Consumes: <exact signatures from earlier tasks, or "none">
-- Produces: <exact function names, parameter and return types, routes, schemas that later tasks rely on>
+- Produces: <exact function names, types, routes, schemas that later tasks rely on>
+
+<!-- Risky tasks only: list the tests below. Non-risky tasks stop at Interfaces. -->
 
 **Test cases**
 - Happy: <concrete test: input -> expected result>
 - Unhappy: <concrete test: failure -> expected response>
 - Security: <concrete test: abuse case -> expected denial>
-
-**Done when**
-- <checkable condition, for example "the cart API tests pass and POST /cart returns 201 with the created cart">

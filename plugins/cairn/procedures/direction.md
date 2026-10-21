@@ -5,7 +5,7 @@ Check whether the code still matches the PRD, with `path:line` evidence for ever
 Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`. This procedure reads code and writes at most one report file. It edits no source.
 
 Inputs, from the caller:
-- A phase id (called from phase end), or
+- A phase id (an on-demand on-track check of a built phase), or
 - `all` (every requirement in the plan), `changed` (requirements whose code changed since the last commit), or a list of requirement ids (called from `/cairn:direction`). Empty means `all`.
 
 ## 1. Scope
@@ -66,7 +66,7 @@ nfr:
 Run `cairn evidence phase`. The CLI parses the block, checks every covered requirement has a row with evidence, computes the color, and records it with the current commit.
 
 When it refuses (exit code 2), read the reason and fix the report, never override:
-- "no phase is waiting for approval": the phase is not at its approval point. Go back to execute or phase end and finish the phase's tasks first.
+- "no phase is built and waiting to finish": the phase is not built yet. Finish its tasks first; the check is not available after `cairn phase finish`.
 - "direction/<id>.md does not exist": write the report (step 3), then rerun.
 - A missing row: find the requirement, have a `direction-checker` agent check it, add the row.
 - Missing or malformed evidence: read the code, put a real `path:line` on the row.

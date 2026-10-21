@@ -11,6 +11,8 @@ import {
   cmdNew,
   cmdNext,
   cmdPause,
+  cmdPhase,
+  cmdSuggest,
   cmdPlanLoad,
   cmdProductInit,
   cmdReady,
@@ -27,7 +29,9 @@ import {
 } from './commands.ts';
 import { CliError, Refusal } from './util.ts';
 
-const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human']);
+const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss']);
+/** Flags that may repeat; the values are joined with newlines. */
+const REPEATABLE = new Set(['where', 'for']);
 
 export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[]; opts: Opts } {
   const pos: string[] = [];
@@ -40,10 +44,11 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
     }
     const [name, inline] = a.slice(2).split(/=(.*)/s, 2);
     if (BOOLEAN.has(name)) opts[name] = true;
-    else if (inline !== undefined) opts[name] = inline;
     else {
-      if (i + 1 >= argv.length) throw new CliError(`--${name} needs a value`);
-      opts[name] = argv[++i];
+      if (inline === undefined && i + 1 >= argv.length) throw new CliError(`--${name} needs a value`);
+      const v = inline ?? argv[++i];
+      const prev = opts[name];
+      opts[name] = REPEATABLE.has(name) && typeof prev === 'string' ? `${prev}\n${v}` : v;
     }
   }
   const noteFile = opts['note-file'];
@@ -54,13 +59,22 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
       throw new CliError(`cannot read --note-file ${noteFile}: ${(e as Error).message}`);
     }
   }
+  const textFile = opts['text-file'];
+  if (typeof textFile === 'string') {
+    try {
+      opts.text = readFileSync(resolve(cwd, textFile), 'utf8');
+    } catch (e) {
+      throw new CliError(`cannot read --text-file ${textFile}: ${(e as Error).message}`);
+    }
+  }
   return { pos, opts };
 }
 
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] | new <slug> --title "…" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd|plan|phase|ship | advance [--to <stage>] | plan load [--replan] | ready
-  task start|step|done <id> | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
+  task start|step|done <id> | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  suggest add|list|resolve …
   pause [--now] | resume [<slug>] | close | render
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
@@ -98,6 +112,10 @@ export function run(argv: string[], cwd = process.cwd()): Result {
       return cmdTask(ctx(), a, b, rest, opts);
     case 'evidence':
       return cmdEvidence(ctx(), a, b, opts);
+    case 'phase':
+      return cmdPhase(ctx(), a, opts);
+    case 'suggest':
+      return cmdSuggest(ctx(), a, b, opts);
     case 'drift':
       if (a !== 'ack') throw new CliError('usage: cairn drift ack <path>|--all');
       return cmdDriftAck(ctx(), b, opts);

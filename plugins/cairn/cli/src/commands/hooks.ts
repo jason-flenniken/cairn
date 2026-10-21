@@ -74,5 +74,5 @@ export function hookPostEdit(input: HookInput): string {
     saveState(pc.plan.dir, s);
     return `${rel} was edited ${where}`;
   });
-  return logged ? hookOut('PostToolUse', `cairn: ${logged}. Logged as drift; the user reviews it at the next checkpoint. If this was not intended, revert it.`) : '';
+  return logged ? hookOut('PostToolUse', `cairn: ${logged}. Logged as out-of-scope; it is listed in the phase summary. If this was not intended, revert it.`) : '';
 }

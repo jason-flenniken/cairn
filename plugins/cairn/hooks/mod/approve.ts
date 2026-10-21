@@ -5,10 +5,10 @@ import type { CairnRun } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
 
-export type Kind = 'prd' | 'plan' | 'phase' | 'ship'
+export type Kind = 'prd' | 'plan' | 'ship'
 export type Tag = { kind?: Kind; slug: string; question: string; override?: true }
 
-const APPROVE_TAG = /\[cairn:approve (prd|plan|phase|ship) ([^\s\]]+)\]/
+const APPROVE_TAG = /\[cairn:approve (prd|plan|ship) ([^\s\]]+)\]/
 const OVERRIDE_TAG = /\[cairn:override ([^\s\]]+)\]/
 // How long a child may run: quick reads, and the commands that hold the secret.
 const QUICK_MS = 60_000
@@ -27,9 +27,9 @@ export function parseTags(questions: readonly { question?: unknown }[]): Tag[] {
   return tags
 }
 
-/** True only for the exact approval labels. */
+/** A label starting with "Approve", or free text that opens with an approving word. */
 export function isApproveLabel(s: unknown): boolean {
-  return s === 'Approve' || s === 'Approve (Recommended)'
+  return typeof s === 'string' && (s.startsWith('Approve') || /^(approve|approved|lgtm|yes)\b/i.test(s))
 }
 
 // The live secret, and the chain that serializes its uses: each use reads the secret
@@ -79,7 +79,7 @@ function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promi
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
-export type PlanState = { slug?: string; stage?: string; approvals?: Record<string, unknown>; phases?: { status?: string }[] }
+export type PlanState = { slug?: string; stage?: string; approvals?: Record<string, unknown> }
 type PlanRow = { state?: PlanState; worktree?: string }
 
 /** Every plan, from `cairn status --all --json` run where the session is. */
@@ -95,8 +95,6 @@ export function waitingStop(state: PlanState): Kind | undefined {
     case 'plan':
     case 'ship':
       return approvals[state.stage] ? undefined : state.stage
-    case 'execute':
-      return state.phases?.find(p => p.status !== 'done')?.status === 'awaiting_approval' ? 'phase' : undefined
   }
   return undefined
 }
@@ -120,11 +118,13 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind): P
 const OVERRIDE_MS = 10 * 60_000
 const pendingOverrides = new Map<string, number>()
 const NOT_PLAIN =
-  'it is not a plain cairn --override command (no ; | & $ ` > < newline or backslash; no unquoted # * ? ~ ( ) { } [ ]; quotes closed)'
+  'it is not a plain cairn --override command (outside quotes: no ; | & $ ` > < newline or backslash, and no # * ? ~ ( ) { } [ ]; quotes closed)'
 
-/** A command's words, quotes joined as a shell joins them; undefined when a shell would read anything more into it. */
+/**
+ * A command's words, quotes joined as a shell joins them; undefined when a shell would read anything more into it.
+ * Quoted text may hold any character: the mod runs the words as argv, never through a shell.
+ */
 function plainArgv(cmd: string): string[] | undefined {
-  if (/[;|&$`<>\n\r\\]/.test(cmd)) return undefined
   const words: string[] = []
   let word: string | undefined
   let quote = ''
@@ -135,7 +135,7 @@ function plainArgv(cmd: string): string[] | undefined {
     } else if (c === '"' || c === "'") {
       quote = c
       word ??= ''
-    } else if (/[#*?~(){}[\]]/.test(c)) {
+    } else if (/[;|&$`<>\n\r\\#*?~(){}[\]]/.test(c)) {
       return undefined
     } else if (/\s/.test(c)) {
       if (word !== undefined) words.push(word)

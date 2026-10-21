@@ -1,10 +1,10 @@
 # Execute
 
-Orchestrate the current phase: start every ready task, review it, fix it, merge it, repeat until the phase has no remaining tasks.
+Orchestrate the current phase: start every ready task, build it, review it only if it is risky, merge it, repeat until the phase has no remaining tasks.
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`; model choices follow `references/model-tiers.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
-You stay at the repo root. The session is not locked to a worktree, so your subagents can edit and commit in task worktrees. The plan lives in its own worktree on the plan branch `sdlc/<slug>`. You are the only one who merges, and the only one who runs `cairn`. Agents get a worktree path and a brief; they never touch `docs/sdlc/`.
+You stay at the repo root. The session is not locked to a worktree, so your subagents can edit and commit in task worktrees. The plan lives in its own worktree on the plan branch `sdlc/<slug>`. You are the only one who merges, and the only one who runs `cairn`. Agents get a worktree path and a brief; they never touch `docs/sdlc/`. Every `Agent` call sets `description` to "<Role> · <task name>" (Build, Review, Fix, Check, Record), per `references/reporting.md`.
 
 **Running cairn.** Every `cairn` command below runs from the plan worktree: `cd <plan worktree> && cairn <command>`. The one exception is an override command (a `cairn` command the user chose to override). It runs alone, with no `cd` and no `&&`, because the mod refuses compound commands and resolves the plan itself. Keep its reason plain text, as `procedures/review.md` describes.
 
@@ -15,12 +15,12 @@ Run `cd <plan worktree> && cairn status --json`. The stage must be `execute`. An
 
 **Done when:** the stage is `execute`, the plan is not paused, and you hold the four values above.
 
-**Pause check.** Between any two steps below (before starting a task, dispatching or messaging an agent, merging), run `cd <plan worktree> && cairn status --json`. When it shows `paused`, start nothing new: no `cairn task start`, no new agent, no merge. Let running sub-steps finish and record their substeps. Append any open question you are holding to `docs/sdlc/plans/<slug>/handoff.md` under `## Open questions` (earlier ones stay), then stop. `/cairn:resume` continues the plan.
+**Pause check.** Between any two steps below (before starting a task, dispatching or messaging an agent, merging), run `cd <plan worktree> && cairn status --json`. When it shows `paused`, start nothing new: no `cairn task start`, no new agent, no merge. Let running steps finish and record them. Append any open question you are holding to `docs/sdlc/plans/<slug>/handoff.md` under `## Open questions` (earlier ones stay), then stop. `/cairn:resume` continues the plan.
 
 ## 2. Resume what is in progress
-Tasks already `in_progress` carry a recorded substep. Continue each from there; starting over wastes finished work.
+Tasks already `in_progress` carry a recorded step. Continue each from there; starting over wastes finished work.
 - `implementing`: check whether an implementer is still running for it. If not, dispatch a fresh implementer (step 4) with a note to inspect the worktree's existing commits first.
-- `reviewing`: run step 5.
+- `reviewing`: run step 5 (the review).
 - `fixing`: run step 6.
 - `merging`: run step 7.
 - `blocked`: run step 8.
@@ -33,36 +33,36 @@ Run `cd <plan worktree> && cairn ready --json`. For each ready task run `cd <pla
 **Done when:** every ready task is started and you hold its worktree path. An empty ready list with no in-progress tasks means the phase is finished: go to step 9.
 
 ## 4. Implement
-For each started task, dispatch the `implementer` agent in the background, with an explicit `model` from the task's complexity (simple: haiku, standard: sonnet, complex: opus). Build the brief from these parts and nothing else:
-1. The task's `### Task: <id>` section from `plan.md`, verbatim.
-2. The PRD requirements the task covers, quoted verbatim from `prd.md`, with the matching acceptance criteria and unhappy paths.
-3. The plan's Global constraints, verbatim.
+For each started task, dispatch the `implementer` agent in the background, with an explicit `model` from the task's complexity (simple: haiku, standard: sonnet, complex: opus) and `description` "Build · <task name>". Build the brief from these parts and nothing else:
+1. The task's `### Task: <id>` section from `plan.md`, verbatim, and whether the task is `risky`.
+2. The PRD requirements the task covers, quoted verbatim from `prd.md`.
+3. The plan's Global constraints, when it has that section.
 4. The task worktree path and the plan branch name (`sdlc/<slug>`).
 
 Then run `cd <plan worktree> && cairn task step <id> implementing`.
 
-**Done when:** each started task has a running implementer, and you've told the user in 1-3 lines which tasks started and on which model tier.
+**Done when:** each started task has a running implementer, and you've told the user in 1-3 lines which tasks started.
 
-## 5. Review
+## 5. Read the report, review only risky tasks
 When an implementer reports, read its status line.
-- `DONE` or `DONE_WITH_CONCERNS`: run `cd <plan worktree> && cairn task step <id> reviewing`. Dispatch the `task-reviewer` agent (`model: sonnet`) with: the task section, the covered requirements, the Global constraints, the implementer's report, and the diff command `git -C <worktree> diff <plan-branch>...HEAD`. Concerns from the implementer go to the reviewer as claims to verify.
 - `NEEDS_CONTEXT`: answer from the PRD, plan, or `decisions.md` and send it to the implementer with SendMessage. Ask the user only when the documents don't answer it (AskUserQuestion, recommended first; record with `cd <plan worktree> && cairn decide`).
 - `BLOCKED`: step 8.
+- `DONE` or `DONE_WITH_CONCERNS`: first log the report's `Suggestions:` lines (up to 3) with `cd <plan worktree> && cairn suggest add --area <area> --where <path> --from implementer --text "<text>"`.
+  - Not risky: go straight to step 7.
+  - Risky: run `cd <plan worktree> && cairn task step <id> reviewing`. Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the task section, the covered requirements, the implementer's report, and the diff command `git -C <worktree> diff <plan-branch>...HEAD`. It returns PASS or FIX with blocking findings and minor notes. Log each minor note with `cairn suggest add --from task-review`. PASS goes to step 7; FIX goes to step 6.
 
-**Done when:** each reported task has a reviewer verdict of PASS or FIX.
+**Done when:** each reported task is ready to merge, or in step 6 or 8.
 
-## 6. Fix
-On FIX: run `cd <plan worktree> && cairn task step <id> fixing`. Each call counts one fix round; the CLI refuses past round 5.
-- Rounds 1-3: send the findings back to the same implementer with SendMessage (or a fresh implementer on the same worktree when the old one has ended).
-- Rounds 4-5: dispatch a fresh implementer one tier up (see `references/model-tiers.md`), with the brief plus every finding so far.
-- When the CLI refuses a sixth round, stop work on that task, summarize the recurring problem to the user, and ask with AskUserQuestion: Re-plan this task / Fix by hand / Accept as is (recorded as a deviation) / Pause.
+## 6. Fix (risky tasks only)
+Only blocking findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing`. Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
+- Send the blocking findings back to the same implementer with SendMessage (or a fresh implementer on the same worktree when the old one has ended), `description` "Fix · <task name>".
+- After it reports DONE, re-review once, limited to the findings and the fix diff.
+- When a blocking finding is still open after that attempt (or the CLI refuses another), stop work on the task and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Re-plan this task / Pause.
 
-After the implementer reports DONE, return to step 5 for a re-review limited to the findings and the fix diff.
-
-**Done when:** the task has a PASS verdict, or the user has chosen how to proceed.
+**Done when:** the task passed, or the user chose how to proceed.
 
 ## 7. Merge
-On PASS: run `cd <plan worktree> && cairn task step <id> merging`. Then, in the plan worktree:
+When the task is ready to merge: run `cd <plan worktree> && cairn task step <id> merging`. Then, in the plan worktree:
 1. `cd <plan worktree> && git merge --no-ff sdlc-task/<slug>/<id> -m "merge task <id>"`.
 2. Tasks never change `docs/sdlc/`, so the merge leaves it alone. If git reports a conflict under `docs/sdlc/`, keep the plan branch's side (`cd <plan worktree> && git checkout --ours -- docs/sdlc`) and tell the user the task broke that rule. Don't reset or check out `docs/sdlc/` any other way: `state.json` there has live changes that aren't committed.
 3. On conflicts, resolve them using the task scopes in `plan.md`; when the resolution involves a judgment call, report it per the deviations rule.
@@ -85,4 +85,4 @@ After every completion, return to step 3. Make the pause check above between rou
 
 When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks.
 
-**Done when:** the phase has no remaining tasks. Then run `cd <plan worktree> && cairn next --json` and follow the procedure it names (phase-end).
+**Done when:** the phase has no remaining tasks. Then follow `procedures/phase-end.md`: run `cd <plan worktree> && cairn phase finish` and carry on.

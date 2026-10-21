@@ -39,11 +39,14 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - The secret lives only in `mod/approve.ts`'s memory. `<git common dir>/cairn/mod-secret.sha256` holds its SHA-256 as lowercase hex, written with `$.fs.write` and then `chmod 600`, because `$.fs.write` takes no mode.
 - The hash file doesn't exist until the first approval or override. The mod writes the secret and its hash just before first use, and writes a fresh pair after every use, whatever the CLI answered. Uses run one at a time, so two approvals that land together each get their own secret.
 - The engine allows one matcherless hook per event per module. `register.tsx` owns the single `session.start` hook and calls each module's start work in turn (heartbeat, pause, pane). A failing module never stops the others or the session, so approve.ts, pause.ts, and pane.tsx have no `session.start` hook of their own.
+- Approval kinds are `prd`, `plan` and `ship`; a phase needs no human. An answer approves when it is a label starting "Approve", or free text opening with approve, approved, lgtm or yes.
 - The approval hook reads only `result.answers` from the dialog. It ignores answers the model put in its own call's input, which it copies before the dialog runs, a result with `afkTimeoutMs`, a dismissed or failed dialog, and subagents' dialogs. It has no `.catch`: if it throws, the hook is skipped and the user's answer goes on unchanged.
 - Every `process.run` the mod makes has a timeout: 60 s for `status` and `chmod`, 10 minutes for `approve` and an override. A hung CLI then can't hold up later uses of the secret, and its failure is reported.
 - An "Override" answer is held in memory for 10 minutes. The Bash hook runs the model's plain `cairn … --override "…"` itself and returns the CLI's output as the tool's result. It runs the command for the plan whose worktree the session is in, or for the one plan holding an override. Commands run as written, with a context line saying why the override wasn't used, when they contain any of these:
-  - `; | & $ \` > <`, a newline, or a backslash
+  - `; | & $ \` > <`, a newline, or a backslash, outside quotes
   - an unquoted `# * ? ~ ( ) { } [ ]`
+
+  Inside single or double quotes any character is allowed, because the mod runs the words as argv through `$.process.run`, never a shell.
 
   That includes `cd <wt> && cairn …`. A command that includes `approve` is never run this way.
 - A hook can't mark a Bash result as an error. Core ignores `isError` on a hook's Bash result, and a string result fails Bash's output schema (checked in a `-p` probe). So a failed override's stdout starts with `Exit code N`, the way the Bash tool's own does, and its context line names the exit code. The probe also showed that a hook's `{ stdout, stderr, interrupted }` result and its `context` reach the model.
@@ -54,6 +57,13 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - A plugin's own `$.command.run` skips its own hooks. The mod can't run its own commands through it.
 - Stop now cuts the running turn, and the engine refuses a `prompt.submit` made from the command's own hook (it would wait on the turn the hook holds). The mod remembers the id of the cut turn and sends the message to the model when that turn completes. The message tells it to stop its subagents, record each task's substep, commit work in progress, and finish with `cairn pause --now`.
 - Pause (`cairn-pause-mod`) waits for in-flight work to reach a safe point instead of cutting the turn.
+
+## Agent cards (pane)
+
+- `agent.spawn`'s `next(e)` resolves with the new `agentId`; that same id is on the agent's `tool.call`, `turn.start` and `turn.complete` events (each run of an agent's loop is one turn, so a woken agent fires `turn.start` again) and in `$.agent.list()`. `activity.ts` keys its cards on it. The probe was the type docs only; a live background-agent run is still to check.
+- Activity rides the existing unmatched hooks (one per event per module): `tool.call` in `guards.ts` after the guards allow, `turn.start`/`turn.complete` in `pause.ts`. `register.tsx` adds the `session.start` rebuild from `$.agent.list()`.
+- The engine follows `$` into another file only through a `function` declaration, not a `const` arrow, so every helper there that takes `$` is one, and `import * as ns` calls are refused.
+- Token counts arrive only at `turn.complete`, so a card shows tokens when it finishes, not live. The pane opens with `columns: 48, rows: 7`; `session.start` has no fullscreen flag, so the open is unasked and the engine seats it only on a wide fullscreen terminal.
 
 ## Testing
 

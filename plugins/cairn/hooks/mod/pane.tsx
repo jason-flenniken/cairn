@@ -3,12 +3,13 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnView } from '../../types/index.d.ts'
+import { etaMs, fmtDuration, LINGER_MS, readAgents, readFeed, readMain, readTick, type EtaTask } from './activity.ts'
 import { approveAs, waitingStop, type Kind, type PlanState as StopState } from './approve.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
 
-type Task = { id?: string; name?: string; status?: string; substep?: string; fixRound?: number; blockedBy?: unknown; worktree?: string }
+type Task = EtaTask & { name?: string; worktree?: string }
 type Phase = { name?: string; status?: string; tasks?: unknown; verdict?: { result?: string } }
 type Drift = { path?: string; acked?: unknown }
 
@@ -20,7 +21,12 @@ const PANE = 'cairn'
 const EVERY_MS = 2_000
 const DRIFT_SHOWN = 5
 const APPROVE = 'Approve'
-const KINDS: readonly string[] = ['prd', 'plan', 'phase', 'ship']
+const KINDS: readonly string[] = ['prd', 'plan', 'ship']
+const DOCK_COLUMNS = 48
+const INLINE_ROWS = 7
+const RECENT_SHOWN = 5
+const UP_NEXT_SHOWN = 4
+const DEFAULT_PARALLEL = 3
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const quick: ProcessRunInit = { timeoutMs: 60_000 }
 
@@ -34,7 +40,7 @@ const COMMANDS = [
   {
     name: 'cairn-approve',
     description: 'Approve the stop this cairn plan is waiting on, after a confirm.',
-    argumentHint: '[prd|plan|phase|ship]',
+    argumentHint: '[prd|plan|ship]',
   },
 ] as const
 
@@ -45,24 +51,6 @@ const openDrift = (s: CairnPlanState) => list<Drift>(s.drift).filter(d => !d.ack
 const stageOf = (s: CairnPlanState) => STAGE_LABEL[s.stage ?? ''] ?? String(s.stage ?? '?')
 const isActive = (r: CairnPlanRow) => r.state.stage !== 'closed'
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
-
-/** Where the plan stands, as the CLI's progress() puts it. */
-function progress(s: CairnPlanState): string {
-  const phases = phasesOf(s)
-  if (phases.length === 0) return stageOf(s)
-  const tasks = tasksOf(s)
-  const done = tasks.filter(x => x.status === 'done').length
-  const running = tasks.filter(x => x.status === 'in_progress').length
-  const at = phases.findIndex(p => p.status !== 'done')
-  const phase = at < 0 ? 'all phases done' : `phase ${at + 1} of ${phases.length} "${phases[at]?.name ?? ''}"`
-  return `${stageOf(s)} · ${phase} · ${done}/${tasks.length} tasks done${running ? ` · ${running} running` : ''}`
-}
-
-/** The plan's one-line summary, as the CLI's summary() puts it. */
-function summary(s: CairnPlanState): string {
-  const drift = openDrift(s).length
-  return `${s.title ?? s.slug} (${s.slug}): ${progress(s)}${s.paused ? ' · PAUSED' : ''}${drift ? ` · ${drift} unreviewed drift` : ''}`
-}
 
 const isUnder = (cwd: string, dir: string | undefined) => !!dir && (cwd === dir || cwd.startsWith(`${dir}/`))
 
@@ -106,10 +94,37 @@ async function signature($: EngineInterface, paths: string[]): Promise<string> {
   return stamps.join('\n')
 }
 
-function showStatus($: EngineInterface, v: CairnView): void {
-  const here = v.isFallback ? undefined : v.plans.find(r => r.state.slug === v.here)
+/** "~40m left" in Build while tasks remain; otherwise nothing. */
+function etaText(row: CairnPlanRow, nowMs: number): string | undefined {
+  const tasks = tasksOf(row.state)
+  if (row.state.stage !== 'execute' || tasks.every(x => x.status === 'done')) return undefined
+  const ms = etaMs(tasks, nowMs, row.maxParallel ?? DEFAULT_PARALLEL)
+  return `~${fmtDuration(Math.ceil(ms / 60_000) * 60_000, true)} left`
+}
+
+/** `cairn · Build 9/19 tasks · 3 working · ~40m left`; away from a plan, how many are active. */
+async function statusLine($: EngineInterface, v: CairnView): Promise<string | undefined> {
+  const row = v.isFallback ? undefined : v.plans.find(r => r.state.slug === v.here)
   const active = v.plans.filter(isActive).length
-  $.ui.status(here ? summary(here.state) : active > 0 ? `${active} active plan${active === 1 ? '' : 's'}` : undefined)
+  if (row === undefined) return active > 0 ? `${active} active plan${active === 1 ? '' : 's'}` : undefined
+  const tasks = tasksOf(row.state)
+  const working = (await readAgents($)).filter(c => c.status === 'working').length
+  const parts = [
+    tasks.length > 0 ? `${stageOf(row.state)} ${tasks.filter(x => x.status === 'done').length}/${tasks.length} tasks` : stageOf(row.state),
+    working > 0 && `${working} working`,
+    row.state.paused ? 'paused' : etaText(row, await $.clock.now()),
+  ]
+  return ['cairn', ...parts.filter(Boolean)].join(' · ')
+}
+
+// The last status line set, so a poll only calls $.ui.status when the text changed; null before the first.
+let shownStatus: string | undefined | null = null
+
+async function showStatus($: EngineInterface, v: CairnView): Promise<void> {
+  const text = await statusLine($, v)
+  if (text === shownStatus) return
+  shownStatus = text
+  $.ui.status(text)
 }
 
 /** Re-reads every plan into the view; false, keeping the last good view, when the read failed. */
@@ -126,7 +141,7 @@ async function refresh($: EngineInterface): Promise<boolean> {
     ? { plans, here: located }
     : { plans, here: pickCurrent(plans)?.state.slug, isFallback: true }
   await update($, view, () => next)
-  showStatus($, next)
+  await showStatus($, next)
   return true
 }
 
@@ -138,7 +153,10 @@ async function poll($: EngineInterface): Promise<void> {
     // Stop now follows the main loop's turn, which pause.ts tracks; a change redraws the pane.
     const isRunning = turnRunning()
     if ((await read($, isTurnRunning)) !== isRunning) await update($, isTurnRunning, () => isRunning)
-    const before = watched((await read($, view))?.plans ?? [])
+    const current = await read($, view)
+    // Working agents and the clock change the status line without any file changing.
+    if (current !== null) await showStatus($, current)
+    const before = watched(current?.plans ?? [])
     const stamp = await signature($, before)
     if (stamp === seen && !isRetrying) return
     if (await refresh($)) {
@@ -156,7 +174,7 @@ async function poll($: EngineInterface): Promise<void> {
 }
 
 async function openPane($: EngineInterface): Promise<string> {
-  const opened = await $.ui.open({ id: PANE, title: 'cairn' })
+  const opened = await $.ui.open({ id: PANE, title: 'cairn', columns: DOCK_COLUMNS, rows: INLINE_ROWS })
   if (opened.isPlaced) return 'cairn: the pane is open.'
   const said = `cairn: the pane is not shown: ${opened.reason}`
   $.ui.toast(said)
@@ -174,7 +192,9 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
   seen = await signature($, watched(v?.plans ?? []))
   ticking?.cancel()
   ticking = $.clock.every(EVERY_MS, () => void poll($).catch(() => undefined))
-  if (v?.here !== undefined && (!v.isFallback || v.plans.filter(isActive).length === 1)) await openPane($)
+  // Only a plan in progress opens it unasked; the engine seats an unasked pane just on a wide fullscreen terminal.
+  const here = v?.plans.find(r => r.state.slug === v.here)
+  if (here !== undefined && isActive(here) && (!v?.isFallback || v.plans.filter(isActive).length === 1)) await openPane($)
 }
 
 const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${kind} stop of plan ${slug}?`
@@ -192,7 +212,7 @@ async function confirmAndApprove($: EngineInterface, slug: string, kind: Kind): 
 
 /** /cairn-approve [kind]: the stop waiting on the session's plan, resolved by `cairn status --json`. */
 async function approveCommand($: EngineInterface, arg: string): Promise<string> {
-  if (arg !== '' && !KINDS.includes(arg)) return `cairn: "${arg}" is not a stop; use prd, plan, phase or ship.`
+  if (arg !== '' && !KINDS.includes(arg)) return `cairn: "${arg}" is not a stop; use prd, plan or ship.`
   const found = await plan($)
   if (typeof found === 'string') return 'cairn: this session is not in a plan, so nothing was approved.'
   const state = found.state as CairnPlanState
@@ -207,24 +227,35 @@ function act($: EngineInterface, work: () => Promise<unknown>): void {
   void work().catch(err => $.ui.toast(`cairn: ${message(err)}`))
 }
 
-const PHASE_ICON: Record<string, string> = { done: '✓', awaiting_approval: '◆', in_progress: '◐' }
+const steps = (n: number) => `${n} step${n === 1 ? '' : 's'}`
 
-function phaseLine(p: Phase): string {
-  return `${PHASE_ICON[p.status ?? ''] ?? '○'} ${p.name ?? '?'}${p.status === 'awaiting_approval' ? ' (built, waiting for approval)' : ''}`
+const hourMinute = (ms: number) => {
+  const d = new Date(ms)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-/** A task under its phase: a running one with its substep and fix round, a waiting one with what it waits on. */
-function taskLine(x: Task, byId: Map<string, Task>): string {
-  const icon = x.status === 'done' ? '✓' : x.status === 'in_progress' ? '◐' : '○'
-  let tail = ''
-  if (x.status === 'in_progress') tail = ` (${x.substep ?? 'implementing'}${x.fixRound ? `, fix attempt ${x.fixRound}` : ''})`
-  else if (x.status === 'pending') {
-    const on = (Array.isArray(x.blockedBy) ? x.blockedBy : [])
-      .filter((b): b is string => typeof b === 'string' && byId.get(b)?.status !== 'done')
-      .map(b => byId.get(b)?.name ?? b)
-    if (on.length) tail = ` (waits on ${on.join(', ')})`
-  }
-  return `  ${icon} ${x.name ?? x.id ?? '?'}${tail}`
+const isReady = (x: Task, byId: Map<string, Task>) =>
+  x.status === 'pending' && (Array.isArray(x.blockedBy) ? x.blockedBy : []).every(b => byId.get(b as string)?.status === 'done')
+
+const spanOf = (x: Task) => Date.parse(x.doneAt ?? '') - Date.parse(x.startedAt ?? '')
+
+/** A plan log entry in plain words; undefined for the ones not worth a line. */
+function logText(entry: { event?: string; detail?: string }): string | undefined {
+  const { event = '', detail } = entry
+  if (['created', 'task started', 'drift', 'drift reviewed'].includes(event)) return undefined
+  if (event === 'task done') return `Task done: ${detail ?? ''}`.trim()
+  if (event === 'advanced') return `Moved on to ${detail ?? 'the next stage'}`
+  return `${event.charAt(0).toUpperCase()}${event.slice(1)}${detail ? `: ${detail}` : ''}`
+}
+
+/** The last few events, oldest first: the plan's log and the agents that finished. */
+function recentLines(s: CairnPlanState, feed: { at: number; text: string }[]): string[] {
+  const fromLog = list<{ at?: string; event?: string; detail?: string }>(s.log).flatMap(entry => {
+    const text = logText(entry)
+    const at = Date.parse(entry.at ?? '')
+    return text === undefined || Number.isNaN(at) ? [] : [{ at, text }]
+  })
+  return [...fromLog, ...feed].sort((a, b) => a.at - b.at).slice(-RECENT_SHOWN).map(l => `${hourMinute(l.at)} ${l.text}`)
 }
 
 export function install(on: On): void {
@@ -237,56 +268,146 @@ export function install(on: On): void {
     const { Box, Button, Text } = $.ui.resolve(e)
     const v = await read($, view)
     const isRunning = await read($, isTurnRunning)
+    await readTick($)
+    const t = await $.clock.now()
+    const isInline = e.props.placement === 'inline'
     const here = v?.plans.find(r => r.state.slug === v.here)
     const others = (v?.plans ?? []).filter(r => r !== here && isActive(r))
     const status = <Button key="status" label="Status" onPress={() => act($, () => $.command.run({ command: 'cairn:status' }))} />
+    const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
+    const main = await readMain($)
+    const feed = await readFeed($)
 
-    /** The session's plan: header, tree, drift, the stop, the verdict, and its buttons (FR-09, FR-12). */
-    const planLines = (s: CairnPlanState) => {
+    /** A line with something at each end, the left one cut short before the right one is. */
+    const split = (key: string, left: string, right: string, color?: 'green' | 'yellow') => (
+      <Box key={key} flexDirection="row" justifyContent="space-between">
+        <Box flexGrow={1} flexShrink={1}><Text color={color} wrap="truncate-end">{left}</Text></Box>
+        <Text dimColor>{right}</Text>
+      </Box>
+    )
+
+    /** One agent as a bordered card; the main session is the same card with its own words. */
+    const card = (key: string, border: 'cyan' | 'green' | 'red' | 'gray', title: string, model: string, lines: string[], dim: string[]) => (
+      <Box key={key} flexDirection="column" borderStyle="round" borderColor={border} paddingX={1}>
+        {split(`${key}:title`, title, model)}
+        {lines.map((l, i) => <Text key={`${key}:l${i}`} wrap="truncate-end">{l}</Text>)}
+        {dim.map((l, i) => <Text key={`${key}:d${i}`} dimColor wrap="truncate-end">{l}</Text>)}
+      </Box>
+    )
+
+    const agentCard = (c: (typeof cards)[number]) => {
+      if (c.status === 'working') {
+        return card(c.agentId, 'cyan', c.title, c.model, [`● working · ${fmtDuration(t - c.startedAt)}`], [...(c.action ? [c.action] : []), steps(c.steps)])
+      }
+      const size = c.tokens === undefined ? '' : ` · ${c.tokens >= 1000 ? `${Math.round(c.tokens / 1000)}k` : c.tokens} tokens`
+      const took = fmtDuration(c.durationMs ?? 0)
+      return card(c.agentId, c.status === 'done' ? 'green' : 'red', c.title, c.model, [`${c.status === 'done' ? '✓ finished' : '✗ stopped'} · ${took}${size}`], [steps(c.steps)])
+    }
+
+    const mainCard = () =>
+      main === null
+        ? card('main', 'gray', 'Main session', '', ['waiting for you'], [])
+        : card('main', 'cyan', 'Main session', '', [`● ${main.action} · ${fmtDuration(t - main.since)}`], [])
+
+    /** One line per agent for the inline fit, where a card would not. */
+    const agentLines = () => [
+      ...cards.filter(c => c.status === 'working').map(c => <Text key={c.agentId} wrap="truncate-end">{`● ${c.title} · ${c.action ?? 'working'} · ${fmtDuration(t - c.startedAt)}`}</Text>),
+      <Text key="main" wrap="truncate-end">{main === null ? '● Main session · waiting for you' : `● Main session · ${main.action} · ${fmtDuration(t - main.since)}`}</Text>,
+    ]
+
+    /** The session's plan: header, progress, the stop, the cards, the phases, and its buttons (FR-09, FR-12). */
+    const planLines = (row: CairnPlanRow) => {
+      const s = row.state
       const phases = phasesOf(s)
       const tasks = tasksOf(s)
       const byId = new Map(tasks.filter(x => typeof x.id === 'string').map(x => [x.id as string, x]))
       const at = phases.findIndex(p => p.status !== 'done')
       const where = phases.length === 0 ? '' : at < 0 ? ' · all phases done' : ` · phase ${at + 1} of ${phases.length}`
+      const done = tasks.filter(x => x.status === 'done').length
       const drift = openDrift(s)
       const waiting = waitingStop(s as StopState)
-      const verdict = [...phases].reverse().find(p => p.verdict?.result !== undefined)
       const isPaused = !!s.paused
       const isTaskRunning = tasks.some(x => x.status === 'in_progress')
-      return [
-        <Text bold>{s.title ?? s.slug}</Text>,
-        v?.isFallback && <Text dimColor>{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>,
-        <Text>{`${stageOf(s)}${where}`}</Text>,
-        isPaused && <Text color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>,
-        ...phases.flatMap(p => [<Text>{phaseLine(p)}</Text>, ...list<Task>(p.tasks).map(x => <Text>{taskLine(x, byId)}</Text>)]),
-        drift.length > 0 && <Text color="yellow">{`${drift.length} unreviewed drift:`}</Text>,
-        ...drift.slice(0, DRIFT_SHOWN).map(d => <Text dimColor>{`  ${d.path ?? '?'}`}</Text>),
-        <Text bold>{`Waiting on you: ${waiting === undefined ? 'nothing' : `${waiting} approval`}`}</Text>,
-        <Text>{verdict === undefined ? 'Last on-track check: none yet' : `Last on-track check: ${verdict.name ?? '?'}: ${verdict.verdict?.result}`}</Text>,
-        <Box flexDirection="row" gap={1}>
-          {waiting !== undefined && (
-            <Button key="approve" label="Approve" variant="primary" onPress={() => act($, () => approvePress($, s.slug, waiting))} />
-          )}
+      const eta = etaText(row, t)
+      const rest = waiting !== undefined ? 'Waiting on you' : row.next?.text
+      const label = [tasks.length > 0 && `${done}/${tasks.length} tasks`, s.stage === 'execute' ? eta : rest, (row.openSuggestions ?? 0) > 0 && `${row.openSuggestions} suggestions`]
+        .filter(Boolean).join(' · ')
+      const bar = Math.min(20, Math.max(6, e.props.bodyColumns - label.length - 1))
+      const filled = tasks.length === 0 ? 0 : Math.round((done / tasks.length) * bar)
+      const upNext = tasks
+        .filter(x => x.status === 'pending' && phases[at]?.tasks !== undefined && list<Task>(phases[at]?.tasks).includes(x))
+        .slice(0, UP_NEXT_SHOWN)
+        .map(x => `${x.name ?? x.id}${isReady(x, byId) ? '' : ' (waits)'}`)
+      const recent = recentLines(s, feed)
+      const buttons = (
+        <Box key="buttons" flexDirection="row" gap={1}>
           {!isPaused && s.stage !== 'closed' && <Button key="pause" label="Pause" onPress={() => act($, () => pause($, 'drain'))} />}
           {(isTaskRunning || isRunning) && <Button key="stop" label="Stop now" onPress={() => act($, () => stopNow($))} />}
           {isPaused && <Button key="resume" label="Resume" onPress={() => act($, () => resume($))} />}
           {status}
-        </Box>,
+        </Box>
+      )
+      const header = [
+        <Text key="head" bold wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s)}${where}`}</Text>,
+        v?.isFallback && <Text key="fallback" dimColor>{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>,
+        isPaused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>,
+        tasks.length > 0 ? <Text key="bar" wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor wrap="truncate-end">{label}</Text>,
+      ]
+      const approve = waiting !== undefined && (
+        <Box key="waiting" flexDirection={isInline ? 'row' : 'column'} gap={1} borderStyle={isInline ? undefined : 'round'} borderColor="yellow" paddingX={isInline ? 0 : 1}>
+          <Text bold color="yellow">{`Waiting on you: ${waiting} approval`}</Text>
+          <Button key="approve" label="Approve" variant="primary" onPress={() => act($, () => approvePress($, s.slug, waiting))} />
+        </Box>
+      )
+
+      if (isInline) {
+        return [...header, approve, ...agentLines(), <Text key="tip" dimColor>Full-height side pane: run /tui fullscreen</Text>, buttons]
+      }
+
+      return [
+        ...header,
+        approve,
+        <Text key="now" bold>NOW</Text>,
+        ...cards.map(agentCard),
+        mainCard(),
+        upNext.length > 0 && <Text key="next" wrap="truncate-end">{`UP NEXT  ${upNext.join(' · ')}`}</Text>,
+        ...phases.flatMap((p, i) => {
+          const mine = list<Task>(p.tasks)
+          const name = `${i + 1} ${p.name ?? '?'}`
+          if (p.status === 'done') {
+            const spans = mine.map(spanOf).filter(n => n >= 0)
+            const starts = mine.map(x => Date.parse(x.startedAt ?? '')).filter(n => !Number.isNaN(n))
+            const ends = mine.map(x => Date.parse(x.doneAt ?? '')).filter(n => !Number.isNaN(n))
+            const took = spans.length > 0 && starts.length > 0 && ends.length > 0 ? ` · ${fmtDuration(Math.max(...ends) - Math.min(...starts), true)}` : ''
+            return [split(`phase:${i}`, `✓ ${name}`, `${mine.length} tasks${took}`, 'green')]
+          }
+          const finished = mine.filter(x => x.status === 'done').length
+          if (i !== at) return [split(`phase:${i}`, `○ ${name}`, `0 of ${mine.length}`)]
+          return [
+            split(`phase:${i}`, `◐ ${name}`, `${finished} of ${mine.length}`),
+            ...mine.filter(x => x.status !== 'pending').map(x =>
+              split(`task:${x.id ?? x.name}`, `   ${x.status === 'done' ? '✓' : '●'} ${x.name ?? x.id ?? '?'}`, x.status === 'done' && spanOf(x) >= 0 ? fmtDuration(spanOf(x), true) : '', x.status === 'done' ? 'green' : undefined)),
+          ]
+        }),
+        drift.length > 0 && <Text key="drift" color="yellow">{`${drift.length} unreviewed drift:`}</Text>,
+        ...drift.slice(0, DRIFT_SHOWN).map((d, i) => <Text key={`drift:${i}`} dimColor wrap="truncate-end">{`  ${d.path ?? '?'}`}</Text>),
+        ...recent.map((l, i) => <Text key={`recent:${i}`} dimColor wrap="truncate-end">{l}</Text>),
+        buttons,
       ]
     }
 
     return (
       <Box flexDirection="column">
         {here !== undefined
-          ? planLines(here.state)
+          ? planLines(here)
           : [
-              <Text dimColor>{v === null ? 'No cairn plans read yet.' : 'This session is not in a plan worktree.'}</Text>,
-              <Box flexDirection="row" gap={1}>{status}</Box>,
+              <Text key="none" dimColor>{v === null ? 'No cairn plans read yet.' : 'This session is not in a plan worktree.'}</Text>,
+              <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
             ]}
         {others.length > 0 && <Text bold>Other active plans</Text>}
         {others.map(r => (
           <Box key={`plan:${r.state.slug}`} flexDirection="row" gap={1}>
-            <Text>{`${r.state.title ?? r.state.slug} · ${stageOf(r.state)} · ${r.next?.text ?? ''}`}</Text>
+            <Text wrap="truncate-end">{`${r.state.title ?? r.state.slug} · ${stageOf(r.state)} · ${r.next?.text ?? ''}`}</Text>
             <Button key={`resume:${r.state.slug}`} label="Resume" onPress={() => act($, () => resumeOther($, r.state.slug))} />
           </Box>
         ))}

@@ -7,6 +7,7 @@ import { nextFor, renderIndex, summary, type IndexRow } from '../render.ts';
 import { loadState, parseState, saveState } from '../state.ts';
 import type { State } from '../types.ts';
 import { hashText, pluginRoot, readText, withLock, writeText } from '../util.ts';
+import { openSuggestionCount } from './suggest.ts';
 import { planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function listPlans(ctx: Ctx): IndexRow[] {
@@ -46,7 +47,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
     const lines = rows.length
       ? rows.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state) })), modActive: modIsActive(ctx) } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state) })), modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -54,7 +55,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   const next = nextFor(s);
   return {
     message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
+    data: { state: s, next, warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
   };
 }
 

@@ -37,12 +37,6 @@ const byUser = (cwd: string, ...argv: string[]) => asUser(() => ok(cwd, ...argv)
 const refusedByUser = (cwd: string, pattern: RegExp, ...argv: string[]) => asUser(() => refused(cwd, pattern, ...argv));
 const state = () => JSON.parse(readFileSync(join(wt, 'docs/sdlc/plans/billing/state.json'), 'utf8'));
 const ctxOf = (out: string) => (out ? JSON.parse(out).hookSpecificOutput.additionalContext : '');
-/** Record a green direction verdict for the phase that is waiting for approval. */
-const greenVerdict = (cwd: string, dir: string, phaseId: string, reqs: string[]) => {
-  const rows = reqs.map((id) => ({ id, verdict: 'aligned', evidence: 'src/x.ts:1' }));
-  write(join(dir, `direction/${phaseId}.md`), `# Direction\n\n\`\`\`yaml cairn-direction\n${JSON.stringify({ requirements: rows })}\n\`\`\`\n`);
-  ok(cwd, 'evidence', 'phase');
-};
 const planDir = () => join(wt, 'docs/sdlc/plans/billing');
 
 const PRD = `# Billing PRD
@@ -50,22 +44,12 @@ const PRD = `# Billing PRD
 p
 ## Solution
 s
-## User stories
-1. As a user I pay.
-## Functional requirements
-- FR-01 charge
-- FR-02 refund
-- FR-03 receipt
-## Non-functional requirements
-- NFR-01 fast
+## Requirements
+- **FR-01** charge. Check: charged once
+- **FR-02** refund. Check: refunded
+- **FR-03** receipt. Check: receipt shown
 ## Non-goals
 - crypto
-## Acceptance criteria
-- FR-01 charges once
-## Unhappy paths
-- FR-01 double submit charges once
-## Security considerations
-- server-side amounts
 ## Open questions
 - [ ] which processor?
 `;
@@ -74,10 +58,6 @@ const PLAN = `## Goal
 g
 ## Architecture
 a
-## Global constraints
-c
-## Review focus
-r
 ## Phases
 \`\`\`yaml cairn-tasks
 phases:
@@ -162,14 +142,15 @@ test('full lifecycle with every checkpoint', () => {
   assert.match(out, /outside task "Charge" scope/);
   assert.equal(hookPostEdit({ cwd: chargeWt, tool_input: { file_path: join(chargeWt, 'src/charge/ok.ts') } }), '');
   assert.equal(state().drift.length, 1);
+  ok(wt, 'suggest', 'add', '--area', 'tests', '--where', 'src/charge/**', '--where', 'src/refund/**', '--text', 'cover the refund edge');
 
   // a task with no commits can't be marked done
   g(wt, 'merge', '-q', '--no-ff', '-m', 'noop', 'sdlc-task/billing/refund');
   refused(wt, /no commits since the task started/, 'task', 'done', 'refund');
 
-  // fix rounds circuit breaker
-  for (let i = 0; i < 5; i++) ok(wt, 'task', 'step', 'refund', 'fixing');
-  refused(wt, /5 fix rounds/, 'task', 'step', 'refund', 'fixing');
+  // fix attempts circuit breaker
+  for (let i = 0; i < 2; i++) ok(wt, 'task', 'step', 'refund', 'fixing');
+  refused(wt, /2 fix attempts/, 'task', 'step', 'refund', 'fixing');
 
   // task done requires merge and green tests
   write(join(chargeWt, 'src/charge/index.ts'), 'export const charge = 1;\n');
@@ -194,12 +175,17 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'task', 'done', 'refund');
   assert.equal(state().phases[0].status, 'awaiting_approval');
 
-  // phase approval requires drift review
-  refusedByUser(wt, /drift not reviewed/, 'approve', 'phase');
-  ok(wt, 'drift', 'ack', '--all', '--note', 'reverted');
-  greenVerdict(wt, planDir(), 'core', ['FR-01', 'FR-02']);
-  byUser(wt, 'approve', 'phase');
+  // phase finish needs no human step, lists drift and new suggestions, and moves on
+  const fin = ok(wt, 'phase', 'finish');
+  assert.match(fin.message, /1 new suggestion \(1 tests\)/);
+  assert.match(fin.message, /1 out-of-scope edit/);
+  assert.equal(state().phases[0].status, 'done');
   assert.equal(state().phases[1].status, 'in_progress');
+  const open = ok(wt, 'suggest', 'list', '--open', '--for', 'src/refund/x.ts');
+  assert.match(open.message, /\[tests\] cover the refund edge \(billing:s1/);
+  assert.equal(ok(wt, 'suggest', 'list', '--open', '--for', 'docs/**').data!.open, 0);
+  assert.equal(ok(wt, 'status').data!.openSuggestions, 1);
+  refused(wt, /unfinished tasks/, 'phase', 'finish');
 
   // pause / resume
   refused(wt, /handoff\.md does not exist/, 'pause');
@@ -227,8 +213,7 @@ test('full lifecycle with every checkpoint', () => {
   g(receiptWt, 'commit', '-q', '-m', 'receipt');
   g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'sdlc-task/billing/receipt');
   ok(wt, 'task', 'done', 'receipt');
-  greenVerdict(wt, planDir(), 'extras', ['FR-03']);
-  byUser(wt, 'approve', 'phase');
+  ok(wt, 'phase', 'finish');
   assert.equal(state().stage, 'verify');
 
   // verify -> review -> ship -> learn -> closed
@@ -239,7 +224,7 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
   ok(wt, 'advance');
   refusedByUser(wt, /RECORD\.md does not exist/, 'approve', 'ship');
-  write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Evidence\ne\n## Deviations\nnone\n## Follow-ups\nnone\n');
+  write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Follow-ups\nnone\n');
   byUser(wt, 'approve', 'ship');
   ok(wt, 'advance');
   ok(wt, 'close');
@@ -274,7 +259,7 @@ test('re-plan from verify adds fix tasks, keeps progress, and re-runs verificati
   const dir = join(fwt, 'docs/sdlc/plans/fixes');
   ok(fwt, 'decide', 'q', 'a');
   ok(fwt, 'advance');
-  write(join(dir, 'prd.md'), PRD.replace('- [ ] which', '- [x] which').replace('- FR-02 refund\n- FR-03 receipt\n', ''));
+  write(join(dir, 'prd.md'), PRD.replace('- [ ] which', '- [x] which').replace(/- \*\*FR-0[23]\*\*.*\n/g, ''));
   byUser(fwt, 'approve', 'prd');
   ok(fwt, 'advance');
   const one = (extra = '') => PLAN.replace(/  - id: core[\s\S]*```/, `  - id: core\n    name: Core\n    tasks:\n      - { id: charge, name: Charge, covers: [FR-01], scope: ["src/charge/**"] }\n${extra}\`\`\``);
@@ -288,8 +273,7 @@ test('re-plan from verify adds fix tasks, keeps progress, and re-runs verificati
   g(swt, 'commit', '-q', '-m', 'c');
   g(fwt, 'merge', '-q', '--no-ff', '-m', 'm', 'sdlc-task/fixes/charge');
   ok(fwt, 'task', 'done', 'charge');
-  greenVerdict(fwt, dir, 'core', ['FR-01']);
-  byUser(fwt, 'approve', 'phase');
+  ok(fwt, 'phase', 'finish');
   ok(fwt, 'evidence', 'verify', 'fail', '--note', 'double charge');
   refused(fwt, /re-plan/, 'plan', 'load');
   write(join(dir, 'plan.md'), one('  - id: hardening\n    name: Hardening\n    tasks:\n      - { id: idempotency, name: Idempotency, covers: [FR-01], scope: ["src/charge/idem/**"] }\n'));

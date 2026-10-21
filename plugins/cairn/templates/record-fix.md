@@ -1,5 +1,7 @@
 # Record: <bug title>
 
+<!-- Hard budget: 200 words of prose. -->
+
 ## Links
 <!-- Plan slug, the bug report or issue, and the PR URL once it exists. -->
 - Plan: <path>
@@ -7,16 +9,15 @@
 - PR: <url>
 
 ## Bug
-<!-- What a user saw, in two or three sentences. Include the repro command. -->
+<!-- What a user saw, in one or two sentences. Include the repro command. -->
 
 ## Cause
-<!-- Why it happened, with path:line. One short paragraph. -->
+<!-- Why it happened, with path:line. Two sentences. -->
 
 ## Fix
 <!-- What changed and why this change, not a larger one. Name the files. -->
 
 ## Evidence
-<!-- The repro now exits non-zero before the fix and zero after; the suite count; the review verdict with blocking and advisory counts. -->
+<!-- The repro fails before the fix and passes after; the suite result; the review verdict if the fix was reviewed. -->
 - Repro: <command, before and after>
 - Tests: <N passing, command>
-- Review: <blocking resolved, advisory count>
