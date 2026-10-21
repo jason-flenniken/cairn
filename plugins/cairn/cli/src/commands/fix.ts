@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { branchExists, git } from '../git.ts';
-import { planRel, type Ctx } from '../locate.ts';
+import { planRelIn, planRelOf, type Ctx } from '../locate.ts';
 import type { Config, State } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import { childEnv, gate, mutate, planCtx, type Opts, type Result } from '../shared.ts';
@@ -33,7 +33,7 @@ export function configGate(s: State, cfg: Config, event: string, opts: Opts): vo
 
 /** Files changed from base to head, a rename counting once. The plan's own folder is cairn's state, not part of the change. */
 export const changedFiles = (cwd: string, slug: string, base: string, head: string): string[] =>
-  git(['diff', '--name-only', '-z', '-M', base, head, '--', '.', `:!${planRel(slug)}`], cwd).split('\0').filter(Boolean);
+  git(['diff', '--name-only', '-z', '-M', base, head, '--', '.', `:!${planRelIn(slug, cwd)}`], cwd).split('\0').filter(Boolean);
 
 /** How a repro run ended. `detail` is the last output line, or the error when it timed out or could not start. */
 export interface ReproRun {
@@ -106,7 +106,7 @@ export function cmdEscalate(ctx: Ctx, opts: Opts): Result {
   // and removed), plus uncommitted work in a running task's worktree. Glob characters become `?` so the scope
   // stays a set of literal paths.
   const changed = new Map<string, string[]>();
-  const own = planRel(pre.slug) + '/';
+  const own = planRelOf(pc.plan) + '/';
   for (const sl of allTasks(pre)) {
     const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
     if (!sl.base || !head) continue;

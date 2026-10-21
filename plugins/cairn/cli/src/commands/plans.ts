@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { loadConfig, worktreeRoot } from '../config.ts';
 import { commitPath, git, gitOk } from '../git.ts';
-import { planBranch, planBranchesFor, planRel, worktreeName, type Ctx } from '../locate.ts';
+import { PLANS_DIR, planBranch, planBranchesFor, planDirName, worktreeName, type Ctx } from '../locate.ts';
 import { newState, saveState } from '../state.ts';
 import { CliError, now, readText, Refusal, SLUG, writeText } from '../util.ts';
 import { ensureExcluded, planCtx, planFile, runSetup, template, type Opts, type PlanCtx, type Result } from '../shared.ts';
@@ -29,12 +29,13 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
     wt = join(root, worktreeName(branch));
     git(['worktree', 'add', '-q', '-b', branch, wt, base], ctx.top);
   }
-  const dir = join(wt, planRel(slug));
+  const rel = `${PLANS_DIR}/${planDirName(slug, now())}`;
+  const dir = join(wt, rel);
   writeText(join(dir, 'decisions.md'), `# Decisions: ${title}\n\nAppend-only. Written by \`cairn decide\` as each decision is made.\n`);
   const state = newState(slug, title, track, branch, base);
   if (track === 'fix') state.stage = 'repro';
   saveState(dir, state);
-  if (cfg.autoCommit) commitPath(wt, planRel(slug), `cairn(${slug}): start plan "${title}"`);
+  if (cfg.autoCommit) commitPath(wt, rel, `cairn(${slug}): start plan "${title}"`);
   const setup = opts['no-worktree'] ? '' : runSetup(cfg, wt, ctx.mainRoot);
   return {
     message: [

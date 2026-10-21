@@ -3,7 +3,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from './config.ts';
 import { commitPath, commonDir } from './git.ts';
-import { planRel, requirePlan, type Ctx, type PlanRef } from './locate.ts';
+import { planRelOf, requirePlan, type Ctx, type PlanRef } from './locate.ts';
 import { humanProof, type ProofIO } from './proof.ts';
 import { emptySections, missingSections, RECORD_SECTIONS, RECORD_WORD_BUDGET, wordCount } from './sections.ts';
 import { loadState, log, saveState } from './state.ts';
@@ -88,7 +88,7 @@ export function mutate<T>(pc: PlanCtx, commitMsg: string | undefined, fn: (s: St
     saveState(pc.plan.dir, s);
     return out;
   });
-  if (commitMsg && pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRel(pc.plan.slug), `cairn(${pc.plan.slug}): ${commitMsg}`);
+  if (commitMsg && pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): ${commitMsg}`);
   return r;
 }
 

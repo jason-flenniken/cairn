@@ -13,6 +13,7 @@ import { renderStatus } from '../src/render.ts';
 import { testSummary } from '../src/shared.ts';
 import { newState } from '../src/state.ts';
 import { pluginRoot, Refusal } from '../src/util.ts';
+import { pd } from './plandir.ts';
 
 const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
 process.env.GIT_AUTHOR_NAME = 't';
@@ -110,7 +111,7 @@ const PLAN = planWith(`${CHARGE}\n${REFUND}`);
 /** A feature plan taken through discover, PRD, and plan approval to execute. */
 function featureInExecute(repo: string, slug: string, plan = PLAN): { wt: string; dir: string } {
   const wt = ok(repo, 'new', slug, '--title', slug).data!.worktree as string;
-  const dir = join(wt, 'docs/sdlc/plans', slug);
+  const dir = pd(wt, slug);
   ok(wt, 'decide', 'q', 'a');
   ok(wt, 'advance');
   write(join(dir, 'prd.md'), PRD);
@@ -190,7 +191,7 @@ test('an approval made through the mod shows in the generated STATUS.md', () => 
 test('plan load refuses a requirement id that is not FR-<digits> and names it', () => {
   const repo = mkRepo();
   const wt = ok(repo, 'new', 'strict', '--title', 'Strict').data!.worktree as string;
-  const dir = join(wt, 'docs/sdlc/plans/strict');
+  const dir = pd(wt, 'strict');
   ok(wt, 'decide', 'q', 'a');
   ok(wt, 'advance');
   write(join(dir, 'prd.md'), PRD.replace('- FR-02 refund', '- **FR-02a** refund'));
@@ -286,7 +287,7 @@ test('task done does not add drift for a path already logged and unreviewed', ()
 test('a re-plan of an escalated fix plan refuses to drop the fix task', () => {
   const repo = mkRepo();
   const wt = ok(repo, 'new', 'bugfix', '--track', 'fix', '--title', 'Bug').data!.worktree as string;
-  const dir = join(wt, 'docs/sdlc/plans/bugfix');
+  const dir = pd(wt, 'bugfix');
   write(join(wt, 'bug.txt'), 'broken\n');
   g(wt, 'add', '-A');
   g(wt, 'commit', '-q', '-m', 'bug');

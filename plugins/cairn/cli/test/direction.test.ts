@@ -9,6 +9,7 @@ import { after, before, test } from 'node:test';
 import { computeVerdict, parseScorecard } from '../src/direction.ts';
 import { run } from '../src/main.ts';
 import { Refusal } from '../src/util.ts';
+import { pd } from './plandir.ts';
 
 let repo: string;
 const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
@@ -92,7 +93,7 @@ let n = 0;
 function awaiting(): { wt: string; dir: string; state: () => any } {
   const slug = `p${++n}`;
   const wt = ok(repo, 'new', slug, '--title', slug).data!.worktree as string;
-  const dir = join(wt, 'docs/sdlc/plans', slug);
+  const dir = pd(wt, slug);
   ok(wt, 'decide', 'q', 'a');
   ok(wt, 'advance');
   write(join(dir, 'prd.md'), PRD);
