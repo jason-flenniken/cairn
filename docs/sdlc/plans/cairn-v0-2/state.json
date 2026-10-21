@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T12:41:35.654Z",
-  "stage": "learn",
+  "updated": "2026-10-21T12:42:04.830Z",
+  "stage": "closed",
   "paused": null,
   "approvals": {
     "prd": {
@@ -1270,6 +1270,10 @@
       "at": "2026-10-21T12:41:35.653Z",
       "event": "advanced",
       "detail": "learn"
+    },
+    {
+      "at": "2026-10-21T12:42:04.830Z",
+      "event": "closed"
     }
   ],
   "planHash": "cc54213ff13f0bd3",
