@@ -7428,13 +7428,14 @@ function withLock(dir, fn) {
 }
 
 // plugins/cairn/cli/src/git.ts
+var NO_AUTO_MAINTENANCE = ["-c", "gc.auto=0", "-c", "maintenance.auto=false"];
 function git(args, cwd) {
-  const r = spawnSync("git", args, { cwd, encoding: "utf8" });
+  const r = spawnSync("git", [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: "utf8" });
   if (r.status !== 0) throw new CliError(`git ${args.join(" ")} failed: ${(r.stderr || r.stdout).trim()}`);
   return r.stdout.trim();
 }
 function gitOk(args, cwd) {
-  return spawnSync("git", args, { cwd, encoding: "utf8" }).status === 0;
+  return spawnSync("git", [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: "utf8" }).status === 0;
 }
 function worktrees(cwd) {
   const out = execFileSync("git", ["worktree", "list", "--porcelain"], { cwd, encoding: "utf8" });
