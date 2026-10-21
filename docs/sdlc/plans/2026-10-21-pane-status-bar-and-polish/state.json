@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T23:17:34.516Z",
+  "updated": "2026-10-21T23:38:12.697Z",
   "stage": "review",
   "paused": null,
   "approvals": {
@@ -261,6 +261,12 @@
       "result": "pass",
       "at": "2026-10-21T23:17:34.418Z",
       "note": "tests: 209 CLI + 419 mod passing, build clean; 19 requirements met, 3 untested (NFR-02, step exit code, live checks pending for bar scroll, card click, viewer scroll); secret scan: clean; audit: npm 0 vulnerabilities, no lockfile changes"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T23:38:12.696Z",
+      "note": "whole-branch and security review: 2 Required fixed (inline row budget, step wording from the CLI) plus bar redraw on close and tab switch; a pre-existing approve-test flake fixed; follow-ups logged",
+      "blocking": 0
     }
   },
   "drift": [
@@ -639,6 +645,26 @@
       "at": "2026-10-21T23:17:34.515Z",
       "event": "advanced",
       "detail": "review"
+    },
+    {
+      "at": "2026-10-21T23:17:39.800Z",
+      "event": "step",
+      "detail": "reviewing"
+    },
+    {
+      "at": "2026-10-21T23:27:48.507Z",
+      "event": "step",
+      "detail": "fixing (3)"
+    },
+    {
+      "at": "2026-10-21T23:30:54.275Z",
+      "event": "step",
+      "detail": "rechecking"
+    },
+    {
+      "at": "2026-10-21T23:38:12.696Z",
+      "event": "review pass",
+      "detail": "whole-branch and security review: 2 Required fixed (inline row budget, step wording from the CLI) plus bar redraw on close and tab switch; a pre-existing approve-test flake fixed; follow-ups logged"
     }
   ],
   "suggestions": [
@@ -881,13 +907,65 @@
       ],
       "from": "check",
       "at": "2026-10-21T23:17:34.351Z"
+    },
+    {
+      "id": "s24",
+      "area": "security",
+      "text": "(security review) Strip control and bidi characters from outside text the pane draws (agent descriptions, plan titles, Bash phrases, model ids, step and stage names, limit kinds) with one plain() helper, and test a description with a newline and ESC; show only the program name for unrecognised Bash commands so tokens don't reach the screen",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T23:19:04.073Z"
+    },
+    {
+      "id": "s25",
+      "area": "quality",
+      "text": "Pane tidy-up: fix.md's re-review overwrites the rechecking step with reviewing; bar.tsx copies the CLI stage order and labels (carry them on the status row or pin with a test); one token formatter instead of three; move shared press and cell helpers into a util module; one word for working agents in Build and after it",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T23:27:48.449Z"
+    },
+    {
+      "id": "s26",
+      "area": "tests",
+      "text": "Resolved pane-status-bar-and-polish:s18",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T23:36:21.957Z",
+      "resolves": "pane-status-bar-and-polish:s18",
+      "note": "flake found and fixed in 9e3e69a: real-crypto approve hash raced the fake clock"
+    },
+    {
+      "id": "s27",
+      "area": "tests",
+      "text": "Make the test kit record ui.scroll({in, to}) so the bar-redraw scroll on doc open, close and tab switch can be asserted",
+      "where": [
+        "plugins/cairn/hooks/test/world.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T23:36:22.023Z"
+    },
+    {
+      "id": "s28",
+      "area": "ux",
+      "text": "Inline worst case (repo-root fallback, paused, approval, another plan) still draws 8 rows: drop the Showing line first, keep a '+N more' line whenever agent lines are hidden, and count only agents in N",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T23:38:12.634Z"
     }
   ],
   "planHash": "0eaa106a32c142a9",
   "configHash": "12129909968d47d2",
   "step": {
-    "stage": "verify",
-    "name": "scanning",
-    "at": "2026-10-21T23:15:58.940Z"
+    "stage": "review",
+    "name": "rechecking",
+    "at": "2026-10-21T23:30:54.274Z"
   }
 }
