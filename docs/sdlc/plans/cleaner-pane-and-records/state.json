@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:57:39.784Z",
+  "updated": "2026-10-21T15:01:24.879Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -123,7 +123,7 @@
     {
       "id": "few-follow-ups",
       "name": "Few follow-ups and automatic findings",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "followup-rules",
@@ -175,9 +175,17 @@
             "plugins/cairn/agents/recorder.md"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/cleaner-pane-and-records/findings",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--findings",
+          "base": "03273bdc50ed2c02ef479b1ac251714a849cc273",
+          "startedAt": "2026-10-21T14:57:43.145Z",
+          "doneAt": "2026-10-21T15:01:24.878Z",
+          "tip": "4903af2",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "27936b543e0d2609b361f1093d34f7725ae2b5cf"
         },
         {
           "id": "pane-history",
@@ -335,6 +343,12 @@
       "at": "2026-10-21T14:57:39.783Z",
       "reason": "changed outside task \"Follow-up cap, merge, decline and expiry\" scope (found at task done)",
       "task": "followup-rules"
+    },
+    {
+      "path": "plugins/cairn/references/cli.md",
+      "at": "2026-10-21T14:59:10.723Z",
+      "reason": "edited outside task \"Findings written automatically\" scope",
+      "task": "findings"
     }
   ],
   "log": [
@@ -551,6 +565,31 @@
       "at": "2026-10-21T14:57:39.784Z",
       "event": "task done",
       "detail": "Follow-up cap, merge, decline and expiry"
+    },
+    {
+      "at": "2026-10-21T14:57:43.146Z",
+      "event": "task started",
+      "detail": "Findings written automatically"
+    },
+    {
+      "at": "2026-10-21T14:57:43.229Z",
+      "event": "task implementing",
+      "detail": "Findings written automatically"
+    },
+    {
+      "at": "2026-10-21T14:59:10.723Z",
+      "event": "drift",
+      "detail": "plugins/cairn/references/cli.md"
+    },
+    {
+      "at": "2026-10-21T15:00:58.270Z",
+      "event": "task merging",
+      "detail": "Findings written automatically"
+    },
+    {
+      "at": "2026-10-21T15:01:24.879Z",
+      "event": "task done",
+      "detail": "Findings written automatically"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
@@ -625,6 +664,16 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T14:57:12.518Z"
+    },
+    {
+      "id": "s8",
+      "area": "tests",
+      "text": "Check that ship.md and learn.md state the same follow-up limit and record budget.",
+      "where": [
+        "plugins/cairn/cli/test/dogfood-docs.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T15:00:58.195Z"
     }
   ]
 }
