@@ -6,7 +6,7 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:47:12.110Z",
+  "updated": "2026-10-21T20:48:48.100Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -27,7 +27,7 @@
     {
       "id": "roomier-pane",
       "name": "Roomier pane and approval polish",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "pane-layout",
@@ -75,15 +75,18 @@
             "plugins/cairn/hooks/test/approve.test.ts"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
           "riskReason": "changes how the human approval question resolves",
-          "substep": "implementing",
           "branch": "task/roomier-pane-visuals/approval-polish",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-roomier-pane-visuals--approval-polish",
           "base": "b60ded4cc12ed96c7b0ff8b68ce8ba7e13a3b314",
-          "startedAt": "2026-10-21T20:44:22.868Z"
+          "startedAt": "2026-10-21T20:44:22.868Z",
+          "doneAt": "2026-10-21T20:48:48.100Z",
+          "tip": "9680ba7",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "3c0abc75f01436afc0ecdb18c60743d8e276cd0b"
         }
       ]
     }
@@ -154,6 +157,21 @@
       "at": "2026-10-21T20:47:12.110Z",
       "event": "task done",
       "detail": "Pane padding and spacing"
+    },
+    {
+      "at": "2026-10-21T20:47:16.205Z",
+      "event": "task reviewing",
+      "detail": "Approval note and open question"
+    },
+    {
+      "at": "2026-10-21T20:48:20.275Z",
+      "event": "task merging",
+      "detail": "Approval note and open question"
+    },
+    {
+      "at": "2026-10-21T20:48:48.100Z",
+      "event": "task done",
+      "detail": "Approval note and open question"
     }
   ],
   "suggestions": [
@@ -191,6 +209,46 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T20:46:44.338Z"
+    },
+    {
+      "id": "s4",
+      "area": "tests",
+      "text": "Add a case where one dialog tags two different stops and only one gets approved; it should stay open.",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T20:47:16.133Z"
+    },
+    {
+      "id": "s5",
+      "area": "tests",
+      "text": "The abandoned-dialog-failing test passes without the .catch because Promise.race already handles the rejection; assert with an unhandledRejection listener or drop the claim.",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T20:48:20.042Z"
+    },
+    {
+      "id": "s6",
+      "area": "quality",
+      "text": "An approval recorded between the plan-rows read and watcher registration is missed, so the chat question stays open until answered; small race.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T20:48:20.121Z"
+    },
+    {
+      "id": "s7",
+      "area": "quality",
+      "text": "Skip-note map re-parses the stop key with split(' '); store kind and slug in the map value instead.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T20:48:20.196Z"
     }
   ],
   "planHash": "122c17720d54ebf7",
