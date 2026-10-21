@@ -23,6 +23,30 @@ export const STAGE_COLOR: Record<string, string> = {
   review: 'magentaBright', ship: 'cyanBright', learn: 'blueBright', closed: 'gray',
 }
 
+/** The stages after Build: the phases are finished, so the header shows the stage and its step instead. */
+const LATE_STAGES = ['verify', 'review', 'ship', 'learn']
+
+/** Mirrors STEP_LABEL in cli/src/types.ts: the step the CLI recorded, in words. */
+const STEP_LABEL: Record<string, string> = {
+  testing: 'running tests', scanning: 'scanning for secrets', fixing: 'fixing', reviewing: 'reviewing',
+  rechecking: 're-checking', approving: 'waiting on approval', 'opening-pr': 'opening the PR', merging: 'merging',
+}
+
+/** "fixing 3 findings" for the current stage's recorded step; nothing for another stage's stale step. */
+export function stepText(s: CairnPlanState): string | undefined {
+  const st = s.step
+  if (!st || st.stage !== s.stage) return undefined
+  const label = STEP_LABEL[st.name] ?? st.name
+  return st.name === 'fixing' && st.count !== undefined ? `${label} ${st.count} finding${st.count === 1 ? '' : 's'}` : label
+}
+
+/** After Build: " · fixing 3 findings", then " · 2 running" while agents work. */
+export function lateTail(s: CairnPlanState, running: number): string {
+  if (!LATE_STAGES.includes(s.stage ?? '')) return ''
+  const step = stepText(s)
+  return `${step !== undefined ? ` · ${step}` : ''}${running > 0 ? ` · ${running} running` : ''}`
+}
+
 export const list = <T,>(x: unknown): T[] => (Array.isArray(x) ? (x.filter(v => v !== null && typeof v === 'object') as T[]) : [])
 export const phasesOf = (s: CairnPlanState) => list<Phase>(s.phases)
 export const tasksOf = (s: CairnPlanState) => phasesOf(s).flatMap(p => list<Task>(p.tasks))
@@ -46,7 +70,8 @@ export async function statusLine($: EngineInterface, v: CairnView): Promise<stri
   if (row === undefined) return active > 0 ? `${active} active plan${active === 1 ? '' : 's'}` : undefined
   const tasks = tasksOf(row.state)
   const working = (await readAgents($)).filter(c => c.status === 'working').length
-  const parts = [
+  const late = LATE_STAGES.includes(row.state.stage ?? '')
+  const parts = late ? [`${stageOf(row.state, row.prOpen)}${lateTail(row.state, working)}`, row.state.paused && 'paused'] : [
     tasks.length > 0 ? `${stageOf(row.state, row.prOpen)} ${tasks.filter(x => x.status === 'done').length}/${tasks.length} tasks` : stageOf(row.state, row.prOpen),
     working > 0 && `${working} working`,
     row.state.paused ? 'paused' : etaText(row, await $.clock.now()),
@@ -58,13 +83,14 @@ export async function statusLine($: EngineInterface, v: CairnView): Promise<stri
  * The plan's title, stage and phase over its progress bar, in one Box so a gap never splits them.
  * `fallback` is the active-plan count when the view chose the plan from the repo root.
  */
-export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumns: number, nowMs: number, fallback?: number) {
+export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumns: number, nowMs: number, fallback?: number, running = 0) {
   const { Box, Text } = ui
   const s = row.state
   const phases = phasesOf(s)
   const tasks = tasksOf(s)
   const at = phaseAt(s)
-  const where = phases.length === 0 ? '' : at < 0 ? ' · all phases done' : ` · phase ${at + 1} of ${phases.length}`
+  const late = LATE_STAGES.includes(s.stage ?? '')
+  const where = late ? lateTail(s, running) : phases.length === 0 ? '' : at < 0 ? '' : ` · phase ${at + 1} of ${phases.length}`
   const done = tasks.filter(x => x.status === 'done').length
   const rest = row.ready?.kind !== undefined ? 'Waiting on you' : row.next?.text
   const label = [tasks.length > 0 && `${done}/${tasks.length} tasks`, s.stage === 'execute' ? etaText(row, nowMs) : rest].filter(Boolean).join(' · ')

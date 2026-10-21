@@ -10,12 +10,12 @@ Run `cairn status --json`. The stage must be `verify`. Any other stage: say whic
 **Done when:** the stage is `verify`.
 
 ## 2. Tests and build
-Run the repo's test command (`test` in `.sdlc/config.json`) in the plan worktree, and the build command when `build` is set. Read the output and the exit code. With no test command, say so in one line and continue.
+Run `cd <plan worktree> && cairn step testing`. Then run the repo's test command (`test` in `.sdlc/config.json`) in the plan worktree, and the build command when `build` is set. Read the output and the exit code. With no test command, say so in one line and continue.
 
 **Done when:** you hold the pass/fail counts from a run made in this step. On failure, fix in place (step 5) before continuing.
 
 ## 3. Security scan and dependency audit
-Read the Secrets section of `references/security-checklist.md`, and the `[deps]` section when the branch touches a manifest or lockfile. Work from the branch diff, `git diff <base>...<plan branch>`, in the plan worktree.
+Run `cd <plan worktree> && cairn step scanning`. Then read the Secrets section of `references/security-checklist.md`, and the `[deps]` section when the branch touches a manifest or lockfile. Work from the branch diff, `git diff <base>...<plan branch>`, in the plan worktree.
 
 - **Secret scan.** The output of every scan command must contain only the file, the line and the kind, never the matched text. Do not run a bare `grep`, `grep -n` or `git diff | grep` over the diff, and do not open a hit to double-check it: if the kind looks doubtful, report it as found and let the user look.
   1. Count the added lines that look like a secret (a number only):
@@ -56,7 +56,7 @@ Dispatch the `acceptance-checker` agent (`model: sonnet`, `description` "Check �
 **Done when:** every requirement has a verdict, and every "met but untested" item is logged.
 
 ## 5. Fix what is blocking
-Skip when tests are green, nothing is not met, no secret was found, and no reachable critical or high advisory remains. Otherwise dispatch one `implementer` (`model: sonnet`, `description` "Fix · acceptance") on the plan worktree itself. It commits directly on the plan branch; there is no new task, phase, or re-plan. Brief it with the failing tests, the unmet requirement and its Check line, or the secret finding (file and line only) or advisory, and tell it to add a test for the fix. Then rerun step 2, step 3's blocking findings and step 4's unmet items once more.
+Skip when tests are green, nothing is not met, no secret was found, and no reachable critical or high advisory remains. Otherwise run `cd <plan worktree> && cairn step fixing --count N` (N is the number of failing tests, unmet requirements, secrets and advisories to fix), then dispatch one `implementer` (`model: sonnet`, `description` "Fix · acceptance") on the plan worktree itself. It commits directly on the plan branch; there is no new task, phase, or re-plan. Brief it with the failing tests, the unmet requirement and its Check line, or the secret finding (file and line only) or advisory, and tell it to add a test for the fix. Then rerun step 2, step 3's blocking findings and step 4's unmet items once more.
 
 If it is still failing after that one attempt, stop and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Pause.
 

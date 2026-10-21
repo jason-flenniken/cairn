@@ -339,7 +339,7 @@ export function install(on: On): void {
           {status}
         </Box>
       )
-      const header = planHeader(ui, row, accent, e.props.bodyColumns, t, v?.isFallback ? v.plans.filter(isActive).length : undefined)
+      const header = planHeader(ui, row, accent, e.props.bodyColumns, t, v?.isFallback ? v.plans.filter(isActive).length : undefined, cards.filter(c => c.status === 'working').length)
       const approve = ready !== undefined && (await approvalCard($, ui, s.slug, ready, isInline))
 
       if (isInline) {

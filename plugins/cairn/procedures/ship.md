@@ -24,7 +24,7 @@ Run `cairn suggest list --open` and note the count by area. Dispatch the `record
 **Done when:** `RECORD.md` exists with every template heading and is within 600 words (`wc -w`).
 
 ## 4. Show and stop
-Show the user the record, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
+Run `cd <plan worktree> && cairn step approving`. Then show the user the record, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output:
   - Approve (Recommended): approve the record, then open the PR
   - Revise the record: ask what to change, edit, recheck the word count
@@ -39,7 +39,7 @@ Run `cairn status --json` and check that the ship approval is recorded. If it is
 **Done when:** `cairn status --json` shows the ship approval.
 
 ## 6. Open the PR
-From the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan). Put the PR URL into the record's Links section and commit it on the plan branch.
+Run `cd <plan worktree> && cairn step opening-pr`. Then, from the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan). Put the PR URL into the record's Links section and commit it on the plan branch.
 
 **Done when:** `gh pr create` printed a URL, and `RECORD.md` links to it.
 
@@ -49,7 +49,7 @@ Run `cairn advance`. Report the PR URL in one line.
 **Done when:** the stage is `learn`. Then run `cairn next --json` and follow the procedure it names. The merge is the last step of the whole plan: `learn.md` (and `fix.md` for a fix) sends you back to the Merge section below once the plan is closed.
 
 ## Merge (the last step, after close)
-Closing records everything first so every record lands on main with the merge; `cairn status` and the pane show "PR open" until the branch is in main. Run this once the plan is closed:
+Run `cd <plan worktree> && cairn step merging` first (the CLI records steps only at ship, so once the plan has closed it refuses: ignore that refusal). Closing records everything first so every record lands on main with the merge; `cairn status` and the pane show "PR open" until the branch is in main. Run this once the plan is closed:
 1. Push the plan branch again, so the PR carries the closing commits (findings, record, PR link).
 2. Tell the user once, in one line, that the plan shows "PR open" until the PR is merged.
 3. Ask with AskUserQuestion (a plain choice, not an approval):
