@@ -7593,7 +7593,9 @@ function secretMatches(common, given) {
 }
 function humanProof(ctx, opts, io = terminalIO) {
   const common = commonDir(ctx.mainRoot);
-  if (secretMatches(common, process.env.CAIRN_APPROVER)) return { source: "mod" };
+  const secret = process.env.CAIRN_APPROVER;
+  delete process.env.CAIRN_APPROVER;
+  if (secretMatches(common, secret)) return { source: "mod" };
   if (!opts.human) return void 0;
   if (!io.isTTY()) throw new Refusal("--human needs an interactive terminal: run this in your own terminal, not through the agent");
   const slug = ctx.plan?.slug;
@@ -8716,8 +8718,9 @@ function cmdStatus(ctx, opts) {
     const active = rows.filter((r) => r.state.stage !== "closed");
     const lines = rows.length ? rows.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state)}
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
+    const openSuggestions = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state) })), modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) } };
+${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);

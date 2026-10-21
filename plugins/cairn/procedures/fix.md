@@ -51,7 +51,7 @@ The question names the reason and offers two options: "Escalate to a feature pla
 ## 6. Review
 Decide whether the fix is risky (auth, money, deleting data, migrations, public API). If it is not, run the repo's tests and record `cairn evidence review pass --blocking 0 --note "not risky: no review"`, then run `cairn advance`; skip to step 7.
 
-If it is risky, dispatch one `branch-reviewer` agent (`model: sonnet`, `description` "Review · fix"). Give it only the bug title, the repro command from `state.repro` in `cairn status --json`, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`. It returns blocking and non-blocking findings, each with `path:line`. Log each non-blocking one with `cairn suggest add --from branch-review`.
+If it is risky, dispatch one `branch-reviewer` agent (`model: sonnet`, `description` "Review · fix"). Give it only the bug title, the repro command from `state.repro` in `cairn status --json`, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`. It returns blocking and non-blocking findings, each with `path:line`. Log each non-blocking one with `cd <plan worktree> && cairn suggest add --area <area> --from branch-review --where <path> --text "<finding>"`.
 
 Record the result with the existing evidence command:
 - No blocking findings: `cairn evidence review pass --blocking 0 --note "<N follow-ups logged>"`.

@@ -93,7 +93,10 @@ export function secretMatches(common: string, given: string | undefined): boolea
  */
 export function humanProof(ctx: Ctx, opts: Opts, io: ProofIO = terminalIO): { source: 'mod' | 'terminal' } | undefined {
   const common = commonDir(ctx.mainRoot);
-  if (secretMatches(common, process.env.CAIRN_APPROVER)) return { source: 'mod' };
+  const secret = process.env.CAIRN_APPROVER;
+  // Read once, then gone: git and its hooks (which the model can write) never see it.
+  delete process.env.CAIRN_APPROVER;
+  if (secretMatches(common, secret)) return { source: 'mod' };
   if (!opts.human) return undefined;
   if (!io.isTTY()) throw new Refusal('--human needs an interactive terminal: run this in your own terminal, not through the agent');
   const slug = ctx.plan?.slug;

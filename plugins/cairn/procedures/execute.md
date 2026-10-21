@@ -49,7 +49,7 @@ When an implementer reports, read its status line.
 - `BLOCKED`: step 8.
 - `DONE` or `DONE_WITH_CONCERNS`: first log the report's `Suggestions:` lines (up to 3) with `cd <plan worktree> && cairn suggest add --area <area> --where <path> --from implementer --text "<text>"`.
   - Not risky: go straight to step 7.
-  - Risky: run `cd <plan worktree> && cairn task step <id> reviewing`. Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the task section, the covered requirements, the implementer's report, and the diff command `git -C <worktree> diff <plan-branch>...HEAD`. It returns PASS or FIX with blocking findings and minor notes. Log each minor note with `cairn suggest add --from task-review`. PASS goes to step 7; FIX goes to step 6.
+  - Risky: run `cd <plan worktree> && cairn task step <id> reviewing`. Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the task section, the covered requirements, the implementer's report, and the diff command `git -C <worktree> diff <plan-branch>...HEAD`. It returns PASS or FIX with blocking findings and minor notes. Log each minor note with `cd <plan worktree> && cairn suggest add --area <area> --from task-review --where <path> --text "<note>"`. PASS goes to step 7; FIX goes to step 6.
 
 **Done when:** each reported task is ready to merge, or in step 6 or 8.
 
@@ -85,4 +85,4 @@ After every completion, return to step 3. Make the pause check above between rou
 
 When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks.
 
-**Done when:** the phase has no remaining tasks. Then follow `procedures/phase-end.md`: run `cd <plan worktree> && cairn phase finish` and carry on.
+**Done when:** the phase has no remaining tasks. Then run `cd <plan worktree> && cairn next --json` and follow the procedure it names (phase-end for a feature plan, review for a fix plan).

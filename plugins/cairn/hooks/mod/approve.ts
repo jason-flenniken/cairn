@@ -32,6 +32,14 @@ export function isApproveLabel(s: unknown): boolean {
   return typeof s === 'string' && (s.startsWith('Approve') || /^(approve|approved|lgtm|yes)\b/i.test(s))
 }
 
+type Asked = { question?: unknown; options?: readonly { label?: unknown }[]; multiSelect?: unknown }
+
+/** A clicked option approves only when its label starts with "Approve" (the model wrote the labels); typed text by isApproveLabel; a multi-select never. */
+export function isApproval(answer: unknown, asked: Asked | undefined): boolean {
+  if (typeof answer !== 'string' || asked?.multiSelect === true) return false
+  return (asked?.options ?? []).some(o => o.label === answer) ? answer.startsWith('Approve') : isApproveLabel(answer)
+}
+
 // The live secret, and the chain that serializes its uses: each use reads the secret
 // current when its turn comes, then rotates it, so back-to-back uses never share one.
 let secret: string | undefined
@@ -230,7 +238,9 @@ export function install(on: On): void {
       const skipped = (why: string) => notes.push(`cairn: ${tag.slug} ${tag.kind} not approved: ${why}.`)
       if (tag.question in prefilled) skipped('the answer came from the model\'s call, not from you')
       else if (result?.afkTimeoutMs !== undefined) skipped('the dialog answered itself while you were away')
-      else if (!isApproveLabel(answers[tag.question])) skipped('the answer was not "Approve"')
+      else if (!isApproval(answers[tag.question], (e.questions as readonly Asked[]).find(q => q.question === tag.question))) {
+        skipped('the answer was not "Approve"')
+      }
       else {
         const outcome = await approveAs($, tag.slug, tag.kind)
         $.ui.toast(outcome)
