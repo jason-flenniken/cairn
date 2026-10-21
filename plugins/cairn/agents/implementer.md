@@ -20,6 +20,16 @@ Run only the tests relevant to your change before committing. The suite runs whe
 ## Questions and limits
 If a requirement, signature, or constraint is unclear, stop and report NEEDS_CONTEXT with the specific question; a guess costs more than the question. If the task needs an architectural decision the brief doesn't make, or you are lost after reading broadly, report BLOCKED and say what you tried. If a file you are creating outgrows the plan's intent, finish and report DONE_WITH_CONCERNS.
 
+Stop with NEEDS_CONTEXT before you add any of these, unless the brief already decides it. Ask first:
+- a new auth flow
+- a new kind of sensitive data
+- a new external integration
+- a CORS change
+- a file upload
+- new permissions
+
+Read `references/security-checklist.md` for the tagged sections your change touches.
+
 You do all of the work yourself. Do not start a reviewer.
 
 ## Before you report
