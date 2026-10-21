@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T11:43:23.118Z",
+  "updated": "2026-10-21T11:47:29.998Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -445,8 +445,14 @@
             "plugins/cairn/cli/test/fileinput.test.ts"
           ],
           "complexity": "simple",
-          "status": "pending",
-          "fixRound": 0
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/file-input",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--file-input",
+          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665",
+          "doneAt": "2026-10-21T11:47:29.997Z",
+          "tip": "64110b3",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
         },
         {
           "id": "skill-permissions",
@@ -460,8 +466,12 @@
             "plugins/cairn/cli/test/skills.test.ts"
           ],
           "complexity": "simple",
-          "status": "pending",
-          "fixRound": 0
+          "status": "in_progress",
+          "fixRound": 0,
+          "substep": "implementing",
+          "branch": "sdlc-slice/cairn-v0-2/skill-permissions",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--skill-permissions",
+          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665"
         },
         {
           "id": "mod-polish",
@@ -511,8 +521,12 @@
             "plugins/cairn/cli/test/dogfood-docs.test.ts"
           ],
           "complexity": "simple",
-          "status": "pending",
-          "fixRound": 0
+          "status": "in_progress",
+          "fixRound": 0,
+          "substep": "implementing",
+          "branch": "sdlc-slice/cairn-v0-2/dogfood-docs",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--dogfood-docs",
+          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665"
         },
         {
           "id": "cli-polish",
@@ -561,6 +575,12 @@
       "at": "2026-10-21T11:26:18.762Z",
       "reason": "edited outside slice \"Pause placeholder, pane repro label, guard false positives\" scope",
       "slice": "mod-polish"
+    },
+    {
+      "path": "plugins/cairn/cli/test/templates.test.ts",
+      "at": "2026-10-21T11:46:16.940Z",
+      "reason": "edited outside slice \"Named pre-approved cairn commands\" scope",
+      "slice": "skill-permissions"
     }
   ],
   "log": [
@@ -1059,6 +1079,36 @@
       "at": "2026-10-21T11:43:23.118Z",
       "event": "slice done",
       "detail": "Find and fix the flaky git invalid-object test failure"
+    },
+    {
+      "at": "2026-10-21T11:43:32.064Z",
+      "event": "slice started",
+      "detail": "Unlocked orchestrator and documented formats"
+    },
+    {
+      "at": "2026-10-21T11:43:32.559Z",
+      "event": "slice started",
+      "detail": "Named pre-approved cairn commands"
+    },
+    {
+      "at": "2026-10-21T11:44:07.696Z",
+      "event": "slice started",
+      "detail": "Decisions and notes from files"
+    },
+    {
+      "at": "2026-10-21T11:46:16.941Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/templates.test.ts"
+    },
+    {
+      "at": "2026-10-21T11:47:01.861Z",
+      "event": "slice merging",
+      "detail": "Decisions and notes from files"
+    },
+    {
+      "at": "2026-10-21T11:47:29.998Z",
+      "event": "slice done",
+      "detail": "Decisions and notes from files"
     }
   ],
   "planHash": "cc54213ff13f0bd3",
