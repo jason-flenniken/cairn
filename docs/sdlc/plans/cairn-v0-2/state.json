@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T11:19:35.456Z",
-  "stage": "execute",
+  "updated": "2026-10-21T11:20:53.618Z",
+  "stage": "plan",
   "paused": null,
   "approvals": {
     "prd": {
@@ -15,12 +15,6 @@
       "via": "agent",
       "note": "bootstrap: approved in menu, relayed by agent because the mod does not exist yet",
       "hash": "5bde3d913b280c57"
-    },
-    "plan": {
-      "at": "2026-10-21T11:09:20.220Z",
-      "via": "agent",
-      "note": "re-plan approved in menu, relayed (bootstrap)",
-      "hash": "f50ac9cf22d057f7"
     }
   },
   "phases": [
@@ -403,13 +397,7 @@
           "doneAt": "2026-10-21T10:20:14.128Z",
           "note": "review inputs for fix track; blocking-finding loop pending fix-cli"
         }
-      ],
-      "verdict": {
-        "result": "yellow",
-        "at": "2026-10-21T11:19:25.421Z",
-        "commit": "6ceeb7b605688ce4025ddf91dcb14e1e0f648c31",
-        "note": "3 partial, 9 aligned; fix procedure behind CLI reopen"
-      }
+      ]
     },
     {
       "id": "dogfood",
@@ -467,6 +455,27 @@
           "fixRound": 0
         },
         {
+          "id": "mod-polish",
+          "name": "Pause placeholder, pane repro label, guard false positives",
+          "covers": [
+            "FR-03",
+            "FR-09",
+            "FR-13"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/guards.ts",
+            "plugins/cairn/hooks/test/pause.test.ts",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/guards.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0
+        },
+        {
           "id": "dogfood-docs",
           "name": "Unlocked orchestrator and documented formats",
           "covers": [
@@ -478,6 +487,8 @@
             "plugins/cairn/procedures/new.md",
             "plugins/cairn/procedures/execute.md",
             "plugins/cairn/procedures/review.md",
+            "plugins/cairn/procedures/fix.md",
+            "plugins/cairn/procedures/phase-end.md",
             "plugins/cairn/references/cli.md",
             "plugins/cairn/hooks/NOTES.md",
             "README.md",
@@ -491,6 +502,7 @@
           "id": "cli-polish",
           "name": "Test summary, approval sources, strict ids, prefactor slices",
           "covers": [
+            "FR-28",
             "FR-36",
             "FR-37",
             "FR-39",
@@ -505,6 +517,8 @@
             "plugins/cairn/cli/src/plan-parse.ts",
             "plugins/cairn/cli/src/types.ts",
             "plugins/cairn/cli/src/commands/slices.ts",
+            "plugins/cairn/cli/src/commands/planload.ts",
+            "plugins/cairn/cli/src/commands/plans.ts",
             "plugins/cairn/cli/test/polish.test.ts"
           ],
           "complexity": "standard",
@@ -967,7 +981,12 @@
       "at": "2026-10-21T11:19:35.455Z",
       "event": "phase approved",
       "detail": "Drift check and fast lane (source: mod)"
+    },
+    {
+      "at": "2026-10-21T11:20:53.617Z",
+      "event": "re-plan loaded",
+      "detail": "19 slices"
     }
   ],
-  "planHash": "f50ac9cf22d057f7"
+  "planHash": "cc54213ff13f0bd3"
 }

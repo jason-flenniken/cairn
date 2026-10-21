@@ -111,3 +111,8 @@ _2026-10-21 11:05_
 **Decision:** The ai-workflow marketplace now points at the plan worktree, so this session loads cairn v0.2 including the mod after reload-plugins, and every merge shows up live. At ship it must be pointed back at the main checkout before the worktree is removed.
 **Why:** The user wants to see the mod in this session without a second terminal.
 _2026-10-21 11:18_
+
+### 23. Phase 3 end: re-plan with the findings
+**Decision:** Phase 3 approved yellow through the mod, the first mod-recorded approval. dogfood-docs now updates fix.md to offer reopen-in-place and renames the phase-end follow-up to Start clean. cli-polish enforces keeping the fix slice id after escalate and drops the EnterWorktree hint. New mod-polish slice covers the pause placeholder, the pane repro label, and three guard false positives found live: heredoc bodies to python, inline interpreter reads of plan state, and decide prose.
+**Why:** Phase 3 direction report and the first live mod approval.
+_2026-10-21 11:20_

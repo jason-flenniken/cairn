@@ -176,17 +176,23 @@ phases:
         blocked_by: []
         scope: ["plugins/cairn/skills/**", "plugins/cairn/cli/test/skills.test.ts"]
         complexity: simple
+      - id: mod-polish
+        name: Pause placeholder, pane repro label, guard false positives
+        covers: [FR-03, FR-09, FR-13]
+        blocked_by: []
+        scope: ["plugins/cairn/hooks/mod/pause.ts", "plugins/cairn/hooks/mod/pane.tsx", "plugins/cairn/hooks/mod/guards.ts", "plugins/cairn/hooks/test/pause.test.ts", "plugins/cairn/hooks/test/pane.test.tsx", "plugins/cairn/hooks/test/guards.test.ts"]
+        complexity: standard
       - id: dogfood-docs
         name: Unlocked orchestrator and documented formats
         covers: [FR-35, FR-38]
         blocked_by: []
-        scope: ["plugins/cairn/procedures/new.md", "plugins/cairn/procedures/execute.md", "plugins/cairn/procedures/review.md", "plugins/cairn/references/cli.md", "plugins/cairn/hooks/NOTES.md", "README.md", "plugins/cairn/cli/test/dogfood-docs.test.ts"]
+        scope: ["plugins/cairn/procedures/new.md", "plugins/cairn/procedures/execute.md", "plugins/cairn/procedures/review.md", "plugins/cairn/procedures/fix.md", "plugins/cairn/procedures/phase-end.md", "plugins/cairn/references/cli.md", "plugins/cairn/hooks/NOTES.md", "README.md", "plugins/cairn/cli/test/dogfood-docs.test.ts"]
         complexity: simple
       - id: cli-polish
         name: Test summary, approval sources, strict ids, prefactor slices
-        covers: [FR-36, FR-37, FR-39, FR-40, FR-41, FR-42]
+        covers: [FR-28, FR-36, FR-37, FR-39, FR-40, FR-41, FR-42]
         blocked_by: []
-        scope: ["plugins/cairn/cli/src/shared.ts", "plugins/cairn/cli/src/render.ts", "plugins/cairn/cli/src/plan-parse.ts", "plugins/cairn/cli/src/types.ts", "plugins/cairn/cli/src/commands/slices.ts", "plugins/cairn/cli/test/polish.test.ts"]
+        scope: ["plugins/cairn/cli/src/shared.ts", "plugins/cairn/cli/src/render.ts", "plugins/cairn/cli/src/plan-parse.ts", "plugins/cairn/cli/src/types.ts", "plugins/cairn/cli/src/commands/slices.ts", "plugins/cairn/cli/src/commands/planload.ts", "plugins/cairn/cli/src/commands/plans.ts", "plugins/cairn/cli/test/polish.test.ts"]
         complexity: standard
 ```
 
@@ -557,6 +563,8 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
   - `new.md` runs `cairn new` and then tells the user the worktree path. It never calls EnterWorktree, and the orchestrator stays at the repo root.
   - `execute.md` runs every `cairn` command with `cd <plan worktree> &&`.
   - `cli.md` is rewritten for the hash design: `mod-secret.sha256` (the mod keeps the secret in memory, and the CLI claims and deletes the hash on a match), the heartbeat (epoch milliseconds as plain text), and mod-run overrides. Every grant and rotation text goes, and `modActive` is documented in `status --all`.
+  - `fix.md`: for blocking review findings, offer "Fix in place (Recommended when small)" (`cairn slice start fix` reopens the slice from review), then "Escalate to a feature plan", then "Hold". Remove the reference to a Follow-ups section the fix record doesn't have.
+  - `phase-end.md`: rename the follow-up option "Approve and start clean" to "Start clean", since the approval has already happened.
   - `review.md`: the override command runs on its own (no `cd`, no `&&`) with a plain-text reason, free of ``; | & $ ` > <`` and backslashes.
   - The README states the Claude Code version requirement.
 
@@ -578,6 +586,8 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
   - `kind: prefactor` slices.
   - The `slice done` git-diff scope check, which logs drift (FR-41).
   - The re-plan keeps `base` and every other progress field (FR-42).
+  - A re-plan of an escalated fix plan refuses to drop the `fix` slice (FR-28).
+  - `cairn new` output no longer suggests EnterWorktree (FR-35).
 
 **Test cases**
 - Happy:
@@ -619,3 +629,30 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
 **Done when** the suite has 20 green runs in a row and the root cause is written in the commit message.
 
 **Lead from the first attempt (stopped at the user's request):** forcing a repack produces `packfile … index unavailable` errors, a pack deleted under a running git. That points to background `git gc --auto`/repack racing the next command in the same test repo. Test whether setting `gc.auto=0` and `maintenance.auto=false` in the test repos, or in CLI-run git, removes the failure.
+
+### Slice: mod-polish
+
+**Interfaces**
+- Consumes: `pause.ts` `handoffFromState`, `pane.tsx` stage labels, and `guards.ts` `bashVerdict`.
+- Produces:
+  - With no open questions, the handoff's Open questions section is a placeholder for the agent to fill (FR-13), not "None.".
+  - The pane labels the `repro` stage "Repro" (FR-09).
+  - Guard false positives found in live dogfooding are fixed (FR-03). Today the guard denies:
+    - a heredoc body fed to `python3 -`, scanned as shell even though it's interpreter input
+    - an inline interpreter read (`python3 -c "…json.load(open('…/state.json'))"`)
+    - a `cairn decide` argument whose prose contains the words cairn and approve
+
+    Writers stay denied: redirects, in-place flags, and interpreter code that opens the state file for writing (`open(…,'w')`, `write_text`, `json.dump`).
+
+**Test cases**
+- Happy:
+  - A handoff with no prior open questions contains the placeholder line.
+  - The pane header for a fix plan in repro reads "Repro".
+  - The three false-positive commands above are allowed.
+- Unhappy: existing open questions are kept unchanged.
+- Security:
+  - `python3 -c "open('…/state.json','w').write('{}')"` is still denied.
+  - A heredoc body to `bash` that runs `cairn approve` is still denied.
+  - The Stop now message is unchanged.
+
+**Done when** the tests pass.
