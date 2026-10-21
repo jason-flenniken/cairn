@@ -6,8 +6,8 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:55:01.766Z",
-  "stage": "review",
+  "updated": "2026-10-21T20:55:01.871Z",
+  "stage": "ship",
   "paused": null,
   "approvals": {
     "prd": {
@@ -209,6 +209,11 @@
       "at": "2026-10-21T20:55:01.766Z",
       "event": "review pass",
       "detail": "5 follow-ups logged, 2 more folded into existing ones"
+    },
+    {
+      "at": "2026-10-21T20:55:01.870Z",
+      "event": "advanced",
+      "detail": "ship"
     }
   ],
   "suggestions": [
