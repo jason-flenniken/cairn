@@ -3,7 +3,7 @@
 ## Links
 - PRD: docs/sdlc/plans/2026-10-21-sharper-interview-and-review/prd.md
 - Plan: docs/sdlc/plans/2026-10-21-sharper-interview-and-review/plan.md
-- PR: <pending>
+- PR: https://github.com/jason-flenniken/cairn/pull/2
 - Tracker: none
 
 ## Why
