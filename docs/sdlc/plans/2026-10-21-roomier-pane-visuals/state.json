@@ -6,8 +6,8 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:50:45.042Z",
-  "stage": "verify",
+  "updated": "2026-10-21T20:50:45.164Z",
+  "stage": "review",
   "paused": null,
   "approvals": {
     "prd": {
@@ -193,6 +193,11 @@
       "at": "2026-10-21T20:50:45.042Z",
       "event": "verify pass",
       "detail": "tests: 364 passing, build ok; 10 of 12 requirements met with tests, 2 met pending a by-eye check after ship (background, chat question closing)"
+    },
+    {
+      "at": "2026-10-21T20:50:45.164Z",
+      "event": "advanced",
+      "detail": "review"
     }
   ],
   "suggestions": [
