@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:27:39.481Z",
+  "updated": "2026-10-21T22:28:17.844Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -15,6 +15,12 @@
       "via": "human",
       "source": "mod",
       "hash": "d3e850d849e38d5a"
+    },
+    "plan": {
+      "at": "2026-10-21T22:28:17.843Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "0eaa106a32c142a9"
     }
   },
   "phases": [
@@ -220,6 +226,11 @@
       "at": "2026-10-21T22:27:39.480Z",
       "event": "plan loaded",
       "detail": "2 phases, 7 tasks"
+    },
+    {
+      "at": "2026-10-21T22:28:17.844Z",
+      "event": "plan approved",
+      "detail": "mod"
     }
   ],
   "suggestions": [
@@ -264,5 +275,6 @@
       "declines": "cleaner-pane-and-records:s20"
     }
   ],
-  "planHash": "0eaa106a32c142a9"
+  "planHash": "0eaa106a32c142a9",
+  "configHash": "12129909968d47d2"
 }
