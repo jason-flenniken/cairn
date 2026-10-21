@@ -3,7 +3,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnView } from '../../types/index.d.ts'
-import { etaMs, fmtDuration, LINGER_MS, readAgents, readFeed, readMain, readTick, type EtaTask } from './activity.ts'
+import { etaMs, fmtDuration, LINGER_MS, readAgents, readMain, readTick, type EtaTask } from './activity.ts'
 import { approveAs, type Kind } from './approve.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
@@ -18,6 +18,9 @@ const view = atom({ plugin: 'cairn', key: 'view' } as const, null as CairnView |
 const isTurnRunning = atom({ plugin: 'cairn', key: 'isTurnRunning' } as const, false)
 // The file whose full text the approval card shows below it (Read all); null while closed.
 const readAllOf = atom({ plugin: 'cairn', key: 'readAllOf' } as const, null as string | null)
+// The tab showing; the pane opens on Now.
+const tab = atom({ plugin: 'cairn', key: 'tab' } as const, 'now' as 'now' | 'history' | 'records')
+const TABS = [['now', 'Now'], ['history', 'History'], ['records', 'Records']] as const
 
 const PANE = 'cairn'
 const PANE_PREF = 'pane'
@@ -36,6 +39,12 @@ const quick: ProcessRunInit = { timeoutMs: 60_000 }
 const STAGE_LABEL: Record<string, string> = {
   discover: 'Discover', repro: 'Repro', prd: 'PRD', plan: 'Plan', execute: 'Build', verify: 'Check',
   review: 'Review', ship: 'Ship', learn: 'Learn', closed: 'Closed',
+}
+
+/** One color per stage: the header, progress bar and borders of working cards use it. */
+const STAGE_COLOR: Record<string, string> = {
+  discover: 'cyan', repro: 'red', prd: 'magenta', plan: 'blue', execute: 'yellowBright', verify: 'greenBright',
+  review: 'magentaBright', ship: 'cyanBright', learn: 'blueBright', closed: 'gray',
 }
 
 const COMMANDS = [
@@ -264,8 +273,6 @@ const hourMinute = (ms: number) => {
 const isReady = (x: Task, byId: Map<string, Task>) =>
   x.status === 'pending' && (Array.isArray(x.blockedBy) ? x.blockedBy : []).every(b => byId.get(b as string)?.status === 'done')
 
-const spanOf = (x: Task) => Date.parse(x.doneAt ?? '') - Date.parse(x.startedAt ?? '')
-
 /** A plan log entry in plain words; undefined for the ones not worth a line. */
 function logText(entry: { event?: string; detail?: string }): string | undefined {
   const { event = '', detail } = entry
@@ -300,29 +307,29 @@ export function install(on: On): void {
     const { Box, Button, Markdown, Text } = $.ui.resolve(e)
     const v = await read($, view)
     const isRunning = await read($, isTurnRunning)
+    const shownTab = await read($, tab)
     await readTick($)
     const t = await $.clock.now()
     const isInline = e.props.placement === 'inline'
     const here = v?.plans.find(r => r.state.slug === v.here)
+    const accent = STAGE_COLOR[here?.state.stage ?? ''] ?? 'cyan'
     const others = (v?.plans ?? []).filter(r => r !== here && isActive(r))
     const status = <Button key="status" label="Status" onPress={() => act($, () => $.command.run({ command: 'cairn:status' }))} />
     const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
     const main = await readMain($)
-    const feed = await readFeed($)
     // Read all: the document's own text, read when the card is open.
     const openFile = await read($, readAllOf)
     const docText = openFile === null ? '' : await $.fs.read(openFile).catch((err: unknown) => `Could not read ${openFile}: ${message(err)}`)
 
-    /** A line with something at each end, the left one cut short before the right one is. */
-    const split = (key: string, left: string, right: string, color?: 'green' | 'yellow') => (
-      <Box key={key} flexDirection="row" justifyContent="space-between">
-        <Box flexGrow={1} flexShrink={1}><Text color={color} wrap="truncate-end">{left}</Text></Box>
-        <Text dimColor>{right}</Text>
-      </Box>
+    /** One line of a card; pressing it views the agent. A blank line keeps its row so every card is 3 lines. */
+    const cardLine = (key: string, text: string, agentId: string | undefined, isDim: boolean) => (
+      <Button key={key} plain onPress={() => act($, () => viewPress($, agentId))}>
+        <Text dimColor={isDim} wrap="truncate-end">{text === '' ? ' ' : text}</Text>
+      </Button>
     )
 
-    /** One agent as a bordered card; the main session is the same card with its own words. */
-    const card = (key: string, border: 'cyan' | 'green' | 'red' | 'gray', title: string, model: string, lines: string[], dim: string[], agentId?: string) => (
+    /** One agent as a bordered card of 3 lines: title and model, status, activity; the main session is the same card. */
+    const card = (key: string, border: string, title: string, model: string, status: string, activity: string, agentId?: string) => (
       <Box key={`${key}:card`} flexDirection="column" borderStyle="round" borderColor={border} paddingX={1}>
         <Box key={`${key}:title`} flexDirection="row" justifyContent="space-between">
           <Box flexGrow={1} flexShrink={1}>
@@ -330,32 +337,32 @@ export function install(on: On): void {
           </Box>
           <Text dimColor>{model}</Text>
         </Box>
-        {lines.map((l, i) => <Text key={`${key}:l${i}`} wrap="truncate-end">{l}</Text>)}
-        {dim.map((l, i) => <Text key={`${key}:d${i}`} dimColor wrap="truncate-end">{l}</Text>)}
+        {cardLine(`${key}:status`, status, agentId, false)}
+        {cardLine(`${key}:activity`, activity, agentId, true)}
       </Box>
     )
 
     const agentCard = (c: (typeof cards)[number]) => {
       if (c.status === 'working') {
-        return card(`agent:${c.agentId}`, 'cyan', c.title, c.model, [`● working · ${fmtDuration(t - c.startedAt)}`], [...(c.action ? [c.action] : []), steps(c.steps)], c.agentId)
+        return card(`agent:${c.agentId}`, accent, c.title, c.model, `● working · ${fmtDuration(t - c.startedAt)} · ${steps(c.steps)}`, c.action ?? '', c.agentId)
       }
       const size = c.tokens === undefined ? '' : ` · ${c.tokens >= 1000 ? `${Math.round(c.tokens / 1000)}k` : c.tokens} tokens`
       const took = fmtDuration(c.durationMs ?? 0)
-      return card(`agent:${c.agentId}`, c.status === 'done' ? 'green' : 'red', c.title, c.model, [`${c.status === 'done' ? '✓ finished' : '✗ stopped'} · ${took}${size}`], [steps(c.steps)], c.agentId)
+      return card(`agent:${c.agentId}`, c.status === 'done' ? 'green' : 'red', c.title, c.model, `${c.status === 'done' ? '✓ finished' : '✗ stopped'} · ${took}${size} · ${steps(c.steps)}`, '', c.agentId)
     }
 
     const mainCard = () =>
       main === null
-        ? card('main', 'gray', 'Main session', '', ['waiting for you'], [])
-        : card('main', 'cyan', 'Main session', '', [`● ${main.action} · ${fmtDuration(t - main.since)}`], [])
+        ? card('main', 'gray', 'Main session', '', 'waiting for you', '')
+        : card('main', accent, 'Main session', '', `● working · ${fmtDuration(t - main.since)}`, main.action)
 
     /** One line per agent for the inline fit, where a card would not. */
     const agentLines = () => [
-      ...cards.filter(c => c.status === 'working').map(c => <Text key={c.agentId} wrap="truncate-end">{`● ${c.title} · ${c.action ?? 'working'} · ${fmtDuration(t - c.startedAt)}`}</Text>),
       <Text key="main" wrap="truncate-end">{main === null ? '● Main session · waiting for you' : `● Main session · ${main.action} · ${fmtDuration(t - main.since)}`}</Text>,
+      ...cards.filter(c => c.status === 'working').map(c => <Text key={c.agentId} wrap="truncate-end">{`● ${c.title} · ${c.action ?? 'working'} · ${fmtDuration(t - c.startedAt)}`}</Text>),
     ]
 
-    /** The session's plan: header, progress, the stop, the cards, the phases, and its buttons (FR-09, FR-12). */
+    /** The session's plan: header, progress, the stop, the cards, and its buttons (FR-09, FR-12). */
     const planLines = (row: CairnPlanRow) => {
       const s = row.state
       const phases = phasesOf(s)
@@ -371,15 +378,13 @@ export function install(on: On): void {
       const isTaskRunning = tasks.some(x => x.status === 'in_progress')
       const eta = etaText(row, t)
       const rest = waiting !== undefined ? 'Waiting on you' : row.next?.text
-      const label = [tasks.length > 0 && `${done}/${tasks.length} tasks`, s.stage === 'execute' ? eta : rest, (row.openSuggestions ?? 0) > 0 && `${row.openSuggestions} suggestions`]
-        .filter(Boolean).join(' · ')
+      const label = [tasks.length > 0 && `${done}/${tasks.length} tasks`, s.stage === 'execute' ? eta : rest].filter(Boolean).join(' · ')
       const bar = Math.min(20, Math.max(6, e.props.bodyColumns - label.length - 1))
       const filled = tasks.length === 0 ? 0 : Math.round((done / tasks.length) * bar)
       const upNext = tasks
         .filter(x => x.status === 'pending' && phases[at]?.tasks !== undefined && list<Task>(phases[at]?.tasks).includes(x))
         .slice(0, UP_NEXT_SHOWN)
         .map(x => `${x.name ?? x.id}${isReady(x, byId) ? '' : ' (waits)'}`)
-      const recent = recentLines(s, feed)
       const buttons = (
         <Box key="buttons" flexDirection="row" gap={1}>
           {!isPaused && s.stage !== 'closed' && <Button key="pause" label="Pause" onPress={() => act($, () => pause($, 'drain'))} />}
@@ -389,10 +394,10 @@ export function install(on: On): void {
         </Box>
       )
       const header = [
-        <Text key="head" bold wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s)}${where}`}</Text>,
+        <Text key="head" bold color={accent} wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s)}${where}`}</Text>,
         v?.isFallback && <Text key="fallback" dimColor>{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>,
         isPaused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>,
-        tasks.length > 0 ? <Text key="bar" wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor wrap="truncate-end">{label}</Text>,
+        tasks.length > 0 ? <Text key="bar" color={accent} wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor color={accent} wrap="truncate-end">{label}</Text>,
       ]
       // The approval card shows only while the CLI says the document is ready, never while it is being drafted (FR-11).
       const isOpen = ready !== undefined && openFile === ready.file
@@ -419,44 +424,41 @@ export function install(on: On): void {
       return [
         ...header,
         approve,
-        <Text key="now" bold>NOW</Text>,
-        ...cards.map(agentCard),
         mainCard(),
+        ...cards.map(agentCard),
         upNext.length > 0 && <Text key="next" wrap="truncate-end">{`UP NEXT  ${upNext.join(' · ')}`}</Text>,
-        ...phases.flatMap((p, i) => {
-          const mine = list<Task>(p.tasks)
-          const name = `${i + 1} ${p.name ?? '?'}`
-          if (p.status === 'done') {
-            const spans = mine.map(spanOf).filter(n => n >= 0)
-            const starts = mine.map(x => Date.parse(x.startedAt ?? '')).filter(n => !Number.isNaN(n))
-            const ends = mine.map(x => Date.parse(x.doneAt ?? '')).filter(n => !Number.isNaN(n))
-            const took = spans.length > 0 && starts.length > 0 && ends.length > 0 ? ` · ${fmtDuration(Math.max(...ends) - Math.min(...starts), true)}` : ''
-            return [split(`phase:${i}`, `✓ ${name}`, `${mine.length} tasks${took}`, 'green')]
-          }
-          const finished = mine.filter(x => x.status === 'done').length
-          if (i !== at) return [split(`phase:${i}`, `○ ${name}`, `0 of ${mine.length}`)]
-          return [
-            split(`phase:${i}`, `◐ ${name}`, `${finished} of ${mine.length}`),
-            ...mine.filter(x => x.status !== 'pending').map(x =>
-              split(`task:${x.id ?? x.name}`, `   ${x.status === 'done' ? '✓' : '●'} ${x.name ?? x.id ?? '?'}`, x.status === 'done' && spanOf(x) >= 0 ? fmtDuration(spanOf(x), true) : '', x.status === 'done' ? 'green' : undefined)),
-          ]
-        }),
         drift.length > 0 && <Text key="drift" color="yellow">{`${drift.length} out-of-scope edit${drift.length === 1 ? "" : "s"}:`}</Text>,
         ...drift.slice(0, DRIFT_SHOWN).map((d, i) => <Text key={`drift:${i}`} dimColor wrap="truncate-end">{`  ${d.path ?? '?'}`}</Text>),
-        ...recent.map((l, i) => <Text key={`recent:${i}`} dimColor wrap="truncate-end">{l}</Text>),
         buttons,
       ]
     }
 
+    const tabs = (
+      <Box key="tabs" flexDirection="row" gap={1}>
+        {TABS.map(([id, name]) => (
+          <Button key={`tab:${id}`} label={name} variant={shownTab === id ? 'primary' : undefined} onPress={() => act($, () => update($, tab, () => id))} />
+        ))}
+      </Box>
+    )
+
+    if (!isInline && shownTab !== 'now') {
+      return (
+        <Box flexDirection="column">
+          {tabs}
+          <Text key="placeholder" dimColor>{`${shownTab === 'history' ? 'History' : 'Records'} is coming.`}</Text>
+        </Box>
+      )
+    }
+
     return (
       <Box flexDirection="column">
+        {!isInline && tabs}
         {here !== undefined && isActive(here)
           ? planLines(here)
           : [
               <Text key="head" bold>cairn</Text>,
               <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>,
-              (v?.plans[0]?.openSuggestions ?? 0) > 0 && <Text key="sugg" dimColor>{`${v?.plans[0]?.openSuggestions} open suggestions · /cairn:suggestions`}</Text>,
-              ...(isInline ? agentLines() : [<Text key="now" bold>NOW</Text>, ...cards.map(agentCard), mainCard()]),
+              ...(isInline ? agentLines() : [mainCard(), ...cards.map(agentCard)]),
               <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
             ]}
         {others.length > 0 && <Text bold>Other active plans</Text>}
