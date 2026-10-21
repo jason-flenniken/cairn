@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { estimateUsd } from '../mod/prices.ts'
-import { drawn, mount, plan, row, start, task, world, WT } from './world.tsx'
+import { drawn, mount, mountAs, plan, row, start, task, world, WT } from './world.tsx'
 
 const EXECUTE = plan({
   phases: [{ id: 'p1', name: 'Core', status: 'in_progress', tasks: [task('cart', 'Cart', { status: 'in_progress' })] }],
@@ -31,7 +31,7 @@ describe('agent card presses (FR-11)', () => {
     const buttons = (await ui.findAll({ type: 'Button' })).filter((b: { key: string }) => b.key.startsWith('agent:agent-1'))
     expect(buttons.map((b: { key: string }) => b.key)).toEqual(['agent:agent-1', 'agent:agent-1:status', 'agent:agent-1:activity'])
     // The press lands on the label's own cells, so each row's label fills the card's width.
-    for (const b of buttons) expect([...label(b)].length).toBe(42)
+    for (const b of buttons) expect([...label(b)].length).toBe(54)
     for (const b of buttons) await ui.press({ key: b.key })
     expect(w.views).toEqual([{ agentId: 'agent-1' }, { agentId: 'agent-1' }, { agentId: 'agent-1' }])
     await ui.unmount()
@@ -52,6 +52,23 @@ describe('agent card presses (FR-11)', () => {
     expect(await drawn(ui)).toBe(before)
     await ui.unmount()
   })
+})
+
+describe('card rows follow the body width', () => {
+  for (const [columns, width] of [[60, 54], [40, 34]] as const) {
+    test(`at ${columns} columns every row is ${width} cells and the card stays 3 lines`, async ($, on) => {
+      const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+      on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
+      await start($, WT)
+      const ui = await mountAs($, { bodyColumns: columns })
+      await $.agent.spawn({ prompt: 'p', description: 'Build · a very long task title that cannot fit on one line', subagentType: 'cairn:implementer' })
+      await clock.advance(1_000)
+      const buttons = (await ui.findAll({ type: 'Button' })).filter((b: { key: string }) => b.key.startsWith('agent:agent-1'))
+      expect(buttons).toHaveLength(3)
+      for (const b of buttons) expect([...label(b)].length).toBe(width)
+      await ui.unmount()
+    })
+  }
 })
 
 describe('agent card tokens and cost (FR-12)', () => {
@@ -101,7 +118,7 @@ describe('agent card tokens and cost (FR-12)', () => {
     await runStep($, 'agent-1')
     await clock.advance(1_000)
     const buttons = (await ui.findAll({ type: 'Button' })).filter((x: { key: string }) => x.key.startsWith('agent:agent-1'))
-    for (const b of buttons) expect([...label(b)].length).toBe(42)
+    for (const b of buttons) expect([...label(b)].length).toBe(54)
     expect(label(buttons.find((x: { key: string }) => x.key.endsWith(':status')))).toContain('420k tokens ~$1.50')
     await ui.unmount()
   })

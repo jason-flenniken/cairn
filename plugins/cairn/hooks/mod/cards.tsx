@@ -56,7 +56,7 @@ function cardLine($: EngineInterface, cx: CardContext, key: string, text: string
   // The press lands on the label's own cells, so the text is padded to the card's width: the whole row presses.
   return (
     <Button key={key} plain onPress={() => act($, () => viewPress($, agentId))}>
-      <Text dimColor={isDim}>{fit(text, cx.columns ?? CARD_COLUMNS)}</Text>
+      <Text dimColor={isDim} wrap="truncate-end">{fit(text, cx.columns ?? CARD_COLUMNS)}</Text>
     </Button>
   )
 }
@@ -69,7 +69,7 @@ function card($: EngineInterface, cx: CardContext, key: string, border: string, 
   return (
     <Box key={`${key}:card`} flexDirection="column" borderStyle="round" borderColor={border} paddingX={1}>
       <Button key={key} plain onPress={() => act($, () => viewPress($, agentId))}>
-        <Text>{fit(title, room)}</Text>
+        <Text wrap="truncate-end">{fit(title, room)}</Text>
         {model !== '' && <Text dimColor>{` ${model}`}</Text>}
       </Button>
       {cardLine($, cx, `${key}:status`, status, agentId, false)}

@@ -287,7 +287,7 @@ export function install(on: On): void {
     const status = <Button key="status" label="Status" onPress={() => act($, () => $.command.run({ command: 'cairn:status' }))} />
     const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
     const main = await readMain($)
-    const cx: CardContext = { ui, accent, nowMs: t }
+    const cx: CardContext = { ui, accent, nowMs: t, columns: e.props.bodyColumns - 6 }
     // The bar's lines: every stage step docked; inline, the one line holds the active step.
     const barLines: BarLine[] = here === undefined
       ? []
