@@ -9014,6 +9014,64 @@ function cmdPhase(ctx, action, opts) {
   });
 }
 
+// plugins/cairn/cli/src/commands/records.ts
+import { existsSync as existsSync8, readdirSync as readdirSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname3, join as join13 } from "node:path";
+var DATE_PREFIX = /^(\d{4}-\d{2}-\d{2})-/;
+function whyLine(md) {
+  const body = (md ? sections(md).get("why") ?? "" : "").replace(/<!--[\s\S]*?-->/g, "").trim();
+  const para = body.split(/\n\s*\n/)[0]?.replace(/\s+/g, " ").trim() ?? "";
+  return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
+}
+function listRecords(ctx) {
+  const main2 = dirname3(commonDir(ctx.top));
+  const byMain = { ...ctx, top: main2 };
+  const found = /* @__PURE__ */ new Map();
+  for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
+  const base = join13(main2, PLANS_DIR);
+  if (existsSync8(base))
+    for (const name of readdirSync3(base)) {
+      const raw = readText(join13(base, name, "state.json"));
+      if (raw === void 0) continue;
+      try {
+        const state = parseState(raw);
+        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join13(base, name) });
+      } catch {
+      }
+    }
+  const followUps = /* @__PURE__ */ new Map();
+  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status }]);
+  const entries = [...found.values()].map(({ state, dir }) => {
+    let recordPath = join13(dir, "RECORD.md");
+    if (!existsSync8(recordPath)) recordPath = join13(base, basename3(dir), "RECORD.md");
+    const text = readText(recordPath);
+    return {
+      slug: state.slug,
+      title: state.title,
+      date: basename3(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
+      stage: state.stage,
+      why: whyLine(text),
+      ...text !== void 0 ? { record: recordPath } : {},
+      followUps: followUps.get(state.slug) ?? []
+    };
+  });
+  const open = (e) => e.stage === "closed" ? 1 : 0;
+  return entries.sort((a, b) => open(a) - open(b) || b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
+}
+function cmdRecords(ctx) {
+  const records = listRecords(ctx);
+  const lines = records.map((r) => {
+    const open = r.followUps.filter((f) => f.status === "open").length;
+    return [
+      `${r.date}  ${r.title} (${r.slug})${r.stage === "closed" ? "" : `  [in progress: ${r.stage}]`}`,
+      ...r.why ? [`    ${r.why}`] : [],
+      ...r.record ? [`    ${r.record}`] : [],
+      ...r.followUps.length ? [`    ${r.followUps.length} follow-up(s), ${open} open`] : []
+    ].join("\n");
+  });
+  return { message: lines.length ? lines.join("\n") : "No plans yet.", data: { records } };
+}
+
 // plugins/cairn/cli/src/direction.ts
 var import_yaml2 = __toESM(require_dist(), 1);
 var BLOCK2 = /```ya?ml[ \t]+cairn-direction[ \t]*\r?\n([\s\S]*?)```/g;
@@ -9118,7 +9176,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -9142,7 +9200,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join13(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join14(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -9175,12 +9233,12 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync8 } from "node:fs";
-import { dirname as dirname3, isAbsolute, join as join14, relative as relative2, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync9 } from "node:fs";
+import { dirname as dirname4, isAbsolute, join as join15, relative as relative2, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync8(join14(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync9(join15(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return "";
@@ -9199,10 +9257,10 @@ function hookPostEdit(input) {
   const file = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
-  let dir = dirname3(abs);
-  while (!existsSync8(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
+  let dir = dirname4(abs);
+  while (!existsSync9(dir) && dirname4(dir) !== dir) dir = dirname4(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync8(join14(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync9(join15(ctx.plan.dir, "state.json"))) return "";
   const rel = relative2(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (rel.startsWith("docs/sdlc/") || rel.startsWith(".sdlc/") || rel.startsWith(".claude/")) return "";
@@ -9281,7 +9339,7 @@ var USAGE2 = `cairn: plan state for the agent-driven lifecycle. See references/c
   approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
-  pause [--now] | resume [<slug>] | close | render
+  pause [--now] | resume [<slug>] | close | render | records
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 function run(argv, cwd = process.cwd()) {
@@ -9330,6 +9388,8 @@ function run(argv, cwd = process.cwd()) {
       return cmdResume(ctx(), a, opts);
     case "close":
       return cmdClose(ctx(), opts);
+    case "records":
+      return cmdRecords(ctx());
     case "render":
       return cmdRender(ctx());
     case void 0:

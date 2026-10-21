@@ -124,6 +124,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn close`
 - **Generated docs and hooks**
   - `cairn render`: regenerates `STATUS.md`, plus `docs/sdlc/INDEX.md` when on main.
+  - `cairn records [--json]`: lists every plan, in-progress first then closed newest first, with date, title, why line, record path and follow-ups. Works from any worktree.
   - `cairn hook session-start|post-edit`: used by `hooks/hooks.json`. Reads hook JSON on stdin.
 
 The CLI commits the plan dir on the plan branch only at transitions: approve, advance, plan load, task done, phase finish, pause, resume, and close.
@@ -143,6 +144,7 @@ A blocking review finding has two exits. `cairn task start fix` reopens the task
   - `ready` is present only when approving the current stop would pass its checks: `{kind: "prd"|"plan"|"ship", file, summary}`. `file` is the absolute path of the document; `summary` is a short markdown excerpt.
   - `state` is the full state.json: `phases[].tasks[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals`, `evidence`, `drift[]`, `suggestions[]`, and `log[]`. A task also has `risky`, `riskReason`, and `startedAt`.
   - `status --all`: `{plans: [{state, live, worktree, next, ready?}], modActive, openSuggestions}`.
+- `records`: `{records: [{slug, title, date, stage, why, record?, followUps: [{text, area, status}]}]}`. In-progress plans first, then closed plans newest first. Reads the main checkout from any worktree.
 - `ready`: `{paused, phase, phaseStatus, ready: [task + model], inProgress: [task], waiting: [{id, on[]}]}`.
 - `task start`: `{worktree, branch, planBranch}`.
 - `new`: `{slug, branch, base, worktree, dir}`.
