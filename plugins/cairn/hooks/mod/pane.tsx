@@ -339,10 +339,8 @@ export function install(on: On): void {
     const accent = STAGE_COLOR[here?.state.stage ?? ''] ?? 'cyan'
     const others = (v?.plans ?? []).filter(r => r !== here && isActive(r))
     // Every tab's root: 1 column in from each edge; docked, a blank line between its children (an absent
-    // `false` child adds none) and a background FR-10 asks the terminal to leave to itself. Inline adds no rows.
-    // Claude Code documents no "terminal's own background" value, so 'transparent' is the most plausible; if
-    // acceptance shows it is ignored, remove it.
-    const rootProps = { flexDirection: 'column', paddingX: 1, gap: isInline ? 0 : 1, ...(isInline ? {} : { backgroundColor: 'transparent' }) } as const
+    // `false` child adds none). Claude Code paints the docked pane's background and the mod has no setting for it.
+    const rootProps = { flexDirection: 'column', paddingX: 1, gap: isInline ? 0 : 1 } as const
     const status = <Button key="status" label="Status" onPress={() => act($, () => $.command.run({ command: 'cairn:status' }))} />
     const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
     const main = await readMain($)
@@ -426,7 +424,7 @@ export function install(on: On): void {
       const header = (
         <Box key="header" flexDirection="column">
         <Text key="head" bold color={accent} wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s)}${where}`}</Text>
-        {v?.isFallback && <Text key="fallback" dimColor>{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>}
+        {v?.isFallback && <Text key="fallback" dimColor wrap="truncate-end">{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>}
         {isPaused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>}
         {tasks.length > 0 ? <Text key="bar" color={accent} wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor color={accent} wrap="truncate-end">{label}</Text>}
         </Box>
@@ -450,7 +448,7 @@ export function install(on: On): void {
       )
 
       if (isInline) {
-        return [header, approve, ...agentLines(), <Text key="tip" dimColor>Full-height side pane: run /tui fullscreen</Text>, buttons]
+        return [header, approve, ...agentLines(), <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>, buttons]
       }
 
       return [
