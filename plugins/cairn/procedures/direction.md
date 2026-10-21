@@ -12,7 +12,7 @@ Inputs, from the caller:
 Run `cairn status --json` for the plan slug, worktree, and current phase. Read `prd.md` and `plan.md` in `docs/sdlc/plans/<slug>/`.
 - Phase id: the requirements are the union of `covers` across the phase's slices.
 - `all`: every requirement in the PRD.
-- Ids: those requirements, plus code that touches their files.
+- Ids: those requirements, checked against the files in the scopes of the slices that cover them.
 - `changed`: run `git status` and `git diff HEAD` in the worktree, and map each changed file to the requirements whose slices own it.
 
 For each requirement, collect its text, acceptance criteria, unhappy paths, and the code areas (the owning slices' scope globs). When `docs/sdlc/product/PRD.md` exists, also collect its non-goals, NFRs, and must-not-trade-off items.
@@ -22,7 +22,7 @@ For each requirement, collect its text, acceptance criteria, unhappy paths, and 
 ## 2. Check
 Split the requirements into groups of two or three. Dispatch one `direction-checker` agent per group, all in one message so they run in parallel, each with `model: sonnet`. Give each: the worktree path, its requirements quoted with criteria and unhappy paths, its code areas, and the product PRD items.
 
-Relay each agent's rows without changing a verdict. A row without `path:line` evidence goes back to the agent; do not fill it in yourself. A requirement an agent could not verify goes under Not verified.
+Relay each agent's rows without changing a verdict. A row without `path:line` evidence goes back to the agent; do not fill it in yourself. A requirement an agent could not verify still needs a row, because the CLI refuses a report missing any covered requirement: tell the agent to give it `missing`, or `partial` with the nearest `path:line` and a note that it is unverified. List it under Not verified too.
 
 **Done when:** every requirement in scope has a verdict row with evidence, or a Not verified entry saying why, and unplanned code is listed or stated as none.
 
@@ -66,6 +66,8 @@ nfr:
 Run `cairn evidence phase`. The CLI parses the block, checks every covered requirement has a row with evidence, computes the color, and records it with the current commit.
 
 When it refuses (exit code 2), read the reason and fix the report, never override:
+- "no phase is waiting for approval": the phase is not at its approval point. Go back to execute or phase end and finish the phase's slices first.
+- "direction/<id>.md does not exist": write the report (step 3), then rerun.
 - A missing row: find the requirement, have a `direction-checker` agent check it, add the row.
 - Missing or malformed evidence: read the code, put a real `path:line` on the row.
 - A malformed block or more than one block: repair the block.

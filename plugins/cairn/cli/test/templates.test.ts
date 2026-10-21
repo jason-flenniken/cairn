@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { HANDOFF_SECTIONS, missingSections, PLAN_SECTIONS, PRD_SECTIONS, RECORD_SECTIONS } from '../src/sections.ts';
+import { parseScorecard } from '../src/direction.ts';
 import { pluginRoot } from '../src/util.ts';
 
 const root = pluginRoot();
@@ -43,8 +44,12 @@ test('the direction procedure, agent, and skill fit together', () => {
   assert.match(t, /direction-checker/);
   assert.match(t, /docs\/sdlc\/product\/PRD\.md/);
   assert.match(t, /cairn evidence phase/);
-  assert.match(t, /never (override|overrid)/i);
-  assert.doesNotMatch(t, /--override/);
+  assert.ok(!t.includes('--override'), 'direction.md must not tell the agent to override');
+  const block = /```yaml cairn-direction\n([\s\S]*?)```/.exec(t);
+  assert.ok(block, 'direction.md has an example cairn-direction block');
+  const { rows, problems } = parseScorecard(`\`\`\`yaml cairn-direction\n${block[1]}\`\`\``);
+  assert.deepEqual(problems, []);
+  assert.ok(rows.requirements.length > 0);
   const a = read('agents/direction-checker.md');
   assert.match(a, /^model:\s*sonnet\s*$/m);
   assert.doesNotMatch(a, /^tools:.*\b(Write|Edit)\b/m);
