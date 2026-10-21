@@ -6,8 +6,8 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T23:17:34.419Z",
-  "stage": "verify",
+  "updated": "2026-10-21T23:17:34.516Z",
+  "stage": "review",
   "paused": null,
   "approvals": {
     "prd": {
@@ -634,6 +634,11 @@
       "at": "2026-10-21T23:17:34.419Z",
       "event": "verify pass",
       "detail": "tests: 209 CLI + 419 mod passing, build clean; 19 requirements met, 3 untested (NFR-02, step exit code, live checks pending for bar scroll, card click, viewer scroll); secret scan: clean; audit: npm 0 vulnerabilities, no lockfile changes"
+    },
+    {
+      "at": "2026-10-21T23:17:34.515Z",
+      "event": "advanced",
+      "detail": "review"
     }
   ],
   "suggestions": [
