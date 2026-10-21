@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T13:58:53.207Z",
+  "updated": "2026-10-21T14:02:14.804Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -132,9 +132,17 @@
             "plugins/cairn/references/cli.md"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "sdlc-task/standard-branch-names/approval-ready",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--approval-ready",
+          "base": "d477d083b39af77118978e355cf608cf6ae82e21",
+          "startedAt": "2026-10-21T13:58:57.811Z",
+          "doneAt": "2026-10-21T14:02:14.803Z",
+          "tip": "4985b3b",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "858687b18055f7caf217f494c049d46d29660a90"
         },
         {
           "id": "pane-approvals",
@@ -152,10 +160,15 @@
             "plugins/cairn/types/**"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "decides when a human approval is recorded; must never approve on the model's say-so"
+          "riskReason": "decides when a human approval is recorded; must never approve on the model's say-so",
+          "substep": "implementing",
+          "branch": "sdlc-task/standard-branch-names/pane-approvals",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--pane-approvals",
+          "base": "d477d083b39af77118978e355cf608cf6ae82e21",
+          "startedAt": "2026-10-21T13:58:58.359Z"
         }
       ]
     }
@@ -266,6 +279,36 @@
       "at": "2026-10-21T13:58:53.206Z",
       "event": "phase finished",
       "detail": "Standard branch names (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T13:58:57.812Z",
+      "event": "task started",
+      "detail": "CLI says when an approval is ready"
+    },
+    {
+      "at": "2026-10-21T13:58:57.896Z",
+      "event": "task implementing",
+      "detail": "CLI says when an approval is ready"
+    },
+    {
+      "at": "2026-10-21T13:58:58.360Z",
+      "event": "task started",
+      "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T13:58:58.447Z",
+      "event": "task implementing",
+      "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T14:00:47.494Z",
+      "event": "task merging",
+      "detail": "CLI says when an approval is ready"
+    },
+    {
+      "at": "2026-10-21T14:02:14.804Z",
+      "event": "task done",
+      "detail": "CLI says when an approval is ready"
     }
   ],
   "suggestions": [
@@ -330,6 +373,16 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T13:57:27.348Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "Assert ready for the ship stop and check the plan summary text.",
+      "where": [
+        "plugins/cairn/cli/test/lifecycle.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:00:47.409Z"
     }
   ],
   "planHash": "ac8f391969859259",
