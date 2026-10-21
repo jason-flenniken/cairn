@@ -98,12 +98,19 @@ export function mainCard($: EngineInterface, cx: CardContext, main: Main) {
     : card($, cx, 'main', accent, 'Main session', '', `● working · ${fmtDuration(nowMs - main.since)}`, main.action)
 }
 
-/** One line per agent for the inline fit, where a card would not. */
-export function agentLines(cx: CardContext, main: Main, cards: AgentCard[]) {
+/**
+ * One line per agent for the inline fit, where a card would not. With `max` rows to spend, the lines past
+ * it fold into one "● +N more agents"; with no room at all, none are drawn.
+ */
+export function agentLines(cx: CardContext, main: Main, cards: AgentCard[], max = Infinity) {
   const { ui, nowMs } = cx
   const { Text } = ui
-  return [
+  const lines = [
     <Text key="main" wrap="truncate-end">{main === null ? '● Main session · waiting for you' : `● Main session · ${main.action} · ${fmtDuration(nowMs - main.since)}`}</Text>,
     ...cards.filter(c => c.status === 'working').map(c => <Text key={c.agentId} wrap="truncate-end">{`● ${c.title} · ${c.action ?? 'working'} · ${fmtDuration(nowMs - c.startedAt)}`}</Text>),
   ]
+  if (lines.length <= max) return lines
+  if (max < 1) return []
+  const hidden = lines.length - (max - 1)
+  return [...lines.slice(0, max - 1), <Text key="more" wrap="truncate-end">{`● +${hidden} more agent${hidden === 1 ? '' : 's'}`}</Text>]
 }

@@ -15,24 +15,34 @@ export async function readDoc($: EngineInterface): Promise<Doc | null> {
   return read($, docOpen)
 }
 
-/** Opens the viewer at the document's first line. A scroll the engine refuses is no reason to fail the press. */
-export async function openDoc($: EngineInterface, pane: string, doc: Doc): Promise<void> {
-  await update($, docOpen, () => doc)
+/**
+ * Scrolls the pane to its first line. The engine moves its window without asking the pane to draw, so a scroll
+ * this mod makes is also what redraws the absolute bar at the window's last rows. A scroll the engine refuses
+ * is no reason to fail the press.
+ */
+export async function scrollToStart($: EngineInterface, pane: string): Promise<void> {
   await $.ui.scroll({ in: pane, to: 'start' }).catch(() => undefined)
 }
 
-export async function closeDoc($: EngineInterface): Promise<void> {
+/** Opens the viewer at the document's first line. */
+export async function openDoc($: EngineInterface, pane: string, doc: Doc): Promise<void> {
+  await update($, docOpen, () => doc)
+  await scrollToStart($, pane)
+}
+
+export async function closeDoc($: EngineInterface, pane: string): Promise<void> {
   await update($, docOpen, () => null)
+  await scrollToStart($, pane)
 }
 
 /** The viewer's children: title, Back, Approve when `onApprove` is given, then the whole document. */
-export async function docViewer($: EngineInterface, ui: Ui, doc: Doc, onApprove: (() => void) | undefined, extra?: string) {
+export async function docViewer($: EngineInterface, pane: string, ui: Ui, doc: Doc, onApprove: (() => void) | undefined, extra?: string) {
   const { Box, Button, Markdown, Text } = ui
   const text = await $.fs.read(doc.file).catch((err: unknown) => `Could not read ${doc.file}: ${message(err)}`)
   return [
     <Text key="doc:title" bold wrap="truncate-end">{doc.title}</Text>,
     <Box key="doc:buttons" flexDirection="row" gap={1}>
-      <Button key="back" label="Back" onPress={() => void closeDoc($).catch(err => $.ui.toast(`cairn: ${message(err)}`))} />
+      <Button key="back" label="Back" onPress={() => void closeDoc($, pane).catch(err => $.ui.toast(`cairn: ${message(err)}`))} />
       {onApprove !== undefined && <Button key="approve" label="Approve" variant="primary" onPress={onApprove} />}
     </Box>,
     <Markdown key="document" text={text} />,

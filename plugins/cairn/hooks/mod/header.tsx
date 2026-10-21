@@ -26,24 +26,10 @@ export const STAGE_COLOR: Record<string, string> = {
 /** The stages after Build: the phases are finished, so the header shows the stage and its step instead. */
 const LATE_STAGES = ['verify', 'review', 'ship', 'learn']
 
-/** Mirrors STEP_LABEL in cli/src/types.ts: the step the CLI recorded, in words. */
-const STEP_LABEL: Record<string, string> = {
-  testing: 'running tests', scanning: 'scanning for secrets', fixing: 'fixing', reviewing: 'reviewing',
-  rechecking: 're-checking', approving: 'waiting on approval', 'opening-pr': 'opening the PR',
-}
-
-/** "fixing 3 findings" for the current stage's recorded step; nothing for another stage's stale step. */
-export function stepText(s: CairnPlanState): string | undefined {
-  const st = s.step
-  if (!st || st.stage !== s.stage) return undefined
-  const label = STEP_LABEL[st.name] ?? st.name
-  return st.name === 'fixing' && st.count !== undefined ? `${label} ${st.count} finding${st.count === 1 ? '' : 's'}` : label
-}
-
 /** After Build: " · fixing 3 findings", then " · 2 running" while agents work. */
-export function lateTail(s: CairnPlanState, running: number): string {
-  if (!LATE_STAGES.includes(s.stage ?? '')) return ''
-  const step = stepText(s)
+export function lateTail(row: CairnPlanRow, running: number): string {
+  if (!LATE_STAGES.includes(row.state.stage ?? '')) return ''
+  const step = row.stepText
   return `${step !== undefined ? ` · ${step}` : ''}${running > 0 ? ` · ${running} running` : ''}`
 }
 
@@ -71,7 +57,7 @@ export async function statusLine($: EngineInterface, v: CairnView): Promise<stri
   const tasks = tasksOf(row.state)
   const working = (await readAgents($)).filter(c => c.status === 'working').length
   const late = LATE_STAGES.includes(row.state.stage ?? '')
-  const parts = late ? [`${stageOf(row.state, row.prOpen)}${lateTail(row.state, working)}`, row.state.paused && 'paused'] : [
+  const parts = late ? [`${stageOf(row.state, row.prOpen)}${lateTail(row, working)}`, row.state.paused && 'paused'] : [
     tasks.length > 0 ? `${stageOf(row.state, row.prOpen)} ${tasks.filter(x => x.status === 'done').length}/${tasks.length} tasks` : stageOf(row.state, row.prOpen),
     working > 0 && `${working} working`,
     row.state.paused ? 'paused' : etaText(row, await $.clock.now()),
@@ -90,7 +76,7 @@ export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumn
   const tasks = tasksOf(s)
   const at = phaseAt(s)
   const late = LATE_STAGES.includes(s.stage ?? '')
-  const where = late ? lateTail(s, running) : phases.length === 0 ? '' : at < 0 ? '' : ` · phase ${at + 1} of ${phases.length}`
+  const where = late ? lateTail(row, running) : phases.length === 0 ? '' : at < 0 ? '' : ` · phase ${at + 1} of ${phases.length}`
   const done = tasks.filter(x => x.status === 'done').length
   const rest = row.ready?.kind !== undefined ? 'Waiting on you' : row.next?.text
   const label = [tasks.length > 0 && `${done}/${tasks.length} tasks`, s.stage === 'execute' ? etaText(row, nowMs) : rest].filter(Boolean).join(' · ')

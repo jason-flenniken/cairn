@@ -29,6 +29,21 @@ describe('doc viewer (FR-13..FR-15)', () => {
     })
   }
 
+  // The test kit does not take a `{ in, to: 'start' }` scroll (no scroll is recorded, as for openDoc), so the call
+  // itself cannot be asserted; this holds that the refusal is swallowed and Back and a tab switch still work.
+  test('Back and a tab switch scroll to the start, and an engine that refuses the scroll does not fail them', async ($, on) => {
+    const { w } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
+    w.files.set(PRD_FILE, PRD_TEXT)
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'readall' })
+    await ui.press({ key: 'back' })
+    expect(await keys(ui)).toContain('readall')
+    await ui.press({ key: 'tab:history' })
+    expect(await keys(ui)).not.toContain('readall')
+    await ui.unmount()
+  })
+
   test('the viewer holds a long document whole and keeps the bar at the bottom', async ($, on) => {
     const { w } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
     const long = `${Array.from({ length: 300 }, (_, i) => `line ${i}`).join('\n\n')}\n\nTHE LAST LINE`

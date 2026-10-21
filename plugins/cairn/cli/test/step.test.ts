@@ -120,3 +120,13 @@ test('hostile step names are refused, not echoed, and not written', () => {
   }
   assert.equal(p.raw(), before);
 });
+
+test('status --all --json words the step on each plan row, for the current stage only', () => {
+  const p = plan('review');
+  const rowOf = () => (run(['status', '--all', '--json'], p.wt).data!.plans as { stepText?: string }[])[0]!;
+  assert.equal(rowOf().stepText, undefined);
+  run(['step', 'fixing', '--count', '3'], p.wt);
+  assert.equal(rowOf().stepText, 'fixing 3 findings');
+  run(['step', 'rechecking'], p.wt);
+  assert.equal(rowOf().stepText, 're-checking');
+});

@@ -8362,7 +8362,7 @@ function cmdStatus(ctx, opts) {
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     const openSuggestions = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
+${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);

@@ -8,7 +8,7 @@ import { approvalCard, approvePress, confirmAndApprove } from './approval.tsx'
 import { activeStep, Bar, cells, stageSteps, type BarLine } from './bar.tsx'
 import { act, agentCard, agentLines, mainCard, message, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
-import { docViewer, openDoc, readDoc } from './doc.tsx'
+import { docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
 import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
@@ -306,6 +306,8 @@ export function install(on: On): void {
     // The bar's lines: docked, every stage step, then the usage lines; inline, the active step with the plan cost and limits.
     const planSlug = here !== undefined && isActive(here) ? here.state.slug : undefined
     const step = here === undefined ? [] : activeStep(here.state, here.prOpen)
+    // Inline, the other plans fold into one line, so the budget below counts one row for them.
+    const othersRows = isInline && others.length > 0 ? 1 : 0
     const barLines: BarLine[] = isInline
       ? step.length === 0
         ? []
@@ -364,11 +366,13 @@ export function install(on: On): void {
       const approve = ready !== undefined && (await approvalCard($, ui, s.slug, ready, isInline))
 
       if (isInline) {
-        const lines = agentLines(cx, main, cards)
-        // Title, progress, the fallback and paused notes, the stop, the agents, the buttons and the bar line:
-        // the tip shows only while it still fits the inline rows.
-        const used = 2 + (v?.isFallback ? 1 : 0) + (isPaused ? 1 : 0) + (approve ? 1 : 0) + lines.length + 1 + barLines.length
-        const tip = used < INLINE_ROWS && <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>
+        // One budget over every inline row: title and progress, the fallback and paused notes, the approval, the
+        // other-plans line, the buttons and the bar are fixed; the agents take what is left, and the tip only
+        // shows while a row is still free after them.
+        const fixed = 2 + (v?.isFallback ? 1 : 0) + (isPaused ? 1 : 0) + (approve ? 1 : 0) + othersRows + 1 + barLines.length
+        const lines = agentLines(cx, main, cards, INLINE_ROWS - fixed)
+        const rows = fixed + lines.length
+        const tip = rows < INLINE_ROWS && <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>
         return [header, approve, ...lines, tip, buttons]
       }
 
@@ -393,6 +397,7 @@ export function install(on: On): void {
         {TABS.map(([id, name]) => (
           <Button key={`tab:${id}`} label={name} variant={shownTab === id ? 'primary' : undefined} onPress={() => act($, async () => {
             await update($, tab, () => id)
+            await scrollToStart($, PANE)
             if (id === 'records') await fetchRecords($)
           })} />
         ))}
@@ -405,7 +410,7 @@ export function install(on: On): void {
       const waiting = here?.ready?.file === doc.file ? here.ready : undefined
       const followUps = doc.kind === 'record' ? (await read($, records))?.find(x => x.record === doc.file)?.followUps.filter(f => f.status === 'open') ?? [] : []
       return frame(e, await docViewer(
-        $, ui, doc,
+        $, PANE, ui, doc,
         waiting === undefined || here === undefined ? undefined : () => act($, () => approvePress($, here.state.slug, waiting.kind)),
         followUps.length > 0 ? `**Follow-ups**\n\n${followUps.map(f => `- ${f.text} (${f.area})`).join('\n')}` : undefined,
       ), barLines)
@@ -465,10 +470,13 @@ export function install(on: On): void {
               <Text key="head" bold>cairn</Text>
               <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>
             </Box>,
-            ...(isInline ? agentLines(cx, main, cards) : [mainCard($, cx, main), ...cards.map(c => agentCard($, cx, c))]),
+            ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - barLines.length) : [mainCard($, cx, main), ...cards.map(c => agentCard($, cx, c))]),
             <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
           ],
-      others.length > 0 && (
+      others.length > 0 && isInline && (
+        <Text key="others" dimColor wrap="truncate-end">{`+${others.length} other active plan${others.length === 1 ? '' : 's'}`}</Text>
+      ),
+      others.length > 0 && !isInline && (
         <Box key="others" flexDirection="column">
           <Text bold>Other active plans</Text>
           {others.map(r => (

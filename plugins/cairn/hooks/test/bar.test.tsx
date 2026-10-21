@@ -138,6 +138,34 @@ describe('the bar on every tab (FR-01)', () => {
       await ui.unmount()
     })
   }
+
+  const OTHER = '/repo/.claude/worktrees/sdlc-other'
+  const texts = async (ui: any) => (await ui.findAll({ type: 'Text' })).map((t: El) => textOf(t))
+
+  test('inline, three working agents: the lines fold into "+N more agents", the bar stays last, within 7 rows', async ($, on) => {
+    world(on, { rows: [row(BUILD_2_OF_3, WT)] })
+    let n = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++n}` }))
+    await start($, WT)
+    for (let i = 0; i < 3; i++) await $.agent.spawn({ prompt: 'p', description: `Task ${i}`, subagentType: 'cairn:implementer' })
+    const ui = await mountAs($, { placement: 'inline' })
+    expect(rowsOf((await ui.findAll({ type: 'Box' }))[0] as El)).toBeLessThanOrEqual(7)
+    expect((await texts(ui)).some((t: string) => /^● \+\d+ more agents?$/.test(t))).toBe(true)
+    expect(await tipShown(ui)).toBe(false)
+    expect((await lastChild(ui)).props.key).toBe('statusbar')
+    await ui.unmount()
+  })
+
+  test('inline, a second active plan: one "+1 other active plan" line, within 7 rows, bar last', async ($, on) => {
+    world(on, { rows: [row(BUILD_2_OF_3, WT), row(plan({ slug: 'other', title: 'Other' }), OTHER)] })
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    expect(rowsOf((await ui.findAll({ type: 'Box' }))[0] as El)).toBeLessThanOrEqual(7)
+    expect(await texts(ui)).toContain('+1 other active plan')
+    expect(await texts(ui)).not.toContain('Other active plans')
+    expect((await lastChild(ui)).props.key).toBe('statusbar')
+    await ui.unmount()
+  })
 })
 
 describe('pinning (FR-01)', () => {

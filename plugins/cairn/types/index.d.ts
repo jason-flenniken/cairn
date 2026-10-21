@@ -39,6 +39,8 @@ export type CairnPlanRow = {
   /** Absolute plan folder (dated folders included); the pane watches `${dir}/state.json`. */
   dir?: string
   next?: { text?: string }
+  /** The recorded step for the plan's current stage in words ("fixing 3 findings"); the CLI words it, the pane only shows it. */
+  stepText?: string
   /** Suggestions nobody has closed; absent until the CLI reports them. */
   openSuggestions?: number
   /** The plan's config.maxParallel, when the CLI reports it. */
