@@ -6,5 +6,6 @@
   "seed": "",
   "appTypes": ["web"],
   "maxParallel": 3,
+  "resumeFreshAfterMinutes": 60,
   "autoCommit": true
 }
