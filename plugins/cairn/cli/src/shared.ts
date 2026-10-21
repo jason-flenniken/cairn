@@ -100,11 +100,16 @@ export function childEnv(): NodeJS.ProcessEnv {
   return rest;
 }
 
+const COUNTS = /\b(?:pass(?:ed|ing)?|fail(?:ed|ing|ures?)?)\b\s*[:=]?\s*\d|\d+\s+(?:pass(?:ed|ing)?|fail(?:ed|ing|ures?)?)\b/i;
+
+/** The last line that reports pass or fail counts (FR-36), else the last line. */
+export const testSummary = (lines: string[]): string | undefined => [...lines].reverse().find((l) => COUNTS.test(l)) ?? lines.slice(-1)[0];
+
 export function runTests(cfg: Config, cwd: string): TestRun | undefined {
   if (!cfg.test) return undefined;
   const r = spawnSync('sh', ['-c', cfg.test], { cwd, encoding: 'utf8', env: childEnv(), maxBuffer: 64 * 1024 * 1024 });
   const lines = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.split('\n').map((l) => l.trim()).filter(Boolean);
-  return { ok: r.status === 0, cmd: cfg.test, tail: lines.slice(-1)[0] ?? `exit ${r.status}` };
+  return { ok: r.status === 0, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
 }
 
 /** Refuse (or log an override) when the tests failed or don't exist. Tests run before the state lock is taken. */

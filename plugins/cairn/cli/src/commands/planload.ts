@@ -16,6 +16,8 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
     const replanning = s.stage !== 'plan';
     if (replanning && !opts.replan) throw new Refusal(`the plan is in ${s.stage}; changing it mid-flight is a re-plan`, ['cairn plan load --replan']);
     if (!['plan', 'execute', 'verify', 'review'].includes(s.stage)) throw new Refusal(`a plan can't be loaded in ${s.stage}`);
+    const dropsFix = s.log.some((l) => l.event === 'escalated') && allSlices(s).some((x) => x.id === 'fix') && !parsed.phases.some((p) => p.slices.some((x) => x.id === 'fix'));
+    if (dropsFix) throw new Refusal('the new plan drops the "fix" slice that escalate kept', ['keep a slice with id "fix" in plan.md']);
     const { phases, lostDone } = mergeProgress(parsed.phases, s.phases);
     if (lostDone.length) throw new Refusal(`the new plan drops slices that already started or finished: ${lostDone.join(', ')}`, ['keep them in plan.md']);
     s.phases = phases;

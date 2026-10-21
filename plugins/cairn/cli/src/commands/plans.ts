@@ -39,7 +39,7 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
     message: [
       `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
       `Worktree: ${wt}`,
-      `Next: switch into the worktree (EnterWorktree with path ${wt}, or \`cd ${wt} && claude\`), then run /cairn:next.`,
+      `Next: \`cd ${wt} && claude\`, then run /cairn:next.`,
     ].join('\n'),
     data: { slug, branch, base, worktree: wt, dir },
   };

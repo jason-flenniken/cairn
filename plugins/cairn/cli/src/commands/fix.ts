@@ -47,6 +47,8 @@ export interface ReproRun {
  */
 const GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
 
+const SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
+
 /** Run a repro command in the plan worktree, without CAIRN_APPROVER, under the configured timeout. */
 export function runRepro(cmd: string, cwd: string, cfg: Config): ReproRun {
   const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
@@ -61,7 +63,8 @@ export function runRepro(cmd: string, cwd: string, cfg: Config): ReproRun {
     } catch {}
   }
   rmSync(tmp, { recursive: true, force: true });
-  const lines = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.split('\n').map((l) => l.trim()).filter(Boolean);
+  // Under a sandbox that refuses setpgid, the shell reports it on stderr; the command still ran, so the report is not output.
+  const lines = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.split('\n').map((l) => l.trim()).filter((l) => l && !SETPGID_FAILURE.test(l));
   const last = lines.slice(-1)[0] ?? `exit ${r.status}`;
   if (timedOut) return { outcome: 'timeout', detail: `timed out after ${Math.round(minutes * 60)}s` };
   if (r.error) return { outcome: 'nostart', detail: r.error.message };
