@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T15:15:54.928Z",
+  "updated": "2026-10-21T16:31:16.210Z",
   "stage": "ship",
   "paused": null,
   "approvals": {
@@ -21,6 +21,11 @@
       "via": "human",
       "source": "mod",
       "hash": "2de7ba0ac296b6b8"
+    },
+    "ship": {
+      "at": "2026-10-21T16:31:16.209Z",
+      "via": "human",
+      "source": "mod"
     }
   },
   "phases": [
@@ -693,6 +698,11 @@
       "at": "2026-10-21T15:15:54.927Z",
       "event": "advanced",
       "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T16:31:16.210Z",
+      "event": "ship approved",
+      "detail": "mod"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
@@ -837,6 +847,144 @@
       ],
       "from": "branch-review",
       "at": "2026-10-21T15:13:23.451Z"
+    },
+    {
+      "id": "s15",
+      "area": "quality",
+      "text": "Resolved standard-branch-names:s15",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:27.950Z",
+      "resolves": "standard-branch-names:s15",
+      "note": "done in Cleaner pane and records (approval hook fixes)"
+    },
+    {
+      "id": "s16",
+      "area": "quality",
+      "text": "Resolved standard-branch-names:s16",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:28.104Z",
+      "resolves": "standard-branch-names:s16",
+      "note": "done in Cleaner pane and records (approval hook fixes)"
+    },
+    {
+      "id": "s17",
+      "area": "quality",
+      "text": "Resolved standard-branch-names:s18",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:28.250Z",
+      "resolves": "standard-branch-names:s18",
+      "note": "done in Cleaner pane and records (approval hook fixes)"
+    },
+    {
+      "id": "s18",
+      "area": "perf",
+      "text": "Dismissed standard-branch-names:s10",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:28.388Z",
+      "resolves": "standard-branch-names:s10",
+      "dismissed": true,
+      "note": "trivial: documents are small"
+    },
+    {
+      "id": "s19",
+      "area": "quality",
+      "text": "Dismissed cleaner-pane-and-records:s6",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:28.527Z",
+      "resolves": "cleaner-pane-and-records:s6",
+      "dismissed": true,
+      "note": "code clarity only"
+    },
+    {
+      "id": "s20",
+      "area": "tests",
+      "text": "Broaden tests where they are thin: old and renamed plans run end to end (task start, merge, task worktrees), pane tests on real status output and fix/ branches, and doc checks that procedures agree on names and limits.",
+      "where": [
+        "plugins/cairn/cli/test/**",
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T15:16:28.666Z",
+      "merges": [
+        "cleaner-pane-and-records:s2",
+        "cleaner-pane-and-records:s3",
+        "cleaner-pane-and-records:s4",
+        "cleaner-pane-and-records:s7",
+        "cleaner-pane-and-records:s8",
+        "cleaner-pane-and-records:s9",
+        "standard-branch-names:s4",
+        "standard-branch-names:s5",
+        "standard-branch-names:s7",
+        "standard-branch-names:s9",
+        "standard-branch-names:s11",
+        "standard-branch-names:s19"
+      ]
+    },
+    {
+      "id": "s21",
+      "area": "quality",
+      "text": "Harden follow-up bookkeeping: read markers from main as well as the current checkout, count a decline once per plan, refuse resolving merged or expired items, and document whether merging restarts the 60-day clock.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T15:16:28.806Z",
+      "merges": [
+        "cleaner-pane-and-records:s5",
+        "cleaner-pane-and-records:s11",
+        "cleaner-pane-and-records:s12",
+        "cleaner-pane-and-records:s13",
+        "cleaner-pane-and-records:s14"
+      ]
+    },
+    {
+      "id": "s22",
+      "area": "ux",
+      "text": "Pane and approval polish: one note per stop, try a transparent pane background, and close an open chat approval when approved in the pane if Claude Code ever allows it.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T15:16:28.953Z",
+      "merges": [
+        "cleaner-pane-and-records:s1",
+        "cleaner-pane-and-records:s10",
+        "standard-branch-names:s12",
+        "standard-branch-names:s14"
+      ]
+    },
+    {
+      "id": "s23",
+      "area": "docs",
+      "text": "Bring the fix track and old-plan behavior in line: fix.md wording and skipping an already-approved ship question, document that old plans get task/ branches, and name --no-worktree task folders from the plan branch.",
+      "where": [
+        "plugins/cairn/procedures/fix.md",
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T15:16:29.095Z",
+      "merges": [
+        "standard-branch-names:s3",
+        "standard-branch-names:s13",
+        "standard-branch-names:s17",
+        "standard-branch-names:s6"
+      ]
     }
   ]
 }
