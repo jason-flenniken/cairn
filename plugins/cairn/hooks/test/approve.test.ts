@@ -1,6 +1,6 @@
 import { describe, expect, mock, test, type Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { isApproveLabel, parseTags } from '../mod/approve.ts'
+import { ALREADY_APPROVED, isApproveLabel, parseTags } from '../mod/approve.ts'
 
 const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const HASH_FILE = '/repo/.git/cairn/mod-secret.sha256'
@@ -270,6 +270,93 @@ describe('menu approval (FR-02)', () => {
     expect(approveRuns()).toHaveLength(1)
     expect(got.context?.join('\n')).toMatch(/prd approved/)
     expect(toasts.join('\n')).toMatch(/prd approved/)
+  })
+
+  test('FR-11: a stop tagged twice, both answered Revise, shows one "not approved" note', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'twice', stage: 'prd', worktree: '/wt/twice' }])
+    const a = 'Approve the PRD? [cairn:approve prd twice]'
+    const b = 'Really approve the PRD? [cairn:approve prd twice]'
+    dialog(on, { [a]: 'Revise', [b]: 'Revise' })
+    const got = await $.tool.call(ask(a, b))
+    expect(approveRuns()).toEqual([])
+    expect(got.context?.filter(c => /not approved/.test(c))).toHaveLength(1)
+  })
+
+  /**
+   * A first dialog that stays open (and can later fail), then a second that answers `second` as the user:
+   * the second's approval is what the open one must notice. `open` is the first call's promise.
+   */
+  function openThenAnswered(on: On, second: Record<string, string>) {
+    let calls = 0
+    let fail: (err: Error) => void = () => {}
+    on('tool.call', { tool: 'AskUserQuestion' }, (_$, e) =>
+      ++calls === 1
+        ? new Promise<never>((_, reject) => (fail = reject))
+        : { result: { questions: e.questions, answers: second } as never },
+    )
+    return { fail: (err: Error) => fail(err) }
+  }
+
+  const settleSoon = () => new Promise(r => setTimeout(r, 20))
+
+  test('FR-12: approving a stop while its question is open answers the question, with no second approval run', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'live', stage: 'prd', worktree: '/wt/live' }])
+    const q = 'Approve the PRD? [cairn:approve prd live]'
+    openThenAnswered(on, { [q]: 'Approve' })
+    const open = $.tool.call(ask(q))
+    let settled = false
+    void open.then(() => (settled = true))
+    await settleSoon()
+    expect(settled).toBe(false)
+    const approving = await $.tool.call(ask(q))
+    expect(approving.context?.join()).toMatch(/prd approved/)
+    const got = await open
+    expect(got.result).toEqual({ questions: ask(q).questions, answers: { [q]: ALREADY_APPROVED } })
+    expect(got.context).toBeUndefined()
+    expect(approveRuns()).toHaveLength(1)
+  })
+
+  test('FR-12: approving another plan leaves an open question pending', async ($, on) => {
+    world(on, [
+      { slug: 'a', stage: 'prd', worktree: '/wt/a' },
+      { slug: 'b', stage: 'prd', worktree: '/wt/b' },
+    ])
+    const qb = 'Approve? [cairn:approve prd b]'
+    openThenAnswered(on, { [qb]: 'Approve' })
+    const open = $.tool.call(ask('Approve? [cairn:approve prd a]'))
+    let settled = false
+    void open.then(() => (settled = true))
+    await $.tool.call(ask(qb))
+    await settleSoon()
+    expect(settled).toBe(false)
+  })
+
+  test('FR-12: a refused approve run never answers an open question', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'nope', stage: 'prd', worktree: '/wt/nope' }], { refuse: 'no' })
+    const q = 'Approve? [cairn:approve prd nope]'
+    openThenAnswered(on, { [q]: 'Approve' })
+    const open = $.tool.call(ask(q))
+    let settled = false
+    void open.then(() => (settled = true))
+    await settleSoon()
+    const refused = await $.tool.call(ask(q))
+    expect(approveRuns()).toHaveLength(1)
+    expect(refused.context?.join()).toMatch(/refused/)
+    await settleSoon()
+    expect(settled).toBe(false)
+  })
+
+  test('FR-12: the abandoned dialog failing after the early answer changes nothing', async ($, on) => {
+    world(on, [{ slug: 'late', stage: 'prd', worktree: '/wt/late' }])
+    const q = 'Approve? [cairn:approve prd late]'
+    const { fail } = openThenAnswered(on, { [q]: 'Approve' })
+    const open = $.tool.call(ask(q))
+    await settleSoon()
+    await $.tool.call(ask(q))
+    const got = await open
+    fail(new Error('dialog gone'))
+    await settleSoon()
+    expect((got.result as { answers: unknown }).answers).toEqual({ [q]: ALREADY_APPROVED })
   })
 
   test('security: a stop tagged twice, Revise then a clicked "Yes" option, records no approval', async ($, on) => {
