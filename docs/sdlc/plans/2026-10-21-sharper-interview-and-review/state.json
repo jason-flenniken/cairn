@@ -6,10 +6,17 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:16:33.892Z",
+  "updated": "2026-10-21T21:19:12.333Z",
   "stage": "prd",
   "paused": null,
-  "approvals": {},
+  "approvals": {
+    "prd": {
+      "at": "2026-10-21T21:19:12.333Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "2d6967bccebeefb7"
+    }
+  },
   "phases": [],
   "evidence": {},
   "drift": [],
@@ -22,6 +29,11 @@
       "at": "2026-10-21T21:16:33.891Z",
       "event": "advanced",
       "detail": "prd"
+    },
+    {
+      "at": "2026-10-21T21:19:12.333Z",
+      "event": "PRD approved",
+      "detail": "mod"
     }
   ],
   "suggestions": [

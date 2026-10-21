@@ -56,3 +56,8 @@ _2026-10-21 21:15_
 **Decision:** Yes. Outcome: interview, review and security match the reference skills (goal-first interview, five-axis labelled review on every task, design-to-ship security chain). User: Jason on his own projects. Why now: he keeps catching what cairn missed; pane work sat unmerged behind a Closed plan. Success: Critical/Required fixed before merge; PRDs carry a threat model; interviews surface unraised decisions; Closed means merged. Constraint: depth over speed, no new approval stops. Out of scope: mutation check, by-eye check for every UI task, Goal section judged at review, pane changes beyond the three picked follow-ups
 **Why:** Explicit yes to the read-back card
 _2026-10-21 21:16_
+
+### 12. Do the fix and product tracks follow the new rules?
+**Decision:** Fix track adopts the review and security changes (every fix gets the five-axis review and the wider risky list) but keeps its repro-first start without the goal interview; the product interview stays as it is
+**Why:** A fix lands on main like any change; its start is already well-shaped by the repro
+_2026-10-21 21:17_
