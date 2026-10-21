@@ -18,8 +18,11 @@ const RECURSIVE_READERS = new Set(['rg', 'ag', 'ack', 'find', 'tar', 'zip', 'rsy
 const CAIRN_DIR_WORD = /(^|\/)\.git\/cairn(\/|$)/i
 const HEARTBEAT_WORD = /(^|\/)\.git\/cairn\/mod-heartbeat$/i
 
-/** A simple command: its words (quotes removed) and its redirect targets. */
-type Command = { words: string[]; redirects: string[] }
+/**
+ * A simple command: its words (quotes removed) with where each sits in the line, its redirect
+ * targets, the heredoc and here-string bodies fed to it, and whether it pipes into the next one.
+ */
+type Command = { words: string[]; spans: [number, number][]; redirects: string[]; bodies: string[]; pipesOut: boolean }
 
 /** The FR-03 verdict on a Bash command: `{ deny }` with the reason, or `{}`. */
 export function bashVerdict(cmd: string): { deny?: string } {
@@ -27,13 +30,16 @@ export function bashVerdict(cmd: string): { deny?: string } {
 }
 
 function isDenied(cmd: string): boolean {
-  // Command substitutions run too, inside double quotes as well.
-  for (const [, dollar, backtick] of cmd.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) {
+  const list = commands(cmd)
+  // Command substitutions run too, inside double quotes as well. Backticks in prose are markdown.
+  const code = withoutProseBackticks(cmd, list)
+  for (const [, dollar, backtick] of code.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) {
     if (isDenied(dollar ?? backtick ?? '')) return true
   }
-  if (/(\$\(|`)[^)`]*--(git-common-dir|git-dir|absolute-git-dir)/.test(cmd)) return true
+  if (/(\$\(|`)[^)`]*--(git-common-dir|git-dir|absolute-git-dir)/.test(code)) return true
   const mentionsCairn = /cairn/i.test(cmd)
-  return commands(cmd).some(command =>
+  return list.some((command, at) =>
+    readsDeniedInput(list, at) ||
     approves(command) ||
     setsApprover(command) ||
     writes(command, isStateFile) ||
@@ -47,30 +53,63 @@ function isDenied(cmd: string): boolean {
 /**
  * Splits a command line into simple commands, the way a shell would at unquoted
  * `;`, `&&`, `||`, `|`, `&`, newlines, and parentheses. Quotes and backslashes are
- * removed from words; `>`, `>>`, `&>` take the next word as a redirect target.
+ * removed from words; `>`, `>>`, `&>` take the next word as a redirect target. A heredoc's
+ * body (read from the lines after the one it starts on) and a here-string's word are bodies
+ * of the command they feed.
  */
 function commands(cmd: string): Command[] {
   const out: Command[] = []
   let words: string[] = []
+  let spans: [number, number][] = []
   let redirects: string[] = []
+  let bodies: string[] = []
   let word = ''
+  let wordAt = 0
   let hasWord = false
   let quote = ''
-  let isRedirect = false
-  const endWord = () => {
+  // What the word being read is: an argument, a redirect target, a heredoc delimiter, or a here-string.
+  let role: 'word' | 'redirect' | 'delimiter' | 'string' = 'word'
+  let isIndented = false
+  let waiting: { delimiter: string; isIndented: boolean; bodies: string[] }[] = []
+  const endWord = (at: number) => {
     if (hasWord) {
-      ;(isRedirect ? redirects : words).push(word)
-      isRedirect = false
+      if (role === 'redirect') redirects.push(word)
+      else if (role === 'string') bodies.push(word)
+      else if (role === 'delimiter') waiting.push({ delimiter: word, isIndented, bodies })
+      else {
+        words.push(word)
+        spans.push([wordAt, at])
+      }
+      role = 'word'
     }
     word = ''
     hasWord = false
   }
-  const endCommand = () => {
-    endWord()
-    if (words.length > 0 || redirects.length > 0) out.push({ words, redirects })
+  const endCommand = (at: number, pipesOut = false) => {
+    endWord(at)
+    if (words.length > 0 || redirects.length > 0) out.push({ words, spans, redirects, bodies, pipesOut })
     words = []
+    spans = []
     redirects = []
-    isRedirect = false
+    bodies = []
+    role = 'word'
+  }
+  // The lines after a newline up to the heredoc's delimiter line; returns where the next line starts.
+  const readBodies = (from: number): number => {
+    let at = from
+    for (const { delimiter, isIndented: strip, bodies: into } of waiting) {
+      const lines: string[] = []
+      while (at <= cmd.length) {
+        const end = cmd.indexOf('\n', at)
+        const line = cmd.slice(at, end < 0 ? cmd.length : end)
+        at = end < 0 ? cmd.length + 1 : end + 1
+        if ((strip ? line.replace(/^\t+/, '') : line) === delimiter) break
+        lines.push(line)
+      }
+      into.push(lines.join('\n'))
+    }
+    waiting = []
+    return at
   }
   for (let i = 0; i < cmd.length; i++) {
     const c = cmd[i] as string
@@ -81,6 +120,7 @@ function commands(cmd: string): Command[] {
       continue
     }
     if (c === '\\' && next !== '') {
+      if (!hasWord) wordAt = i
       word += next
       hasWord = true
       i++
@@ -93,26 +133,37 @@ function commands(cmd: string): Command[] {
     }
     if (c === "'" || c === '"') {
       quote = c
+      if (!hasWord) wordAt = i
       hasWord = true
     } else if (c === '>' || (c === '&' && next === '>')) {
       word = word.replace(/^\d+$/, '')
       if (word === '') hasWord = false
-      endWord()
+      endWord(i)
       while (cmd[i + 1] === '>' || cmd[i + 1] === '|' || (cmd[i + 1] === '&' && /\d|-/.test(cmd[i + 2] ?? ''))) i++
-      isRedirect = true
+      role = 'redirect'
     } else if (c === '<') {
-      endWord()
+      endWord(i)
+      if (next === '<' && cmd[i + 2] === '<') {
+        role = 'string'
+        i += 2
+      } else if (next === '<') {
+        isIndented = cmd[i + 2] === '-'
+        role = 'delimiter'
+        i += isIndented ? 2 : 1
+      }
     } else if (/\s/.test(c) && c !== '\n') {
-      endWord()
+      endWord(i)
     } else if (c === ';' || c === '\n' || c === '|' || c === '&' || c === '(' || c === ')') {
-      endCommand()
+      endCommand(i, c === '|' && next !== '|')
       if ((c === '&' || c === '|') && next === c) i++
+      if (c === '\n' && waiting.length > 0) i = readBodies(i + 1) - 1
     } else {
+      if (!hasWord) wordAt = i
       word += c
       hasWord = true
     }
   }
-  endCommand()
+  endCommand(cmd.length)
   return out
 }
 
@@ -133,18 +184,59 @@ function commandAt(words: string[]): number {
 }
 
 /** The command's name and its arguments. */
-function split({ words }: Command): [string, string[]] {
+function split({ words }: Pick<Command, 'words'>): [string, string[]] {
   const at = commandAt(words)
   return [base(words[at] ?? ''), words.slice(at + 1)]
+}
+
+/** Where cairn's own arguments start in the command's words (`cairn …`, `node …/cairn.mjs …`), or -1. */
+function cairnArgsAt({ words }: Pick<Command, 'words'>): number {
+  const at = commandAt(words)
+  const name = base(words[at] ?? '')
+  if (name === 'cairn' || name === 'cairn.mjs') return at + 1
+  if (!RUNTIMES.has(name)) return -1
+  const script = words.findIndex((word, i) => i > at && !word.startsWith('-'))
+  return script >= 0 && base(words[script] as string) === 'cairn.mjs' ? script + 1 : -1
+}
+
+/** The indexes of words that are prose to cairn: everything after `decide`, and `--note`/`--why` values. */
+function proseWords(command: Command): Set<number> {
+  const prose = new Set<number>()
+  const from = cairnArgsAt(command)
+  if (from < 0) return prose
+  let isDeciding = false
+  let isFirstPositional = true
+  for (let at = from; at < command.words.length; at++) {
+    const word = command.words[at] as string
+    if (isDeciding || /^--(note|why)=/.test(word)) prose.add(at)
+    else if (/^--(note|why)$/.test(word)) prose.add(++at)
+    else if (!word.startsWith('-')) {
+      isDeciding = isFirstPositional && word === 'decide'
+      isFirstPositional = false
+    }
+  }
+  return prose
+}
+
+/** The line with the backticks inside prose words blanked: in prose they are markdown, not substitutions. */
+function withoutProseBackticks(cmd: string, list: Command[]): string {
+  const chars = [...cmd]
+  for (const command of list) {
+    for (const at of proseWords(command)) {
+      const [from, to] = command.spans[at] ?? [0, 0]
+      for (let i = from; i < to; i++) if (chars[i] === '`') chars[i] = ' '
+    }
+  }
+  return chars.join('')
 }
 
 /** `approve` as an argument of cairn, `node …/cairn.mjs`, or a shell's `-c` script that does it. */
 function approves(command: Command): boolean {
   const [name, args] = split(command)
-  if (name === 'cairn' || name === 'cairn.mjs') return args.includes('approve')
-  if (RUNTIMES.has(name)) {
-    const script = args.findIndex(arg => !arg.startsWith('-'))
-    return base(args[script] ?? '') === 'cairn.mjs' && args.slice(script + 1).includes('approve')
+  const from = cairnArgsAt(command)
+  if (from >= 0) {
+    const prose = proseWords(command)
+    return command.words.some((word, at) => at >= from && word === 'approve' && !prose.has(at))
   }
   if (SHELLS.has(name) || name === 'eval') {
     const flag = args.findIndex(arg => /^-\w*c\w*$/.test(arg))
@@ -158,7 +250,7 @@ function approves(command: Command): boolean {
 function setsApprover({ words }: Command): boolean {
   const at = commandAt(words)
   if (words.slice(0, at + 1).some(word => /^CAIRN_APPROVER\+?=/.test(word))) return true
-  const [name, args] = split({ words, redirects: [] })
+  const [name, args] = split({ words })
   if (!DECLARERS.has(name) && !(name === 'printf' && args.includes('-v'))) return false
   return args.some(arg => /^CAIRN_APPROVER(\+?=|$)/.test(arg))
 }
@@ -203,11 +295,39 @@ function writes(command: Command, isTarget: (word: string) => boolean): boolean 
   return false
 }
 
-/** Interpreter code given inline (`python -c`, `node -e`) that names a state.json. */
+// Interpreter code that could change a file: a write call, a write-mode open, or a shell-out.
+const WRITING_CODE = new RegExp(
+  [
+    'write', 'appendFile', 'json\\.dump\\b', '\\bdump\\s*\\(', 'truncate', 'unlink', 'rename', 'shutil',
+    'os\\.(remove|replace|system|popen)', 'subprocess', 'Popen', 'exec(Sync|File)?\\b', 'spawn',
+    `open\\w*\\s*\\([^)]*['"]([wax][bt+]*|r[bt]*\\+[bt]*)['"]`,
+  ].join('|'),
+  'i',
+)
+
+/** Interpreter code that names a state.json and could write it. Reading one is fine. */
+const writesStateFile = (code: string): boolean => /state\.json/i.test(code) && WRITING_CODE.test(code)
+
+/** Interpreter code given inline (`python -c`, `node -e`) that could write a state.json. */
 function runsCodeNamingStateFile(command: Command): boolean {
   const [name, args] = split(command)
-  return INTERPRETERS.test(name) && args.some(arg => /^-\w*[ce]$|^--eval$/.test(arg)) &&
-    args.some(arg => /state\.json/i.test(arg))
+  return INTERPRETERS.test(name) && args.some(arg => /^-\w*[ce]$|^--eval$/.test(arg)) && writesStateFile(args.join(' '))
+}
+
+/**
+ * What a command is fed on stdin, judged by who reads it. A heredoc body or here-string is code
+ * for an interpreter (denied only if it could write a state.json) and shell for anything else.
+ * Text piped into a bare shell is shell too.
+ */
+function readsDeniedInput(list: Command[], at: number): boolean {
+  const command = list[at] as Command
+  const reader = command.pipesOut && list[at + 1] !== undefined ? (list[at + 1] as Command) : command
+  const [name, args] = split(reader)
+  if (command.bodies.length > 0) {
+    const isCode = INTERPRETERS.test(name)
+    if (command.bodies.some(body => (isCode ? writesStateFile(body) : isDenied(body)))) return true
+  }
+  return reader !== command && SHELLS.has(name) && !args.includes('-c') && isDenied(split(command)[1].join(' '))
 }
 
 /**

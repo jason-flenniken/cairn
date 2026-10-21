@@ -199,6 +199,16 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await ui.unmount()
     })
 
+    test(`a fix plan in repro: the header reads Repro (${surface})`, async ($, on) => {
+      world(on, { rows: [row(plan({ track: 'fix', stage: 'repro' }), WT)] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      const text = await drawn(ui)
+      expect(text).toContain('Repro')
+      expect(text).not.toContain('repro')
+      await ui.unmount()
+    })
+
     test(`execute: phase 1 of 2, the running slice's substep and fix round 2, the waiting slice (${surface})`, async ($, on) => {
       world(on, { rows: [row(EXECUTE, WT)] })
       await start($, WT)

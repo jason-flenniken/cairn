@@ -122,13 +122,20 @@ test('the handoff lists running slices with substep and worktree, and keeps earl
 test('the handoff with nothing running and no earlier file still has all three sections with content', () => {
   const md = handoffFromState(planState(null, [{ id: 'a', name: 'A', status: 'pending' }]))
   expect(md).toMatch(/## In flight\n- Nothing in flight\./)
-  expect(md).toMatch(/## Open questions\n- None\./)
+  expect(md).toMatch(/## Open questions\n- \(none yet: fill in /)
+  expect(md).not.toContain('None.')
   expect(md).toMatch(/## Next action\ncairn next --json/)
 })
 
 test('template placeholder lines in an earlier handoff are not kept as open questions', () => {
   const md = handoffFromState(planState(), '## Open questions\n- <question> (recommended: <answer>)\n')
-  expect(md).toMatch(/## Open questions\n- None\./)
+  expect(md).toMatch(/## Open questions\n- \(none yet: fill in /)
+})
+
+test('a placeholder line left in an earlier handoff is replaced, not kept as an open question', () => {
+  const first = handoffFromState(planState())
+  const again = handoffFromState(planState(), first)
+  expect(again.match(/none yet/g)).toHaveLength(1)
 })
 
 test('pauseAge is the whole minutes since paused.at; a missing or invalid one is infinitely long', () => {
