@@ -6,8 +6,8 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:28:17.844Z",
-  "stage": "plan",
+  "updated": "2026-10-21T22:28:20.524Z",
+  "stage": "execute",
   "paused": null,
   "approvals": {
     "prd": {
@@ -27,7 +27,7 @@
     {
       "id": "frame",
       "name": "Pinned bar and late-stage steps",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "pinned-bar",
@@ -231,6 +231,11 @@
       "at": "2026-10-21T22:28:17.844Z",
       "event": "plan approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T22:28:20.524Z",
+      "event": "advanced",
+      "detail": "execute"
     }
   ],
   "suggestions": [
