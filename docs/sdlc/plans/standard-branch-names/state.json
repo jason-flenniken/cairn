@@ -6,8 +6,8 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T13:51:37.691Z",
-  "stage": "plan",
+  "updated": "2026-10-21T13:51:40.536Z",
+  "stage": "execute",
   "paused": null,
   "approvals": {
     "prd": {
@@ -27,7 +27,7 @@
     {
       "id": "rename-branches",
       "name": "Standard branch names",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "cli-branches",
@@ -172,6 +172,11 @@
       "at": "2026-10-21T13:51:37.691Z",
       "event": "plan approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T13:51:40.536Z",
+      "event": "advanced",
+      "detail": "execute"
     }
   ],
   "suggestions": [
