@@ -20,7 +20,7 @@ Run `cairn status --json`. Read the stage, the plan slug, and the track.
 ## 2. Create the plan
 Pick a slug: lowercase words joined by hyphens, from the bug (for example `login-redirect-loop`). Run `cairn new <slug> --track fix --title "<bug>"`. It starts the plan at stage repro on its own branch and worktree.
 
-Tell the user the worktree path that `cairn new` printed, in one line. Do not switch into it with EnterWorktree; the rest of the work runs from that path.
+Tell the user the worktree path that `cairn new` printed, in one line. Do not switch into it with EnterWorktree. Stay at the repo root and run each later `cairn` command as `cd <plan worktree> && cairn <command>`, except an override command, which runs alone.
 
 **Done when:** `cairn status --json` shows track `fix` at stage repro, and the user has the worktree path.
 
@@ -53,9 +53,12 @@ Dispatch the `branch-reviewer` agent (`model: opus`) with a security focus on th
 
 Record the result with the existing evidence command:
 - No blocking findings: `cairn evidence review pass --blocking 0 --note "<N advisory>"`.
-- Blocking findings, N of them: `cairn evidence review fail --blocking N --note "<N blocking; A advisory>"`. Tell the user the blocking findings, each with its `path:line`. Then ask with AskUserQuestion, with the options "Escalate to a feature plan (Recommended)" and "Hold". On "Escalate to a feature plan", run `cairn escalate` and stop this procedure. On "Hold", stop here; the plan stays at review.
+- Blocking findings, N of them: `cairn evidence review fail --blocking N --note "<N blocking; A advisory>"`. Tell the user the blocking findings, each with its `path:line`. Then ask with AskUserQuestion, with these options in order:
+  - "Fix in place (Recommended when small)": run `cairn slice start fix`. It reopens the fix slice from review: the stage returns to execute, the old review result is cleared, and the repro and the slice base are kept. Go to step 4 and give the implementer the blocking findings.
+  - "Escalate to a feature plan": run `cairn escalate` and stop this procedure.
+  - "Hold": stop here; the plan stays at review.
 
-Then run `cairn advance` (only when there were no blocking findings). It is refused until a pass with zero blocking findings is recorded. Report advisory findings in a few lines with their `path:line`, for the record's Follow-ups.
+Run `cairn advance` only when there were no blocking findings. It is refused until a pass with zero blocking findings is recorded. Report advisory findings to the user in a few lines with their `path:line`. The fix record has no section for them.
 
 **Done when:** `cairn status --json` shows a review pass with `--blocking 0` and the stage is ship.
 

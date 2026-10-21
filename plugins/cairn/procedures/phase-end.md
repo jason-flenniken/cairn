@@ -60,10 +60,10 @@ Then run `cairn status --json` to confirm the phase approval is recorded. If it 
 
 ## 8. Clean start
 Once the approval is confirmed, ask with AskUserQuestion (no approval tag; this question records nothing):
-- Approve and start clean: the phase is already approved; this ends here so the user can clear context
+- Start clean: the phase is already approved; this ends here so the user can clear context
 - Continue in this session
 
-If the user picks Approve and start clean, tell them: "/clear, then /cairn:next". Stop.
+If the user picks Start clean, tell them: "/clear, then /cairn:next". Stop.
 Otherwise run `cairn next --json` and follow the procedure it names.
 
 **Done when:** the user was told "/clear, then /cairn:next", or the next procedure started.
