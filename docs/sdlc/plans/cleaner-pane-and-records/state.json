@@ -6,8 +6,8 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:41:34.810Z",
-  "stage": "prd",
+  "updated": "2026-10-21T14:41:37.303Z",
+  "stage": "plan",
   "paused": null,
   "approvals": {
     "prd": {
@@ -34,6 +34,11 @@
       "at": "2026-10-21T14:41:34.810Z",
       "event": "PRD approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T14:41:37.302Z",
+      "event": "advanced",
+      "detail": "plan"
     }
   ]
 }
