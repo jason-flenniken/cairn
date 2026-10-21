@@ -9,12 +9,21 @@ Run `cairn status --json`. The stage must be `ship`. Any other stage: say which 
 
 **Done when:** the stage is `ship` and verify and review evidence are recorded.
 
-## 2. Draft the record
-Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open-suggestion counts, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, and `git log <base>..<plan-branch>`. It writes `docs/sdlc/plans/<date>-<slug>/RECORD.md` from the record template in at most 500 words.
+## 2. Tidy the follow-ups
+A plan closes with at most 5 open recommended follow-ups from itself. Run `cairn suggest list --open --json` and look at the ones whose key starts with this plan's slug.
+- Group related ones into a high-level item (for example many missing-test notes become "add more detailed tests for the pane"): `cairn suggest merge <key> <key>... --area <a> --text "<high-level item>"`. The merged ones show as merged; the new item is the one left open.
+- Duplicates: merge them too. Trivia: `cairn suggest resolve <key> --dismiss --note "<reason>"`.
+- Keep a list of what was dropped (merged away or dismissed) for the record.
+Follow-ups declined twice, or older than 60 days, expire on their own and need nothing.
+
+**Done when:** at most 5 open follow-ups remain from this plan (`cairn close` refuses otherwise and names them).
+
+## 3. Draft the record
+Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open follow-up counts, the list of dropped follow-ups, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, and `git log <base>..<plan-branch>`. It writes `docs/sdlc/plans/<date>-<slug>/RECORD.md` from the record template in at most 500 words.
 
 **Done when:** `RECORD.md` exists with every template heading and is within 500 words (`wc -w`).
 
-## 3. Show and stop
+## 4. Show and stop
 Show the user the record, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output:
   - Approve (Recommended): approve the record, then open the PR
@@ -24,17 +33,17 @@ Show the user the record, plus one line on recommended follow-ups ("N open: 2 te
 
 **Done when:** the user chose Approve, or said the terminal approval ran.
 
-## 4. Confirm
-Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names a missing section or an over-budget record, fix `RECORD.md`, recheck the word count, and return to step 3.
+## 5. Confirm
+Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names a missing section or an over-budget record, fix `RECORD.md`, recheck the word count, and return to step 4.
 
 **Done when:** `cairn status --json` shows the ship approval.
 
-## 5. Open the PR
+## 6. Open the PR
 From the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan). Put the PR URL into the record's Links section and commit it on the plan branch.
 
 **Done when:** `gh pr create` printed a URL, and `RECORD.md` links to it.
 
-## 6. Advance
+## 7. Advance
 Run `cairn advance`. Report the PR URL in one line.
 
 **Done when:** the stage is `learn`. Then run `cairn next --json` and follow the procedure it names.

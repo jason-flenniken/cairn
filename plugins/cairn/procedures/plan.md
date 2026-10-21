@@ -37,14 +37,6 @@ Run `cairn plan load`. On refusal, read what it names (a cycle, an unknown FR id
 
 **Done when:** `cairn plan load` exits 0.
 
-## 4b. Past suggestions
-Run `cairn suggest list --open --for <glob>`, with one `--for` per task scope glob. When it lists matches, offer up to 3, one AskUserQuestion each: "I recommend <text> (noted during <plan>)". Options: Add as task (Recommended) / Later / Dismiss.
-- Add as task: add a task to `plan.md` (own scope, a Check line), rerun `cairn plan load`, then `cairn suggest resolve <slug>:<id> --note "added as task <task id>"`.
-- Dismiss: `cairn suggest resolve <slug>:<id> --dismiss --note "<reason>"`.
-- Later: do nothing.
-
-Skip this step when the list is empty.
-
 ## 5. Stop for approval
 Show a tree preview and about three lines of summary:
 
