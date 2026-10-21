@@ -13,6 +13,8 @@ Run `cairn status --json`. The stage must be `execute`. Any other stage: say whi
 
 **Done when:** the stage is `execute`, the plan is not paused, and you hold the four values above.
 
+**Pause check.** Between any two steps below (before starting a slice, dispatching or messaging an agent, merging), run `cairn status --json`. When it shows `paused`, start nothing new: no `cairn slice start`, no new agent, no merge. Let running sub-steps finish and record their substeps. Append any open question you are holding to `docs/sdlc/plans/<slug>/handoff.md` under `## Open questions` (earlier ones stay), then stop. `/cairn:resume` continues the plan.
+
 ## 2. Resume what is in progress
 Slices already `in_progress` carry a recorded substep. Continue each from there; starting over wastes finished work.
 - `implementing`: check whether an implementer is still running for it. If not, dispatch a fresh implementer (step 4) with a note to inspect the worktree's existing commits first.
@@ -77,7 +79,7 @@ Run `cairn slice step <id> blocked --note "<what blocks it>"`. Pick the cheapest
 **Done when:** the slice is unblocked and back at `implementing`, or the user chose to re-plan or pause.
 
 ## 9. Loop
-After every completion, return to step 3. Check `cairn status --json` between rounds; when it shows paused, let current sub-steps finish, start nothing new, and stop.
+After every completion, return to step 3. Make the pause check above between rounds.
 
 When `cairn ready` is empty and no slice is in progress, the phase has no remaining slices.
 
