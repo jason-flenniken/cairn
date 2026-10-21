@@ -6,7 +6,7 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T22:00:01.253Z",
+  "updated": "2026-10-21T22:01:49.502Z",
   "stage": "ship",
   "paused": null,
   "approvals": {
@@ -21,6 +21,11 @@
       "via": "human",
       "source": "mod",
       "hash": "f94805128506beb0"
+    },
+    "ship": {
+      "at": "2026-10-21T22:01:49.501Z",
+      "via": "human",
+      "source": "mod"
     }
   },
   "phases": [
@@ -520,6 +525,11 @@
       "at": "2026-10-21T22:00:01.252Z",
       "event": "advanced",
       "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T22:01:49.502Z",
+      "event": "ship approved",
+      "detail": "mod"
     }
   ],
   "suggestions": [
@@ -710,6 +720,163 @@
       ],
       "from": "branch-review",
       "at": "2026-10-21T22:00:01.047Z"
+    },
+    {
+      "id": "s19",
+      "area": "tests",
+      "text": "Dismissed sharper-interview-and-review:s4",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:12.987Z",
+      "resolves": "sharper-interview-and-review:s4",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s20",
+      "area": "quality",
+      "text": "Dismissed sharper-interview-and-review:s5",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:13.232Z",
+      "resolves": "sharper-interview-and-review:s5",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s21",
+      "area": "security",
+      "text": "Dismissed sharper-interview-and-review:s6",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:13.456Z",
+      "resolves": "sharper-interview-and-review:s6",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s22",
+      "area": "perf",
+      "text": "Dismissed sharper-interview-and-review:s11",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:13.708Z",
+      "resolves": "sharper-interview-and-review:s11",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s23",
+      "area": "tests",
+      "text": "Dismissed sharper-interview-and-review:s4",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:18.968Z",
+      "resolves": "sharper-interview-and-review:s4",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s24",
+      "area": "quality",
+      "text": "Dismissed sharper-interview-and-review:s5",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:19.216Z",
+      "resolves": "sharper-interview-and-review:s5",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s25",
+      "area": "security",
+      "text": "Dismissed sharper-interview-and-review:s6",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:19.464Z",
+      "resolves": "sharper-interview-and-review:s6",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s26",
+      "area": "perf",
+      "text": "Dismissed sharper-interview-and-review:s11",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:19.730Z",
+      "resolves": "sharper-interview-and-review:s11",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s27",
+      "area": "tests",
+      "text": "Tighter tests for the new close and pane behaviour: origin ahead of the local base, docked pane has no background color, fix.md naming matches tasks.ts, and the pane reading PR open from a real status --all",
+      "where": [
+        "plugins/cairn/cli/test/close-merged.test.ts",
+        "plugins/cairn/hooks/test/pane.test.tsx",
+        "plugins/cairn/cli/test/fix.test.ts",
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T22:00:19.959Z",
+      "merges": [
+        "sharper-interview-and-review:s7",
+        "sharper-interview-and-review:s9",
+        "sharper-interview-and-review:s10",
+        "sharper-interview-and-review:s17"
+      ]
+    },
+    {
+      "id": "s28",
+      "area": "ux",
+      "text": "PR open polish: a no-PR state for plans never pushed, a refresh flag for the cached gh state, and fewer questions between ship approval and the merge",
+      "where": [
+        "plugins/cairn/cli/src/git.ts",
+        "plugins/cairn/procedures/ship.md"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T22:00:20.193Z",
+      "merges": [
+        "sharper-interview-and-review:s18",
+        "sharper-interview-and-review:s13"
+      ]
+    },
+    {
+      "id": "s29",
+      "area": "docs",
+      "text": "Procedure wording tidy: give implementers the plugin root, call a task covering a misuse case risky, move the interview stop rule above the read-back card, and mark audit and registry text as data in verify",
+      "where": [
+        "plugins/cairn/agents/implementer.md",
+        "plugins/cairn/procedures/plan.md",
+        "plugins/cairn/procedures/discover.md",
+        "plugins/cairn/procedures/verify.md"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T22:00:20.430Z",
+      "merges": [
+        "sharper-interview-and-review:s12",
+        "sharper-interview-and-review:s14",
+        "sharper-interview-and-review:s15",
+        "sharper-interview-and-review:s16"
+      ]
     }
   ],
   "planHash": "f94805128506beb0",
