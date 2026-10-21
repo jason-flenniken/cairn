@@ -1,6 +1,6 @@
 # Discover
 
-Interview the user just enough to start: users, the core flow, non-goals, and anything risky. Research supplies the facts; the user supplies the decisions.
+Interview the user until cairn can predict their next answers: the goal first, then the decisions it implies. Research supplies the facts; the user supplies the decisions.
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -27,18 +27,59 @@ When some match, ask one AskUserQuestion with `multiSelect: true`: "These recomm
 
 **Done when:** every match was picked or declined, or none matched.
 
-## 3. Ask one decision at a time
-Cover only: who the users are, the core flow, the non-goals, and anything risky (auth, money, deleting data, migrations, public API). Skip anything research already answers; mention those facts in one line. Order questions by dependency. Picked follow-ups are already decided; do not ask about them again.
+## 3. Guess and confidence
+Before the first question, show one plain-text line: `I think you want <one-sentence guess>. Confidence: NN%.` Below about 70%, add a second line naming what is missing. After each answer, update the confidence in one line as it rises.
 
-For each open decision:
-1. Ask with AskUserQuestion: 2-4 options, the recommended one first and labelled "(Recommended)", each with a one-line consequence. Add a preview to any option that is visual or structural.
-2. Record it immediately: `cairn decide "<question>" "<answer>" --why "<reason in the user's terms>"`.
+**Done when:** the guess and confidence are shown to the user.
 
-Stop when the core is clear. If an answer is "I don't know", recommend one and record it with the user's confirmation. Do not interview for completeness: the PRD names what is still open.
+## 4. Goal questions
+Ask one at a time, in this order: why, why now, what success looks like, the binding constraint. Skip any research or an earlier answer already settles.
+- Use AskUserQuestion: 2-4 options, cairn's guess first and labelled "(Recommended)", its reasoning in the question text or option description. The user can type their own answer via Other.
+- An answer that only sounds right ("scalable", "clean") gets one probe: "If you didn't have to justify it, what would you actually want?"
+- "Whatever you think" or "I don't know" is re-asked as a two-option choice. Never record cairn's pick as the user's answer.
+- Record each answer: `cairn decide "<question>" "<answer>" --why "<reason in the user's terms>"`.
 
-**Done when:** users, core flow, non-goals and risky areas each have a recorded decision or an explicit "not applicable".
+**Done when:** why, why now, success and the binding constraint each have a recorded decision, or are already settled by research.
 
-## 4. Advance
+## 5. Goal implications
+List decisions the goal implies that the user has not raised. Ask one AskUserQuestion with `multiSelect: true`: "Does this goal also mean these?" One option per implication.
+- Each one picked: `cairn decide "<implication>" "yes" --why "<what the goal implies>"`.
+- Each one not picked: record it as a non-goal with `cairn decide "Non-goal: <implication>" "out of scope" --why "<reason>"`.
+
+**Done when:** every implication shown is recorded as a decision or a non-goal.
+
+## 6. Remaining decisions
+One at a time, same question format as step 4, covering:
+- Users: who they are.
+- Core flow: what they do, start to finish.
+- Non-goals: anything not yet recorded.
+- Trust boundaries (required): untrusted input, auth, personal data, model output, shell commands, deletes. Say "not applicable" only when you checked each one. Money, migrations and public API belong here too.
+
+Skip anything research already answers; mention it in one line. Order questions by dependency. Picked follow-ups from step 2b are decided; do not ask again.
+
+**Done when:** users, core flow, non-goals and each trust boundary have a recorded decision or an explicit "not applicable".
+
+## 7. Read-back card
+Show this card, filled from the recorded decisions:
+
+```
+Outcome:      <what gets built>
+User:         <who it is for>
+Why now:      <what makes it urgent>
+Success:      <how we will know it worked>
+Constraint:   <the binding limit>
+Out of scope: <what we will not do>
+```
+
+Ask "Is this right?" with AskUserQuestion: Yes, or fix a line. Record the card with `cairn decide "Read-back" "<the card>" --why "confirmed by the user"` only after an explicit yes. A fix means update the card and ask again. Silence or "sure, whatever" is not a yes.
+
+After two revisions with no explicit yes, say plainly that something foundational seems to be missing, and ask with AskUserQuestion whether to step back: Step back to the goal questions (Recommended), Keep refining the card, or Pause.
+
+Stop interviewing when you can predict the user's next three answers. If you cannot, ask the question you could not predict before showing the card.
+
+**Done when:** the card is recorded as the last decision, after an explicit yes.
+
+## 8. Advance
 Run `cairn advance`. It needs at least one decision recorded. If refused, follow its message.
 
 **Done when:** the stage is `prd`. Then run `cairn next --json` and follow the procedure it names.

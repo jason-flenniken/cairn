@@ -1,6 +1,6 @@
 # Execute
 
-Orchestrate the current phase: start every ready task, build it, review it only if it is risky, merge it, repeat until the phase has no remaining tasks.
+Orchestrate the current phase: start every ready task, build it, review it, merge it, repeat until the phase has no remaining tasks.
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`; model choices follow `references/model-tiers.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -43,21 +43,26 @@ Then run `cd <plan worktree> && cairn task step <id> implementing`.
 
 **Done when:** each started task has a running implementer, and you've told the user in 1-3 lines which tasks started.
 
-## 5. Read the report, review only risky tasks
+## 5. Read the report, review every task
 When an implementer reports, read its status line.
 - `NEEDS_CONTEXT`: answer from the PRD, plan, or `decisions.md` and send it to the implementer with SendMessage. Ask the user only when the documents don't answer it (AskUserQuestion, recommended first; record with `cd <plan worktree> && cairn decide`).
 - `BLOCKED`: step 8.
-- `DONE` or `DONE_WITH_CONCERNS`: first log the report's `Suggestions:` lines (up to 3) with `cd <plan worktree> && cairn suggest add --area <area> --where <path> --from implementer --text "<text>"`.
-  - Not risky: go straight to step 7.
-  - Risky: run `cd <plan worktree> && cairn task step <id> reviewing`. Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the task section, the covered requirements, the implementer's report, and the diff command `git -C <worktree> diff <plan-branch>...HEAD`. It returns PASS or FIX with blocking findings and minor notes. Log each minor note with `cd <plan worktree> && cairn suggest add --area <area> --from task-review --where <path> --text "<note>"`. PASS goes to step 7; FIX goes to step 6.
+- `DONE` or `DONE_WITH_CONCERNS`: first log the report's `Suggestions:` lines (up to 3) with `cd <plan worktree> && cairn suggest add --area <area> --where <path> --from implementer --text "<text>"`. Then review the task, risky or not: run `cd <plan worktree> && cairn task step <id> reviewing`.
+  - Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the plugin root path (`${CLAUDE_PLUGIN_ROOT}`), the task section, the covered requirements, the implementer's report, and the diff command `git -C <worktree> diff <plan-branch>...HEAD`.
+  - When the task is `risky` (or the report or the diff shows auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data), dispatch the `security-reviewer` agent in the same message, so both run in parallel (`model: sonnet`, `description` "Review · <task name> (security)"), with the same brief and diff.
+  - Each reviewer returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI. Route them:
+    - Critical and Required: step 6. Each one names its proposed fix.
+    - Optional and Nit: log each with `cd <plan worktree> && cairn suggest add --area <area> --from task-review --where <path> --text "<finding>"` (`--from security-review` for the security reviewer's).
+    - FYI: mention once in your progress line. Do not log it.
+  - No Critical or Required finding from either reviewer: step 7.
 
 **Done when:** each reported task is ready to merge, or in step 6 or 8.
 
-## 6. Fix (risky tasks only)
-Only blocking findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing`. Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
-- Send the blocking findings back to the same implementer with SendMessage (or a fresh implementer on the same worktree when the old one has ended), `description` "Fix · <task name>".
-- After it reports DONE, re-review once, limited to the findings and the fix diff.
-- When a blocking finding is still open after that attempt (or the CLI refuses another), stop work on the task and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Re-plan this task / Pause.
+## 6. Fix (Critical and Required findings)
+Only Critical and Required findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing`. Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
+- Send those findings, with their proposed fixes, back to the same implementer with SendMessage (or a fresh implementer on the same worktree when the old one has ended), `description` "Fix · <task name>".
+- After it reports DONE, re-review once with the reviewer that raised them (both when both did), limited to those findings and the fix diff.
+- When a Critical or Required finding is still open after that attempt (or the CLI refuses another), stop work on the task and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Re-plan this task / Pause.
 
 **Done when:** the task passed, or the user chose how to proceed.
 

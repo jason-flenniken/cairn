@@ -1,6 +1,6 @@
 # Learn
 
-Finish the record, then close the plan. Learn asks the user nothing.
+Finish the record, close the plan, then hand off to the merge step. Learn asks the user nothing itself.
 
 v0.1 scope. A later version adds structured learnings written to `docs/sdlc/learnings/`.
 
@@ -24,4 +24,9 @@ Check the `## Findings` section of `docs/sdlc/plans/<date>-<slug>/RECORD.md`. If
 ## 4. Close
 Run `cairn close`. It needs a valid `RECORD.md` (every section, Findings included, within 600 words) and passing tests; on refusal, fix what it names and rerun.
 
-**Done when:** the stage is `closed`. Tell the user in one line that the plan is closed and the PR is the remaining step.
+**Done when:** the stage is `closed`. Commit anything the close wrote on the plan branch.
+
+## 5. Merge
+The plan is closed, but its branch is not in main yet, so `cairn status` and the pane show "Closed · PR open". Follow the "Merge (the last step, after close)" section of `procedures/ship.md`; it holds the question to put to the user. Learn itself still asks nothing.
+
+**Done when:** the PR is merged, or the user said they will merge it. Tell the user in one line that the plan is closed and where the PR stands.

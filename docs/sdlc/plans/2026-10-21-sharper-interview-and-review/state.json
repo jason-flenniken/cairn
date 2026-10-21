@@ -1,0 +1,893 @@
+{
+  "schema": 1,
+  "slug": "sharper-interview-and-review",
+  "title": "Sharper interview and review",
+  "track": "feature",
+  "branch": "feature/sharper-interview-and-review",
+  "base": "main",
+  "created": "2026-10-21T21:02:06.482Z",
+  "updated": "2026-10-21T22:02:35.180Z",
+  "stage": "closed",
+  "paused": null,
+  "approvals": {
+    "prd": {
+      "at": "2026-10-21T21:19:12.333Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "2d6967bccebeefb7"
+    },
+    "plan": {
+      "at": "2026-10-21T21:22:21.122Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "f94805128506beb0"
+    },
+    "ship": {
+      "at": "2026-10-21T22:01:49.501Z",
+      "via": "human",
+      "source": "mod"
+    }
+  },
+  "phases": [
+    {
+      "id": "material",
+      "name": "Interview, checklists and close rule",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "goal-interview",
+          "name": "Goal-first interview",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-05"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/procedures/discover.md",
+            "plugins/cairn/cli/test/interview-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/sharper-interview-and-review/goal-interview",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--goal-interview",
+          "base": "0d0470bab883ef9c08c80678bf900c6031037951",
+          "startedAt": "2026-10-21T21:22:29.218Z",
+          "doneAt": "2026-10-21T21:24:13.356Z",
+          "tip": "b2aec2c",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "6f7bf5a3aef0abd24234a9c2f40984c10152ef39"
+        },
+        {
+          "id": "review-checklist",
+          "name": "Review checklist and reviewers",
+          "covers": [
+            "FR-06",
+            "FR-09"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/references/review-checklist.md",
+            "plugins/cairn/agents/task-reviewer.md",
+            "plugins/cairn/agents/branch-reviewer.md",
+            "plugins/cairn/cli/test/review-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/sharper-interview-and-review/review-checklist",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--review-checklist",
+          "base": "0d0470bab883ef9c08c80678bf900c6031037951",
+          "startedAt": "2026-10-21T21:22:29.715Z",
+          "doneAt": "2026-10-21T21:25:33.005Z",
+          "tip": "fee77bb",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "e3483d73b3454dda22c58e8388cc6f2ae95b720f"
+        },
+        {
+          "id": "security-checklist",
+          "name": "Security checklist, reviewer and credit",
+          "covers": [
+            "FR-10",
+            "FR-13",
+            "FR-22"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/references/security-checklist.md",
+            "plugins/cairn/agents/security-reviewer.md",
+            "plugins/cairn/agents/implementer.md",
+            "plugins/cairn/NOTICE",
+            "plugins/cairn/UPSTREAM.md",
+            "plugins/cairn/cli/test/security-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/sharper-interview-and-review/security-checklist",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--security-checklist",
+          "base": "0d0470bab883ef9c08c80678bf900c6031037951",
+          "startedAt": "2026-10-21T21:22:30.219Z",
+          "doneAt": "2026-10-21T21:24:55.373Z",
+          "tip": "0ee2ce1",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "7e050efd5e9aa279ecd2862f79bd500c78263334"
+        },
+        {
+          "id": "close-when-merged",
+          "name": "Close only when merged",
+          "covers": [
+            "FR-17"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/**",
+            "plugins/cairn/cli/test/lifecycle.test.ts",
+            "plugins/cairn/cli/test/close-merged.test.ts",
+            "plugins/cairn/procedures/learn.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/dist/**"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "changes when the CLI refuses to close a plan; a wrong check blocks every close",
+          "branch": "task/sharper-interview-and-review/close-when-merged",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--close-when-merged",
+          "base": "10a2ae48e9ab05108dc15dc632a0c0e07a324e81",
+          "startedAt": "2026-10-21T21:24:56.209Z",
+          "doneAt": "2026-10-21T21:32:43.631Z",
+          "tip": "4f7af1e",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2a43bbebfbdb5e43f69f932bb67863a02aaa2745"
+        }
+      ]
+    },
+    {
+      "id": "wiring",
+      "name": "Wire into the flow",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "review-routing",
+          "name": "Review every task and fix-track routing",
+          "covers": [
+            "FR-07",
+            "FR-08",
+            "FR-14",
+            "FR-16",
+            "FR-21"
+          ],
+          "blockedBy": [
+            "review-checklist",
+            "security-checklist",
+            "close-when-merged"
+          ],
+          "scope": [
+            "plugins/cairn/procedures/execute.md",
+            "plugins/cairn/procedures/review.md",
+            "plugins/cairn/procedures/fix.md",
+            "plugins/cairn/references/model-tiers.md",
+            "plugins/cairn/cli/test/fix-procedure.test.ts",
+            "plugins/cairn/cli/test/routing-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/sharper-interview-and-review/review-routing",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--review-routing",
+          "base": "a919e9197065b9a69f63498a81b7db3c7f091a64",
+          "startedAt": "2026-10-21T21:32:52.684Z",
+          "doneAt": "2026-10-21T21:36:55.669Z",
+          "tip": "4480915",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "02feb9a15e13c242f4f746e52a2804a6f84f9ce7"
+        },
+        {
+          "id": "security-design",
+          "name": "Threat model, wider risk and pre-ship scans",
+          "covers": [
+            "FR-11",
+            "FR-12",
+            "FR-15"
+          ],
+          "blockedBy": [
+            "security-checklist"
+          ],
+          "scope": [
+            "plugins/cairn/templates/prd.md",
+            "plugins/cairn/templates/plan.md",
+            "plugins/cairn/templates/config.json",
+            "plugins/cairn/procedures/prd.md",
+            "plugins/cairn/procedures/plan.md",
+            "plugins/cairn/procedures/verify.md",
+            "plugins/cairn/references/cli.md",
+            "plugins/cairn/cli/test/security-flow-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/sharper-interview-and-review/security-design",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--security-design",
+          "base": "a919e9197065b9a69f63498a81b7db3c7f091a64",
+          "startedAt": "2026-10-21T21:32:53.240Z",
+          "doneAt": "2026-10-21T21:36:17.482Z",
+          "tip": "6874596",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "1d5d6678b33cc661476d7f8d01483b39fca07980"
+        },
+        {
+          "id": "pane-polish",
+          "name": "Pane background, notice and truncation",
+          "covers": [
+            "FR-18",
+            "FR-19",
+            "FR-20"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/**"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/sharper-interview-and-review/pane-polish",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--pane-polish",
+          "base": "a919e9197065b9a69f63498a81b7db3c7f091a64",
+          "startedAt": "2026-10-21T21:34:30.643Z",
+          "doneAt": "2026-10-21T21:40:23.971Z",
+          "tip": "f77d357",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "9128aa85ee8cdab9c103edaafcfe3a12a76ede6b"
+        }
+      ]
+    }
+  ],
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-21T21:43:26.834Z",
+      "note": "tests: 367 passing; 21 of 22 requirements met plus 1 fixed, 2 untested logged; secret scan clean, npm audit 0 vulnerabilities, no lockfile changes"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T22:00:01.126Z",
+      "note": "4 blocking fixed in one pass (close redesign, value-free secret scan, no-install pip audit, pane toast); 8 follow-ups logged",
+      "blocking": 0
+    }
+  },
+  "drift": [
+    {
+      "path": "plugins/cairn/cli/test/fix.test.ts",
+      "at": "2026-10-21T21:32:43.631Z",
+      "reason": "changed outside task \"Close only when merged\" scope (found at task done)",
+      "task": "close-when-merged"
+    },
+    {
+      "path": "plugins/cairn/cli/test/followups.test.ts",
+      "at": "2026-10-21T21:32:43.631Z",
+      "reason": "changed outside task \"Close only when merged\" scope (found at task done)",
+      "task": "close-when-merged"
+    },
+    {
+      "path": "plugins/cairn/cli/test/proof.test.ts",
+      "at": "2026-10-21T21:32:43.631Z",
+      "reason": "changed outside task \"Close only when merged\" scope (found at task done)",
+      "task": "close-when-merged"
+    },
+    {
+      "path": "plugins/cairn/types/index.d.ts",
+      "at": "2026-10-21T21:53:14.242Z",
+      "reason": "edited outside the plan's scope"
+    }
+  ],
+  "log": [
+    {
+      "at": "2026-10-21T21:02:06.482Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-10-21T21:16:33.891Z",
+      "event": "advanced",
+      "detail": "prd"
+    },
+    {
+      "at": "2026-10-21T21:19:12.333Z",
+      "event": "PRD approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T21:19:15.249Z",
+      "event": "advanced",
+      "detail": "plan"
+    },
+    {
+      "at": "2026-10-21T21:21:29.652Z",
+      "event": "plan loaded",
+      "detail": "2 phases, 7 tasks"
+    },
+    {
+      "at": "2026-10-21T21:22:21.122Z",
+      "event": "plan approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T21:22:23.422Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T21:22:29.219Z",
+      "event": "task started",
+      "detail": "Goal-first interview"
+    },
+    {
+      "at": "2026-10-21T21:22:29.715Z",
+      "event": "task started",
+      "detail": "Review checklist and reviewers"
+    },
+    {
+      "at": "2026-10-21T21:22:30.219Z",
+      "event": "task started",
+      "detail": "Security checklist, reviewer and credit"
+    },
+    {
+      "at": "2026-10-21T21:23:14.204Z",
+      "event": "task implementing",
+      "detail": "Goal-first interview"
+    },
+    {
+      "at": "2026-10-21T21:23:14.288Z",
+      "event": "task implementing",
+      "detail": "Review checklist and reviewers"
+    },
+    {
+      "at": "2026-10-21T21:23:14.375Z",
+      "event": "task implementing",
+      "detail": "Security checklist, reviewer and credit"
+    },
+    {
+      "at": "2026-10-21T21:23:41.942Z",
+      "event": "task merging",
+      "detail": "Goal-first interview"
+    },
+    {
+      "at": "2026-10-21T21:24:13.357Z",
+      "event": "task done",
+      "detail": "Goal-first interview"
+    },
+    {
+      "at": "2026-10-21T21:24:24.110Z",
+      "event": "task merging",
+      "detail": "Security checklist, reviewer and credit"
+    },
+    {
+      "at": "2026-10-21T21:24:55.374Z",
+      "event": "task done",
+      "detail": "Security checklist, reviewer and credit"
+    },
+    {
+      "at": "2026-10-21T21:24:56.210Z",
+      "event": "task started",
+      "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:24:56.305Z",
+      "event": "task implementing",
+      "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:25:01.168Z",
+      "event": "task merging",
+      "detail": "Review checklist and reviewers"
+    },
+    {
+      "at": "2026-10-21T21:25:33.005Z",
+      "event": "task done",
+      "detail": "Review checklist and reviewers"
+    },
+    {
+      "at": "2026-10-21T21:31:36.513Z",
+      "event": "task reviewing",
+      "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:32:15.165Z",
+      "event": "task merging",
+      "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:32:43.631Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/fix.test.ts"
+    },
+    {
+      "at": "2026-10-21T21:32:43.631Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/followups.test.ts"
+    },
+    {
+      "at": "2026-10-21T21:32:43.631Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/proof.test.ts"
+    },
+    {
+      "at": "2026-10-21T21:32:43.631Z",
+      "event": "task done",
+      "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:32:48.697Z",
+      "event": "phase finished",
+      "detail": "Interview, checklists and close rule (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T21:32:52.684Z",
+      "event": "task started",
+      "detail": "Review every task and fix-track routing"
+    },
+    {
+      "at": "2026-10-21T21:32:52.766Z",
+      "event": "task implementing",
+      "detail": "Review every task and fix-track routing"
+    },
+    {
+      "at": "2026-10-21T21:32:53.241Z",
+      "event": "task started",
+      "detail": "Threat model, wider risk and pre-ship scans"
+    },
+    {
+      "at": "2026-10-21T21:32:53.329Z",
+      "event": "task implementing",
+      "detail": "Threat model, wider risk and pre-ship scans"
+    },
+    {
+      "at": "2026-10-21T21:34:30.644Z",
+      "event": "task started",
+      "detail": "Pane background, notice and truncation"
+    },
+    {
+      "at": "2026-10-21T21:34:30.773Z",
+      "event": "task implementing",
+      "detail": "Pane background, notice and truncation"
+    },
+    {
+      "at": "2026-10-21T21:35:42.225Z",
+      "event": "task merging",
+      "detail": "Threat model, wider risk and pre-ship scans"
+    },
+    {
+      "at": "2026-10-21T21:36:17.483Z",
+      "event": "task done",
+      "detail": "Threat model, wider risk and pre-ship scans"
+    },
+    {
+      "at": "2026-10-21T21:36:26.012Z",
+      "event": "task merging",
+      "detail": "Review every task and fix-track routing"
+    },
+    {
+      "at": "2026-10-21T21:36:55.669Z",
+      "event": "task done",
+      "detail": "Review every task and fix-track routing"
+    },
+    {
+      "at": "2026-10-21T21:39:55.727Z",
+      "event": "task merging",
+      "detail": "Pane background, notice and truncation"
+    },
+    {
+      "at": "2026-10-21T21:40:23.972Z",
+      "event": "task done",
+      "detail": "Pane background, notice and truncation"
+    },
+    {
+      "at": "2026-10-21T21:40:30.290Z",
+      "event": "phase finished",
+      "detail": "Wire into the flow (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T21:40:30.290Z",
+      "event": "advanced",
+      "detail": "verify"
+    },
+    {
+      "at": "2026-10-21T21:43:26.834Z",
+      "event": "verify pass",
+      "detail": "tests: 367 passing; 21 of 22 requirements met plus 1 fixed, 2 untested logged; secret scan clean, npm audit 0 vulnerabilities, no lockfile changes"
+    },
+    {
+      "at": "2026-10-21T21:43:26.954Z",
+      "event": "advanced",
+      "detail": "review"
+    },
+    {
+      "at": "2026-10-21T21:53:14.242Z",
+      "event": "drift",
+      "detail": "plugins/cairn/types/index.d.ts"
+    },
+    {
+      "at": "2026-10-21T22:00:01.126Z",
+      "event": "review pass",
+      "detail": "4 blocking fixed in one pass (close redesign, value-free secret scan, no-install pip audit, pane toast); 8 follow-ups logged"
+    },
+    {
+      "at": "2026-10-21T22:00:01.252Z",
+      "event": "advanced",
+      "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T22:01:49.502Z",
+      "event": "ship approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T22:02:01.624Z",
+      "event": "advanced",
+      "detail": "learn"
+    },
+    {
+      "at": "2026-10-21T22:02:35.180Z",
+      "event": "closed"
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "ux",
+      "text": "Resolved roomier-pane-visuals:s9",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T21:10:05.981Z",
+      "resolves": "roomier-pane-visuals:s9",
+      "note": "brought into sharper-interview-and-review"
+    },
+    {
+      "id": "s2",
+      "area": "ux",
+      "text": "Resolved roomier-pane-visuals:s10",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T21:10:06.214Z",
+      "resolves": "roomier-pane-visuals:s10",
+      "note": "brought into sharper-interview-and-review"
+    },
+    {
+      "id": "s3",
+      "area": "docs",
+      "text": "Resolved cleaner-pane-and-records:s23",
+      "where": [
+        "plugins/cairn/procedures/fix.md",
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T21:10:06.456Z",
+      "resolves": "cleaner-pane-and-records:s23",
+      "note": "brought into sharper-interview-and-review"
+    },
+    {
+      "id": "s4",
+      "area": "tests",
+      "text": "Add a doc check that the review procedures dispatch the security reviewer once the wiring task lands",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T21:24:24.018Z"
+    },
+    {
+      "id": "s5",
+      "area": "quality",
+      "text": "Treat squash and rebase merges as merged when deciding whether a plan can close (compare with git cherry or the PR state), so they don't need an override",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T21:30:11.198Z"
+    },
+    {
+      "id": "s6",
+      "area": "security",
+      "text": "Reject a base branch name starting with a dash, or pass '--', before git fetch origin <base>",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T21:32:15.010Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "Add a close case where origin is ahead of the local base and the branch is merged only on origin",
+      "where": [
+        "plugins/cairn/cli/test/close-merged.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T21:32:15.088Z"
+    },
+    {
+      "id": "s8",
+      "area": "quality",
+      "text": "Refuse task done when the plan branch gained commits outside a task merge, since a haiku implementer committed straight onto the plan branch instead of its task branch",
+      "where": [
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T21:40:30.171Z"
+    },
+    {
+      "id": "s9",
+      "area": "tests",
+      "text": "Assert the docked pane root has no backgroundColor, so the removed transparent setting can't quietly return",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx"
+      ],
+      "from": "check",
+      "at": "2026-10-21T21:42:29.917Z"
+    },
+    {
+      "id": "s10",
+      "area": "tests",
+      "text": "Check that fix.md's task branch and folder naming matches what tasks.ts produces",
+      "where": [
+        "plugins/cairn/cli/test/fix.test.ts"
+      ],
+      "from": "check",
+      "at": "2026-10-21T21:42:29.994Z"
+    },
+    {
+      "id": "s11",
+      "area": "perf",
+      "text": "Keep cairn status free of network calls; it is called often by procedures and the pane",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:50.752Z"
+    },
+    {
+      "id": "s12",
+      "area": "docs",
+      "text": "Give the implementer brief the plugin root so its pointer to the security checklist can be followed",
+      "where": [
+        "plugins/cairn/agents/implementer.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:50.827Z"
+    },
+    {
+      "id": "s13",
+      "area": "ux",
+      "text": "Fold the merge offer into fewer questions after ship approval; stages.ts:162 next-step text should mention merging",
+      "where": [
+        "plugins/cairn/procedures/ship.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:50.919Z"
+    },
+    {
+      "id": "s14",
+      "area": "docs",
+      "text": "Say that a task covering a PRD misuse case is risky, so its Security test case is listed",
+      "where": [
+        "plugins/cairn/procedures/plan.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:50.997Z"
+    },
+    {
+      "id": "s15",
+      "area": "docs",
+      "text": "Move the predict-the-next-three-answers stop rule above the read-back card",
+      "where": [
+        "plugins/cairn/procedures/discover.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:51.075Z"
+    },
+    {
+      "id": "s16",
+      "area": "security",
+      "text": "Mark advisory, registry and diff text as data; pass suggest --text as one quoted argument; send only package name and advisory id to the implementer",
+      "where": [
+        "plugins/cairn/procedures/verify.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:51.183Z"
+    },
+    {
+      "id": "s17",
+      "area": "tests",
+      "text": "End-to-end test of the pane reading prOpen from a real status --all",
+      "where": [
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T22:00:00.969Z"
+    },
+    {
+      "id": "s18",
+      "area": "ux",
+      "text": "A closed plan that was never pushed shows PR open forever, and a gh failure also shows PR open; consider a refresh flag and a 'no PR' state",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T22:00:01.047Z"
+    },
+    {
+      "id": "s19",
+      "area": "tests",
+      "text": "Dismissed sharper-interview-and-review:s4",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:12.987Z",
+      "resolves": "sharper-interview-and-review:s4",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s20",
+      "area": "quality",
+      "text": "Dismissed sharper-interview-and-review:s5",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:13.232Z",
+      "resolves": "sharper-interview-and-review:s5",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s21",
+      "area": "security",
+      "text": "Dismissed sharper-interview-and-review:s6",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:13.456Z",
+      "resolves": "sharper-interview-and-review:s6",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s22",
+      "area": "perf",
+      "text": "Dismissed sharper-interview-and-review:s11",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:13.708Z",
+      "resolves": "sharper-interview-and-review:s11",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s23",
+      "area": "tests",
+      "text": "Dismissed sharper-interview-and-review:s4",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:18.968Z",
+      "resolves": "sharper-interview-and-review:s4",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s24",
+      "area": "quality",
+      "text": "Dismissed sharper-interview-and-review:s5",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:19.216Z",
+      "resolves": "sharper-interview-and-review:s5",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s25",
+      "area": "security",
+      "text": "Dismissed sharper-interview-and-review:s6",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:19.464Z",
+      "resolves": "sharper-interview-and-review:s6",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s26",
+      "area": "perf",
+      "text": "Dismissed sharper-interview-and-review:s11",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:00:19.730Z",
+      "resolves": "sharper-interview-and-review:s11",
+      "dismissed": true,
+      "note": "done in this plan's review fix or wiring task"
+    },
+    {
+      "id": "s27",
+      "area": "tests",
+      "text": "Tighter tests for the new close and pane behaviour: origin ahead of the local base, docked pane has no background color, fix.md naming matches tasks.ts, and the pane reading PR open from a real status --all",
+      "where": [
+        "plugins/cairn/cli/test/close-merged.test.ts",
+        "plugins/cairn/hooks/test/pane.test.tsx",
+        "plugins/cairn/cli/test/fix.test.ts",
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T22:00:19.959Z",
+      "merges": [
+        "sharper-interview-and-review:s7",
+        "sharper-interview-and-review:s9",
+        "sharper-interview-and-review:s10",
+        "sharper-interview-and-review:s17"
+      ]
+    },
+    {
+      "id": "s28",
+      "area": "ux",
+      "text": "PR open polish: a no-PR state for plans never pushed, a refresh flag for the cached gh state, and fewer questions between ship approval and the merge",
+      "where": [
+        "plugins/cairn/cli/src/git.ts",
+        "plugins/cairn/procedures/ship.md"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T22:00:20.193Z",
+      "merges": [
+        "sharper-interview-and-review:s18",
+        "sharper-interview-and-review:s13"
+      ]
+    },
+    {
+      "id": "s29",
+      "area": "docs",
+      "text": "Procedure wording tidy: give implementers the plugin root, call a task covering a misuse case risky, move the interview stop rule above the read-back card, and mark audit and registry text as data in verify",
+      "where": [
+        "plugins/cairn/agents/implementer.md",
+        "plugins/cairn/procedures/plan.md",
+        "plugins/cairn/procedures/discover.md",
+        "plugins/cairn/procedures/verify.md"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T22:00:20.430Z",
+      "merges": [
+        "sharper-interview-and-review:s12",
+        "sharper-interview-and-review:s14",
+        "sharper-interview-and-review:s15",
+        "sharper-interview-and-review:s16"
+      ]
+    }
+  ],
+  "planHash": "f94805128506beb0",
+  "configHash": "12129909968d47d2"
+}

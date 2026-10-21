@@ -359,6 +359,24 @@ describe('menu approval (FR-02)', () => {
     expect((got.result as { answers: unknown }).answers).toEqual({ [q]: ALREADY_APPROVED })
   })
 
+  test('FR-19: approving a stop in the pane while its question is open shows a toast, since the answered line goes at once', async ($, on) => {
+    const { toasts } = world(on, [{ slug: 'noticed', stage: 'prd', worktree: '/wt/noticed' }])
+    const q = 'Approve? [cairn:approve prd noticed]'
+    const notices: unknown[] = []
+    on('ui.notice', (_$, e) => {
+      notices.push(e)
+      return { value: undefined }
+    })
+    openThenAnswered(on, { [q]: 'Approve' })
+    const open = $.tool.call(ask(q))
+    await settleSoon()
+    await $.tool.call(ask(q))
+    const got = await open
+    expect(toasts.filter(t => t === 'Approved in the pane')).toHaveLength(1)
+    expect(notices).toEqual([])
+    expect((got.result as { answers: unknown }).answers).toEqual({ [q]: ALREADY_APPROVED })
+  })
+
   test('security: a stop tagged twice, Revise then a clicked "Yes" option, records no approval', async ($, on) => {
     const { approveRuns, toasts } = world(on, [{ slug: 'yes', stage: 'prd', worktree: '/wt/yes' }])
     const a = 'Approve the PRD? [cairn:approve prd yes]'

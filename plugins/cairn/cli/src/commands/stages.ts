@@ -149,7 +149,7 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         gate(!record.problems.length, s, 'approve ship', opts, record.problems.join('; '), [record.fix]);
         s.approvals.ship = approval();
         log(s, 'ship approved', source);
-        return { message: 'Ship approved. Next: open the PR, then `cairn advance`.' };
+        return { message: 'Ship approved. Next: open the PR, then `cairn advance`; offer the merge last.' };
       });
     default:
       throw new CliError(APPROVE_USAGE);

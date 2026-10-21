@@ -285,6 +285,14 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await ui.unmount()
     })
 
+    test(`a learn plan whose branch is not merged reads PR open (${surface})`, async ($, on) => {
+      world(on, { rows: [{ ...row(plan({ stage: 'learn' }), WT), prOpen: true }] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      expect(await drawn(ui)).toContain('Learn · PR open')
+      await ui.unmount()
+    })
+
     test(`a paused plan: Resume and Status, no Pause (${surface})`, async ($, on) => {
       world(on, { rows: [row(plan({ paused: { at: '2026-03-01T11:00:00.000Z', mode: 'drain' } }), WT)] })
       await start($, WT)
@@ -1059,6 +1067,18 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
     expect(r.props).toMatchObject({ paddingX: 1, gap: 0 })
     expect(r.props.backgroundColor).toBeUndefined()
     for (const b of await boxes(ui)) expect(b.props.marginTop).toBeUndefined()
+    await ui.unmount()
+  })
+
+  test('FR-20: at a narrow width the inline fallback and tip lines truncate instead of wrapping', async ($, on) => {
+    world(on, { cwd: MAIN, rows: [row(EXECUTE, WT)] })
+    await start($, MAIN)
+    const ui = await mountAs($, { placement: 'inline', bodyColumns: 30 })
+    const texts = await ui.findAll({ type: 'Text' })
+    const fallback = texts.find((t: { text: string }) => t.text.startsWith('Showing '))
+    const tip = texts.find((t: { text: string }) => t.text.startsWith('Full-height side pane'))
+    expect(fallback.props.wrap).toBe('truncate-end')
+    expect(tip.props.wrap).toBe('truncate-end')
     await ui.unmount()
   })
 

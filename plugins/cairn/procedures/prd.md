@@ -13,7 +13,7 @@ Run `cairn status --json`. The stage must be `prd`. Any other stage: say which a
 Write `docs/sdlc/plans/<date>-<slug>/prd.md` in the plan worktree from `${CLAUDE_PLUGIN_ROOT}/templates/prd.md`. Keep the five required `## ` headings exactly as the template has them: Problem, Solution, Requirements, Non-goals, Open questions. Sources: `decisions.md` and, when present, `docs/sdlc/product/PRD.md`.
 
 - Requirements: one testable behavior each, ids `FR-01`, `FR-02`, ... in order, each with a one-line `Check:` that says how you will know it works.
-- Keep the optional sections (Unhappy paths, Security, Non-functional requirements, User stories) only where they are real for this plan; delete the rest. Add Security whenever the plan touches auth, money, personal data or untrusted input.
+- Keep the optional sections (Unhappy paths, Security, Non-functional requirements, User stories) only where they are real for this plan; delete the rest. Security is required whenever discover recorded a trust boundary in `decisions.md`. Write it as a short threat model: trust boundaries, assets, a STRIDE pass (one line per boundary) and misuse cases. Read the Threat model section of `references/security-checklist.md` first. Leave it out only when every boundary was recorded as not applicable.
 - Open questions: every unresolved item is `- [ ]`. Resolved items are `- [x]` with the answer.
 - Every claim traces to a recorded decision. When the draft needs a decision that is missing, ask the user (AskUserQuestion, recommended first), run `cairn decide`, then continue.
 

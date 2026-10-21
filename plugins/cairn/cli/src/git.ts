@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { CliError } from './util.ts';
 
 /**
@@ -48,4 +49,65 @@ export function commitPath(cwd: string, path: string, message: string): boolean 
   if (gitOk(['diff', '--cached', '--quiet', '--', path], cwd)) return false;
   git(['commit', '-q', '-m', message, '--', path], cwd);
   return true;
+}
+
+export type MergeState = 'merged' | 'open' | 'unknown';
+
+/** Nothing here may prompt for credentials. */
+const quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: '0', GH_PROMPT_DISABLED: '1' });
+
+/** A branch or base name that is safe to hand to git: state.json is committed, so it is untrusted. */
+export function safeRef(cwd: string, name: string): boolean {
+  if (!name || name.startsWith('-') || name.includes('@{')) return false;
+  return gitOk(['check-ref-format', '--branch', name], cwd);
+}
+
+/**
+ * Whether `branch` has landed in `base`, judged locally with no network. Prefers `origin/<base>` when that ref
+ * exists, else the local base. Commits that touch only the plan folder (the record, findings and PR link written
+ * after the merge) do not count. Invalid or missing refs are `unknown`.
+ */
+export function mergeState(cwd: string, branch: string, base: string, planRel: string): MergeState {
+  if (!safeRef(cwd, branch) || !safeRef(cwd, base) || !branchExists(branch, cwd)) return 'unknown';
+  let ref: string;
+  if (gitOk(['show-ref', '--verify', '--quiet', `refs/remotes/origin/${base}`], cwd)) ref = `origin/${base}`;
+  else if (branchExists(base, cwd)) ref = base;
+  else return 'unknown';
+  const args = ['rev-list', '-n', '1', '--end-of-options', `${ref}..${branch}`, '--', ':/', `:(exclude,top,literal)${planRel}`];
+  const r = spawnSync('git', [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: 'utf8', env: quietEnv() });
+  if (r.status !== 0) return 'unknown';
+  return r.stdout.trim() === '' ? 'merged' : 'open';
+}
+
+const PR_CACHE_TTL_MS = 60_000;
+type PrCache = Record<string, { merged: boolean; at: number }>;
+
+/**
+ * Whether `gh` says the branch's pull request is merged (a squash or rebase merge shows only here). The answer is
+ * cached so the pane's polling never waits on the network; a failed call counts as not merged.
+ */
+export function prMerged(cwd: string, branch: string, cacheFile: string): boolean {
+  let cache: PrCache = {};
+  try {
+    cache = JSON.parse(readFileSync(cacheFile, 'utf8'));
+  } catch {
+    // No cache yet.
+  }
+  const hit = cache[branch];
+  if (hit && (hit.merged || Date.now() - hit.at < PR_CACHE_TTL_MS)) return hit.merged;
+  if (!safeRef(cwd, branch)) return false;
+  const r = spawnSync('gh', ['pr', 'view', branch, '--json', 'state', '-q', '.state'], { cwd, encoding: 'utf8', timeout: 5000, env: quietEnv() });
+  const merged = r.status === 0 && r.stdout.trim() === 'MERGED';
+  try {
+    writeFileSync(cacheFile, JSON.stringify({ ...cache, [branch]: { merged, at: Date.now() } }));
+  } catch {
+    // An unwritable cache only costs another call.
+  }
+  return merged;
+}
+
+/** Merged by local ancestry, else by the pull request's state. Display only: nothing gates on it. */
+export function landedState(cwd: string, branch: string, base: string, planRel: string, cacheFile: string): MergeState {
+  const local = mergeState(cwd, branch, base, planRel);
+  return local === 'open' && prMerged(cwd, branch, cacheFile) ? 'merged' : local;
 }

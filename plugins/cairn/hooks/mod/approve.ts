@@ -271,7 +271,16 @@ export function install(on: On): void {
         // If the stop is approved elsewhere first, the open dialog is abandoned: its later outcome is not ours.
         shown.catch(() => undefined)
         const won = await Promise.race([shown, early.then(() => undefined)])
-        if (won === undefined) return answeredEarly()
+        if (won === undefined) {
+          // The dialog is still open under its question: say where the approval came from. A dialog that has
+          // already closed refuses the line; that is no reason to fail the answer.
+          try {
+            await $.ui.toast('Approved in the pane')
+          } catch {
+            // The question closed first; the answer below still stands.
+          }
+          return answeredEarly()
+        }
         ran = won
       }
     } finally {

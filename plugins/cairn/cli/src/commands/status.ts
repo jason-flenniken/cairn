@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { commonDir, git } from '../git.ts';
-import { PLAN_PREFIXES, parseBranch, planRef, planRelIn, resolvePlanDir, type Ctx } from '../locate.ts';
+import { basename, join } from 'node:path';
+import { commonDir, git, landedState } from '../git.ts';
+import { PLAN_PREFIXES, PLANS_DIR, parseBranch, planRef, planRelIn, planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { modActive } from '../proof.ts';
 import { nextFor, renderIndex, summary, type IndexRow } from '../render.ts';
 import { loadState, parseState, saveState } from '../state.ts';
@@ -45,23 +45,34 @@ export function warnings(pc: PlanCtx, s: State): string[] {
   return w;
 }
 
+/**
+ * A plan at learn or closed whose branch has not landed in its base yet is waiting on its pull request.
+ * Display only: close never waits on it. Asks `gh` (cached) when local history cannot tell, so only `cairn status` calls this.
+ */
+function waitingOnMerge(ctx: Ctx, s: State, cwd: string, planRel: string): boolean {
+  if (s.stage !== 'learn' && s.stage !== 'closed') return false;
+  return landedState(cwd, s.branch, s.base, planRel, join(commonDir(ctx.mainRoot), 'cairn-pr-state.json')) === 'open';
+}
+
 export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
     const active = rows.filter((r) => r.state.stage !== 'closed');
+    const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, `${PLANS_DIR}/${basename(r.dir)}`) }));
     const lines = rows.length
-      ? rows.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
+      ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
   const w = warnings(pc, s);
   const next = nextFor(s);
+  const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
   return {
-    message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
+    message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
+    data: { state: s, next, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
   };
 }
 
