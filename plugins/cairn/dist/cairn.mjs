@@ -8216,6 +8216,43 @@ function closeGates(pc, s, opts, record, tests) {
   gate(!record.problems.length, s, "close", opts, record.problems.join("; "), [record.fix]);
   testsGate(tests, s, "close", opts);
 }
+function prdProblems(md) {
+  const problems = docProblems(md, "prd.md", PRD_SECTIONS);
+  const open = uncheckedItems(md ? sections(md).get("open questions") : "");
+  if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(" | ")}`);
+  return problems;
+}
+var firstSentence = (text = "") => text.replace(/\s+/g, " ").trim().match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text.trim();
+function prdSummary(md) {
+  const sec = sections(md);
+  const reqs = (sec.get("requirements") ?? "").split("\n").filter((l) => /\bFR-\d+\b/.test(l)).map((l) => `- ${l.replace(/^\s*[-*]\s+/, "").replace(/\*\*/g, "").split(/Check:/)[0].trim()}`);
+  return [firstSentence(sec.get("problem")), "", "**Requirements**", ...reqs, "", "**Non-goals**", sec.get("non-goals") ?? ""].join("\n").trim();
+}
+function planSummary(s) {
+  return s.phases.flatMap((ph, i) => [`${i + 1}. **${ph.name}**`, ...ph.tasks.map((t) => `   - ${t.name} (${t.complexity})${t.risky ? " risky" : ""}`)]).join("\n");
+}
+function readyFor(pc) {
+  try {
+    const s = loadState(pc.plan.dir);
+    const file = (name) => join9(pc.plan.dir, name);
+    const pcLike = pc;
+    if (s.stage === "prd" && !s.approvals.prd) {
+      const md = readText(file("prd.md"));
+      return md && !prdProblems(md).length ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0;
+    }
+    if (s.stage === "plan" && !s.approvals.plan) {
+      const md = readText(file("plan.md"));
+      return s.phases.length && md && s.planHash === hashText(md) ? { kind: "plan", file: file("plan.md"), summary: planSummary(s) } : void 0;
+    }
+    if (s.stage === "ship" && !s.approvals.ship && s.evidence.review?.result === "pass") {
+      if (recordCheck(pcLike, fastLane(s) ? "fix" : "feature").problems.length) return void 0;
+      const md = readText(file("RECORD.md")) ?? "";
+      return { kind: "ship", file: file("RECORD.md"), summary: (sections(md).get("what was built") ?? "").trim() };
+    }
+  } catch {
+  }
+  return void 0;
+}
 var APPROVAL_KINDS = ["prd", "plan", "ship"];
 var APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "\u2026"]';
 function cmdApprove(ctx, kind, opts, io) {
@@ -8228,9 +8265,7 @@ function cmdApprove(ctx, kind, opts, io) {
       const md = readText(planFile(pc, "prd.md"));
       return mutate(pc, "PRD approved", (s) => {
         gate(s.stage === "prd", s, "approve prd", opts, `the plan is in ${s.stage}, not prd`);
-        const problems = docProblems(md, "prd.md", PRD_SECTIONS);
-        const open = uncheckedItems(md ? sections(md).get("open questions") : "");
-        if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(" | ")}`);
+        const problems = prdProblems(md);
         gate(!problems.length, s, "approve prd", opts, problems.join("; "), ["finish prd.md, resolving open questions with the user"]);
         s.approvals.prd = { ...approval(), hash: md ? hashText(md) : void 0 };
         log(s, "PRD approved", source);
@@ -8733,7 +8768,7 @@ function cmdStatus(ctx, opts) {
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     const openSuggestions = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions })), modActive: modIsActive(ctx), openSuggestions } };
+${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: join11(r.worktree, planRel(r.state.slug)) } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -8741,7 +8776,7 @@ ${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.st
   const next = nextFor(s);
   return {
     message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []].join("\n"),
-    data: { state: s, next, warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
+    data: { state: s, next, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
   };
 }
 var procedurePath = (name) => join11(pluginRoot(), "procedures", `${name}.md`);

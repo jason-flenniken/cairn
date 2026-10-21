@@ -56,7 +56,7 @@ Phase 2: Checkout
   - Checkout form (standard)     blocked by: Cart API
 ```
 
-Run `cairn status --json` and read `modActive`.
+Run `cairn status --json`. If `state.approvals.plan` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
 - True: ask with AskUserQuestion, with the tree as the preview on the first option. The question text includes `[cairn:approve plan <slug>]`, with the plan slug from the status output:
   - Approve (Recommended)
   - Revise: ask what to change; edit `plan.md`; rerun step 4
