@@ -430,6 +430,16 @@ describe('polling (FR-10, NFR-01)', () => {
     await clock.advance(2_000)
     expect(w.statuses.at(-1)).toBe('2 active plans')
   })
+
+  test('a new plan on a feature or fix branch is noticed through its refs folder, and a missing folder does not stop the poll', async ($, on) => {
+    const { w, clock } = world(on, { cwd: MAIN, rows: [row(plan(), WT)] })
+    w.mtimes.set('/repo/.git/refs/heads/feature', 1)
+    await start($, MAIN)
+    w.rows = [...w.rows, row(plan({ slug: 'gamma', title: 'Gamma' }), '/repo/.claude/worktrees/sdlc-gamma')]
+    w.mtimes.set('/repo/.git/refs/heads/feature', 2)
+    await clock.advance(2_000)
+    expect(w.statuses.at(-1)).toBe('2 active plans')
+  })
 })
 
 describe('opening the pane (FR-08)', () => {

@@ -87,7 +87,11 @@ async function readPlans($: EngineInterface): Promise<CairnPlanRow[] | undefined
 
 /** The files whose modification times say a plan changed: live state files, plan branches, worktrees. */
 function watched(plans: CairnPlanRow[]): string[] {
-  return [...plans.filter(r => r.worktree).map(stateFile), `${common}/refs/heads/sdlc`, `${common}/worktrees`]
+  return [
+    ...plans.filter(r => r.worktree).map(stateFile),
+    ...['sdlc', 'feature', 'fix'].map(prefix => `${common}/refs/heads/${prefix}`),
+    `${common}/worktrees`,
+  ]
 }
 
 async function signature($: EngineInterface, paths: string[]): Promise<string> {
