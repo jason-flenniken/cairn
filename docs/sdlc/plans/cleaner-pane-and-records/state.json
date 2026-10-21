@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:41:37.303Z",
+  "updated": "2026-10-21T14:44:43.618Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -17,7 +17,199 @@
       "hash": "7d9f4955ae8003a5"
     }
   },
-  "phases": [],
+  "phases": [
+    {
+      "id": "readable-now",
+      "name": "Readable Now tab and dated folders",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "dated-folders",
+          "name": "Dated plan folders",
+          "covers": [
+            "FR-15",
+            "FR-16"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/test/pause.test.ts",
+            "plugins/cairn/references/cli.md",
+            "README.md",
+            "docs/design.md"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "moves tracked plan files; old folders and old branches must keep resolving"
+        },
+        {
+          "id": "pane-now",
+          "name": "Tabs and the Now view",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-05",
+            "FR-06",
+            "FR-19"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/types/**"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "approval-hardening",
+          "name": "Approval hook fixes",
+          "covers": [
+            "FR-17",
+            "FR-18"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/approve.ts",
+            "plugins/cairn/hooks/test/approve.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "the approval hook is the human-proof path"
+        }
+      ]
+    },
+    {
+      "id": "few-follow-ups",
+      "name": "Few follow-ups and automatic findings",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "followup-rules",
+          "name": "Follow-up cap, merge, decline and expiry",
+          "covers": [
+            "FR-10",
+            "FR-11",
+            "FR-12"
+          ],
+          "blockedBy": [
+            "dated-folders"
+          ],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/procedures/discover.md",
+            "plugins/cairn/procedures/plan.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/procedures/suggestions.md",
+            "plugins/cairn/references/**"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "findings",
+          "name": "Findings written automatically",
+          "covers": [
+            "FR-14"
+          ],
+          "blockedBy": [
+            "followup-rules"
+          ],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/procedures/learn.md",
+            "plugins/cairn/templates/record.md",
+            "plugins/cairn/agents/recorder.md"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "pane-history",
+          "name": "History tab",
+          "covers": [
+            "FR-07"
+          ],
+          "blockedBy": [
+            "pane-now"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/types/**"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    },
+    {
+      "id": "records",
+      "name": "Records tab",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "records-command",
+          "name": "List records from the CLI",
+          "covers": [
+            "FR-08"
+          ],
+          "blockedBy": [
+            "findings"
+          ],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/references/cli.md"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "pane-records",
+          "name": "Records tab in the pane",
+          "covers": [
+            "FR-08",
+            "FR-09"
+          ],
+          "blockedBy": [
+            "records-command",
+            "pane-history"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/types/**"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    }
+  ],
   "evidence": {},
   "drift": [],
   "log": [
@@ -39,6 +231,12 @@
       "at": "2026-10-21T14:41:37.302Z",
       "event": "advanced",
       "detail": "plan"
+    },
+    {
+      "at": "2026-10-21T14:44:43.617Z",
+      "event": "plan loaded",
+      "detail": "3 phases, 8 tasks"
     }
-  ]
+  ],
+  "planHash": "2de7ba0ac296b6b8"
 }
