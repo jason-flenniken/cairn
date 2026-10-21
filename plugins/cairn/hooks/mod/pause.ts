@@ -1,6 +1,7 @@
 // Pause, Stop now, and resume (FR-13..FR-16): the mod writes the handoff, then asks the CLI.
 import type { EngineInterface, On, ProcessRunInit, SessionStartInput } from 'claude-code'
 import { turnComplete, turnStart } from './activity.ts'
+import type { CairnReady as Ready } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
 
 type Task = { id: string; status?: string; substep?: string; worktree?: string }
@@ -91,7 +92,7 @@ const ageText = (minutes: number): string =>
 
 const said = (r: { stdout: string; stderr: string }): string => (r.stderr.trim() || r.stdout.trim())
 
-type Plan = { state: PlanState; worktree: string }
+type Plan = { state: PlanState; worktree: string; ready?: Ready }
 
 /** The plan a session at the repo root works on: the one active plan, else the most recently updated. */
 export function pickCurrent<R extends { state: { stage?: string; updated?: string }; worktree?: string }>(rows: R[]): R | undefined {
@@ -103,15 +104,15 @@ export function pickCurrent<R extends { state: { stage?: string; updated?: strin
 /** The session's plan from `cairn status --json`; from the repo root, the active plan from `status --all`. */
 export async function plan($: EngineInterface): Promise<Plan | string> {
   const r = await cairn($, ['status', '--json'], quick)
-  const json = r.json as { state?: PlanState; planWorktree?: string } | undefined
+  const json = r.json as { state?: PlanState; planWorktree?: string; ready?: Ready } | undefined
   if (r.exitCode === 0 && json?.state !== undefined && json.planWorktree !== undefined) {
-    return { state: json.state, worktree: json.planWorktree }
+    return { state: json.state, worktree: json.planWorktree, ready: json.ready }
   }
   const all = await cairn($, ['status', '--all', '--json'], quick)
-  const rows = Array.isArray(all.json?.plans) ? (all.json.plans as { state: PlanState; worktree?: string }[]) : []
+  const rows = Array.isArray(all.json?.plans) ? (all.json.plans as { state: PlanState; worktree?: string; ready?: Ready }[]) : []
   const picked = all.exitCode === 0 ? pickCurrent(rows.filter(p => typeof p.state?.slug === 'string')) : undefined
   if (picked?.worktree === undefined) return `no active plan here: ${said(r) || 'open Claude Code in a plan worktree'}`
-  return { state: picked.state, worktree: picked.worktree }
+  return { state: picked.state, worktree: picked.worktree, ready: picked.ready }
 }
 
 const fail = ($: EngineInterface, message: string): Outcome => {

@@ -1,12 +1,12 @@
 import { describe, expect, mock, test, type Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { isApproveLabel, parseTags, waitingStop } from '../mod/approve.ts'
+import { isApproveLabel, parseTags } from '../mod/approve.ts'
 
 const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const HASH_FILE = '/repo/.git/cairn/mod-secret.sha256'
 
 type Run = { argv: readonly string[]; init?: { cwd?: string; env?: Record<string, string>; timeoutMs?: number } }
-type Plan = { slug: string; stage: string; approvals?: Record<string, unknown>; phases?: unknown[]; worktree?: string }
+type Plan = { slug: string; stage: string; approvals?: Record<string, unknown>; phases?: unknown[]; worktree?: string; ready?: { kind: string } }
 
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -33,9 +33,18 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
     if (bin === 'git') return answer(0, '/repo/.git\n')
     if (bin === 'chmod') return answer(0, '')
     if (args.join(' ') === 'status --all --json') {
-      const rows = plans.map(({ worktree, ...p }) => ({
-        state: { approvals: {}, phases: [], ...p }, live: worktree !== undefined, worktree, next: {},
-      }))
+      // A plan at an unapproved stop is ready unless the fixture says `ready: undefined`.
+      const rows = plans.map(p => {
+        const { worktree, ready, ...rest } = p
+        const atStop = ['prd', 'plan', 'ship'].includes(p.stage) && !p.approvals?.[p.stage]
+        return {
+          state: { approvals: {}, phases: [], ...rest },
+          live: worktree !== undefined,
+          worktree,
+          next: {},
+          ready: 'ready' in p ? ready : atStop ? { kind: p.stage } : undefined,
+        }
+      })
       return answer(0, JSON.stringify({ ok: true, plans: rows, modActive: true }))
     }
     const given = e.init?.env?.CAIRN_APPROVER
@@ -121,16 +130,6 @@ describe('isApproveLabel', () => {
     for (const label of ['Revise', 'Do not approve', 'yesterday', 'lgtmx', '', undefined]) {
       expect(isApproveLabel(label)).toBe(false)
     }
-  })
-})
-
-describe('waitingStop', () => {
-  test('names the unapproved prd, plan or ship stop and nothing else; a finished phase waits for no one', () => {
-    expect(waitingStop({ stage: 'prd' })).toBe('prd')
-    expect(waitingStop({ stage: 'prd', approvals: { prd: { at: 'x' } } })).toBeUndefined()
-    expect(waitingStop({ stage: 'ship', approvals: {} })).toBe('ship')
-    expect(waitingStop({ stage: 'execute' })).toBeUndefined()
-    expect(waitingStop({ stage: 'discover' })).toBeUndefined()
   })
 })
 
@@ -283,7 +282,8 @@ describe('menu approval (FR-02)', () => {
     dialog(on, { [q]: 'Approve' })
     await $.tool.call(ask(q))
     const timeout = (pred: (r: Run) => boolean) => runs.filter(pred).map(r => r.init?.timeoutMs)
-    expect(timeout(r => r.argv[1] === 'status')).toEqual([60_000])
+    // One read for the already-approved check before the dialog, one when the approval is judged.
+    expect(timeout(r => r.argv[1] === 'status')).toEqual([60_000, 60_000])
     expect(timeout(r => r.argv[0] === 'chmod')).toEqual([60_000, 60_000])
     expect(timeout(r => r.argv[1] === 'approve')).toEqual([600_000])
   })
@@ -310,6 +310,150 @@ describe('menu approval (FR-02)', () => {
     const got = await $.tool.call(ask(q))
     expect(got.deny).toBeUndefined()
     expect(got.result).toEqual({ questions: ask(q).questions, answers: { [q]: 'Approve' } })
+  })
+})
+
+describe('ready gates approval (FR-11)', () => {
+  test('a tagged Approve while ready is absent (the PRD is still being drafted) approves nothing', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'drafting', stage: 'prd', worktree: '/wt/drafting', ready: undefined }])
+    const q = 'Approve? [cairn:approve prd drafting]'
+    dialog(on, { [q]: 'Approve' })
+    const got = await $.tool.call(ask(q))
+    expect(approveRuns()).toEqual([])
+    expect(got.context?.join()).toMatch(/not waiting for prd approval/)
+  })
+
+  test('ready for another stop does not approve this one', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'other', stage: 'prd', worktree: '/wt/other', ready: { kind: 'plan' } }])
+    const q = 'Approve? [cairn:approve prd other]'
+    dialog(on, { [q]: 'Approve' })
+    await $.tool.call(ask(q))
+    expect(approveRuns()).toEqual([])
+  })
+})
+
+describe('already approved from the pane (FR-13, FR-15)', () => {
+  const DONE = { at: 'x' }
+
+  /** A dialog that counts how often it is shown. */
+  function counted(on: On, answers: (qs: readonly { question: string }[]) => Record<string, string>) {
+    const shown = { n: 0 }
+    on('tool.call', { tool: 'AskUserQuestion' }, (_$, e) => {
+      shown.n++
+      return { result: { questions: e.questions, answers: answers(e.questions) } as never }
+    })
+    return shown
+  }
+
+  test('a tagged question for an approved stop is answered by the mod and never shown', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'done', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/done', ready: { kind: 'plan' } }])
+    const shown = counted(on, () => ({}))
+    const q = 'Approve the PRD? [cairn:approve prd done]'
+    const got = await $.tool.call(ask(q))
+    expect(shown.n).toBe(0)
+    expect(got.result).toEqual({ questions: ask(q).questions, answers: { [q]: 'Already approved from the pane' } })
+    expect(approveRuns()).toEqual([])
+    expect(got.context).toBeUndefined()
+    expect(toasts).toEqual([])
+  })
+
+  test('several tagged questions, all approved, are all answered', async ($, on) => {
+    world(on, [{ slug: 'done', stage: 'ship', approvals: { prd: DONE, plan: DONE }, worktree: '/wt/done', ready: { kind: 'ship' } }])
+    const shown = counted(on, () => ({}))
+    const a = 'PRD? [cairn:approve prd done]'
+    const b = 'Plan? [cairn:approve plan done]'
+    const got = await $.tool.call(ask(a, b))
+    expect(shown.n).toBe(0)
+    expect((got.result as { answers: object }).answers).toEqual({ [a]: 'Already approved from the pane', [b]: 'Already approved from the pane' })
+  })
+
+  test('a stop that is not approved is shown as usual', async ($, on) => {
+    world(on, [{ slug: 'open', stage: 'prd', worktree: '/wt/open' }])
+    const q = 'Approve? [cairn:approve prd open]'
+    const shown = counted(on, () => ({ [q]: 'Revise' }))
+    await $.tool.call(ask(q))
+    expect(shown.n).toBe(1)
+  })
+
+  test('one approved tag among an unapproved one is shown', async ($, on) => {
+    world(on, [{ slug: 'half', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/half' }])
+    const a = 'PRD? [cairn:approve prd half]'
+    const b = 'Plan? [cairn:approve plan half]'
+    const shown = counted(on, () => ({ [a]: 'Revise', [b]: 'Revise' }))
+    await $.tool.call(ask(a, b))
+    expect(shown.n).toBe(1)
+  })
+
+  test('an untagged question beside an approved tag is shown, not swallowed', async ($, on) => {
+    world(on, [{ slug: 'mixed', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/mixed' }])
+    const a = 'PRD? [cairn:approve prd mixed]'
+    const b = 'Which library?'
+    const shown = counted(on, () => ({ [a]: 'Revise', [b]: 'Revise' }))
+    await $.tool.call(ask(a, b))
+    expect(shown.n).toBe(1)
+  })
+
+  test('an override question is never auto-answered', async ($, on) => {
+    world(on, [{ slug: 'ov', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/ov' }])
+    const q = 'Skip? [cairn:override ov]'
+    const shown = counted(on, () => ({ [q]: 'No' }))
+    await $.tool.call(ask(q))
+    expect(shown.n).toBe(1)
+  })
+
+  test('a subagent\'s question is never auto-answered', async ($, on) => {
+    world(on, [{ slug: 'sub', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/sub' }])
+    const q = 'PRD? [cairn:approve prd sub]'
+    const shown = counted(on, () => ({ [q]: 'Revise' }))
+    await $.tool.call({ ...ask(q), agentId: 'a1' } as never)
+    expect(shown.n).toBe(1)
+  })
+
+  test('a tag for a plan the CLI does not list is shown', async ($, on) => {
+    world(on, [])
+    const q = 'PRD? [cairn:approve prd ghost]'
+    const shown = counted(on, () => ({ [q]: 'Revise' }))
+    await $.tool.call(ask(q))
+    expect(shown.n).toBe(1)
+  })
+
+  test('a failing status read shows the dialog and approves nothing', async ($, on) => {
+    on('process.run', () => ({ deny: 'EIO: cannot start' }))
+    const q = 'PRD? [cairn:approve prd broken]'
+    const shown = counted(on, () => ({ [q]: 'Approve' }))
+    const got = await $.tool.call(ask(q))
+    expect(shown.n).toBe(1)
+    expect(got.deny).toBeUndefined()
+  })
+
+  test('the model\'s prefilled answer on an unapproved stop still approves nothing', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'pre', stage: 'prd', worktree: '/wt/pre' }])
+    const q = 'Approve? [cairn:approve prd pre]'
+    counted(on, () => ({ [q]: 'Approve' }))
+    await $.tool.call({ ...ask(q), answers: { [q]: 'Approve' } })
+    expect(approveRuns()).toEqual([])
+  })
+
+  test('FR-15: two tagged questions for one stop in one dialog yield one approval and one note', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'twice', stage: 'prd', worktree: '/wt/twice' }])
+    const a = 'Approve the PRD? [cairn:approve prd twice]'
+    const b = 'Really approve the PRD? [cairn:approve prd twice]'
+    counted(on, () => ({ [a]: 'Approve', [b]: 'Approve' }))
+    const got = await $.tool.call(ask(a, b))
+    expect(approveRuns()).toHaveLength(1)
+    expect(got.context).toHaveLength(1)
+    expect(toasts).toHaveLength(1)
+  })
+
+  test('an approval that is already recorded, answered Approve in a shown dialog, says nothing', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'late', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/late' }])
+    const a = 'PRD? [cairn:approve prd late]'
+    const b = 'Which library?'
+    counted(on, () => ({ [a]: 'Approve', [b]: 'x' }))
+    const got = await $.tool.call(ask(a, b))
+    expect(approveRuns()).toEqual([])
+    expect(got.context).toBeUndefined()
+    expect(toasts).toEqual([])
   })
 })
 

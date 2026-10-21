@@ -4,7 +4,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnView } from '../../types/index.d.ts'
 import { etaMs, fmtDuration, LINGER_MS, readAgents, readFeed, readMain, readTick, type EtaTask } from './activity.ts'
-import { approveAs, waitingStop, type Kind, type PlanState as StopState } from './approve.ts'
+import { approveAs, type Kind } from './approve.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
@@ -16,6 +16,8 @@ type Drift = { path?: string; acked?: unknown }
 // What the drawing reads lives in $.state, so a hot reload keeps the view.
 const view = atom({ plugin: 'cairn', key: 'view' } as const, null as CairnView | null)
 const isTurnRunning = atom({ plugin: 'cairn', key: 'isTurnRunning' } as const, false)
+// The file whose full text the approval card shows below it (Read all); null while closed.
+const readAllOf = atom({ plugin: 'cairn', key: 'readAllOf' } as const, null as string | null)
 
 const PANE = 'cairn'
 const PANE_PREF = 'pane'
@@ -225,7 +227,7 @@ async function togglePane($: EngineInterface, arg: string): Promise<string> {
 const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${kind} stop of plan ${slug}?`
 
 /** Confirms with fixed wording, then approves through the shared secret path (FR-05). */
-async function confirmAndApprove($: EngineInterface, slug: string, kind: Kind): Promise<string> {
+async function confirmAndApprove($: EngineInterface, slug: string, kind: Kind): Promise<string | undefined> {
   // The slug is the only plan text in the question, and only when it is a plain slug: no tag can ride in.
   if (!SLUG.test(slug)) return 'cairn: the plan name is not a plain slug, so nothing was approved.'
   // $.ui.ask answers only a label, so a dialog that answered itself while the user was away can't be told
@@ -241,10 +243,10 @@ async function approveCommand($: EngineInterface, arg: string): Promise<string> 
   const found = await plan($)
   if (typeof found === 'string') return 'cairn: this session is not in a plan, so nothing was approved.'
   const state = found.state as CairnPlanState
-  const waiting = waitingStop(state as StopState)
-  if (waiting === undefined) return `cairn: nothing is waiting for approval on ${state.slug}.`
+  const waiting = found.ready?.kind
+  if (waiting === undefined) return `cairn: nothing is ready for approval on ${state.slug}.`
   if (arg !== '' && arg !== waiting) return `cairn: ${state.slug} is waiting for ${waiting} approval, not ${arg}; nothing was approved.`
-  return confirmAndApprove($, state.slug, waiting)
+  return (await confirmAndApprove($, state.slug, waiting)) ?? `cairn: ${state.slug} ${waiting} is already approved.`
 }
 
 /** A press's work; a failure is a toast, never a throw (NFR-07). */
@@ -295,7 +297,7 @@ export function install(on: On): void {
   on('command.run', { command: 'cairn-approve' }, async ($, e) => asOutput(await approveCommand($, (e.args ?? '').trim()).catch(message)))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const { Box, Button, Markdown, Text } = $.ui.resolve(e)
     const v = await read($, view)
     const isRunning = await read($, isTurnRunning)
     await readTick($)
@@ -307,6 +309,9 @@ export function install(on: On): void {
     const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
     const main = await readMain($)
     const feed = await readFeed($)
+    // Read all: the document's own text, read when the card is open.
+    const openFile = await read($, readAllOf)
+    const docText = openFile === null ? '' : await $.fs.read(openFile).catch((err: unknown) => `Could not read ${openFile}: ${message(err)}`)
 
     /** A line with something at each end, the left one cut short before the right one is. */
     const split = (key: string, left: string, right: string, color?: 'green' | 'yellow') => (
@@ -317,9 +322,14 @@ export function install(on: On): void {
     )
 
     /** One agent as a bordered card; the main session is the same card with its own words. */
-    const card = (key: string, border: 'cyan' | 'green' | 'red' | 'gray', title: string, model: string, lines: string[], dim: string[]) => (
-      <Box key={key} flexDirection="column" borderStyle="round" borderColor={border} paddingX={1}>
-        {split(`${key}:title`, title, model)}
+    const card = (key: string, border: 'cyan' | 'green' | 'red' | 'gray', title: string, model: string, lines: string[], dim: string[], agentId?: string) => (
+      <Box key={`${key}:card`} flexDirection="column" borderStyle="round" borderColor={border} paddingX={1}>
+        <Box key={`${key}:title`} flexDirection="row" justifyContent="space-between">
+          <Box flexGrow={1} flexShrink={1}>
+            <Button key={key} plain onPress={() => act($, () => viewPress($, agentId))}><Text wrap="truncate-end">{title}</Text></Button>
+          </Box>
+          <Text dimColor>{model}</Text>
+        </Box>
         {lines.map((l, i) => <Text key={`${key}:l${i}`} wrap="truncate-end">{l}</Text>)}
         {dim.map((l, i) => <Text key={`${key}:d${i}`} dimColor wrap="truncate-end">{l}</Text>)}
       </Box>
@@ -327,11 +337,11 @@ export function install(on: On): void {
 
     const agentCard = (c: (typeof cards)[number]) => {
       if (c.status === 'working') {
-        return card(c.agentId, 'cyan', c.title, c.model, [`● working · ${fmtDuration(t - c.startedAt)}`], [...(c.action ? [c.action] : []), steps(c.steps)])
+        return card(`agent:${c.agentId}`, 'cyan', c.title, c.model, [`● working · ${fmtDuration(t - c.startedAt)}`], [...(c.action ? [c.action] : []), steps(c.steps)], c.agentId)
       }
       const size = c.tokens === undefined ? '' : ` · ${c.tokens >= 1000 ? `${Math.round(c.tokens / 1000)}k` : c.tokens} tokens`
       const took = fmtDuration(c.durationMs ?? 0)
-      return card(c.agentId, c.status === 'done' ? 'green' : 'red', c.title, c.model, [`${c.status === 'done' ? '✓ finished' : '✗ stopped'} · ${took}${size}`], [steps(c.steps)])
+      return card(`agent:${c.agentId}`, c.status === 'done' ? 'green' : 'red', c.title, c.model, [`${c.status === 'done' ? '✓ finished' : '✗ stopped'} · ${took}${size}`], [steps(c.steps)], c.agentId)
     }
 
     const mainCard = () =>
@@ -355,7 +365,8 @@ export function install(on: On): void {
       const where = phases.length === 0 ? '' : at < 0 ? ' · all phases done' : ` · phase ${at + 1} of ${phases.length}`
       const done = tasks.filter(x => x.status === 'done').length
       const drift = openDrift(s)
-      const waiting = waitingStop(s as StopState)
+      const ready = row.ready
+      const waiting = ready?.kind
       const isPaused = !!s.paused
       const isTaskRunning = tasks.some(x => x.status === 'in_progress')
       const eta = etaText(row, t)
@@ -383,10 +394,21 @@ export function install(on: On): void {
         isPaused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>,
         tasks.length > 0 ? <Text key="bar" wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor wrap="truncate-end">{label}</Text>,
       ]
-      const approve = waiting !== undefined && (
+      // The approval card shows only while the CLI says the document is ready, never while it is being drafted (FR-11).
+      const isOpen = ready !== undefined && openFile === ready.file
+      const approve = ready !== undefined && (
         <Box key="waiting" flexDirection={isInline ? 'row' : 'column'} gap={1} borderStyle={isInline ? undefined : 'round'} borderColor="yellow" paddingX={isInline ? 0 : 1}>
-          <Text bold color="yellow">{`Waiting on you: ${waiting} approval`}</Text>
-          <Button key="approve" label="Approve" variant="primary" onPress={() => act($, () => approvePress($, s.slug, waiting))} />
+          {isInline
+            ? <Text bold color="yellow">{`Waiting on you: ${ready.kind} approval`}</Text>
+            : <Button key="approval" plain onPress={() => act($, () => viewPress($))}><Text bold color="yellow">{`Waiting on you: ${ready.kind} approval`}</Text></Button>}
+          {!isInline && <Markdown key="summary" text={ready.summary} />}
+          <Box key="approval:buttons" flexDirection="row" gap={1}>
+            {!isInline && (
+              <Button key="readall" label={isOpen ? 'Close' : 'Read all'} onPress={() => act($, () => update($, readAllOf, cur => (cur === ready.file ? null : ready.file)))} />
+            )}
+            <Button key="approve" label="Approve" variant="primary" onPress={() => act($, () => approvePress($, s.slug, ready.kind))} />
+          </Box>
+          {isOpen && <Markdown key="document" text={docText} />}
         </Box>
       )
 
@@ -450,7 +472,14 @@ export function install(on: On): void {
 }
 
 async function approvePress($: EngineInterface, slug: string, kind: Kind): Promise<void> {
-  $.ui.toast(await confirmAndApprove($, slug, kind))
+  const said = await confirmAndApprove($, slug, kind)
+  if (said !== undefined) $.ui.toast(said)
+}
+
+/** Puts an agent's conversation in the main view, or the main one for no id; a refusal is a toast. */
+async function viewPress($: EngineInterface, agentId?: string): Promise<void> {
+  const shown = await $.ui.view(agentId === undefined ? {} : { agentId })
+  if (shown.deny !== undefined) $.ui.toast(`cairn: ${shown.deny}`)
 }
 
 /** FR-17: `cairn resume <slug>` shows where that plan lives; the list is read again either way. */
