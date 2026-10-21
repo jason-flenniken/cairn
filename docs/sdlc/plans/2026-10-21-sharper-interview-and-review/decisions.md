@@ -61,3 +61,8 @@ _2026-10-21 21:16_
 **Decision:** Fix track adopts the review and security changes (every fix gets the five-axis review and the wider risky list) but keeps its repro-first start without the goal interview; the product interview stays as it is
 **Why:** A fix lands on main like any change; its start is already well-shaped by the repro
 _2026-10-21 21:17_
+
+### 13. After reinstalling, is the docked pane still grey?
+**Decision:** Still grey: remove the transparent backgroundColor and leave a comment that Claude Code paints the panel
+**Why:** The by-eye check after the PR #1 reinstall showed no change
+_2026-10-21 21:34_
