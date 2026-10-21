@@ -6,8 +6,8 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T14:04:54.959Z",
-  "stage": "execute",
+  "updated": "2026-10-21T14:04:58.353Z",
+  "stage": "verify",
   "paused": null,
   "approvals": {
     "prd": {
@@ -113,7 +113,7 @@
     {
       "id": "visible-approvals",
       "name": "Approvals you can see",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "approval-ready",
@@ -327,6 +327,16 @@
       "at": "2026-10-21T14:04:54.959Z",
       "event": "task done",
       "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T14:04:58.352Z",
+      "event": "phase finished",
+      "detail": "Approvals you can see (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T14:04:58.353Z",
+      "event": "advanced",
+      "detail": "verify"
     }
   ],
   "suggestions": [
