@@ -1,5 +1,5 @@
 import { git, gitOk } from '../git.ts';
-import { planRel, type Ctx } from '../locate.ts';
+import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { loadState, log } from '../state.ts';
 import type { State, Suggestion } from '../types.ts';
@@ -29,7 +29,7 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
   if (unfinished.length) throw new Refusal(`phase "${phase.name}" still has unfinished tasks: ${unfinished.map((x) => x.name).join(', ')}`, ['cairn ready']);
   const blocked = phase.tasks.filter((x) => x.substep === 'blocked');
   if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(', ')}`);
-  const dirty = git(['status', '--porcelain', '--', '.', `:!${planRel(plan.slug)}`], plan.worktree);
+  const dirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside docs/sdlc: ${dirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
 
   // Reuse the last task's green test run when no code changed since; otherwise run the tests once.

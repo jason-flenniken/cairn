@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { commitPath } from '../git.ts';
-import { planRel, type Ctx } from '../locate.ts';
+import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
 import { FIX_RECORD_SECTIONS, FIX_RECORD_WORD_BUDGET, PRD_SECTIONS, proseWordCount, sections, uncheckedItems } from '../sections.ts';
@@ -200,7 +200,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
     if (to === 'closed') return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
-  if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRel(pc.plan.slug), `cairn(${pc.plan.slug}): advance to ${to}`);
+  if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
   return r;
 }
 

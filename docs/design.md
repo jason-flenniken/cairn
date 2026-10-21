@@ -35,7 +35,7 @@ It borrows the best pieces of CE, SP, Pocock, and the Vercel pack. All three plu
 
    Greenfield work adds a stack/ADR decision and a "foundations" plan first.
 2. **State.** There is one `state.json` per implementation plan, and the bundled CLI is its only writer. `STATUS.md`, `INDEX.md`, and `ROADMAP.md` are generated from it.
-3. **Where state lives.** A plan gets its own branch `sdlc/<slug>` and worktree when it is created. The directory `docs/sdlc/plans/<slug>/{decisions.md, prd.md, plan.md, state.json, STATUS.md, handoff.md}` is committed on that branch. The cross-plan view reads other branches via `git for-each-ref refs/heads/sdlc/*` plus `git show`.
+3. **Where state lives.** A plan gets its own branch `sdlc/<slug>` and worktree when it is created. The directory `docs/sdlc/plans/<date>-<slug>/{decisions.md, prd.md, plan.md, state.json, STATUS.md, handoff.md}` is committed on that branch. The cross-plan view reads other branches via `git for-each-ref refs/heads/sdlc/*` plus `git show`.
 4. **Enforcement is hard at checkpoints.** The CLI refuses a transition that lacks its evidence:
    - an approval
    - artifacts with their required sections
@@ -101,7 +101,7 @@ It borrows the best pieces of CE, SP, Pocock, and the Vercel pack. All three plu
     It escalates to the full lifecycle when it exceeds about 8 files or new requirements appear.
 16. **Build order is spine first.** v0.1 is built by hand. v0.2 onward is built using cairn itself.
 
-17. **Completion record.** When a plan is done, verified, and tested, the close step writes `docs/sdlc/plans/<slug>/RECORD.md`. It is about one page, with a hard length budget, and has these sections:
+17. **Completion record.** When a plan is done, verified, and tested, the close step writes `docs/sdlc/plans/<date>-<slug>/RECORD.md`. It is about one page, with a hard length budget, and has these sections:
     - **Links:** the PRD, the plan, the PR, and the Linear project if there is one.
     - **Why:** the problem and goals, two or three sentences from the PRD.
     - **What was built:** one or two lines per phase, user-visible outcomes first.
