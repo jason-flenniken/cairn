@@ -11,7 +11,7 @@ const feed = atom({ plugin: 'cairn', key: 'feed' } as const, [] as { at: number;
 const now = atom({ plugin: 'cairn', key: 'now' } as const, 0)
 
 const TICK_MS = 1_000
-const FEED_KEPT = 8
+const FEED_KEPT = 200
 const KEEP_ENDED_MS = 120_000
 /** How long a finished card stays on screen; a failure stays longer so it is not missed. */
 export const LINGER_MS = { done: 10_000, failed: 60_000 }
