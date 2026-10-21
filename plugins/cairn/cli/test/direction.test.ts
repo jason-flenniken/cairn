@@ -154,6 +154,17 @@ test('parseScorecard returns the rows of a valid block', () => {
   assert.equal(r.rows.requirements.length, 2);
 });
 
+test('parseScorecard reads a report with CRLF line endings', () => {
+  const r = parseScorecard(card({}).replace(/\n/g, '\r\n'));
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.rows.requirements.length, 2);
+});
+
+test('computeVerdict: a requirement listed as both aligned and contradicted is red', () => {
+  const rows = { requirements: [aligned('FR-01'), { ...aligned('FR-01'), verdict: 'contradicted' }], unplanned: [], nfr: [] } as any;
+  assert.equal(computeVerdict(rows), 'red');
+});
+
 test('parseScorecard reports no block, two blocks, bad YAML (quoting the parser), bad verdicts, and evidence without path:line', () => {
   assert.match(parseScorecard('no block here').problems.join(), /no ```yaml cairn-direction block/);
   assert.match(parseScorecard(card({}) + card({})).problems.join(), /more than one/);
@@ -218,6 +229,12 @@ test('evidence phase refuses when a covered requirement has no row, naming it', 
   refused(wt, /no row for.*FR-02/, 'evidence', 'phase');
 });
 
+test('an extra row for an uncovered id does not hide a missing covered requirement', () => {
+  const { wt, dir } = awaiting();
+  report(dir, card({ requirements: [aligned('FR-01'), aligned('FR-99')] }));
+  refused(wt, /no row for.*FR-02/, 'evidence', 'phase');
+});
+
 test('evidence phase refuses a row without path:line evidence', () => {
   const { wt, dir } = awaiting();
   report(dir, card({ requirements: [aligned('FR-01'), { id: 'FR-02', verdict: 'aligned', evidence: 'somewhere' }] }));
@@ -236,7 +253,7 @@ test('a red verdict refuses approval with proof alone, and an override with proo
   assert.equal(state().phases[0].verdict.result, 'red');
   refusedByUser(wt, /direction verdict is red/, 'approve', 'phase');
   assert.equal(state().phases[0].status, 'awaiting_approval');
-  refused(wt, /proof|approvals come from the user/, 'approve', 'phase', '--override', 'ship it');
+  refused(wt, /^approvals come from the user, and this command has no proof that one did$/, 'approve', 'phase', '--override', 'ship it');
   byUser(wt, 'approve', 'phase', '--override', 'user accepts the gap');
   assert.equal(state().phases[0].status, 'done');
   assert.ok(state().log.some((l: { override?: string }) => l.override === 'user accepts the gap'));
@@ -268,11 +285,31 @@ test('a commit touching only docs/sdlc does not make the verdict stale', () => {
   assert.equal(state().phases[0].status, 'done');
 });
 
-test('a re-plan clears every recorded phase verdict', () => {
+test('a code file moved into docs/sdlc after the verdict makes it stale', () => {
+  const { wt, dir } = awaiting();
+  report(dir, card({}));
+  ok(wt, 'evidence', 'phase');
+  mkdirSync(join(wt, 'docs/sdlc/plans'), { recursive: true });
+  g(wt, 'mv', 'src/charge/index.ts', 'docs/sdlc/plans/moved.ts');
+  g(wt, 'commit', '-q', '-m', 'move code under docs/sdlc');
+  refusedByUser(wt, /code changed since the direction check/, 'approve', 'phase');
+});
+
+test('a re-plan clears every recorded phase verdict, on more than one phase', () => {
   const { wt, dir, state } = awaiting();
   report(dir, card({}));
   ok(wt, 'evidence', 'phase');
+  byUser(wt, 'approve', 'phase');
+  const swt = ok(wt, 'slice', 'start', 'receipt').data!.worktree as string;
+  write(join(swt, 'src/receipt/index.ts'), 'export const r = 1;\n');
+  g(swt, 'add', '-A');
+  g(swt, 'commit', '-q', '-m', 'receipt');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', `sdlc-slice/${state().slug}/receipt`);
+  ok(wt, 'slice', 'done', 'receipt');
+  write(join(dir, 'direction/extras.md'), card({ requirements: [aligned('FR-01')] }));
+  ok(wt, 'evidence', 'phase');
   assert.ok(state().phases[0].verdict);
+  assert.ok(state().phases[1].verdict);
   ok(wt, 'plan', 'load', '--replan');
   for (const p of state().phases) assert.equal(p.verdict, undefined);
 });

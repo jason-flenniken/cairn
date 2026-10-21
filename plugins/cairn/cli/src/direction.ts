@@ -1,6 +1,6 @@
 import { parse } from 'yaml';
 
-const BLOCK = /```ya?ml[ \t]+cairn-direction[ \t]*\n([\s\S]*?)```/g;
+const BLOCK = /```ya?ml[ \t]+cairn-direction[ \t]*\r?\n([\s\S]*?)```/g;
 const VERDICTS = ['aligned', 'partial', 'missing', 'contradicted'] as const;
 const CLASSES = ['pulled-forward', 'unplanned', 'non-goal-breach', 'supporting'] as const;
 /** A file path, a colon, and a line number or range. */
@@ -16,7 +16,7 @@ const empty = (): Scorecard => ({ requirements: [], unplanned: [], nfr: [] });
 
 /** Find the one `yaml cairn-direction` block in a direction report and validate its rows. */
 export function parseScorecard(md: string): { rows: Scorecard; problems: string[] } {
-  const blocks = [...md.matchAll(BLOCK)];
+  const blocks = [...md.replace(/\r\n/g, '\n').matchAll(BLOCK)];
   if (!blocks.length) return { rows: empty(), problems: ['the report has no ```yaml cairn-direction block'] };
   if (blocks.length > 1) return { rows: empty(), problems: ['the report has more than one cairn-direction block; keep exactly one'] };
   let doc: any;
