@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:49:32.835Z",
+  "updated": "2026-10-21T14:50:06.575Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -77,14 +77,17 @@
             "plugins/cairn/types/**"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": false,
-          "substep": "implementing",
           "branch": "task/cleaner-pane-and-records/pane-now",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--pane-now",
           "base": "af6423edeaf209994b6c4688cb37d75e4cc28ffe",
-          "startedAt": "2026-10-21T14:45:20.510Z"
+          "startedAt": "2026-10-21T14:45:20.510Z",
+          "doneAt": "2026-10-21T14:50:06.574Z",
+          "tip": "3f93559",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "4b2de1b7f5ae3e3411dffde85791ef9bca4c1450"
         },
         {
           "id": "approval-hardening",
@@ -315,6 +318,16 @@
       "at": "2026-10-21T14:49:32.835Z",
       "event": "task done",
       "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:49:36.735Z",
+      "event": "task merging",
+      "detail": "Tabs and the Now view"
+    },
+    {
+      "at": "2026-10-21T14:50:06.575Z",
+      "event": "task done",
+      "detail": "Tabs and the Now view"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
@@ -339,6 +352,16 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T14:48:27.467Z"
+    },
+    {
+      "id": "s3",
+      "area": "tests",
+      "text": "Cover the card activity line while a tool call is held open.",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:49:36.654Z"
     }
   ]
 }
