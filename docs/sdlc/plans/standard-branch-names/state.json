@@ -6,8 +6,8 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T13:45:06.126Z",
-  "stage": "prd",
+  "updated": "2026-10-21T13:45:25.527Z",
+  "stage": "plan",
   "paused": null,
   "approvals": {
     "prd": {
@@ -34,6 +34,11 @@
       "at": "2026-10-21T13:45:06.126Z",
       "event": "PRD approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T13:45:25.527Z",
+      "event": "advanced",
+      "detail": "plan"
     }
   ]
 }
