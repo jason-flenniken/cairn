@@ -23,6 +23,7 @@ Branch `feature/cleaner-pane-and-records` from `main` · started 2026-10-21 · u
 ## Checkpoints
 - PRD approved 2026-10-21 (you, in the menu)
 - Plan approved 2026-10-21 (you, in the menu)
+- Verify: pass (tests: 161 CLI and 353 mod passing, typecheck clean; 18 requirements met, 1 untested; FR-13 deferred)
 
 ## Out-of-scope edits to review
 - `plugins/cairn/agents/recorder.md`: changed outside task "Dated plan folders" scope (found at task done)
@@ -41,6 +42,7 @@ Branch `feature/cleaner-pane-and-records` from `main` · started 2026-10-21 · u
 - `plugins/cairn/references/cli.md`: edited outside task "Findings written automatically" scope
 
 ## Recent activity
+- 2026-10-21 15:08 verify pass: tests: 161 CLI and 353 mod passing, typecheck clean; 18 requirements met, 1 untested; FR-13 deferred
 - 2026-10-21 15:06 advanced: verify
 - 2026-10-21 15:06 phase finished: Records tab (tests green (0 fail))
 - 2026-10-21 15:06 task done: Records tab in the pane
@@ -48,4 +50,3 @@ Branch `feature/cleaner-pane-and-records` from `main` · started 2026-10-21 · u
 - 2026-10-21 15:03 task implementing: Records tab in the pane
 - 2026-10-21 15:03 task started: Records tab in the pane
 - 2026-10-21 15:03 task done: List records from the CLI
-- 2026-10-21 15:03 task merging: List records from the CLI

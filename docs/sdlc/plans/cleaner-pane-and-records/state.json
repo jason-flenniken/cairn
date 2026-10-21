@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T15:06:29.079Z",
+  "updated": "2026-10-21T15:08:26.446Z",
   "stage": "verify",
   "paused": null,
   "approvals": {
@@ -280,7 +280,13 @@
       ]
     }
   ],
-  "evidence": {},
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-21T15:08:26.446Z",
+      "note": "tests: 161 CLI and 353 mod passing, typecheck clean; 18 requirements met, 1 untested; FR-13 deferred"
+    }
+  },
   "drift": [
     {
       "path": "plugins/cairn/agents/recorder.md",
@@ -661,6 +667,11 @@
       "at": "2026-10-21T15:06:29.079Z",
       "event": "advanced",
       "detail": "verify"
+    },
+    {
+      "at": "2026-10-21T15:08:26.446Z",
+      "event": "verify pass",
+      "detail": "tests: 161 CLI and 353 mod passing, typecheck clean; 18 requirements met, 1 untested; FR-13 deferred"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
@@ -745,6 +756,26 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T15:00:58.195Z"
+    },
+    {
+      "id": "s9",
+      "area": "tests",
+      "text": "Assert learn.md and the recorder tell the recorder to list dropped follow-ups in the record.",
+      "where": [
+        "plugins/cairn/cli/test/dogfood-docs.test.ts"
+      ],
+      "from": "check",
+      "at": "2026-10-21T15:08:26.305Z"
+    },
+    {
+      "id": "s10",
+      "area": "ux",
+      "text": "Try a transparent pane background (root Box backgroundColor) and check by eye whether Claude Code honors it; the API has no documented transparency setting.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "check",
+      "at": "2026-10-21T15:08:26.375Z"
     }
   ]
 }
