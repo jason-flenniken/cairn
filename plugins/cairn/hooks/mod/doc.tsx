@@ -18,7 +18,7 @@ export async function readDoc($: EngineInterface): Promise<Doc | null> {
 /**
  * Scrolls the pane to its first line. The engine moves its window without asking the pane to draw, so a scroll
  * this mod makes is also what redraws the absolute bar at the window's last rows. A scroll the engine refuses
- * is no reason to fail the press.
+ * is no reason to fail the press. Callers fire it after their state update and do not wait on it.
  */
 export async function scrollToStart($: EngineInterface, pane: string): Promise<void> {
   await $.ui.scroll({ in: pane, to: 'start' }).catch(() => undefined)
@@ -27,12 +27,12 @@ export async function scrollToStart($: EngineInterface, pane: string): Promise<v
 /** Opens the viewer at the document's first line. */
 export async function openDoc($: EngineInterface, pane: string, doc: Doc): Promise<void> {
   await update($, docOpen, () => doc)
-  await scrollToStart($, pane)
+  void scrollToStart($, pane)
 }
 
 export async function closeDoc($: EngineInterface, pane: string): Promise<void> {
   await update($, docOpen, () => null)
-  await scrollToStart($, pane)
+  void scrollToStart($, pane)
 }
 
 /** The viewer's children: title, Back, Approve when `onApprove` is given, then the whole document. */

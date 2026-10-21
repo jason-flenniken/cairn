@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import { etaMs, fmtDuration, phrase } from '../mod/activity.ts'
 import {
-  command, drawn, MAIN, mount, mountAs, plan, ready, row, SURFACES, start, STATE, task, world, WT, type Row,
+  command, drawn, MAIN, mount, mountAs, plan, ready, row, SURFACES, start, STATE, task, until, world, WT, type Row,
 } from './world.tsx'
 
 const isCardPress = (key: string) => key === 'approval' || key.startsWith('main') || key.startsWith('agent:')
@@ -387,7 +387,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
-    await clock.settle()
+    await until(clock, () => ran('approve').length > 0 && w.toasts.length > 0)
     expect(w.asked).toEqual([{ question: 'Approve the ship stop of plan shop?', options: ['Cancel', 'Approve'] }])
     expect(ran('approve')).toEqual([['approve', 'ship']])
     expect(w.secrets).toHaveLength(1)
@@ -409,7 +409,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
   })
 
   test('a menu approval and a button approval back to back each use their own secret, and both land (Review focus 2)', async ($, on) => {
-    const { w, ran } = world(on, {
+    const { w, ran, clock } = world(on, {
       rows: [shipRow(), row(plan({ slug: 'beta', title: 'Beta', stage: 'prd' }), '/repo/.claude/worktrees/sdlc-beta', undefined, ready('prd'))],
     })
     await start($, WT)
@@ -420,6 +420,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
       questions: [{ question: q, header: 'cairn', multiSelect: false, options: [{ label: 'Approve', description: 'ok' }, { label: 'Revise', description: 'no' }] }],
     } as never)
     await ui.press({ key: 'approve' })
+    await until(clock, () => ran('approve').length > 1 && w.toasts.length > 0)
     expect(ran('approve')).toEqual([['approve', 'prd'], ['approve', 'ship']])
     expect(new Set(w.secrets).size).toBe(2)
     expect(menu.context?.join()).toMatch(/prd approved/)
@@ -551,7 +552,7 @@ describe('approval card and pressable cards (FR-11..FR-14)', () => {
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
-    await clock.settle()
+    await until(clock, () => ran('approve').length > 0)
     expect(ran('approve')).toEqual([['approve', 'prd']])
     expect(w.secrets).toHaveLength(1)
     await ui.unmount()

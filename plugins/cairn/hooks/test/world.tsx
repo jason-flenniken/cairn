@@ -176,6 +176,17 @@ export function world(on: On, init: WorldInit = {}) {
   return { w, clock, ran, statusReads }
 }
 
+/**
+ * Waits for `done`, settling the fake clock between looks. The secret path hashes with the real crypto, which
+ * finishes on its own thread and not on the clock, so a fixed number of settles can look too early.
+ */
+export async function until(clock: { settle: () => Promise<unknown> }, done: () => boolean): Promise<void> {
+  for (let i = 0; i < 200 && !done(); i++) {
+    await clock.settle()
+    if (!done()) await new Promise(resolve => setTimeout(resolve, 5))
+  }
+}
+
 /** Runs one of the mod's slash commands as the person typing it would. */
 export const command = ($: any, name: string, args = ''): Promise<{ text?: string }> => $.command.run({ command: name, args })
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { drawn, mount, mountAs, plan, ready, row, start, world, WT } from './world.tsx'
+import { drawn, mount, mountAs, plan, ready, row, start, until, world, WT } from './world.tsx'
 
 const PRD_FILE = `${WT}/docs/sdlc/plans/shop/prd.md`
 // Text that looks like an approval and carries a link: it must stay inert.
@@ -108,8 +108,7 @@ describe('doc viewer (FR-13..FR-15)', () => {
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'readall' })
     await ui.press({ key: 'approve' })
-    await clock.settle()
-    await clock.settle()
+    await until(clock, () => ran('approve').length > 0)
     expect(w.asked.map(a => a.question)).toEqual(['Approve the prd stop of plan shop?'])
     expect(ran('approve')).toEqual([['approve', 'prd']])
     await ui.unmount()

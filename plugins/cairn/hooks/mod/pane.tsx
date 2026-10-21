@@ -397,7 +397,7 @@ export function install(on: On): void {
         {TABS.map(([id, name]) => (
           <Button key={`tab:${id}`} label={name} variant={shownTab === id ? 'primary' : undefined} onPress={() => act($, async () => {
             await update($, tab, () => id)
-            await scrollToStart($, PANE)
+            void scrollToStart($, PANE)
             if (id === 'records') await fetchRecords($)
           })} />
         ))}
