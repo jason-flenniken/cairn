@@ -54,6 +54,8 @@ test('the direction procedure, agent, and skill fit together', () => {
   assert.match(a, /^model:\s*sonnet\s*$/m);
   assert.doesNotMatch(a, /^tools:.*\b(Write|Edit)\b/m);
   const k = read('skills/direction/SKILL.md');
-  assert.match(k, /^allowed-tools:\s*Bash\(cairn:\*\)\s*$/m);
+  assert.match(k, /^\s+- "Bash\(cairn status:\*\)"\s*$/m);
+  assert.doesNotMatch(k, /cairn:\*/);
+  assert.doesNotMatch(k, /cairn repro/);
   assert.match(k, /procedures\/direction\.md/);
 });
