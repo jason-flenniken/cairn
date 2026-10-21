@@ -3,7 +3,7 @@
 ## Links
 - PRD: docs/sdlc/plans/2026-10-21-roomier-pane-visuals/prd.md
 - Plan: docs/sdlc/plans/2026-10-21-roomier-pane-visuals/plan.md
-- PR: <pending>
+- PR: https://github.com/jason-flenniken/cairn/pull/1
 - Tracker: none
 
 ## Why
