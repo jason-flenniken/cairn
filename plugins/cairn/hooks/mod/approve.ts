@@ -100,6 +100,14 @@ function isApproved(rows: PlanRow[], slug: string, kind: Kind): boolean {
   return Boolean(rows.find(p => p.state?.slug === slug)?.state?.approvals?.[kind])
 }
 
+// Open tagged dialogs, by `${kind} ${slug}`: each entry is told when its stop is approved from elsewhere.
+const watchers = new Map<string, Set<() => void>>()
+
+/** Tells every open dialog waiting on this stop that it has an approval on record. */
+function fireApproved(kind: Kind, slug: string): void {
+  for (const tell of [...(watchers.get(`${kind} ${slug}`) ?? [])]) tell()
+}
+
 /**
  * Approves `kind` on plan `slug` with the secret, or says why not: the one approval path, shared by
  * the menu answer, the pane's Approve button and /cairn-approve, so every use takes its turn with one secret.
@@ -111,13 +119,18 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind): P
   if (row?.state === undefined) return `cairn: no plan "${slug}", so nothing was approved.`
   if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so nothing was approved.`
   if (row.ready?.kind !== kind) {
-    if (isApproved(rows, slug, kind)) return undefined
+    if (isApproved(rows, slug, kind)) {
+      fireApproved(kind, slug)
+      return undefined
+    }
     return `cairn: plan "${slug}" is not waiting for ${kind} approval, so nothing was approved.`
   }
   const ran = await cairnWithSecret($, ['approve', kind], row.worktree).catch((err: unknown) => message(err))
   if (typeof ran === 'string') return `cairn: ${slug} ${kind} approval failed: ${ran}`
   const said = `${ran.stdout}${ran.stderr}`.trim()
-  return ran.exitCode === 0 ? `cairn: ${slug}: ${said}` : `cairn: ${slug} ${kind} approval refused: ${said}`
+  if (ran.exitCode !== 0) return `cairn: ${slug} ${kind} approval refused: ${said}`
+  fireApproved(kind, slug)
+  return `cairn: ${slug}: ${said}`
 }
 
 export const ALREADY_APPROVED = 'Already approved from the pane'
@@ -218,20 +231,52 @@ export function install(on: On): void {
   on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
     // A malformed payload is not ours to read: it goes through untouched (FR-18).
     if (!Array.isArray(e.questions)) return next(e)
-    // A question made only of approval tags whose stops the CLI already shows approved is answered here, not shown.
-    // This reports an approval that exists; it records none. A subagent's, an untagged or a mixed dialog is left alone.
-    if (e.agentId === undefined) {
-      const asked = parseTags(e.questions)
-      if (asked.length > 0 && asked.length === e.questions.length && asked.every(t => t.kind !== undefined)) {
-        const rows = await planRows($).catch(() => undefined)
-        if (rows !== undefined && asked.every(t => isApproved(rows, t.slug, t.kind as Kind))) {
-          return { result: { questions: e.questions, answers: Object.fromEntries(asked.map(t => [t.question, ALREADY_APPROVED])) } as never }
+    // A question made only of approval tags is answered here, not shown, once its stops show approved:
+    // now, or while the dialog is open (the pane button or /cairn-approve). This reports an approval that
+    // exists; it records none. A subagent's, an untagged or a mixed dialog is left alone.
+    let early: Promise<void> | undefined
+    let stopWatching = () => {}
+    const answeredEarly = () => ({ result: { questions: e.questions, answers: Object.fromEntries(asked.map(t => [t.question, ALREADY_APPROVED])) } as never })
+    const asked = e.agentId === undefined ? parseTags(e.questions) : []
+    if (asked.length > 0 && asked.length === e.questions.length && asked.every(t => t.kind !== undefined)) {
+      const rows = await planRows($).catch(() => undefined)
+      if (rows !== undefined && asked.every(t => isApproved(rows, t.slug, t.kind as Kind))) return answeredEarly()
+      const waiting = new Set(asked.filter(t => rows === undefined || !isApproved(rows, t.slug, t.kind as Kind)).map(t => `${t.kind} ${t.slug}`))
+      early = new Promise<void>(resolve => {
+        const tells = [...waiting].map(key => {
+          const tell = () => {
+            waiting.delete(key)
+            if (waiting.size === 0) resolve()
+          }
+          const set = watchers.get(key) ?? new Set()
+          set.add(tell)
+          watchers.set(key, set)
+          return { key, tell }
+        })
+        stopWatching = () => {
+          for (const { key, tell } of tells) {
+            watchers.get(key)?.delete(tell)
+            if (watchers.get(key)?.size === 0) watchers.delete(key)
+          }
         }
-      }
+      })
     }
     // Answers the model wrote into its own call are not the user's: read them before the dialog runs.
     const prefilled = { ...(e as { answers?: Record<string, unknown> }).answers }
-    const ran = await next(e)
+    let ran: Awaited<ReturnType<typeof next>>
+    try {
+      const shown = next(e)
+      if (early === undefined) ran = await shown
+      else {
+        // If the stop is approved elsewhere first, the open dialog is abandoned: its later outcome is not ours.
+        shown.catch(() => undefined)
+        const won = await Promise.race([shown, early.then(() => undefined)])
+        if (won === undefined) return answeredEarly()
+        ran = won
+      }
+    } finally {
+      stopWatching()
+    }
     // A dismissed or failed dialog answered nothing; a subagent's is not the user's menu.
     if (ran.deny !== undefined || ran.isError || e.agentId !== undefined) return ran
     const tags = parseTags(e.questions)
@@ -240,6 +285,7 @@ export function install(on: On): void {
     const answers = result?.answers ?? {}
     const notes: string[] = []
     const judged = new Set<string>()
+    const skips = new Map<string, string>()
     for (const tag of tags) {
       if (tag.override) {
         if (answers[tag.question] === 'Override' && !(tag.question in prefilled) && result?.afkTimeoutMs === undefined) {
@@ -251,7 +297,9 @@ export function install(on: On): void {
       if (tag.kind === undefined) continue
       // One stop is approved once per dialog, however many questions carry its tag (FR-15).
       if (judged.has(`${tag.kind} ${tag.slug}`)) continue
-      const skipped = (why: string) => notes.push(`cairn: ${tag.slug} ${tag.kind} not approved: ${why}.`)
+      const skipped = (why: string) => {
+        if (!skips.has(`${tag.kind} ${tag.slug}`)) skips.set(`${tag.kind} ${tag.slug}`, why)
+      }
       if (tag.question in prefilled) skipped('the answer came from the model\'s call, not from you')
       else if (result?.afkTimeoutMs !== undefined) skipped('the dialog answered itself while you were away')
       else if (!isApproval(answers[tag.question], (e.questions as readonly Asked[]).find(q => q.question === tag.question))) {
@@ -266,6 +314,8 @@ export function install(on: On): void {
         notes.push(outcome)
       }
     }
+    // One note per stop that never reached an approval attempt, however many of its questions were skipped (FR-11).
+    for (const [key, why] of skips) if (!judged.has(key)) notes.push(`cairn: ${key.split(' ')[1]} ${key.split(' ')[0]} not approved: ${why}.`)
     return notes.length === 0 ? ran : { ...ran, context: [...(ran.context ?? []), ...notes] }
   })
 }

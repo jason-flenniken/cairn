@@ -338,6 +338,11 @@ export function install(on: On): void {
     const here = v?.plans.find(r => r.state.slug === v.here)
     const accent = STAGE_COLOR[here?.state.stage ?? ''] ?? 'cyan'
     const others = (v?.plans ?? []).filter(r => r !== here && isActive(r))
+    // Every tab's root: 1 column in from each edge; docked, a blank line between its children (an absent
+    // `false` child adds none) and a background FR-10 asks the terminal to leave to itself. Inline adds no rows.
+    // Claude Code documents no "terminal's own background" value, so 'transparent' is the most plausible; if
+    // acceptance shows it is ignored, remove it.
+    const rootProps = { flexDirection: 'column', paddingX: 1, gap: isInline ? 0 : 1, ...(isInline ? {} : { backgroundColor: 'transparent' }) } as const
     const status = <Button key="status" label="Status" onPress={() => act($, () => $.command.run({ command: 'cairn:status' }))} />
     const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
     const main = await readMain($)
@@ -403,7 +408,7 @@ export function install(on: On): void {
       const eta = etaText(row, t)
       const rest = waiting !== undefined ? 'Waiting on you' : row.next?.text
       const label = [tasks.length > 0 && `${done}/${tasks.length} tasks`, s.stage === 'execute' ? eta : rest].filter(Boolean).join(' · ')
-      const bar = Math.min(20, Math.max(6, e.props.bodyColumns - label.length - 1))
+      const bar = Math.min(20, Math.max(6, e.props.bodyColumns - 2 - label.length - 1))
       const filled = tasks.length === 0 ? 0 : Math.round((done / tasks.length) * bar)
       const upNext = tasks
         .filter(x => x.status === 'pending' && phases[at]?.tasks !== undefined && list<Task>(phases[at]?.tasks).includes(x))
@@ -417,12 +422,15 @@ export function install(on: On): void {
           {status}
         </Box>
       )
-      const header = [
-        <Text key="head" bold color={accent} wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s)}${where}`}</Text>,
-        v?.isFallback && <Text key="fallback" dimColor>{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>,
-        isPaused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>,
-        tasks.length > 0 ? <Text key="bar" color={accent} wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor color={accent} wrap="truncate-end">{label}</Text>,
-      ]
+      // One Box, so a gap never splits the header from its progress bar.
+      const header = (
+        <Box key="header" flexDirection="column">
+        <Text key="head" bold color={accent} wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s)}${where}`}</Text>
+        {v?.isFallback && <Text key="fallback" dimColor>{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>}
+        {isPaused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>}
+        {tasks.length > 0 ? <Text key="bar" color={accent} wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor color={accent} wrap="truncate-end">{label}</Text>}
+        </Box>
+      )
       // The approval card shows only while the CLI says the document is ready, never while it is being drafted (FR-11).
       const isOpen = ready !== undefined && openFile === ready.file
       const approve = ready !== undefined && (
@@ -442,17 +450,21 @@ export function install(on: On): void {
       )
 
       if (isInline) {
-        return [...header, approve, ...agentLines(), <Text key="tip" dimColor>Full-height side pane: run /tui fullscreen</Text>, buttons]
+        return [header, approve, ...agentLines(), <Text key="tip" dimColor>Full-height side pane: run /tui fullscreen</Text>, buttons]
       }
 
       return [
-        ...header,
+        header,
         approve,
         mainCard(),
         ...cards.map(agentCard),
         upNext.length > 0 && <Text key="next" wrap="truncate-end">{`UP NEXT  ${upNext.join(' · ')}`}</Text>,
-        drift.length > 0 && <Text key="drift" color="yellow">{`${drift.length} out-of-scope edit${drift.length === 1 ? "" : "s"}:`}</Text>,
-        ...drift.slice(0, DRIFT_SHOWN).map((d, i) => <Text key={`drift:${i}`} dimColor wrap="truncate-end">{`  ${d.path ?? '?'}`}</Text>),
+        drift.length > 0 && (
+          <Box key="drift:box" flexDirection="column">
+            <Text key="drift" color="yellow">{`${drift.length} out-of-scope edit${drift.length === 1 ? "" : "s"}:`}</Text>
+            {drift.slice(0, DRIFT_SHOWN).map((d, i) => <Text key={`drift:${i}`} dimColor wrap="truncate-end">{`  ${d.path ?? '?'}`}</Text>)}
+          </Box>
+        ),
         buttons,
       ]
     }
@@ -475,7 +487,7 @@ export function install(on: On): void {
         const text = shown.record === undefined ? '' : await $.fs.read(shown.record).catch((err: unknown) => `Could not read ${shown.record}: ${message(err)}`)
         const open = shown.followUps.filter(f => f.status === 'open')
         return (
-          <Box flexDirection="column">
+          <Box {...rootProps}>
             {tabs}
             <Button key="back" label="Back" onPress={() => act($, () => update($, openRecord, () => null))} />
             {shown.record === undefined
@@ -486,9 +498,9 @@ export function install(on: On): void {
         )
       }
       return (
-        <Box flexDirection="column">
+        <Box {...rootProps}>
           {tabs}
-                    {(all ?? []).map(x => (
+          {(all ?? []).map(x => (
             <Box key={`record:${x.slug}:row`} flexDirection="column">
               <Button key={`record:${x.slug}`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
                 <Text wrap="truncate-end">{`${x.stage === 'closed' ? dateText(x.date) : 'In progress'} · ${x.title}`}</Text>
@@ -506,32 +518,40 @@ export function install(on: On): void {
     if (!isInline && shownTab === 'history') {
       const lines = here === undefined ? [] : recentLines(here.state, await readFeed($), t).reverse()
       return (
-        <Box flexDirection="column">
+        <Box {...rootProps}>
           {tabs}
-          {lines.length === 0 && <Text dimColor>Nothing logged yet.</Text>}
-          {lines.map((line, i) => <Text key={`history:${i}`} color={accent} wrap="truncate-end">{line}</Text>)}
+          <Box key="timeline" flexDirection="column">
+            {lines.length === 0 && <Text dimColor>Nothing logged yet.</Text>}
+            {lines.map((line, i) => <Text key={`history:${i}`} color={accent} wrap="truncate-end">{line}</Text>)}
+          </Box>
         </Box>
       )
     }
 
     return (
-      <Box flexDirection="column">
+      <Box {...rootProps}>
         {!isInline && tabs}
         {here !== undefined && isActive(here)
           ? planLines(here)
           : [
-              <Text key="head" bold>cairn</Text>,
-              <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>,
+              <Box key="idle" flexDirection="column">
+                <Text key="head" bold>cairn</Text>
+                <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>
+              </Box>,
               ...(isInline ? agentLines() : [mainCard(), ...cards.map(agentCard)]),
               <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
             ]}
-        {others.length > 0 && <Text bold>Other active plans</Text>}
-        {others.map(r => (
-          <Box key={`plan:${r.state.slug}`} flexDirection="row" gap={1}>
-            <Text wrap="truncate-end">{`${r.state.title ?? r.state.slug} · ${stageOf(r.state)} · ${r.next?.text ?? ''}`}</Text>
-            <Button key={`resume:${r.state.slug}`} label="Resume" onPress={() => act($, () => resumeOther($, r.state.slug))} />
+        {others.length > 0 && (
+          <Box key="others" flexDirection="column">
+            <Text bold>Other active plans</Text>
+            {others.map(r => (
+              <Box key={`plan:${r.state.slug}`} flexDirection="row" gap={1}>
+                <Text wrap="truncate-end">{`${r.state.title ?? r.state.slug} · ${stageOf(r.state)} · ${r.next?.text ?? ''}`}</Text>
+                <Button key={`resume:${r.state.slug}`} label="Resume" onPress={() => act($, () => resumeOther($, r.state.slug))} />
+              </Box>
+            ))}
           </Box>
-        ))}
+        )}
       </Box>
     )
   })
