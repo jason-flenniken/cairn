@@ -58,7 +58,7 @@ Every CLI call goes through one wrapper, `hooks/mod/cli.ts`, which runs `$.plugi
 ## Deferred requirements
 None. Every FR is covered.
 
-Re-plan, 2026-10-20: the secret is now hashed on disk, overrides are run by the mod, and dogfood findings were added as FR-35 to FR-40. FR-02a was renamed FR-34. The cli-split, human-proof, and approval-procedures slices are done and keep their progress.
+Re-plan, 2026-10-20 (two rounds): the secret is now hashed on disk, overrides are run by the mod, and dogfood findings were added as FR-35 to FR-40. FR-02a was renamed FR-34. The cli-split, human-proof, and approval-procedures slices are done and keep their progress.
 
 ## Phases
 - **Phase 1** proves the core claim end to end: the model can't approve, and your menu answer approves through the mod.
@@ -114,7 +114,7 @@ phases:
         name: Instant pause, Stop now, fresh resume
         covers: [FR-13, FR-14, FR-15, FR-16]
         blocked_by: [menu-approval]
-        scope: ["plugins/cairn/hooks/mod/pause.ts", "plugins/cairn/hooks/test/pause.test.ts", "plugins/cairn/cli/src/commands/pause.ts", "plugins/cairn/cli/test/pause.test.ts", "plugins/cairn/procedures/execute.md", "plugins/cairn/procedures/pause.md", "plugins/cairn/procedures/resume.md", "plugins/cairn/templates/config.json"]
+        scope: ["plugins/cairn/hooks/register.tsx", "plugins/cairn/hooks/mod/heartbeat.ts", "plugins/cairn/hooks/test/heartbeat.test.ts", "plugins/cairn/hooks/mod/pause.ts", "plugins/cairn/hooks/test/pause.test.ts", "plugins/cairn/cli/src/commands/pause.ts", "plugins/cairn/cli/test/pause.test.ts", "plugins/cairn/procedures/execute.md", "plugins/cairn/procedures/pause.md", "plugins/cairn/procedures/resume.md", "plugins/cairn/templates/config.json"]
         complexity: standard
       - id: direction-cli
         name: Computed drift verdict in the CLI
@@ -126,7 +126,7 @@ phases:
         name: Live pane and status line
         covers: [FR-05, FR-08, FR-09, FR-10, FR-11, FR-12, FR-17]
         blocked_by: [pause-resume]
-        scope: ["plugins/cairn/hooks/mod/pane.tsx", "plugins/cairn/hooks/test/pane.test.tsx"]
+        scope: ["plugins/cairn/hooks/mod/pane.tsx", "plugins/cairn/hooks/test/pane.test.tsx", "plugins/cairn/hooks/mod/approve.ts", "plugins/cairn/hooks/test/approve.test.ts"]
         complexity: complex
   - id: drift-and-fix
     name: Drift check and fast lane
@@ -168,13 +168,13 @@ phases:
         name: Unlocked orchestrator and documented formats
         covers: [FR-35, FR-38]
         blocked_by: []
-        scope: ["plugins/cairn/procedures/new.md", "plugins/cairn/procedures/execute.md", "plugins/cairn/references/cli.md", "README.md", "plugins/cairn/cli/test/dogfood-docs.test.ts"]
+        scope: ["plugins/cairn/procedures/new.md", "plugins/cairn/procedures/execute.md", "plugins/cairn/procedures/review.md", "plugins/cairn/references/cli.md", "README.md", "plugins/cairn/cli/test/dogfood-docs.test.ts"]
         complexity: simple
       - id: cli-polish
         name: Test summary, approval sources, strict ids, prefactor slices
-        covers: [FR-36, FR-37, FR-39, FR-40]
+        covers: [FR-36, FR-37, FR-39, FR-40, FR-41, FR-42]
         blocked_by: []
-        scope: ["plugins/cairn/cli/src/shared.ts", "plugins/cairn/cli/src/render.ts", "plugins/cairn/cli/src/plan-parse.ts", "plugins/cairn/cli/src/types.ts", "plugins/cairn/cli/test/polish.test.ts"]
+        scope: ["plugins/cairn/cli/src/shared.ts", "plugins/cairn/cli/src/render.ts", "plugins/cairn/cli/src/plan-parse.ts", "plugins/cairn/cli/src/types.ts", "plugins/cairn/cli/src/commands/slices.ts", "plugins/cairn/cli/test/polish.test.ts"]
         complexity: standard
 ```
 
@@ -367,6 +367,7 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
     - `pauseAge(state, now): number`
   - It tracks the main-loop `turnId` from `turn.start`.
   - It registers `/cairn:pause-now`. The pane buttons call these functions.
+  - Prefactor: the engine allows one unmatched `session.start` hook per module. `register.tsx` gets a single `session.start` that calls each module's exported `onSessionStart($, e)` in turn, each isolated by try/catch. The heartbeat moves to that export.
   - The execute, pause, and resume procedures check pause between steps and add open questions to the handoff.
   - `templates/config.json` gains `resumeFreshAfterMinutes`.
 
@@ -414,6 +415,7 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
 
 **Interfaces**
 - Consumes: `pause.ts` (pause, resume), `approve.ts`'s approve path, and `cli.ts`.
+- Approval reuse: `approve.ts` exports its serialized secret-use path (for example `approveAs($, slug, kind)`). The pane's Approve button and `/cairn:approve` call it, so there is only one secret store and no second race (Review focus 2).
 - Produces:
   - `mod/pane.tsx` opens the pane on `session.start` when the root is a plan or slice worktree, and registers `/cairn:pane` and `/cairn:approve`.
   - It polls file modification times every 2 s and re-reads `cairn status --all --json` only when one changes.
@@ -542,7 +544,8 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
 - Produces:
   - `new.md` runs `cairn new` and then tells the user the worktree path. It never calls EnterWorktree, and the orchestrator stays at the repo root.
   - `execute.md` runs every `cairn` command with `cd <plan worktree> &&`.
-  - `cli.md` documents the hash, heartbeat, and pending override.
+  - `cli.md` is rewritten for the hash design: `mod-secret.sha256` (the mod keeps the secret in memory, and the CLI claims and deletes the hash on a match), the heartbeat (epoch milliseconds as plain text), and mod-run overrides. Every grant and rotation text goes, and `modActive` is documented in `status --all`.
+  - `review.md`: the override command runs on its own (no `cd`, no `&&`) with a plain-text reason, free of ``; | & $ ` > <`` and backslashes.
   - The README states the Claude Code version requirement.
 
 **Test cases**
@@ -561,9 +564,15 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
   - STATUS.md approval and override sources.
   - Strict FR ids in plan load.
   - `kind: prefactor` slices.
+  - The `slice done` git-diff scope check, which logs drift (FR-41).
+  - The re-plan keeps `base` and every other progress field (FR-42).
 
 **Test cases**
-- Happy: an output ending with an `npm notice` line after `ℹ pass 12` records `ℹ pass 12`. STATUS.md shows the sources.
+- Happy:
+  - An output ending with an `npm notice` line after `ℹ pass 12` records `ℹ pass 12`.
+  - STATUS.md shows the sources.
+  - A slice that changed `README.md` outside its scope gets a drift entry at `slice done`.
+  - A slice started before a re-plan is marked done after it, with no override.
 - Unhappy: `**FR-02a**` in the PRD refuses and names the id. Empty `covers` without `kind: prefactor` refuses.
 - Security: no other plan-load check is loosened. A prefactor slice still needs `scope`.
 

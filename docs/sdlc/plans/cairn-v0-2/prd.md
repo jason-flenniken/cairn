@@ -185,6 +185,8 @@ A Claude Code mod ships inside the cairn plugin. With it:
 - **FR-38 Documented formats.** `references/cli.md` documents the secret hash, heartbeat, and pending-override formats. The README states the Claude Code version requirement (NFR-04).
 - **FR-39 Strict requirement ids.** `cairn plan load` refuses when a bold requirement id in the PRD's Functional requirements doesn't have the form `FR-<digits>`, so coverage can never silently skip one.
 - **FR-40 Prefactor slices.** A slice may declare `kind: prefactor`, which allows an empty `covers` list.
+- **FR-41 Drift from the git diff.** `slice done` compares the files the slice changed (from its starting commit to its branch) against the slice's scope, and logs each file outside scope as drift. This catches edits made through Bash, which the edit hook never sees.
+- **FR-42 Re-plans keep slice progress.** A re-plan keeps every progress field of a surviving slice, including its starting commit.
 - **FR-33 Clean environment for child commands.** Every child command the CLI runs (setup, test, repro) runs with `CAIRN_APPROVER` removed from its environment.
 
 ## Non-functional requirements
@@ -239,7 +241,7 @@ A Claude Code mod ships inside the cairn plugin. With it:
   - `node …/dist/cairn.mjs approve plan`
   - `CAIRN_APPROVER=x cairn status`
   - `export CAIRN_APPROVER=x`
-  - `cat mod-secret`
+  - `cat .git/cairn/mod-secret.sha256`
   - `python -c "…state.json…"`
   - `sed -i … state.json`
   - `git checkout -- …/state.json`
@@ -322,6 +324,8 @@ A Claude Code mod ships inside the cairn plugin. With it:
 - [FR-31] A node:test checks that every skill lists the named subcommands and none lists `repro` or `cairn:*`.
 - [FR-32] Editing the `test` command after plan approval makes `slice done` refuse. Re-approving the plan clears it.
 - [FR-33] A test command that prints `$CAIRN_APPROVER` prints nothing.
+- [FR-41] A slice whose branch changes a file outside its scope, through any tool, gets a drift entry at `slice done`. That entry blocks phase approval until it is reviewed.
+- [FR-42] A slice started before a re-plan can be marked done after it, without an override.
 - [FR-35] `new.md` contains no EnterWorktree step. `execute.md` runs `cairn` with `cd <plan worktree> &&`. Checked by a node:test.
 - [FR-36] When the test output ends with an `npm notice` line after `ℹ pass 12`, the recorded summary is `ℹ pass 12`.
 - [FR-37] STATUS.md shows "PRD approved … (you, in the menu)" for `source: mod` and "(you, in the terminal)" for `source: terminal`.

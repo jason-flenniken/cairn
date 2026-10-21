@@ -76,3 +76,8 @@ _2026-10-20 21:59_
 **Decision:** The approval secret hash is written lazily before first use, not at session start. Pause and pane need session start too, so register.tsx gets a single session.start fan-out that calls each module; added to those slices at the phase-end re-plan. Re-plan bug: carrying slice progress across a re-plan dropped each slice start commit; fix added to the CLI polish slice at the same re-plan.
 **Why:** Found while building menu approval and closing the mod-guards slice.
 _2026-10-20 23:05_
+
+### 16. Phase 1 end: re-plan with the findings
+**Decision:** Added FR-41 (slice done checks the git diff against scope and logs drift, catching Bash edits) and FR-42 (re-plans keep slice progress including the start commit) to cli-polish. Pause-resume builds the single session.start fan-out in register.tsx. Pane reuses the approve.ts secret path. Dogfood-docs rewrites cli.md for the hash design and tells review.md to run overrides alone with plain-text reasons.
+**Why:** Findings from the phase 1 alignment check, the drift probe, and slice reports.
+_2026-10-21 09:29_

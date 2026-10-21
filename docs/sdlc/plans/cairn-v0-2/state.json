@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-20T23:20:43.593Z",
-  "stage": "execute",
+  "updated": "2026-10-21T09:29:10.230Z",
+  "stage": "plan",
   "paused": null,
   "approvals": {
     "prd": {
@@ -15,12 +15,6 @@
       "via": "agent",
       "note": "bootstrap: approved in menu, relayed by agent because the mod does not exist yet",
       "hash": "5bde3d913b280c57"
-    },
-    "plan": {
-      "at": "2026-10-20T22:46:21.896Z",
-      "via": "agent",
-      "note": "re-plan approved in menu, relayed by agent (bootstrap)",
-      "hash": "7e2fd7f5483bbce7"
     }
   },
   "phases": [
@@ -78,10 +72,10 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/mod-guards",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--mod-guards",
-          "note": "false positives on git/grep/commit; glob bypass; timer stacking",
-          "doneAt": "2026-10-20T22:55:24.647Z",
           "tip": "d75fb43",
-          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-20T22:55:24.647Z",
+          "note": "false positives on git/grep/commit; glob bypass; timer stacking"
         },
         {
           "id": "human-proof",
@@ -161,11 +155,10 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/secret-hash",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--secret-hash",
-          "base": "ec6de0d3da830d953c1cabbb254d68259f359b2d",
-          "note": "atomic claim of the hash file",
-          "doneAt": "2026-10-20T22:50:03.820Z",
           "tip": "5e6ad42",
-          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'"
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'",
+          "doneAt": "2026-10-20T22:50:03.820Z",
+          "note": "atomic claim of the hash file"
         },
         {
           "id": "menu-approval",
@@ -187,11 +180,10 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/menu-approval",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--menu-approval",
-          "base": "9e59b779c48ce1d8063231b85cab8250360176cf",
-          "note": "snapshot prefilled answers, timeouts, stricter argv, isError, test gaps",
-          "doneAt": "2026-10-20T23:20:43.592Z",
           "tip": "3616911",
-          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-20T23:20:43.592Z",
+          "note": "snapshot prefilled answers, timeouts, stricter argv, isError, test gaps"
         }
       ]
     },
@@ -213,6 +205,9 @@
             "menu-approval"
           ],
           "scope": [
+            "plugins/cairn/hooks/register.tsx",
+            "plugins/cairn/hooks/mod/heartbeat.ts",
+            "plugins/cairn/hooks/test/heartbeat.test.ts",
             "plugins/cairn/hooks/mod/pause.ts",
             "plugins/cairn/hooks/test/pause.test.ts",
             "plugins/cairn/cli/src/commands/pause.ts",
@@ -265,7 +260,9 @@
           ],
           "scope": [
             "plugins/cairn/hooks/mod/pane.tsx",
-            "plugins/cairn/hooks/test/pane.test.tsx"
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/mod/approve.ts",
+            "plugins/cairn/hooks/test/approve.test.ts"
           ],
           "complexity": "complex",
           "status": "pending",
@@ -393,6 +390,7 @@
           "scope": [
             "plugins/cairn/procedures/new.md",
             "plugins/cairn/procedures/execute.md",
+            "plugins/cairn/procedures/review.md",
             "plugins/cairn/references/cli.md",
             "README.md",
             "plugins/cairn/cli/test/dogfood-docs.test.ts"
@@ -408,7 +406,9 @@
             "FR-36",
             "FR-37",
             "FR-39",
-            "FR-40"
+            "FR-40",
+            "FR-41",
+            "FR-42"
           ],
           "blockedBy": [],
           "scope": [
@@ -416,6 +416,7 @@
             "plugins/cairn/cli/src/render.ts",
             "plugins/cairn/cli/src/plan-parse.ts",
             "plugins/cairn/cli/src/types.ts",
+            "plugins/cairn/cli/src/commands/slices.ts",
             "plugins/cairn/cli/test/polish.test.ts"
           ],
           "complexity": "standard",
@@ -632,7 +633,12 @@
       "at": "2026-10-20T23:20:43.593Z",
       "event": "slice done",
       "detail": "Approve from the menu answer"
+    },
+    {
+      "at": "2026-10-21T09:29:10.229Z",
+      "event": "re-plan loaded",
+      "detail": "16 slices"
     }
   ],
-  "planHash": "7e2fd7f5483bbce7"
+  "planHash": "77b962c0908b30bb"
 }
