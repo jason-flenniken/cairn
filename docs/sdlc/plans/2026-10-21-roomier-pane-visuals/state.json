@@ -6,7 +6,7 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:48:55.977Z",
+  "updated": "2026-10-21T20:50:45.042Z",
   "stage": "verify",
   "paused": null,
   "approvals": {
@@ -91,7 +91,13 @@
       ]
     }
   ],
-  "evidence": {},
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-21T20:50:45.041Z",
+      "note": "tests: 364 passing, build ok; 10 of 12 requirements met with tests, 2 met pending a by-eye check after ship (background, chat question closing)"
+    }
+  },
   "drift": [],
   "log": [
     {
@@ -182,6 +188,11 @@
       "at": "2026-10-21T20:48:55.977Z",
       "event": "advanced",
       "detail": "verify"
+    },
+    {
+      "at": "2026-10-21T20:50:45.042Z",
+      "event": "verify pass",
+      "detail": "tests: 364 passing, build ok; 10 of 12 requirements met with tests, 2 met pending a by-eye check after ship (background, chat question closing)"
     }
   ],
   "suggestions": [
@@ -259,6 +270,27 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T20:48:20.196Z"
+    },
+    {
+      "id": "s8",
+      "area": "tests",
+      "text": "Assert Records rows have no inner gap, the docked root carries the background setting, and a Now tab with an active plan and two agent cards has the expected root children order.",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx"
+      ],
+      "from": "check",
+      "at": "2026-10-21T20:50:16.051Z"
+    },
+    {
+      "id": "s9",
+      "area": "ux",
+      "text": "By-eye check after reinstall: if the docked pane is still black, remove backgroundColor 'transparent' and note that Claude Code paints the pane; if an open chat approval question stays open after approving in the pane, add a $.ui.notice line under it.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "check",
+      "at": "2026-10-21T20:50:44.966Z"
     }
   ],
   "planHash": "122c17720d54ebf7",

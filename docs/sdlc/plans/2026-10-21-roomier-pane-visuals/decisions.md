@@ -24,3 +24,8 @@ _2026-10-21 20:38_
 **Decision:** Users: a developer running cairn with the pane docked beside the chat. Risky areas (auth, money, data deletion, migrations, public API): not applicable, the change is display-only
 **Why:** The mod only draws; no stored data or commands change
 _2026-10-21 20:38_
+
+### 5. When are the by-eye checks done?
+**Decision:** After ship, once cairn is reinstalled; the background setting and the early-answer stay in, and a follow-up covers removing the background setting or adding an 'approved in the pane' line under the open question if either does not work
+**Why:** The live pane runs the installed cairn, not this branch
+_2026-10-21 20:50_
