@@ -77,7 +77,7 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
   - Absolute keeps the engine's scrolling. Its cost: on the terminal the engine's own moves (following the end, a clamp, a held element kept in view) don't re-ask the render, so the bar can sit off the bottom until the next redraw. The 1 s tick and the 2 s poll redraw while anything runs.
 - A `ui.scroll` hook on the pane calls `next(e)` and then `$.ui.invalidate('ui.render')`, so the bar follows every move.
 - The test kit runs the `ui.scroll` chain but never changes the mounted `props.scroll`; a test redraws with the new offset itself.
-- Inline (the 7-row pane) has no pinning: the bar is one line at the end, the active step.
+- Inline (the 7-row pane) has no pinning: the bar is one line at the end, the active step. The "run /tui fullscreen" tip shows only while it still fits the 7 rows (it goes for a fallback plan with an approval waiting).
 - Bar lines wrap between steps to fit `bodyColumns - 2` cells (46 docked), counting an emoji as 2 cells (NFR-01).
 
 ## Testing

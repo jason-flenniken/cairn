@@ -343,7 +343,12 @@ export function install(on: On): void {
       const approve = ready !== undefined && (await approvalCard($, ui, s.slug, ready, isInline))
 
       if (isInline) {
-        return [header, approve, ...agentLines(cx, main, cards), <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>, buttons]
+        const lines = agentLines(cx, main, cards)
+        // Title, progress, the fallback and paused notes, the stop, the agents, the buttons and the bar line:
+        // the tip shows only while it still fits the inline rows.
+        const used = 2 + (v?.isFallback ? 1 : 0) + (isPaused ? 1 : 0) + (approve ? 1 : 0) + lines.length + 1 + barLines.length
+        const tip = used < INLINE_ROWS && <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>
+        return [header, approve, ...lines, tip, buttons]
       }
 
       return [

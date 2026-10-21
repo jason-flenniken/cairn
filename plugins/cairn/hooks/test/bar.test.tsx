@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { CairnPlanState } from '../../types/index.d.ts'
 import { stageSteps, type BarLine } from '../mod/bar.tsx'
-import { MAIN, mount, mountAs, PANE_PROPS, plan, row, start, task, world, WT, type Row } from './world.tsx'
+import { MAIN, mount, mountAs, PANE_PROPS, plan, ready, row, start, task, world, WT, type Row } from './world.tsx'
 
 type El = { type: string; props: Record<string, unknown>; children: (El | string)[] }
 
@@ -120,12 +120,21 @@ describe('the bar on every tab (FR-01)', () => {
   const rowsOf = (n: El): number =>
     n.type === 'Box' && n.props.flexDirection === 'column' ? n.children.reduce((k, c) => k + (typeof c === 'string' ? 1 : rowsOf(c)), 0) : 1
 
-  for (const [where, cwd] of [['in the plan worktree', WT], ['from the repo root', MAIN]] as const) {
+  const tipShown = async (ui: any) => (await ui.findAll({ type: 'Text', text: 'Full-height side pane' })).length > 0
+  const INLINE_CASES = [
+    ['in the plan worktree', WT, () => row(BUILD_2_OF_3, WT), true],
+    ['from the repo root', MAIN, () => row(BUILD_2_OF_3, WT), true],
+    ['from the repo root, an approval waiting', MAIN, () => row(plan({ stage: 'plan' }), WT, undefined, ready('plan')), false],
+  ] as const
+  for (const [where, cwd, make, hasTip] of INLINE_CASES) {
     test(`inline, ${where}, the pane with its bar line stays within 7 rows`, async ($, on) => {
-      world(on, { cwd, rows: [row(BUILD_2_OF_3, WT)] })
+      world(on, { cwd, rows: [make()] })
       await start($, cwd)
       const ui = await mountAs($, { placement: 'inline' })
       expect(rowsOf((await ui.findAll({ type: 'Box' }))[0] as El)).toBeLessThanOrEqual(7)
+      // The tip goes only when the bar line leaves it no room.
+      expect(await tipShown(ui)).toBe(hasTip)
+      expect((await lastChild(ui)).props.key).toBe('statusbar')
       await ui.unmount()
     })
   }
