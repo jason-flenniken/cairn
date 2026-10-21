@@ -6,7 +6,7 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:55:01.871Z",
+  "updated": "2026-10-21T20:56:00.637Z",
   "stage": "ship",
   "paused": null,
   "approvals": {
@@ -21,6 +21,11 @@
       "via": "human",
       "source": "mod",
       "hash": "122c17720d54ebf7"
+    },
+    "ship": {
+      "at": "2026-10-21T20:56:00.637Z",
+      "via": "human",
+      "source": "mod"
     }
   },
   "phases": [
@@ -214,6 +219,11 @@
       "at": "2026-10-21T20:55:01.870Z",
       "event": "advanced",
       "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T20:56:00.637Z",
+      "event": "ship approved",
+      "detail": "mod"
     }
   ],
   "suggestions": [
@@ -362,6 +372,41 @@
       ],
       "from": "branch-review",
       "at": "2026-10-21T20:55:01.690Z"
+    },
+    {
+      "id": "s15",
+      "area": "tests",
+      "text": "Tighter pane and approval tests: Records rows with no inner gap, the docked background setting, Now root order with two agent cards, row-level blank-line checks if the harness ever renders rows; approval cases for two stops in one question, another stop of the same plan, and a real unhandled-rejection check.",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx",
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T20:55:13.278Z",
+      "merges": [
+        "roomier-pane-visuals:s3",
+        "roomier-pane-visuals:s8",
+        "roomier-pane-visuals:s4",
+        "roomier-pane-visuals:s5",
+        "roomier-pane-visuals:s11"
+      ]
+    },
+    {
+      "id": "s16",
+      "area": "quality",
+      "text": "Approval early-answer tidy-up: close the small race before watchers register, keep kind and slug in the skip-note map, declare asked first, avoid a not-approved note when Revise races a pane approval, and word the early answer as Already approved.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T20:55:13.477Z",
+      "merges": [
+        "roomier-pane-visuals:s6",
+        "roomier-pane-visuals:s7",
+        "roomier-pane-visuals:s14",
+        "roomier-pane-visuals:s12",
+        "roomier-pane-visuals:s13"
+      ]
     }
   ],
   "planHash": "122c17720d54ebf7",
