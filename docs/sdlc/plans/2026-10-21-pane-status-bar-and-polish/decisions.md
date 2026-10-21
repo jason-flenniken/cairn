@@ -101,3 +101,8 @@ _2026-10-21 22:22_
 **Decision:** Tokens update live; a dollar estimate from a small built-in per-model price table, marked with ~; an unknown model shows tokens only
 **Why:** Claude Code reports dollars only as a session total
 _2026-10-21 22:24_
+
+### 21. The merging step
+**Decision:** Dropped: ship steps are approving and opening-pr only
+**Why:** the merge runs after cairn advance has closed the plan, so a merging step could never be recorded, and one recorded at closed would never clear
+_2026-10-21 22:56_

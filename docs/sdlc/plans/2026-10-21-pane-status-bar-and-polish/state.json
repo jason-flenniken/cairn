@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:50:44.636Z",
+  "updated": "2026-10-21T22:56:56.275Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -117,9 +117,17 @@
             "plugins/cairn/hooks/test/usage.test.ts"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/pane-status-bar-and-polish/usage-lines",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--usage-lines",
+          "base": "b87d0f7c8fd7da0538f395f914fecc884500e25e",
+          "startedAt": "2026-10-21T22:50:55.335Z",
+          "doneAt": "2026-10-21T22:56:56.275Z",
+          "tip": "94c342e",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "6bd15e7cc7595bbb0c755a62a0bc16079546eb36"
         },
         {
           "id": "accurate-header",
@@ -143,9 +151,14 @@
             "plugins/cairn/cli/test/steps-doc.test.ts"
           ],
           "complexity": "standard",
-          "status": "pending",
-          "fixRound": 0,
-          "risky": false
+          "status": "in_progress",
+          "fixRound": 1,
+          "risky": false,
+          "substep": "fixing",
+          "branch": "task/pane-status-bar-and-polish/accurate-header",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--accurate-header",
+          "base": "b87d0f7c8fd7da0538f395f914fecc884500e25e",
+          "startedAt": "2026-10-21T22:50:55.825Z"
         },
         {
           "id": "card-click-cost",
@@ -164,9 +177,14 @@
             "plugins/cairn/hooks/test/cards.test.tsx"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "substep": "reviewing",
+          "branch": "task/pane-status-bar-and-polish/card-click-cost",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--card-click-cost",
+          "base": "b87d0f7c8fd7da0538f395f914fecc884500e25e",
+          "startedAt": "2026-10-21T22:50:56.284Z"
         },
         {
           "id": "doc-viewer",
@@ -217,7 +235,32 @@
     }
   ],
   "evidence": {},
-  "drift": [],
+  "drift": [
+    {
+      "path": "plugins/cairn/hooks/test/late-header.test.tsx",
+      "at": "2026-10-21T22:52:40.267Z",
+      "reason": "edited outside task \"Accurate header and status line\" scope",
+      "task": "accurate-header"
+    },
+    {
+      "path": "plugins/cairn/hooks/NOTES.md",
+      "at": "2026-10-21T22:56:56.275Z",
+      "reason": "changed outside task \"Spend and limits lines\" scope (found at task done)",
+      "task": "usage-lines"
+    },
+    {
+      "path": "plugins/cairn/hooks/mod/pane.tsx",
+      "at": "2026-10-21T22:56:56.275Z",
+      "reason": "changed outside task \"Spend and limits lines\" scope (found at task done)",
+      "task": "usage-lines"
+    },
+    {
+      "path": "plugins/cairn/hooks/test/usage.test.tsx",
+      "at": "2026-10-21T22:56:56.275Z",
+      "reason": "changed outside task \"Spend and limits lines\" scope (found at task done)",
+      "task": "usage-lines"
+    }
+  ],
   "log": [
     {
       "at": "2026-10-21T22:08:54.056Z",
@@ -312,6 +355,86 @@
       "at": "2026-10-21T22:50:44.636Z",
       "event": "phase finished",
       "detail": "Pinned bar and late-stage steps (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T22:50:55.336Z",
+      "event": "task started",
+      "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:50:55.827Z",
+      "event": "task started",
+      "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T22:50:56.285Z",
+      "event": "task started",
+      "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:51:47.332Z",
+      "event": "task implementing",
+      "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:51:47.398Z",
+      "event": "task implementing",
+      "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T22:51:47.464Z",
+      "event": "task implementing",
+      "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:52:40.267Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/late-header.test.tsx"
+    },
+    {
+      "at": "2026-10-21T22:54:32.386Z",
+      "event": "task reviewing",
+      "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T22:54:57.217Z",
+      "event": "task reviewing",
+      "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:55:41.968Z",
+      "event": "task reviewing",
+      "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:56:03.941Z",
+      "event": "task fixing",
+      "detail": "Accurate header and status line (attempt 1)"
+    },
+    {
+      "at": "2026-10-21T22:56:25.885Z",
+      "event": "task merging",
+      "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:56:56.275Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/NOTES.md"
+    },
+    {
+      "at": "2026-10-21T22:56:56.275Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/mod/pane.tsx"
+    },
+    {
+      "at": "2026-10-21T22:56:56.275Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/usage.test.tsx"
+    },
+    {
+      "at": "2026-10-21T22:56:56.275Z",
+      "event": "task done",
+      "detail": "Spend and limits lines"
     }
   ],
   "suggestions": [
@@ -434,6 +557,56 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T22:48:23.069Z"
+    },
+    {
+      "id": "s12",
+      "area": "quality",
+      "text": "Share the step wording between the CLI and the hooks so the hooks' copy of the step labels can't drift",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T22:54:32.303Z"
+    },
+    {
+      "id": "s13",
+      "area": "tests",
+      "text": "Check the model-name prettifier against ids the engine really returns, including a date-suffixed id",
+      "where": [
+        "plugins/cairn/hooks/test/usage.test.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T22:54:57.143Z"
+    },
+    {
+      "id": "s14",
+      "area": "docs",
+      "text": "Refresh the card price table against published pricing when the next model family ships (values dated 2026-10-21, not looked up live)",
+      "where": [
+        "plugins/cairn/hooks/mod/prices.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T22:55:41.893Z"
+    },
+    {
+      "id": "s15",
+      "area": "ux",
+      "text": "Status line says 'N working' during Build and 'N running' after it; use one word in both",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:56:03.861Z"
+    },
+    {
+      "id": "s16",
+      "area": "quality",
+      "text": "Plan-cost baseline edges: stop re-reading usage every tick when no cost is reported, clear a stale baseline on resume without a cost, reset when the session cost drops below the baseline, and test a full-width spend line ($123.45, 1.2M tokens, 100% context)",
+      "where": [
+        "plugins/cairn/hooks/mod/usage.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:56:25.807Z"
     }
   ],
   "planHash": "0eaa106a32c142a9",
