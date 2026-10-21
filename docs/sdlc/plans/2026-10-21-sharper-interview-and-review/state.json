@@ -6,8 +6,8 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:40:23.972Z",
-  "stage": "execute",
+  "updated": "2026-10-21T21:40:30.290Z",
+  "stage": "verify",
   "paused": null,
   "approvals": {
     "prd": {
@@ -148,7 +148,7 @@
     {
       "id": "wiring",
       "name": "Wire into the flow",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "review-routing",
@@ -468,6 +468,16 @@
       "at": "2026-10-21T21:40:23.972Z",
       "event": "task done",
       "detail": "Pane background, notice and truncation"
+    },
+    {
+      "at": "2026-10-21T21:40:30.290Z",
+      "event": "phase finished",
+      "detail": "Wire into the flow (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T21:40:30.290Z",
+      "event": "advanced",
+      "detail": "verify"
     }
   ],
   "suggestions": [
@@ -548,6 +558,16 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T21:32:15.088Z"
+    },
+    {
+      "id": "s8",
+      "area": "quality",
+      "text": "Refuse task done when the plan branch gained commits outside a task merge, since a haiku implementer committed straight onto the plan branch instead of its task branch",
+      "where": [
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T21:40:30.171Z"
     }
   ],
   "planHash": "f94805128506beb0",
