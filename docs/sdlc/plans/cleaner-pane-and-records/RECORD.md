@@ -5,7 +5,7 @@
 ## Links
 - PRD: docs/sdlc/plans/cleaner-pane-and-records/prd.md
 - Plan: docs/sdlc/plans/cleaner-pane-and-records/plan.md
-- PR: pending
+- PR: none (no remote; merged locally)
 - Tracker: none
 
 ## Why
@@ -35,4 +35,4 @@ The CLI (`plugins/cairn/cli/src`) holds state, follow-up rules and a `records` c
 - Grouped 31 follow-ups (14 from this plan, 17 from Standard branch names) into 5: tests breadth (12 merged), flaky test run inside task done, follow-up bookkeeping hardening (5 merged), pane and approval polish including the transparent background (4 merged), fix-track and old-plan docs (4 merged).
 - Dropped as trivia: Read all caching (performance), a status.ts code-clarity note.
 - 5 open recommended follow-ups: run /cairn:suggestions.
-- Final run: 163 CLI and 354 mod tests pass; one requirement is met but untested.
+- Final run: 163 CLI and 354 mod tests pass.
