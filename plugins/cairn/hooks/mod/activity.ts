@@ -3,6 +3,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, SessionStartInput, Timer } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
+import { estimateUsd } from './prices.ts'
 
 // What the pane draws lives in $.state, so a hot reload keeps the cards.
 const agents = atom({ plugin: 'cairn', key: 'agents' } as const, [] as AgentCard[])
@@ -172,12 +173,25 @@ export function turnStart($: EngineInterface, e: { agentId?: string }): Promise<
   return safe(async () => {
     const t = await $.clock.now()
     if (e.agentId === undefined) await update($, mainActivity, () => ({ action: 'thinking', since: t }))
-    else await patch($, e.agentId, c => (c.status === 'working' ? c : { ...c, status: 'working', startedAt: t, endedAt: undefined, durationMs: undefined, tokens: undefined }))
+    else await patch($, e.agentId, c => (c.status === 'working' ? c : { ...c, status: 'working', startedAt: t, endedAt: undefined, durationMs: undefined, tokens: undefined, tokensLive: undefined, usd: undefined }))
     await touch($)
   })
 }
 
-type Complete = { agentId?: string; reason?: string; durationMs?: number; usage?: { input_tokens: number; output_tokens: number } }
+type Usage = { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number; model?: string }
+
+/** A model step of an agent ended: its tokens and estimated cost join the card's running totals (FR-12). */
+export function step($: EngineInterface, e: { agentId?: string }, usage: Usage | null): Promise<void> {
+  return safe(async () => {
+    if (e.agentId === undefined || usage === null) return
+    const id = e.agentId
+    const cost = usage.model === undefined ? undefined : estimateUsd(usage.model, usage)
+    await patch($, id, c => (c.status !== 'working' ? c : { ...c, tokensLive: (c.tokensLive ?? 0) + usage.input_tokens + usage.output_tokens, usd: cost === undefined ? c.usd : (c.usd ?? 0) + cost }))
+    await touch($)
+  })
+}
+
+type Complete = { agentId?: string; reason?: string; durationMs?: number; usage?: Usage }
 
 /** A turn ended: the main session goes idle; an agent's card finishes, with a line in the feed. */
 export function turnComplete($: EngineInterface, e: Complete): Promise<void> {
@@ -190,10 +204,11 @@ export function turnComplete($: EngineInterface, e: Complete): Promise<void> {
     const ok = e.reason === 'answer'
     const durationMs = e.durationMs ?? t - card.startedAt
     const tokens = e.usage ? e.usage.input_tokens + e.usage.output_tokens : undefined
+    const cost = e.usage?.model === undefined ? undefined : estimateUsd(e.usage.model, e.usage)
     await update($, agents, list =>
       list
         .filter(c => c.status === 'working' || c.endedAt === undefined || t - c.endedAt < KEEP_ENDED_MS)
-        .map(c => (c.agentId === id ? { ...c, status: ok ? 'done' : 'failed', endedAt: t, durationMs, tokens, action: undefined } : c)),
+        .map(c => (c.agentId === id ? { ...c, status: ok ? 'done' : 'failed', endedAt: t, durationMs, tokens, tokensLive: undefined, usd: cost ?? c.usd, action: undefined } : c)),
     )
     const size = tokens === undefined ? '' : ` · ${tokens >= 1000 ? `${Math.round(tokens / 1000)}k` : tokens} tokens`
     const line = `${ok ? 'Finished' : 'Stopped'} ${card.title} · ${fmtDuration(durationMs, true)}${size}`
@@ -216,6 +231,11 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
 }
 
 export function install(on: On): void {
+  on('turn.step', async function* ($, e, next) {
+    const r = yield* next(e)
+    await step($, e, r.usage)
+    return r
+  })
   on('agent.spawn', async ($, e, next) => {
     const r = await next(e)
     await safe(async () => {

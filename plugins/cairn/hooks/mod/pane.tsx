@@ -301,7 +301,7 @@ export function install(on: On): void {
     const main = await readMain($)
     const used = await readUsage($)
     const baseline = await readBaseline($)
-    const cx: CardContext = { ui, accent, nowMs: t }
+    const cx: CardContext = { ui, accent, nowMs: t, columns: e.props.bodyColumns - 6 }
     // The bar's lines: docked, every stage step, then the usage lines; inline, the active step with the plan cost and limits.
     const planSlug = here !== undefined && isActive(here) ? here.state.slug : undefined
     const step = here === undefined ? [] : activeStep(here.state, here.prOpen)
