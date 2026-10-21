@@ -32,6 +32,8 @@ let stopMessageFor: string | undefined
 
 // The template's own example line under Open questions (templates/handoff.md).
 const TEMPLATE_QUESTION = '- <question> (recommended: <answer>)'
+// What Open questions holds when there are none yet: a line for the agent to replace, not an answer.
+const NO_QUESTIONS_YET = '- (none yet: fill in each open question with your recommended answer, or write "none" if there really are none)'
 
 const sectionBody = (md: string, title: string): string => {
   const lines = md.split('\n')
@@ -55,7 +57,7 @@ export function handoffFromState(state: PlanState, existing = ''): string {
   const kept = sectionBody(existing, 'open questions')
     .split('\n')
     .map(l => l.trim())
-    .filter(l => l !== '' && l !== TEMPLATE_QUESTION && !/^-?\s*none\.?$/i.test(l))
+    .filter(l => l !== '' && l !== TEMPLATE_QUESTION && l !== NO_QUESTIONS_YET && !/^-?\s*none\.?$/i.test(l))
   const next =
     slices.length > 0
       ? `Continue ${slices.map(s => s.id).join(', ')} from the recorded substeps: run \`cairn status --json\`, then \`cairn next --json\` and follow the procedure it names.`
@@ -67,7 +69,7 @@ export function handoffFromState(state: PlanState, existing = ''): string {
     ...(flight.length > 0 ? flight : ['- Nothing in flight.']),
     '',
     '## Open questions',
-    ...(kept.length > 0 ? kept : ['- None.']),
+    ...(kept.length > 0 ? kept : [NO_QUESTIONS_YET]),
     '',
     '## Next action',
     next,

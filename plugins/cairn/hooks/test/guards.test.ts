@@ -61,6 +61,32 @@ describe('bashVerdict', () => {
     'tmux new-session -d cairn status',
     'screen -dm cairn status',
     `python3 -c "import pty; pty.spawn(['cairn', 'status'])"`,
+    // Shell input is shell, however it arrives: a heredoc, a here-string, or a pipe.
+    'bash <<EOF\ncairn approve prd\nEOF',
+    'sh <<-EOF\n\tcairn approve prd\n\tEOF',
+    'bash <<< "cairn approve prd"',
+    'cat <<EOF | sh\ncairn approve prd\nEOF',
+    'cat <<EOF | tee /tmp/x | bash\ncairn approve prd\nEOF',
+    'echo cairn approve prd | bash',
+    'printf "cairn approve prd" | zsh',
+    // A real approve in any position, whatever prose surrounds it.
+    'cairn decide "q" "a"; cairn approve prd',
+    'cairn decide q "`cairn approve prd`"',
+    'cairn --note "`cairn approve prd`" status',
+    'cairn slice done x --why "ok $(cairn approve prd)"',
+    'cairn decide "q" "$(cairn approve prd)"',
+    'cairn --note "see decide" approve prd',
+    'cairn --why x approve prd',
+    // Interpreter code that writes a state.json.
+    `python3 -c "open('docs/sdlc/plans/x/state.json','w').write('{}')"`,
+    `python3 -c "open('docs/sdlc/plans/x/state.json', 'a').write('{}')"`,
+    `python3 -c "open('docs/sdlc/plans/x/state.json', mode='r+').write('{}')"`,
+    `python3 -c "from pathlib import Path; Path('docs/sdlc/plans/x/state.json').write_text('{}')"`,
+    `python3 -c "import json; json.dump({}, open('docs/sdlc/plans/x/state.json', 'wb'))"`,
+    `node -e "require('fs').writeFileSync('docs/sdlc/plans/x/state.json', '{}')"`,
+    `node -e "require('fs').write(require('fs').openSync('docs/sdlc/plans/x/state.json', 'r+'), '{}')"`,
+    `python3 - <<'EOF'\nopen('docs/sdlc/plans/x/state.json', 'w').write('{}')\nEOF`,
+    `node - <<EOF\nrequire('fs').writeFileSync('docs/sdlc/plans/x/state.json', '{}')\nEOF`,
   ]
   for (const cmd of denied) {
     test(`denies: ${cmd}`, () => {
@@ -102,6 +128,28 @@ describe('bashVerdict', () => {
     'cat /repo/.git/cairn/mod-heartbeat',
     'cat .git/cairn/mod-heartbeat 2>/dev/null',
     'npm test 2>&1 | tail -5',
+    // Live false positives: an interpreter's heredoc body is code, not shell.
+    `python3 - <<'EOF'\npath = 'docs/sdlc/plans/x/plan.md'\ntext = open(path).read()\nnote = """\ncairn approve prd\n"""\nopen(path, 'w').write(text + note)\nEOF`,
+    'python3 <<EOF\nprint(1)\ncairn approve prd\nEOF',
+    'node - <<EOF\ncairn approve prd\nEOF',
+    'ruby <<EOF\ncairn approve prd\nEOF',
+    'perl <<EOF\ncairn approve prd\nEOF',
+    'python3 - <<< "cairn approve prd"',
+    'cat <<EOF | python3 -\ncairn approve prd\nEOF',
+    // Live false positive: an interpreter that only reads a state file.
+    `python3 -c "import json;s=json.load(open('docs/sdlc/plans/x/state.json'));print(s['log'])"`,
+    `python3 -c "import json; print(json.loads(open('docs/sdlc/plans/x/state.json').read())['stage'])"`,
+    `node -e "console.log(JSON.parse(require('fs').readFileSync('docs/sdlc/plans/x/state.json')).stage)"`,
+    `python3 - <<'EOF'\nimport json\nprint(json.load(open('docs/sdlc/plans/x/state.json'))['stage'])\nEOF`,
+    // Live false positive: prose arguments that mention cairn commands.
+    "cairn decide 'Use the CLI?' 'Yes: run `cairn status`, read the state file, never `cairn approve`'",
+    'cairn decide "Use the CLI?" "Yes: run cairn status, read the state file; cairn approve stays with the user"',
+    "cairn decide q 'use `cairn status` here'",
+    'cairn decide "Wording?" "Say cairn approve is the user\'s call; cairn status shows state.json"',
+    "cairn --note 'ran `cairn approve` by hand? no' status",
+    "cairn slice done x --why 'the `cairn approve` step is not mine'",
+    'cairn --json decide "q" "approve"',
+    'echo cairn approve prd | cat',
   ]
   for (const cmd of allowed) {
     test(`allows: ${cmd}`, () => {

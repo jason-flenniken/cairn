@@ -25,7 +25,7 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const quick: ProcessRunInit = { timeoutMs: 60_000 }
 
 const STAGE_LABEL: Record<string, string> = {
-  discover: 'Discover', prd: 'PRD', plan: 'Plan', execute: 'Execute', verify: 'Verify',
+  discover: 'Discover', repro: 'Repro', prd: 'PRD', plan: 'Plan', execute: 'Execute', verify: 'Verify',
   review: 'Review', ship: 'Ship', learn: 'Learn', closed: 'Closed',
 }
 
