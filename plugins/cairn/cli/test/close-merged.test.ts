@@ -157,7 +157,10 @@ test('origin ahead of the local base: a branch merged only on origin is not PR o
     g(other, 'push', '-q', 'origin', 'main');
     g(repo, 'fetch', '-q', 'origin');
     assert.notEqual(g(repo, 'rev-parse', 'main'), g(repo, 'rev-parse', 'origin/main'), 'origin is ahead of local main');
+    assert.match(run(['close'], wt).message, /Closed/);
+    assert.equal(stateOf(wt, 'ahead1').stage, 'closed');
     assert.equal(prOpen(wt), false);
+    assert.match(label(wt), /Closed/);
     assert.doesNotMatch(label(wt), /PR open/);
   } finally {
     g(repo, 'remote', 'set-url', 'origin', remote);

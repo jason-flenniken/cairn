@@ -230,6 +230,22 @@ describe('status line (FR-11)', () => {
 })
 
 describe('polling (FR-10, NFR-01)', () => {
+  test('a poll whose state read fails outside its own catches is not an unhandled rejection, and the next tick still polls', async ($, on) => {
+    // Hooks register before $ is first used. Once the state read is down, the poll's first read rejects.
+    let isStateDown = false
+    on('state.get', ($, e, next) => (isStateDown ? { deny: 'state is unavailable' } : next(e)))
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    let spawned = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++spawned}` }))
+    await start($, WT)
+    isStateDown = true
+    await clock.advance(2_000)
+    isStateDown = false
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await clock.advance(2_000)
+    expect(w.statuses.at(-1)).toMatch(/1 working/)
+  })
+
   test('ten idle polls stat files and start no process', async ($, on) => {
     const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
     await start($, WT)
