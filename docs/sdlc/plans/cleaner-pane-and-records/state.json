@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:45:16.459Z",
+  "updated": "2026-10-21T14:49:32.835Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -47,10 +47,15 @@
             "docs/design.md"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "moves tracked plan files; old folders and old branches must keep resolving"
+          "riskReason": "moves tracked plan files; old folders and old branches must keep resolving",
+          "substep": "implementing",
+          "branch": "task/cleaner-pane-and-records/dated-folders",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--dated-folders",
+          "base": "af6423edeaf209994b6c4688cb37d75e4cc28ffe",
+          "startedAt": "2026-10-21T14:45:19.929Z"
         },
         {
           "id": "pane-now",
@@ -72,9 +77,14 @@
             "plugins/cairn/types/**"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "substep": "implementing",
+          "branch": "task/cleaner-pane-and-records/pane-now",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--pane-now",
+          "base": "af6423edeaf209994b6c4688cb37d75e4cc28ffe",
+          "startedAt": "2026-10-21T14:45:20.510Z"
         },
         {
           "id": "approval-hardening",
@@ -89,10 +99,18 @@
             "plugins/cairn/hooks/test/approve.test.ts"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "the approval hook is the human-proof path"
+          "riskReason": "the approval hook is the human-proof path",
+          "branch": "task/cleaner-pane-and-records/approval-hardening",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--approval-hardening",
+          "base": "af6423edeaf209994b6c4688cb37d75e4cc28ffe",
+          "startedAt": "2026-10-21T14:45:21.026Z",
+          "doneAt": "2026-10-21T14:49:32.834Z",
+          "tip": "c7308a4",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "9700b8321b27b010d56a566eeab1b10d3089eade"
         }
       ]
     },
@@ -252,8 +270,75 @@
       "at": "2026-10-21T14:45:16.458Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T14:45:19.930Z",
+      "event": "task started",
+      "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:45:20.511Z",
+      "event": "task started",
+      "detail": "Tabs and the Now view"
+    },
+    {
+      "at": "2026-10-21T14:45:21.027Z",
+      "event": "task started",
+      "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:45:48.599Z",
+      "event": "task implementing",
+      "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:45:48.676Z",
+      "event": "task implementing",
+      "detail": "Tabs and the Now view"
+    },
+    {
+      "at": "2026-10-21T14:45:48.752Z",
+      "event": "task implementing",
+      "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:47:41.637Z",
+      "event": "task reviewing",
+      "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:48:27.536Z",
+      "event": "task merging",
+      "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:49:32.835Z",
+      "event": "task done",
+      "detail": "Approval hook fixes"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "ux",
+      "text": "A stop tagged twice and answered Revise on both now shows two 'not approved' notes; note once per stop.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:48:27.398Z"
+    },
+    {
+      "id": "s2",
+      "area": "tests",
+      "text": "Pin one record and one note for Approve then Approve on a stop tagged twice.",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:48:27.467Z"
+    }
+  ]
 }
