@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:44:43.618Z",
+  "updated": "2026-10-21T14:45:13.602Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -15,6 +15,12 @@
       "via": "human",
       "source": "mod",
       "hash": "7d9f4955ae8003a5"
+    },
+    "plan": {
+      "at": "2026-10-21T14:45:13.601Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "2de7ba0ac296b6b8"
     }
   },
   "phases": [
@@ -236,7 +242,13 @@
       "at": "2026-10-21T14:44:43.617Z",
       "event": "plan loaded",
       "detail": "3 phases, 8 tasks"
+    },
+    {
+      "at": "2026-10-21T14:45:13.602Z",
+      "event": "plan approved",
+      "detail": "mod"
     }
   ],
-  "planHash": "2de7ba0ac296b6b8"
+  "planHash": "2de7ba0ac296b6b8",
+  "configHash": "12129909968d47d2"
 }
