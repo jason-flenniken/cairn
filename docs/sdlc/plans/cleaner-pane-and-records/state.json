@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:50:06.575Z",
+  "updated": "2026-10-21T14:53:16.981Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -27,7 +27,7 @@
     {
       "id": "readable-now",
       "name": "Readable Now tab and dated folders",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "dated-folders",
@@ -47,15 +47,18 @@
             "docs/design.md"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
           "riskReason": "moves tracked plan files; old folders and old branches must keep resolving",
-          "substep": "implementing",
           "branch": "task/cleaner-pane-and-records/dated-folders",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--dated-folders",
           "base": "af6423edeaf209994b6c4688cb37d75e4cc28ffe",
-          "startedAt": "2026-10-21T14:45:19.929Z"
+          "startedAt": "2026-10-21T14:45:19.929Z",
+          "doneAt": "2026-10-21T14:53:16.981Z",
+          "tip": "9d531ef",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "61dc45d755cecc2a6e699003d953e5d0ccdc07ed"
         },
         {
           "id": "pane-now",
@@ -238,7 +241,74 @@
     }
   ],
   "evidence": {},
-  "drift": [],
+  "drift": [
+    {
+      "path": "plugins/cairn/agents/recorder.md",
+      "at": "2026-10-21T14:53:16.980Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/direction.md",
+      "at": "2026-10-21T14:53:16.980Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/execute.md",
+      "at": "2026-10-21T14:53:16.980Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/fix.md",
+      "at": "2026-10-21T14:53:16.980Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/learn.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/new.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/pause.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/plan.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/prd.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/resume.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/ship.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    }
+  ],
   "log": [
     {
       "at": "2026-10-21T14:27:19.719Z",
@@ -328,6 +398,76 @@
       "at": "2026-10-21T14:50:06.575Z",
       "event": "task done",
       "detail": "Tabs and the Now view"
+    },
+    {
+      "at": "2026-10-21T14:51:23.542Z",
+      "event": "task reviewing",
+      "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:52:45.206Z",
+      "event": "task merging",
+      "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:53:16.980Z",
+      "event": "drift",
+      "detail": "plugins/cairn/agents/recorder.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.980Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/direction.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.980Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/execute.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.980Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/fix.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/learn.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/new.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/pause.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/plan.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/prd.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/resume.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/ship.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "task done",
+      "detail": "Dated plan folders"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
@@ -362,6 +502,36 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T14:49:36.654Z"
+    },
+    {
+      "id": "s4",
+      "area": "tests",
+      "text": "Run status or decide from a task worktree on a dated or renamed folder, and a full task start and merge on a renamed plan.",
+      "where": [
+        "plugins/cairn/cli/test/dated-folders.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:52:49.796Z"
+    },
+    {
+      "id": "s5",
+      "area": "quality",
+      "text": "allStates scans plan folders by name; key it through resolvePlanDir.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:52:49.866Z"
+    },
+    {
+      "id": "s6",
+      "area": "quality",
+      "text": "listPlans runs git show on an undefined path and relies on the catch; skip explicitly.",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:52:49.937Z"
     }
   ]
 }
