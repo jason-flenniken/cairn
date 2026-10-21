@@ -7461,22 +7461,28 @@ function commitPath(cwd, path, message) {
 }
 
 // plugins/cairn/cli/src/locate.ts
-var PLAN_PREFIX = "sdlc/";
-var TASK_PREFIX = "sdlc-task/";
 var PLANS_DIR = "docs/sdlc/plans";
-var planBranch = (slug) => `${PLAN_PREFIX}${slug}`;
-var taskBranch = (slug, task) => `${TASK_PREFIX}${slug}/${task}`;
+var PLAN_PREFIXES = ["feature/", "fix/", "sdlc/"];
+var TASK_PREFIXES = ["task/", "sdlc-task/"];
+var planBranch = (slug, track) => `${track === "fix" ? "fix/" : "feature/"}${slug}`;
+var taskBranch = (slug, task) => `task/${slug}/${task}`;
+var worktreeName = (branch) => branch.replace(/\//g, "-");
+var planBranchesFor = (slug, cwd) => PLAN_PREFIXES.map((p) => `${p}${slug}`).filter((b) => branchExists(b, cwd));
 var planRel = (slug) => `${PLANS_DIR}/${slug}`;
 function parseBranch(branch) {
-  if (branch.startsWith(PLAN_PREFIX)) return { slug: branch.slice(PLAN_PREFIX.length) };
-  if (branch.startsWith(TASK_PREFIX)) {
-    const [slug, task] = branch.slice(TASK_PREFIX.length).split("/");
-    return { slug, task };
-  }
+  for (const p of PLAN_PREFIXES) if (branch.startsWith(p)) return { slug: branch.slice(p.length) };
+  for (const p of TASK_PREFIXES)
+    if (branch.startsWith(p)) {
+      const [slug, task] = branch.slice(p.length).split("/");
+      return { slug, task };
+    }
   return {};
 }
 function planRef(slug, wts) {
-  const wt = wts.find((w) => w.branch === planBranch(slug));
+  const wt = wts.find((w) => {
+    const b = parseBranch(w.branch ?? "");
+    return b.slug === slug && !b.task;
+  });
   return wt ? { slug, worktree: wt.path, dir: join2(wt.path, planRel(slug)) } : { slug };
 }
 function context(cwd, slugOverride) {
@@ -7491,14 +7497,18 @@ function context(cwd, slugOverride) {
   const { slug, task } = parseBranch(branch);
   const ctx = { cwd, top, mainRoot: wts[0]?.path ?? top, branch, worktrees: wts, task };
   const s = slugOverride ?? slug;
-  if (s) ctx.plan = planRef(s, wts);
+  if (s) {
+    const ref = planRef(s, wts);
+    const legacy = branch.startsWith("sdlc/") || branch.startsWith("sdlc-task/");
+    if (slugOverride || legacy || existsSync2(join2(top, planRel(s), "state.json"))) ctx.plan = ref;
+  }
   return ctx;
 }
 function requirePlan(ctx) {
   const p = ctx.plan;
   if (!p) throw new CliError(`not on a plan branch (current: ${ctx.branch}). Use \`cairn status --all\` to list plans, or \`cairn new <slug>\`.`);
   if (!p.worktree || !p.dir || !existsSync2(join2(p.dir, "state.json")))
-    throw new CliError(`plan "${p.slug}" has no checked-out worktree with state. Check out ${planBranch(p.slug)} first.`);
+    throw new CliError(`plan "${p.slug}" has no checked-out worktree with state. Run \`cairn resume ${p.slug}\` to check out its plan branch.`);
   return p;
 }
 
@@ -7949,13 +7959,14 @@ import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:f
 import { join as join7, resolve } from "node:path";
 function cmdNew(ctx, slug, opts) {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "\u2026"');
-  const branch = planBranch(slug);
-  if (branchExists(branch, ctx.top)) throw new Refusal(`a plan named "${slug}" already exists (${branch})`, [`cairn resume ${slug}`, "or pick another slug"]);
+  const track = opts.track === "fix" ? "fix" : "feature";
+  const branch = planBranch(slug, track);
+  const existing = planBranchesFor(slug, ctx.top)[0];
+  if (existing) throw new Refusal(`a plan named "${slug}" already exists (${existing})`, [`cairn resume ${slug}`, "or pick another slug"]);
   if (!gitOk(["rev-parse", "--verify", "HEAD"], ctx.top)) throw new Refusal("the repository has no commits yet", ["make an initial commit first"]);
   const mainBranch = ctx.worktrees[0]?.branch ?? ctx.branch;
   const base = typeof opts.from === "string" ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === "string" ? opts.title : slug;
-  const track = opts.track === "fix" ? "fix" : "feature";
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
   let wt;
   if (opts["no-worktree"]) {
@@ -7964,7 +7975,7 @@ function cmdNew(ctx, slug, opts) {
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-    wt = join7(root, `sdlc-${slug}`);
+    wt = join7(root, worktreeName(branch));
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
   const dir = join7(wt, planRel(slug));
@@ -8484,7 +8495,7 @@ function cmdPlanLoad(ctx, opts) {
 
 // plugins/cairn/cli/src/commands/tasks.ts
 import { existsSync as existsSync5 } from "node:fs";
-import { join as join10 } from "node:path";
+import { basename as basename2, join as join10 } from "node:path";
 var MAX_FIX_ROUNDS = 2;
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
@@ -8521,9 +8532,10 @@ function cmdTask(ctx, action, id, rest, opts) {
 }
 function taskStart(pc, id, opts) {
   const { plan, ctx, cfg } = pc;
-  const branch = taskBranch(plan.slug, id);
-  const path = join10(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${plan.slug}--${id}`);
   const r = mutate(pc, void 0, (s) => {
+    const branch = taskBranch(plan.slug, id);
+    const path = join10(worktreeRoot(cfg, ctx.mainRoot), `${basename2(plan.worktree)}--${id}`);
+    const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
     if (sl.status === "in_progress") return { message: `Task "${sl.name}" is already running (${sl.substep}) at ${sl.worktree}.`, data: { worktree: sl.worktree, branch: sl.branch, resumed: true } };
@@ -8540,18 +8552,18 @@ function taskStart(pc, id, opts) {
     const ready = readySet(s, cfg.maxParallel);
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
-    const base = git(["rev-parse", planBranch(plan.slug)], plan.worktree);
+    const base = git(["rev-parse", pb], plan.worktree);
     let setup = "";
     if (!existsSync5(path)) {
       if (branchExists(branch, plan.worktree)) git(["worktree", "add", "-q", path, branch], plan.worktree);
-      else git(["worktree", "add", "-q", "-b", branch, path, planBranch(plan.slug)], plan.worktree);
+      else git(["worktree", "add", "-q", "-b", branch, path, pb], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
     }
     Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now() });
     const phase = s.phases.find((p) => p.tasks.includes(sl));
     if (phase.status === "pending") phase.status = "in_progress";
     log(s, "task started", sl.name);
-    return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: planBranch(plan.slug) } };
+    return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: pb } };
   });
   ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
   return r;
@@ -8577,7 +8589,7 @@ function taskDone(pc, id, opts) {
   const sl = findTask(pre, id);
   if (!sl) throw new Refusal(`no task "${id}" in this plan`);
   if (sl.status !== "in_progress" || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`);
-  const pb = planBranch(plan.slug);
+  const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
   const merged = branchExists(sl.branch, plan.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan.worktree);
   const dirty = sl.worktree && existsSync5(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
@@ -8688,10 +8700,11 @@ import { join as join12 } from "node:path";
 import { existsSync as existsSync6, readFileSync as readFileSync4 } from "node:fs";
 import { join as join11 } from "node:path";
 function listPlans(ctx) {
-  const refs = git(["for-each-ref", "--format=%(refname:short)", "refs/heads/sdlc/"], ctx.top).split("\n").filter(Boolean);
+  const refs = git(["for-each-ref", "--format=%(refname:short)", ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split("\n").filter(Boolean);
   const rows = [];
   for (const b of refs) {
-    const slug = b.slice("sdlc/".length);
+    const slug = parseBranch(b).slug;
+    if (!slug) continue;
     const ref = planRef(slug, ctx.worktrees);
     try {
       const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync4(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
@@ -8976,11 +8989,12 @@ function cmdPause(ctx, opts) {
 function cmdResume(ctx, slug, opts) {
   if (slug && ctx.plan?.slug !== slug) {
     const ref = planRef(slug, ctx.worktrees);
-    if (!branchExists(planBranch(slug), ctx.top)) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
+    const branch = planBranchesFor(slug, ctx.top)[0];
+    if (!branch) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join13(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
-      git(["worktree", "add", "-q", wt, planBranch(slug)], ctx.top);
+      const wt = join13(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
     }

@@ -92,12 +92,29 @@ test('full lifecycle with every checkpoint', () => {
   // new
   const r = ok(repo, 'new', 'billing', '--title', 'Billing');
   wt = r.data!.worktree as string;
-  assert.equal(wt, join(repo, '.claude/worktrees/sdlc-billing'));
-  assert.equal(g(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc/billing');
+  assert.equal(wt, join(repo, '.claude/worktrees/feature-billing'));
+  assert.equal(g(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'feature/billing');
   assert.match(readFileSync(join(repo, '.git/info/exclude'), 'utf8'), /\.claude\/worktrees\//);
   assert.ok(existsSync(join(wt, '.setup-ran')), 'setup ran in the plan worktree');
   assert.equal(state().stage, 'discover');
   refused(repo, /already exists/, 'new', 'billing');
+  refused(repo, /already exists \(feature\/billing\)/, 'new', 'billing', '--track', 'fix');
+
+  // a hand-made branch with no plan files is not a plan: left out of the list, and the CLI acts as on main
+  const otherWt = join(repo, '.claude/worktrees/feature-other');
+  g(repo, 'worktree', 'add', '-q', '-b', 'feature/other', otherWt, 'main');
+  const listed = ok(repo, 'status', '--all').data!.plans as { state: { slug: string } }[];
+  assert.deepEqual(listed.map((p) => p.state.slug), ['billing']);
+  assert.ok(Array.isArray(ok(otherWt, 'status').data!.plans), 'status on a hand-made branch shows the index');
+  g(repo, 'worktree', 'remove', '--force', otherWt);
+
+  // a fix plan lands on fix/<slug> in folder fix-<slug>
+  const fixed = ok(repo, 'new', 'crash', '--track', 'fix');
+  assert.equal(fixed.data!.worktree, join(repo, '.claude/worktrees/fix-crash'));
+  assert.equal(g(fixed.data!.worktree as string, 'rev-parse', '--abbrev-ref', 'HEAD'), 'fix/crash');
+  refused(repo, /already exists \(fix\/crash\)/, 'new', 'crash');
+  g(repo, 'worktree', 'remove', '--force', fixed.data!.worktree as string);
+  g(repo, 'branch', '-D', 'fix/crash');
 
   // discover -> prd
   refused(wt, /no decisions/, 'advance');
@@ -135,7 +152,8 @@ test('full lifecycle with every checkpoint', () => {
   const chargeWt = ok(wt, 'task', 'start', 'charge').data!.worktree as string;
   const refundWt = ok(wt, 'task', 'start', 'refund').data!.worktree as string;
   assert.ok(existsSync(join(chargeWt, '.setup-ran')), 'setup ran in the task worktree');
-  assert.equal(g(chargeWt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc-task/billing/charge');
+  assert.equal(g(chargeWt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'task/billing/charge');
+  assert.equal(chargeWt, join(repo, '.claude/worktrees/feature-billing--charge'));
 
   // drift from a task worktree is logged against the plan worktree's state
   const out = ctxOf(hookPostEdit({ cwd: wt, tool_input: { file_path: join(chargeWt, 'src/refund/oops.ts') } }));
@@ -145,7 +163,7 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'suggest', 'add', '--area', 'tests', '--where', 'src/charge/**', '--where', 'src/refund/**', '--text', 'cover the refund edge');
 
   // a task with no commits can't be marked done
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'noop', 'sdlc-task/billing/refund');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'noop', 'task/billing/refund');
   refused(wt, /no commits since the task started/, 'task', 'done', 'refund');
 
   // fix attempts circuit breaker
@@ -157,7 +175,7 @@ test('full lifecycle with every checkpoint', () => {
   g(chargeWt, 'add', '-A');
   g(chargeWt, 'commit', '-q', '-m', 'charge');
   refused(wt, /not merged/, 'task', 'done', 'charge');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'sdlc-task/billing/charge');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'task/billing/charge');
   write(join(wt, 'stray.ts'), 'x');
   refused(wt, /uncommitted changes outside docs\/sdlc/, 'task', 'done', 'charge');
   rmSync(join(wt, 'stray.ts'));
@@ -171,7 +189,7 @@ test('full lifecycle with every checkpoint', () => {
   write(join(refundWt, 'src/refund/index.ts'), 'export const refund = 1;\n');
   g(refundWt, 'add', '-A');
   g(refundWt, 'commit', '-q', '-m', 'refund');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge refund', 'sdlc-task/billing/refund');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge refund', 'task/billing/refund');
   ok(wt, 'task', 'done', 'refund');
   assert.equal(state().phases[0].status, 'awaiting_approval');
 
@@ -211,7 +229,7 @@ test('full lifecycle with every checkpoint', () => {
   write(join(receiptWt, 'src/receipt/index.ts'), 'export const r = 1;\n');
   g(receiptWt, 'add', '-A');
   g(receiptWt, 'commit', '-q', '-m', 'receipt');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'sdlc-task/billing/receipt');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'task/billing/receipt');
   ok(wt, 'task', 'done', 'receipt');
   ok(wt, 'phase', 'finish');
   assert.equal(state().stage, 'verify');
@@ -248,7 +266,7 @@ test('override lets a refused step through and logs the reason', () => {
 });
 
 test('edits before the plan is approved are drift', () => {
-  const swt = join(repo, '.claude/worktrees/sdlc-spike');
+  const swt = join(repo, '.claude/worktrees/feature-spike');
   assert.match(ctxOf(hookPostEdit({ cwd: swt, tool_input: { file_path: join(swt, 'src/app.ts') } })), /before the plan was approved/);
   assert.equal(hookPostEdit({ cwd: swt, tool_input: { file_path: join(swt, 'docs/notes.md') } }), '');
 });
@@ -271,7 +289,7 @@ test('re-plan from verify adds fix tasks, keeps progress, and re-runs verificati
   write(join(swt, 'src/charge/a.ts'), '1\n');
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', 'c');
-  g(fwt, 'merge', '-q', '--no-ff', '-m', 'm', 'sdlc-task/fixes/charge');
+  g(fwt, 'merge', '-q', '--no-ff', '-m', 'm', 'task/fixes/charge');
   ok(fwt, 'task', 'done', 'charge');
   ok(fwt, 'phase', 'finish');
   ok(fwt, 'evidence', 'verify', 'fail', '--note', 'double charge');

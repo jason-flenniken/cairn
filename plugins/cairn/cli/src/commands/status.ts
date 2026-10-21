@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { commonDir, git } from '../git.ts';
-import { planRef, planRel, type Ctx } from '../locate.ts';
+import { PLAN_PREFIXES, parseBranch, planRef, planRel, type Ctx } from '../locate.ts';
 import { modActive } from '../proof.ts';
 import { nextFor, renderIndex, summary, type IndexRow } from '../render.ts';
 import { loadState, parseState, saveState } from '../state.ts';
@@ -11,10 +11,11 @@ import { openSuggestionCount } from './suggest.ts';
 import { planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function listPlans(ctx: Ctx): IndexRow[] {
-  const refs = git(['for-each-ref', '--format=%(refname:short)', 'refs/heads/sdlc/'], ctx.top).split('\n').filter(Boolean);
+  const refs = git(['for-each-ref', '--format=%(refname:short)', ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split('\n').filter(Boolean);
   const rows: IndexRow[] = [];
   for (const b of refs) {
-    const slug = b.slice('sdlc/'.length);
+    const slug = parseBranch(b).slug;
+    if (!slug) continue;
     const ref = planRef(slug, ctx.worktrees);
     try {
       const raw = ref.dir && existsSync(join(ref.dir, 'state.json')) ? readFileSync(join(ref.dir, 'state.json'), 'utf8') : git(['show', `${b}:${planRel(slug)}/state.json`], ctx.top);
