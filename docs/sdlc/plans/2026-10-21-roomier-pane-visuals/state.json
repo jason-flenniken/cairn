@@ -6,7 +6,7 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:39:34.437Z",
+  "updated": "2026-10-21T20:44:01.324Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -17,7 +17,58 @@
       "hash": "e6da444b6f44f404"
     }
   },
-  "phases": [],
+  "phases": [
+    {
+      "id": "roomier-pane",
+      "name": "Roomier pane and approval polish",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "pane-layout",
+          "name": "Pane padding and spacing",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-05",
+            "FR-06",
+            "FR-07",
+            "FR-08",
+            "FR-09",
+            "FR-10"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "approval-polish",
+          "name": "Approval note and open question",
+          "covers": [
+            "FR-11",
+            "FR-12"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/approve.ts",
+            "plugins/cairn/hooks/test/approve.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "changes how the human approval question resolves"
+        }
+      ]
+    }
+  ],
   "evidence": {},
   "drift": [],
   "log": [
@@ -39,6 +90,11 @@
       "at": "2026-10-21T20:39:34.437Z",
       "event": "advanced",
       "detail": "plan"
+    },
+    {
+      "at": "2026-10-21T20:44:01.324Z",
+      "event": "plan loaded",
+      "detail": "1 phases, 2 tasks"
     }
   ],
   "suggestions": [
@@ -67,5 +123,6 @@
       "at": "2026-10-21T20:36:47.229Z",
       "declines": "cleaner-pane-and-records:s20"
     }
-  ]
+  ],
+  "planHash": "122c17720d54ebf7"
 }
