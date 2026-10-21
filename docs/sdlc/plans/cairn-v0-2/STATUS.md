@@ -47,6 +47,7 @@ Branch `sdlc/cairn-v0-2` from `main` · started 2026-10-20 · updated 2026-10-21
 - 2026-10-21 override: slice done: user chose Override in the menu because the re-plan dropped the slice base commit which the cli-polish slice fixes (you, in the menu)
 
 ## Recent activity
+- 2026-10-21 11:56 direction yellow: Dogfood fixes
 - 2026-10-21 11:54 slice done: Test summary, approval sources, strict ids, prefactor slices
 - 2026-10-21 11:54 drift: plugins/cairn/cli/src/commands/fix.ts
 - 2026-10-21 11:53 slice merging: Test summary, approval sources, strict ids, prefactor slices
@@ -54,4 +55,3 @@ Branch `sdlc/cairn-v0-2` from `main` · started 2026-10-20 · updated 2026-10-21
 - 2026-10-21 11:49 slice done: Unlocked orchestrator and documented formats
 - 2026-10-21 11:49 slice merging: Unlocked orchestrator and documented formats
 - 2026-10-21 11:49 slice done: Named pre-approved cairn commands
-- 2026-10-21 11:48 slice merging: Named pre-approved cairn commands

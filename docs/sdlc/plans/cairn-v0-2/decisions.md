@@ -120,3 +120,8 @@ _2026-10-21 11:20_
 ### 24. Open item for Verify: skill permission list format
 **Decision:** Skills now list each cairn subcommand as a quoted YAML list under allowed-tools. claude plugin validate accepts it; Verify must confirm Claude Code honors it (a skill runs cairn status without a permission prompt, and repro still prompts).
 _2026-10-21 11:49_
+
+### 25. Follow-ups from the cli-polish review
+**Decision:** Logged for Verify or a later fix plan: the recorded test summary is the last count line (node prints fail 0 last), so prefer the pass line; drift re-flags a path already reviewed from the edit hook; cairn resume still suggests EnterWorktree; a sandboxed repro timeout cannot kill descendants when setpgid is refused.
+**Why:** Minor review items, kept so they are not lost.
+_2026-10-21 11:54_
