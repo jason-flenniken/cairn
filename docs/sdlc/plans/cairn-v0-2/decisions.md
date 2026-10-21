@@ -116,3 +116,7 @@ _2026-10-21 11:18_
 **Decision:** Phase 3 approved yellow through the mod, the first mod-recorded approval. dogfood-docs now updates fix.md to offer reopen-in-place and renames the phase-end follow-up to Start clean. cli-polish enforces keeping the fix slice id after escalate and drops the EnterWorktree hint. New mod-polish slice covers the pause placeholder, the pane repro label, and three guard false positives found live: heredoc bodies to python, inline interpreter reads of plan state, and decide prose.
 **Why:** Phase 3 direction report and the first live mod approval.
 _2026-10-21 11:20_
+
+### 24. Open item for Verify: skill permission list format
+**Decision:** Skills now list each cairn subcommand as a quoted YAML list under allowed-tools. claude plugin validate accepts it; Verify must confirm Claude Code honors it (a skill runs cairn status without a permission prompt, and repro still prompts).
+_2026-10-21 11:49_

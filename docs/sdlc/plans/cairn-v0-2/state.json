@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T11:49:18.966Z",
+  "updated": "2026-10-21T11:49:54.431Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -523,12 +523,14 @@
             "plugins/cairn/cli/test/dogfood-docs.test.ts"
           ],
           "complexity": "simple",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
-          "substep": "implementing",
           "branch": "sdlc-slice/cairn-v0-2/dogfood-docs",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--dogfood-docs",
-          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665"
+          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665",
+          "doneAt": "2026-10-21T11:49:54.431Z",
+          "tip": "6acac0f",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
         },
         {
           "id": "cli-polish",
@@ -1141,6 +1143,16 @@
       "at": "2026-10-21T11:49:18.966Z",
       "event": "slice done",
       "detail": "Named pre-approved cairn commands"
+    },
+    {
+      "at": "2026-10-21T11:49:24.367Z",
+      "event": "slice merging",
+      "detail": "Unlocked orchestrator and documented formats"
+    },
+    {
+      "at": "2026-10-21T11:49:54.431Z",
+      "event": "slice done",
+      "detail": "Unlocked orchestrator and documented formats"
     }
   ],
   "planHash": "cc54213ff13f0bd3",
