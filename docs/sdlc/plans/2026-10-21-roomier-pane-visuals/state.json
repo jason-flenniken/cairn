@@ -6,8 +6,8 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:39:31.482Z",
-  "stage": "prd",
+  "updated": "2026-10-21T20:39:34.437Z",
+  "stage": "plan",
   "paused": null,
   "approvals": {
     "prd": {
@@ -34,6 +34,11 @@
       "at": "2026-10-21T20:39:31.482Z",
       "event": "PRD approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T20:39:34.437Z",
+      "event": "advanced",
+      "detail": "plan"
     }
   ],
   "suggestions": [
