@@ -106,3 +106,8 @@ _2026-10-21 10:11_
 **Decision:** The user stopped the 24-minute test-flake run; it moves to phase 4 with its lead: forcing a repack shows packfile index unavailable errors, pointing at background git gc or repack racing the next command in the same test repo.
 **Why:** Not on the critical path; the user asked to keep moving.
 _2026-10-21 11:05_
+
+### 22. Dogfood: install cairn from the plan worktree
+**Decision:** The ai-workflow marketplace now points at the plan worktree, so this session loads cairn v0.2 including the mod after reload-plugins, and every merge shows up live. At ship it must be pointed back at the main checkout before the worktree is removed.
+**Why:** The user wants to see the mod in this session without a second terminal.
+_2026-10-21 11:18_

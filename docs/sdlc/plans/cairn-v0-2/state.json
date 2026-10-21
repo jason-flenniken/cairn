@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T11:09:20.356Z",
+  "updated": "2026-10-21T11:19:25.422Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -403,7 +403,13 @@
           "doneAt": "2026-10-21T10:20:14.128Z",
           "note": "review inputs for fix track; blocking-finding loop pending fix-cli"
         }
-      ]
+      ],
+      "verdict": {
+        "result": "yellow",
+        "at": "2026-10-21T11:19:25.421Z",
+        "commit": "6ceeb7b605688ce4025ddf91dcb14e1e0f648c31",
+        "note": "3 partial, 9 aligned; fix procedure behind CLI reopen"
+      }
     },
     {
       "id": "dogfood",
@@ -951,6 +957,11 @@
       "at": "2026-10-21T11:09:20.355Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T11:19:25.422Z",
+      "event": "direction yellow",
+      "detail": "Drift check and fast lane"
     }
   ],
   "planHash": "f50ac9cf22d057f7"
