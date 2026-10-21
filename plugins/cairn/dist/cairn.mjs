@@ -7771,6 +7771,21 @@ var STAGE_LABEL = {
   learn: "Learn",
   closed: "Closed"
 };
+var STEPS = {
+  verify: ["testing", "scanning", "fixing"],
+  review: ["reviewing", "fixing", "rechecking"],
+  ship: ["approving", "opening-pr", "merging"]
+};
+var STEP_LABEL = {
+  testing: "running tests",
+  scanning: "scanning for secrets",
+  fixing: "fixing",
+  reviewing: "reviewing",
+  rechecking: "re-checking",
+  approving: "waiting on approval",
+  "opening-pr": "opening the PR",
+  merging: "merging"
+};
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 var SUGGESTION_AREAS = ["tests", "security", "perf", "quality", "ux", "docs"];
 var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user"];
@@ -7811,15 +7826,26 @@ function nextFor(s) {
       return { procedure: "learn", text: "Capture anything worth keeping, then close the plan." };
   }
 }
+function stepText(s) {
+  const st = s.step;
+  if (!st || st.stage !== s.stage) return void 0;
+  const label = STEP_LABEL[st.name] ?? st.name;
+  if (st.name === "fixing" && st.count !== void 0) return `${label} ${st.count} finding${st.count === 1 ? "" : "s"}`;
+  return label;
+}
 function progress(s, prOpen = false) {
   const stage = `${STAGE_LABEL[s.stage]}${prOpen ? " \xB7 PR open" : ""}`;
+  if (STAGES.indexOf(s.stage) > STAGES.indexOf("execute")) {
+    const step = stepText(s);
+    return step ? `${stage} \xB7 ${step}` : stage;
+  }
   const all = s.phases.flatMap((p) => p.tasks);
   if (!s.phases.length) return stage;
   const done = all.filter((x) => x.status === "done").length;
   const running = all.filter((x) => x.status === "in_progress").length;
   const pi = s.phases.findIndex((p) => p.status !== "done");
-  const phase = pi === -1 ? "all phases done" : `phase ${pi + 1}/${s.phases.length} "${s.phases[pi].name}"`;
-  return `${stage} \xB7 ${phase} \xB7 ${done}/${all.length} tasks done${running ? ` \xB7 ${running} running` : ""}`;
+  const phase = pi === -1 ? "" : ` \xB7 phase ${pi + 1}/${s.phases.length} "${s.phases[pi].name}"`;
+  return `${stage}${phase} \xB7 ${done}/${all.length} tasks done${running ? ` \xB7 ${running} running` : ""}`;
 }
 var SOURCE_LABEL = { mod: "you, in the menu", terminal: "you, in the terminal" };
 var approvedBy = (a) => {
@@ -7979,6 +8005,7 @@ function mutate(pc, commitMsg, fn) {
   const r = withLock(pc.plan.dir, () => {
     const s = loadState(pc.plan.dir);
     const out = fn(s);
+    if (s.step && s.step.stage !== s.stage) delete s.step;
     saveState(pc.plan.dir, s);
     return out;
   });
@@ -9010,6 +9037,26 @@ function taskDone(pc, id, opts) {
   return r;
 }
 
+// plugins/cairn/cli/src/commands/step.ts
+var NAME = /^[a-z-]{1,20}$/;
+var COUNT = /^\d{1,6}$/;
+function cmdStep(ctx, name, opts) {
+  const pc = planCtx(ctx);
+  const count = opts.count;
+  if (count !== void 0 && !(typeof count === "string" && COUNT.test(count))) throw new Refusal("--count must be a whole number, 0 or more");
+  return mutate(pc, void 0, (s) => {
+    const valid = STEPS[s.stage];
+    if (!valid) throw new Refusal(`there are no steps at ${s.stage}; steps exist at ${Object.keys(STEPS).join(", ")}`);
+    const list2 = valid.join(", ");
+    if (!name) throw new Refusal(`usage: cairn step <name> [--count N]; at ${s.stage}: ${list2}`);
+    if (!NAME.test(name) || !valid.includes(name))
+      throw new Refusal(`${NAME.test(name) ? `"${name}"` : "that name"} is not a step at ${s.stage}; valid steps: ${list2}`);
+    s.step = { stage: s.stage, name, ...count !== void 0 ? { count: Number(count) } : {}, at: now() };
+    log(s, "step", `${name}${count !== void 0 ? ` (${count})` : ""}`);
+    return { message: `Step at ${s.stage}: ${name}${count !== void 0 ? ` (${count})` : ""}.`, data: { step: s.step } };
+  });
+}
+
 // plugins/cairn/cli/src/commands/phase.ts
 function newSuggestionsText(s) {
   const since = [...s.log].reverse().find((l) => l.event === "phase finished" || l.event === "advanced" && l.detail === "execute")?.at ?? s.created;
@@ -9054,7 +9101,7 @@ function cmdPhase(ctx, action, opts) {
     } else {
       s.stage = "verify";
       log(s, "advanced", "verify");
-      next = "all phases done, moved to Check";
+      next = "moved to Check";
     }
     const driftText = drift.length ? `; ${drift.length} out-of-scope edit(s): ${drift.slice(0, 5).map((d) => d.path).join(", ")}` : "";
     return {
@@ -9387,7 +9434,7 @@ ${v}` : v;
 var USAGE2 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
-  task start|step|done <id> | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  task start|step|done <id> | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
   pause [--now] | resume [<slug>] | close | render | records
   repro "<command>" | escalate (fix plans)
@@ -9425,6 +9472,8 @@ function run(argv, cwd = process.cwd()) {
       return cmdTask(ctx(), a, b, rest, opts);
     case "evidence":
       return cmdEvidence(ctx(), a, b, opts);
+    case "step":
+      return cmdStep(ctx(), a, opts);
     case "phase":
       return cmdPhase(ctx(), a, opts);
     case "suggest":
