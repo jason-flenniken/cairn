@@ -1,4 +1,4 @@
-import { STAGE_LABEL } from './types.ts';
+import { STAGES, STAGE_LABEL, STEP_LABEL } from './types.ts';
 import type { Approval, Phase, Task, State } from './types.ts';
 
 const day = (iso?: string) => (iso ? iso.slice(0, 10) : '');
@@ -55,15 +55,29 @@ export function nextFor(s: State): Next {
   }
 }
 
+/** The step in words, for the current stage only: "fixing 3 findings", "waiting on approval". */
+export function stepText(s: State): string | undefined {
+  const st = s.step;
+  if (!st || st.stage !== s.stage) return undefined;
+  const label = STEP_LABEL[st.name] ?? st.name;
+  if (st.name === 'fixing' && st.count !== undefined) return `${label} ${st.count} finding${st.count === 1 ? '' : 's'}`;
+  return label;
+}
+
 export function progress(s: State, prOpen = false): string {
   const stage = `${STAGE_LABEL[s.stage]}${prOpen ? ' · PR open' : ''}`;
+  // After Build the phases are finished: show the stage and its step, not the phase count.
+  if (STAGES.indexOf(s.stage) > STAGES.indexOf('execute')) {
+    const step = stepText(s);
+    return step ? `${stage} · ${step}` : stage;
+  }
   const all = s.phases.flatMap((p) => p.tasks);
   if (!s.phases.length) return stage;
   const done = all.filter((x) => x.status === 'done').length;
   const running = all.filter((x) => x.status === 'in_progress').length;
   const pi = s.phases.findIndex((p) => p.status !== 'done');
-  const phase = pi === -1 ? 'all phases done' : `phase ${pi + 1}/${s.phases.length} "${s.phases[pi].name}"`;
-  return `${stage} · ${phase} · ${done}/${all.length} tasks done${running ? ` · ${running} running` : ''}`;
+  const phase = pi === -1 ? '' : ` · phase ${pi + 1}/${s.phases.length} "${s.phases[pi].name}"`;
+  return `${stage}${phase} · ${done}/${all.length} tasks done${running ? ` · ${running} running` : ''}`;
 }
 
 const SOURCE_LABEL = { mod: 'you, in the menu', terminal: 'you, in the terminal' } as const;

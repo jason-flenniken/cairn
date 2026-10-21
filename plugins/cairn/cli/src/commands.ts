@@ -8,6 +8,7 @@ export { cmdApprove, cmdAdvance, cmdClose } from './commands/stages.ts';
 export { cmdPlanLoad } from './commands/planload.ts';
 export { cmdReady, cmdTask } from './commands/tasks.ts';
 export { cmdEscalate, cmdRepro } from './commands/fix.ts';
+export { cmdStep } from './commands/step.ts';
 export { cmdPhase } from './commands/phase.ts';
 export { cmdRecords } from './commands/records.ts';
 export { cmdSuggest } from './commands/suggest.ts';

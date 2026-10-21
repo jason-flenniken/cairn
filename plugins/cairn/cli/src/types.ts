@@ -12,6 +12,28 @@ export const STAGE_LABEL: Record<Stage, string> = {
   learn: 'Learn',
   closed: 'Closed',
 };
+/** The steps `cairn step` can record, by stage. The fix track uses review and ship. */
+export const STEPS: Partial<Record<Stage, readonly string[]>> = {
+  verify: ['testing', 'scanning', 'fixing'],
+  review: ['reviewing', 'fixing', 'rechecking'],
+  ship: ['approving', 'opening-pr', 'merging'],
+};
+export const STEP_LABEL: Record<string, string> = {
+  testing: 'running tests',
+  scanning: 'scanning for secrets',
+  fixing: 'fixing',
+  reviewing: 'reviewing',
+  rechecking: 're-checking',
+  approving: 'waiting on approval',
+  'opening-pr': 'opening the PR',
+  merging: 'merging',
+};
+export interface Step {
+  stage: Stage;
+  name: string;
+  count?: number;
+  at: string;
+}
 export type Track = 'feature' | 'fix';
 export type Complexity = 'simple' | 'standard' | 'complex';
 export type TaskStatus = 'pending' | 'in_progress' | 'done';
@@ -120,6 +142,8 @@ export interface State {
   paused: { at: string; mode: 'drain' | 'now'; handoffHash?: string } | null;
   approvals: { prd?: Approval; plan?: Approval; ship?: Approval };
   planHash?: string;
+  /** What the check, review or ship stage is doing now. Cleared when the stage changes. */
+  step?: Step;
   repro?: { cmd: string; tail: string; at: string };
   configHash?: string;
   phases: Phase[];
