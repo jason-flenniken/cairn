@@ -6,8 +6,8 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T15:06:28.863Z",
-  "stage": "execute",
+  "updated": "2026-10-21T15:06:29.079Z",
+  "stage": "verify",
   "paused": null,
   "approvals": {
     "prd": {
@@ -219,7 +219,7 @@
     {
       "id": "records",
       "name": "Records tab",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "records-command",
@@ -651,6 +651,16 @@
       "at": "2026-10-21T15:06:28.863Z",
       "event": "task done",
       "detail": "Records tab in the pane"
+    },
+    {
+      "at": "2026-10-21T15:06:29.079Z",
+      "event": "phase finished",
+      "detail": "Records tab (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T15:06:29.079Z",
+      "event": "advanced",
+      "detail": "verify"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
