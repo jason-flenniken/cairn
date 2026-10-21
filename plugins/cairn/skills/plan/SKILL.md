@@ -1,6 +1,6 @@
 ---
 name: plan
-description: "Task the approved PRD into phases and parallel tasks, then approve the plan."
+description: "Break the approved PRD into phases of parallel tasks, then approve the plan."
 disable-model-invocation: true
 allowed-tools:
   - "Bash(cairn next:*)"

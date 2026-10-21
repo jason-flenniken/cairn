@@ -31,7 +31,7 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 
 ### Mod commands
 The mod registers these commands. Their names have no ":" because the engine forbids it.
-- `/cairn-pane`: opens the plan pane.
+- `/cairn-pane [on|off]`: shows or hides the pane; no word toggles. The choice is kept across sessions, and a hand close turns it off.
 - `/cairn-approve [kind]`: approves the stop waiting on the session's plan.
 - `/cairn-pause-now`: stops the running turn and pauses the plan now (Stop now).
 - `/cairn-pause-mod`: pauses the plan once in-flight work reaches a safe point.
