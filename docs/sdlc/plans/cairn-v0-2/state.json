@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T11:47:29.998Z",
+  "updated": "2026-10-21T11:49:18.966Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -466,12 +466,14 @@
             "plugins/cairn/cli/test/skills.test.ts"
           ],
           "complexity": "simple",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
-          "substep": "implementing",
           "branch": "sdlc-slice/cairn-v0-2/skill-permissions",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--skill-permissions",
-          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665"
+          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665",
+          "doneAt": "2026-10-21T11:49:18.965Z",
+          "tip": "1fd9e86",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
         },
         {
           "id": "mod-polish",
@@ -552,8 +554,12 @@
             "plugins/cairn/cli/test/polish.test.ts"
           ],
           "complexity": "standard",
-          "status": "pending",
-          "fixRound": 0
+          "status": "in_progress",
+          "fixRound": 0,
+          "substep": "implementing",
+          "branch": "sdlc-slice/cairn-v0-2/cli-polish",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--cli-polish",
+          "base": "897267cc87b6ab2da83606aa381559de39d2f3ee"
         }
       ]
     }
@@ -579,6 +585,12 @@
     {
       "path": "plugins/cairn/cli/test/templates.test.ts",
       "at": "2026-10-21T11:46:16.940Z",
+      "reason": "edited outside slice \"Named pre-approved cairn commands\" scope",
+      "slice": "skill-permissions"
+    },
+    {
+      "path": "plugins/cairn/cli/test/fix-procedure.test.ts",
+      "at": "2026-10-21T11:47:56.680Z",
       "reason": "edited outside slice \"Named pre-approved cairn commands\" scope",
       "slice": "skill-permissions"
     }
@@ -1109,6 +1121,26 @@
       "at": "2026-10-21T11:47:29.998Z",
       "event": "slice done",
       "detail": "Decisions and notes from files"
+    },
+    {
+      "at": "2026-10-21T11:47:30.706Z",
+      "event": "slice started",
+      "detail": "Test summary, approval sources, strict ids, prefactor slices"
+    },
+    {
+      "at": "2026-10-21T11:47:56.681Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/fix-procedure.test.ts"
+    },
+    {
+      "at": "2026-10-21T11:48:48.882Z",
+      "event": "slice merging",
+      "detail": "Named pre-approved cairn commands"
+    },
+    {
+      "at": "2026-10-21T11:49:18.966Z",
+      "event": "slice done",
+      "detail": "Named pre-approved cairn commands"
     }
   ],
   "planHash": "cc54213ff13f0bd3",
