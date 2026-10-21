@@ -31,8 +31,8 @@ export function bashVerdict(cmd: string): { deny?: string } {
 
 function isDenied(cmd: string): boolean {
   const list = commands(cmd)
-  // Command substitutions run too, inside double quotes as well. Backticks in prose are markdown.
-  const code = withoutProseBackticks(cmd, list)
+  // Command substitutions run too, inside double quotes as well. Single-quoted prose runs nothing.
+  const code = withoutInertProse(cmd, list)
   for (const [, dollar, backtick] of code.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) {
     if (isDenied(dollar ?? backtick ?? '')) return true
   }
@@ -218,13 +218,26 @@ function proseWords(command: Command): Set<number> {
   return prose
 }
 
-/** The line with the backticks inside prose words blanked: in prose they are markdown, not substitutions. */
-function withoutProseBackticks(cmd: string, list: Command[]): string {
+/**
+ * The line with the backticks and `$` blanked inside single-quoted parts of prose words: a shell
+ * expands nothing there. Double-quoted and bare prose is expanded, so it is still scanned.
+ */
+function withoutInertProse(cmd: string, list: Command[]): string {
   const chars = [...cmd]
   for (const command of list) {
     for (const at of proseWords(command)) {
       const [from, to] = command.spans[at] ?? [0, 0]
-      for (let i = from; i < to; i++) if (chars[i] === '`') chars[i] = ' '
+      let quote = ''
+      for (let i = from; i < to; i++) {
+        const c = chars[i]
+        if (quote === "'") {
+          if (c === "'") quote = ''
+          else if (c === '`' || c === '$') chars[i] = ' '
+        } else if (c === '\\') i++
+        else if (quote === '"') {
+          if (c === '"') quote = ''
+        } else if (c === "'" || c === '"') quote = c
+      }
     }
   }
   return chars.join('')

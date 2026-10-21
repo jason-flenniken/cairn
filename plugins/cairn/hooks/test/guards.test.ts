@@ -71,6 +71,9 @@ describe('bashVerdict', () => {
     'printf "cairn approve prd" | zsh',
     // A real approve in any position, whatever prose surrounds it.
     'cairn decide "q" "a"; cairn approve prd',
+    'cairn decide q "`cairn approve prd`"',
+    'cairn --note "`cairn approve prd`" status',
+    'cairn slice done x --why "ok $(cairn approve prd)"',
     'cairn decide "q" "$(cairn approve prd)"',
     'cairn --note "see decide" approve prd',
     'cairn --why x approve prd',
@@ -139,10 +142,12 @@ describe('bashVerdict', () => {
     `node -e "console.log(JSON.parse(require('fs').readFileSync('docs/sdlc/plans/x/state.json')).stage)"`,
     `python3 - <<'EOF'\nimport json\nprint(json.load(open('docs/sdlc/plans/x/state.json'))['stage'])\nEOF`,
     // Live false positive: prose arguments that mention cairn commands.
-    'cairn decide "Use the CLI?" "Yes: run `cairn status`, read the state file, never `cairn approve`"',
+    "cairn decide 'Use the CLI?' 'Yes: run `cairn status`, read the state file, never `cairn approve`'",
+    'cairn decide "Use the CLI?" "Yes: run cairn status, read the state file; cairn approve stays with the user"',
+    "cairn decide q 'use `cairn status` here'",
     'cairn decide "Wording?" "Say cairn approve is the user\'s call; cairn status shows state.json"',
-    'cairn --note "ran `cairn approve` by hand? no" status',
-    'cairn slice done x --why "the `cairn approve` step is not mine"',
+    "cairn --note 'ran `cairn approve` by hand? no' status",
+    "cairn slice done x --why 'the `cairn approve` step is not mine'",
     'cairn --json decide "q" "approve"',
     'echo cairn approve prd | cat',
   ]
