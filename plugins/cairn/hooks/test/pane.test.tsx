@@ -161,6 +161,37 @@ test('Stop now shows within one poll of a main-loop turn starting, and goes when
   await ui.unmount()
 })
 
+// `cairn status --all --json` as the CLI printed it for a learn plan on a feature branch that is not in main
+// (cairn new shop, the stage set to learn, one code commit). Only the worktree paths are rebased to this test's WT.
+const REAL_STATUS = {
+  ok: true,
+  message: '',
+  plans: [{
+    state: {
+      schema: 1, slug: 'shop', title: 'Shop', track: 'feature', branch: 'feature/shop', base: 'main',
+      created: '2026-10-21T23:03:11.084Z', updated: '2026-10-21T23:03:11.084Z', stage: 'learn', paused: null,
+      approvals: {}, phases: [], evidence: {}, drift: [], log: [{ at: '2026-10-21T23:03:11.084Z', event: 'created' }],
+    },
+    live: true,
+    worktree: WT,
+    dir: `${WT}/docs/sdlc/plans/2026-10-21-shop`,
+    prOpen: true,
+    next: { procedure: 'learn', text: 'Capture anything worth keeping, then close the plan.' },
+    openSuggestions: 0,
+  }],
+  modActive: false,
+  openSuggestions: 0,
+}
+
+test('the pane reads PR open from a real status --all row', async ($, on) => {
+  const { w } = world(on, { rows: [] })
+  w.raw = JSON.stringify(REAL_STATUS)
+  await start($, WT)
+  const ui = await mount($, 'terminal')
+  expect(await drawn(ui)).toContain('Learn · PR open')
+  await ui.unmount()
+})
+
 describe('status line (FR-11)', () => {
   test('in a plan worktree it shows the plan summary', async ($, on) => {
     const { w } = world(on, { rows: [row(EXECUTE, WT)] })
@@ -878,6 +909,33 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
     }
     await ui.press({ key: 'record:a' })
     expect((await root(ui)).props).toMatchObject({ paddingX: 1, gap: 1 })
+    await ui.unmount()
+  })
+
+  test('docked: no box in any tab sets a background color, so Claude Code paints the pane', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20'), rec('b', '2026-09-03')]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    for (const key of ['tab:now', 'tab:history', 'tab:records', 'record:a']) {
+      await ui.press({ key })
+      for (const b of await boxes(ui)) expect(b.props.backgroundColor).toBeUndefined()
+    }
+    await ui.unmount()
+  })
+
+  test('Records rows keep their two lines together with no gap between them', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20'), rec('b', '2026-09-03')]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    for (const slug of ['a', 'b']) {
+      const rowBox = (await ui.find({ type: 'Box', key: `record:${slug}:row` }))!
+      expect(rowBox.props.gap).toBeUndefined()
+      expect(rowBox.props.flexDirection).toBe('column')
+      expect(rowBox.children).toHaveLength(2)
+    }
     await ui.unmount()
   })
 

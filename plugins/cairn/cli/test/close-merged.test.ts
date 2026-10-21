@@ -142,6 +142,30 @@ test('the remote base wins when origin has it: merged locally but not on origin 
   assert.equal(prOpen(wt), false);
 });
 
+test('origin ahead of the local base: a branch merged only on origin is not PR open', () => {
+  const ahead = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-merged-ahead-')));
+  const other = `${ahead}-clone`;
+  try {
+    g(ahead, 'init', '-q', '--bare', '-b', 'main');
+    g(repo, 'remote', 'set-url', 'origin', ahead);
+    g(repo, 'push', '-q', 'origin', 'main');
+    const wt = learnPlan('ahead1');
+    g(repo, 'push', '-q', 'origin', branchOf(wt, 'ahead1'));
+    // Someone else merges the branch on origin; the local main never sees the merge.
+    g(tmpdir(), 'clone', '-q', ahead, other);
+    g(other, 'merge', '-q', '--no-ff', '-m', 'merge ahead1', `origin/${branchOf(wt, 'ahead1')}`);
+    g(other, 'push', '-q', 'origin', 'main');
+    g(repo, 'fetch', '-q', 'origin');
+    assert.notEqual(g(repo, 'rev-parse', 'main'), g(repo, 'rev-parse', 'origin/main'), 'origin is ahead of local main');
+    assert.equal(prOpen(wt), false);
+    assert.doesNotMatch(label(wt), /PR open/);
+  } finally {
+    g(repo, 'remote', 'set-url', 'origin', remote);
+    rmSync(ahead, { recursive: true, force: true });
+    rmSync(other, { recursive: true, force: true });
+  }
+});
+
 test('status never fetches: an unreachable origin changes nothing', () => {
   const wt = learnPlan('nofetch1');
   mergePr(wt, 'nofetch1');
