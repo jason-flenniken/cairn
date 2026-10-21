@@ -6,7 +6,7 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:50:45.164Z",
+  "updated": "2026-10-21T20:55:01.766Z",
   "stage": "review",
   "paused": null,
   "approvals": {
@@ -96,6 +96,12 @@
       "result": "pass",
       "at": "2026-10-21T20:50:45.041Z",
       "note": "tests: 364 passing, build ok; 10 of 12 requirements met with tests, 2 met pending a by-eye check after ship (background, chat question closing)"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T20:55:01.765Z",
+      "note": "5 follow-ups logged, 2 more folded into existing ones",
+      "blocking": 0
     }
   },
   "drift": [],
@@ -198,6 +204,11 @@
       "at": "2026-10-21T20:50:45.164Z",
       "event": "advanced",
       "detail": "review"
+    },
+    {
+      "at": "2026-10-21T20:55:01.766Z",
+      "event": "review pass",
+      "detail": "5 follow-ups logged, 2 more folded into existing ones"
     }
   ],
   "suggestions": [
@@ -296,6 +307,56 @@
       ],
       "from": "check",
       "at": "2026-10-21T20:50:44.966Z"
+    },
+    {
+      "id": "s10",
+      "area": "ux",
+      "text": "Add wrap truncate-end to the fallback line and the inline tip line; with 2 columns of padding they can wrap and push the inline fit past 7 rows.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T20:55:01.391Z"
+    },
+    {
+      "id": "s11",
+      "area": "tests",
+      "text": "Cover the same plan with a different stop: an open plan question stays open while prd is approved.",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T20:55:01.458Z"
+    },
+    {
+      "id": "s12",
+      "area": "ux",
+      "text": "If Revise in the chat question lands at the same moment the pane approves, the model gets a misleading not-approved note for an approved stop.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T20:55:01.535Z"
+    },
+    {
+      "id": "s13",
+      "area": "ux",
+      "text": "The early answer text says approved from the pane even when the approval came from /cairn-approve or another chat question; say Already approved.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T20:55:01.611Z"
+    },
+    {
+      "id": "s14",
+      "area": "quality",
+      "text": "Declare asked before the answeredEarly helper that reads it.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T20:55:01.690Z"
     }
   ],
   "planHash": "122c17720d54ebf7",

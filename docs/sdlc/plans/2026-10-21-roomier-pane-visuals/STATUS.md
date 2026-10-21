@@ -16,8 +16,10 @@ Branch `feature/roomier-pane-visuals` from `main` · started 2026-10-21 · updat
 - PRD approved 2026-10-21 (you, in the menu)
 - Plan approved 2026-10-21 (you, in the menu)
 - Verify: pass (tests: 364 passing, build ok; 10 of 12 requirements met with tests, 2 met pending a by-eye check after ship (background, chat question closing))
+- Review: pass (5 follow-ups logged, 2 more folded into existing ones)
 
 ## Recent activity
+- 2026-10-21 20:55 review pass: 5 follow-ups logged, 2 more folded into existing ones
 - 2026-10-21 20:50 advanced: review
 - 2026-10-21 20:50 verify pass: tests: 364 passing, build ok; 10 of 12 requirements met with tests, 2 met pending a by-eye check after ship (background, chat question closing)
 - 2026-10-21 20:48 advanced: verify
@@ -25,4 +27,3 @@ Branch `feature/roomier-pane-visuals` from `main` · started 2026-10-21 · updat
 - 2026-10-21 20:48 task done: Approval note and open question
 - 2026-10-21 20:48 task merging: Approval note and open question
 - 2026-10-21 20:47 task reviewing: Approval note and open question
-- 2026-10-21 20:47 task done: Pane padding and spacing
