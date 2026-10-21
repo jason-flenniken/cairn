@@ -5,12 +5,13 @@ import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartI
 import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
 import { LINGER_MS, readAgents, readFeed, readMain, readTick } from './activity.ts'
 import { approvalCard, confirmAndApprove } from './approval.tsx'
-import { activeStep, Bar, stageSteps, type BarLine } from './bar.tsx'
+import { activeStep, Bar, cells, stageSteps, type BarLine } from './bar.tsx'
 import { act, agentCard, agentLines, mainCard, message, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
 import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
+import { inlineUsage, install as installUsage, limitsLine, modelLine, readBaseline, readUsage, syncBaseline } from './usage.ts'
 
 type Drift = { path?: string; acked?: unknown }
 
@@ -125,8 +126,15 @@ async function refresh($: EngineInterface): Promise<boolean> {
     : { plans, here: pickCurrent(plans)?.state.slug, isFallback: true }
   await update($, view, () => next)
   await showStatus($, next)
+  await trackCost($, next)
   if ((await read($, tab)) === 'records') await fetchRecords($)
   return true
+}
+
+/** Starts the plan cost over when the shown plan is first seen active, changes, or is resumed. */
+async function trackCost($: EngineInterface, v: CairnView): Promise<void> {
+  const row = v.plans.find(r => r.state.slug === v.here)
+  await syncBaseline($, row !== undefined && isActive(row) ? row.state.slug : undefined, !!row?.state.paused)
 }
 
 /** One poll: stats only, and one read when something changed. A failed read is retried once, next poll. */
@@ -139,7 +147,10 @@ async function poll($: EngineInterface): Promise<void> {
     if ((await read($, isTurnRunning)) !== isRunning) await update($, isTurnRunning, () => isRunning)
     const current = await read($, view)
     // Working agents and the clock change the status line without any file changing.
-    if (current !== null) await showStatus($, current)
+    if (current !== null) {
+      await showStatus($, current)
+      await trackCost($, current)
+    }
     const before = watched(current?.plans ?? [])
     const stamp = await signature($, before)
     if (stamp === seen && !isRetrying) return
@@ -252,6 +263,7 @@ function recentLines(s: CairnPlanState, feed: { at: number; text: string }[], no
 }
 
 export function install(on: On): void {
+  installUsage(on)
   // The engine heads a command's output with the plugin's name, so its text drops the toast's "cairn: ".
   const asOutput = (said: string) => ({ text: said.replace(/^cairn: /, '') })
   on('command.run', { command: 'cairn-pane' }, async ($, e) => asOutput(await togglePane($, (e.args ?? '').trim().toLowerCase()).catch(message)))
@@ -287,13 +299,21 @@ export function install(on: On): void {
     const status = <Button key="status" label="Status" onPress={() => act($, () => $.command.run({ command: 'cairn:status' }))} />
     const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
     const main = await readMain($)
+    const used = await readUsage($)
+    const baseline = await readBaseline($)
     const cx: CardContext = { ui, accent, nowMs: t }
-    // The bar's lines: every stage step docked; inline, the one line holds the active step.
-    const barLines: BarLine[] = here === undefined
-      ? []
-      : isInline
-        ? [activeStep(here.state, here.prOpen)].filter(line => line.length > 0)
-        : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2)
+    // The bar's lines: docked, every stage step, then the usage lines; inline, the active step with the plan cost and limits.
+    const planSlug = here !== undefined && isActive(here) ? here.state.slug : undefined
+    const step = here === undefined ? [] : activeStep(here.state, here.prOpen)
+    const barLines: BarLine[] = isInline
+      ? step.length === 0
+        ? []
+        : [[...step, ...inlineUsage(used, baseline, planSlug, e.props.bodyColumns - 2 - step.reduce((n, seg) => n + cells(seg.text), 0))]]
+      : [
+          ...(here === undefined ? [] : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2)),
+          modelLine(used, baseline, planSlug, e.props.bodyColumns - 2),
+          limitsLine(used, t, e.props.bodyColumns - 2),
+        ].filter(line => line.length > 0)
 
     /**
      * A tab's root with the bar at the bottom (FR-01). Docked, the engine scrolls the body, so the bar is
