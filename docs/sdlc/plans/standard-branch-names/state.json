@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T14:04:58.353Z",
+  "updated": "2026-10-21T14:07:21.190Z",
   "stage": "verify",
   "paused": null,
   "approvals": {
@@ -176,7 +176,13 @@
       ]
     }
   ],
-  "evidence": {},
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-21T14:07:21.189Z",
+      "note": "tests: 146 CLI and 331 mod passing, build ok; 15 requirements met, 3 with test gaps logged as follow-ups (old sdlc plans end to end, doc wording, pane approval closing an already-open chat question)"
+    }
+  },
   "drift": [],
   "log": [
     {
@@ -337,6 +343,11 @@
       "at": "2026-10-21T14:04:58.353Z",
       "event": "advanced",
       "detail": "verify"
+    },
+    {
+      "at": "2026-10-21T14:07:21.190Z",
+      "event": "verify pass",
+      "detail": "tests: 146 CLI and 331 mod passing, build ok; 15 requirements met, 3 with test gaps logged as follow-ups (old sdlc plans end to end, doc wording, pane approval closing an already-open chat question)"
     }
   ],
   "suggestions": [
@@ -441,6 +452,36 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T14:04:28.064Z"
+    },
+    {
+      "id": "s11",
+      "area": "tests",
+      "text": "Add a doc check that README, procedures and references name feature/, fix/ and task/ branches, with sdlc/ only in the legacy note.",
+      "where": [
+        "plugins/cairn/cli/test/dogfood-docs.test.ts"
+      ],
+      "from": "check",
+      "at": "2026-10-21T14:07:20.958Z"
+    },
+    {
+      "id": "s12",
+      "area": "ux",
+      "text": "If the chat approval question is already open when you approve in the pane, it stays open (answering it is harmless). Close or answer the open dialog from the mod if the engine allows it.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "check",
+      "at": "2026-10-21T14:07:21.034Z"
+    },
+    {
+      "id": "s13",
+      "area": "docs",
+      "text": "fix.md ship stop does not skip its question when the approval is already recorded from the pane, unlike prd, plan and ship.",
+      "where": [
+        "plugins/cairn/procedures/fix.md"
+      ],
+      "from": "check",
+      "at": "2026-10-21T14:07:21.109Z"
     }
   ],
   "planHash": "ac8f391969859259",
