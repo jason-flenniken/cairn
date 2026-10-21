@@ -65,11 +65,28 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - The engine follows `$` into another file only through a `function` declaration, not a `const` arrow, so every helper there that takes `$` is one, and `import * as ns` calls are refused.
 - Token counts arrive only at `turn.complete`, so a card shows tokens when it finishes, not live. The pane opens with `columns: 48, rows: 7`; `session.start` has no fullscreen flag, so the open is unasked and the engine seats it only on a wide fullscreen terminal.
 
+## Pinned bar (pane)
+
+- The pane's code is split by concern: `pane.tsx` (registration, tabs, routing, Records, `frame`), `header.tsx` (plan header, status line), `cards.tsx` (agent and main-session cards), `approval.tsx` (approval card), `bar.tsx` (bottom bar).
+- The engine owns the docked body's window (`e.props.scroll = { offset, bodyRows }`). The bar is a `position: 'absolute'` Box at `top = offset + bodyRows - barRows`, as the last child of the tab's root.
+  - The root gets `paddingBottom` of the bar's rows plus one blank row, so the last content row clears the bar at the end of the scroll.
+  - The root also gets `minHeight = bodyRows`, so on a short tab the bar still sits at the bottom.
+  - Each bar line is padded with spaces to the bar's width, so it covers the content scrolled beneath it.
+- Why absolute and not our own window:
+  - Own rows would fix the root at `bodyRows` and shift the content by an offset of the mod's. Then the tree always fits, so `ui.scroll`'s `contentRows` equals `bodyRows` and the mod can't clamp its offset without measuring its content. It would also lose the engine keeping a Tab-focused button in view.
+  - Absolute keeps the engine's scrolling. Its cost: on the terminal the engine's own moves (following the end, a clamp, a held element kept in view) don't re-ask the render, so the bar can sit off the bottom until the next redraw. The 1 s tick and the 2 s poll redraw while anything runs.
+- A `ui.scroll` hook on the pane calls `next(e)` and then `$.ui.invalidate('ui.render')`, so the bar follows every move.
+- The test kit runs the `ui.scroll` chain but never changes the mounted `props.scroll`; a test redraws with the new offset itself.
+- Inline (the 7-row pane) has no pinning: the bar is one line at the end, the active step.
+- Bar lines wrap between steps to fit `bodyColumns - 2` cells (46 docked), counting an emoji as 2 cells (NFR-01).
+
 ## Testing
 
 `claude plugin test <dir>` runs every `*.test.ts` under `<dir>`, skipping only `node_modules` and dot-folders. That includes `cli/test`, whose node:test files can't load in the mod environment.
 
 To avoid that, `npm run test:mod` copies `.claude-plugin/`, `hooks/`, and `types/` to a temp folder and runs `claude plugin test` there. Keep mod tests under `hooks/test/` and mod code under `hooks/` or `types/`.
+
+Pane tests share one world beneath the mod, `hooks/test/world.tsx`: the CLI, git, the files, the dialogs, the row builders and the mount helpers. Each pane feature gets its own test file.
 
 ## Live check
 

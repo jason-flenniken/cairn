@@ -1,10 +1,11 @@
 // The live pane and status line (FR-08..FR-12, FR-05, FR-17). Every 2 s the mod stats the plans'
 // state files and re-reads `cairn status --all --json` only when one changed (NFR-01).
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, On, ProcessRunInit, SessionStartInput, Timer } from 'claude-code'
+import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
 import { LINGER_MS, readAgents, readFeed, readMain, readTick } from './activity.ts'
 import { approvalCard, confirmAndApprove } from './approval.tsx'
+import { activeStep, Bar, stageSteps, type BarLine } from './bar.tsx'
 import { act, agentCard, agentLines, mainCard, message, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
 import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
@@ -260,6 +261,12 @@ export function install(on: On): void {
     return next(e)
   })
   on('command.run', { command: 'cairn-approve' }, async ($, e) => asOutput(await approveCommand($, (e.args ?? '').trim()).catch(message)))
+  // The bar sits at the window's last rows, so every move of the window draws it again there.
+  on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
+    const moved = await next(e)
+    $.ui.invalidate('ui.render')
+    return moved
+  })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const ui = $.ui.resolve(e)
@@ -281,6 +288,33 @@ export function install(on: On): void {
     const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
     const main = await readMain($)
     const cx: CardContext = { ui, accent, nowMs: t }
+    // The bar's lines: every stage step docked; inline, the one line holds the active step.
+    const barLines: BarLine[] = here === undefined
+      ? []
+      : isInline
+        ? [activeStep(here.state, here.prOpen)].filter(line => line.length > 0)
+        : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2)
+
+    /**
+     * A tab's root with the bar at the bottom (FR-01). Docked, the engine scrolls the body, so the bar is
+     * absolute at the window's last rows, `offset + bodyRows - rows` from the top; the content is padded
+     * by the bar's rows and a blank line, and fills at least the window so a short tab still has the bar
+     * at the bottom. Inline the pane fits its tree, so the bar is just the last line.
+     */
+    const frame = (ev: typeof e, content: RenderChildren, lines: BarLine[]) => {
+      const columns = ev.props.bodyColumns - 2
+      if (ev.props.placement === 'inline' || lines.length === 0) {
+        return <Box {...rootProps}>{content}{lines.length > 0 && Bar({ ui, lines, columns })}</Box>
+      }
+      const { offset, bodyRows } = ev.props.scroll
+      const rows = lines.length
+      return (
+        <Box {...rootProps} minHeight={bodyRows} paddingBottom={rows + 1}>
+          {content}
+          {Bar({ ui, lines, columns, top: offset + bodyRows - rows })}
+        </Box>
+      )
+    }
 
     /** The session's plan: header, progress, the stop, the cards, and its buttons (FR-09, FR-12). */
     const planLines = async (row: CairnPlanRow) => {
@@ -345,74 +379,66 @@ export function install(on: On): void {
       if (shown !== undefined) {
         const text = shown.record === undefined ? '' : await $.fs.read(shown.record).catch((err: unknown) => `Could not read ${shown.record}: ${message(err)}`)
         const open = shown.followUps.filter(f => f.status === 'open')
-        return (
-          <Box {...rootProps}>
-            {tabs}
-            <Button key="back" label="Back" onPress={() => act($, () => update($, openRecord, () => null))} />
-            {shown.record === undefined
-              ? <Text key="missing" dimColor>{shown.stage === 'closed' ? 'No record for this plan.' : 'Still in progress: no record yet.'}</Text>
-              : <Markdown key="record" text={text} />}
-            {open.length > 0 && <Markdown key="followups" text={`**Follow-ups**\n\n${open.map(f => `- ${f.text} (${f.area})`).join('\n')}`} />}
-          </Box>
-        )
+        return frame(e, [
+          tabs,
+          <Button key="back" label="Back" onPress={() => act($, () => update($, openRecord, () => null))} />,
+          shown.record === undefined
+            ? <Text key="missing" dimColor>{shown.stage === 'closed' ? 'No record for this plan.' : 'Still in progress: no record yet.'}</Text>
+            : <Markdown key="record" text={text} />,
+          open.length > 0 && <Markdown key="followups" text={`**Follow-ups**\n\n${open.map(f => `- ${f.text} (${f.area})`).join('\n')}`} />,
+        ], barLines)
       }
-      return (
-        <Box {...rootProps}>
-          {tabs}
-          {(all ?? []).map(x => (
-            <Box key={`record:${x.slug}:row`} flexDirection="column">
-              <Button key={`record:${x.slug}`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
-                <Text wrap="truncate-end">{`${x.stage === 'closed' ? dateText(x.date) : 'In progress'} · ${x.title}`}</Text>
-              </Button>
-              <Button key={`record:${x.slug}:why`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
-                <Text dimColor wrap="truncate-end">{x.why}</Text>
-              </Button>
-            </Box>
-          ))}
-          {all !== null && !all.some(x => x.stage === 'closed') && <Text dimColor>No finished plans yet.</Text>}
-        </Box>
-      )
+      return frame(e, [
+        tabs,
+        ...(all ?? []).map(x => (
+          <Box key={`record:${x.slug}:row`} flexDirection="column">
+            <Button key={`record:${x.slug}`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
+              <Text wrap="truncate-end">{`${x.stage === 'closed' ? dateText(x.date) : 'In progress'} · ${x.title}`}</Text>
+            </Button>
+            <Button key={`record:${x.slug}:why`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
+              <Text dimColor wrap="truncate-end">{x.why}</Text>
+            </Button>
+          </Box>
+        )),
+        all !== null && !all.some(x => x.stage === 'closed') && <Text dimColor>No finished plans yet.</Text>,
+      ], barLines)
     }
 
     if (!isInline && shownTab === 'history') {
       const lines = here === undefined ? [] : recentLines(here.state, await readFeed($), t).reverse()
-      return (
-        <Box {...rootProps}>
-          {tabs}
-          <Box key="timeline" flexDirection="column">
-            {lines.length === 0 && <Text dimColor>Nothing logged yet.</Text>}
-            {lines.map((line, i) => <Text key={`history:${i}`} color={accent} wrap="truncate-end">{line}</Text>)}
-          </Box>
-        </Box>
-      )
+      return frame(e, [
+        tabs,
+        <Box key="timeline" flexDirection="column">
+          {lines.length === 0 && <Text dimColor>Nothing logged yet.</Text>}
+          {lines.map((line, i) => <Text key={`history:${i}`} color={accent} wrap="truncate-end">{line}</Text>)}
+        </Box>,
+      ], barLines)
     }
 
-    return (
-      <Box {...rootProps}>
-        {!isInline && tabs}
-        {here !== undefined && isActive(here)
-          ? await planLines(here)
-          : [
-              <Box key="idle" flexDirection="column">
-                <Text key="head" bold>cairn</Text>
-                <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>
-              </Box>,
-              ...(isInline ? agentLines(cx, main, cards) : [mainCard($, cx, main), ...cards.map(c => agentCard($, cx, c))]),
-              <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
-            ]}
-        {others.length > 0 && (
-          <Box key="others" flexDirection="column">
-            <Text bold>Other active plans</Text>
-            {others.map(r => (
-              <Box key={`plan:${r.state.slug}`} flexDirection="row" gap={1}>
-                <Text wrap="truncate-end">{`${r.state.title ?? r.state.slug} · ${stageOf(r.state, r.prOpen)} · ${r.next?.text ?? ''}`}</Text>
-                <Button key={`resume:${r.state.slug}`} label="Resume" onPress={() => act($, () => resumeOther($, r.state.slug))} />
-              </Box>
-            ))}
-          </Box>
-        )}
-      </Box>
-    )
+    return frame(e, [
+      !isInline && tabs,
+      here !== undefined && isActive(here)
+        ? await planLines(here)
+        : [
+            <Box key="idle" flexDirection="column">
+              <Text key="head" bold>cairn</Text>
+              <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>
+            </Box>,
+            ...(isInline ? agentLines(cx, main, cards) : [mainCard($, cx, main), ...cards.map(c => agentCard($, cx, c))]),
+            <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
+          ],
+      others.length > 0 && (
+        <Box key="others" flexDirection="column">
+          <Text bold>Other active plans</Text>
+          {others.map(r => (
+            <Box key={`plan:${r.state.slug}`} flexDirection="row" gap={1}>
+              <Text wrap="truncate-end">{`${r.state.title ?? r.state.slug} · ${stageOf(r.state, r.prOpen)} · ${r.next?.text ?? ''}`}</Text>
+              <Button key={`resume:${r.state.slug}`} label="Resume" onPress={() => act($, () => resumeOther($, r.state.slug))} />
+            </Box>
+          ))}
+        </Box>
+      ),
+    ], barLines)
   })
 }
 

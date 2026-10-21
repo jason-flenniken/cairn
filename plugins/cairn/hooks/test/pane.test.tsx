@@ -570,7 +570,9 @@ describe('History tab (FR-07)', () => {
     for (let i = 1; i <= 12; i++) expect(text).toContain(`Task done: t-${String(i).padStart(2, '0')}`)
     expect(text.indexOf('Task done: t-12')).toBeLessThan(text.indexOf('Task done: t-01'))
     expect(text.indexOf('Task done: t-12')).toBeLessThan(text.indexOf('Task done: t-11'))
-    const inStage = (await ui.findAll({ type: 'Text' })).filter((n: { props: { color?: string } }) => n.props.color === 'yellowBright').map((t: { text: string }) => t.text)
+    // The timeline's own lines: the bar below it draws the active step in the stage color too.
+    const timeline = (await ui.find({ type: 'Box', key: 'timeline' }))!.children as { props: { color?: string }; children: string[] }[]
+    const inStage = timeline.filter(n => n.props.color === 'yellowBright').map(n => n.children.join(''))
     expect(inStage.some((t: string) => t.endsWith('Task done: t-12'))).toBe(true)
     expect(inStage.length).toBe(12)
     await ui.unmount()
@@ -908,9 +910,9 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'tab:history' })
-    const timeline = (await boxes(ui)).find(b => b.key === 'timeline')!
+    const timeline = (await ui.find({ type: 'Box', key: 'timeline' }))!
     expect(timeline.props.gap).toBeUndefined()
-    expect(await ui.findAll({ type: 'Text' })).toHaveLength(3)
+    expect(timeline.children).toHaveLength(3)
     await ui.unmount()
   })
 

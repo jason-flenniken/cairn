@@ -67,6 +67,7 @@ export function world(on: On, init: WorldInit = {}) {
     files: new Map<string, string>(),
     views: [] as Record<string, unknown>[],
     viewDeny: undefined as string | undefined,
+    scrolls: [] as { offset: number; by: number }[],
   }
   let onDisk: string | undefined
   const clock = mock.clock(on, { now: NOW })
@@ -123,6 +124,11 @@ export function world(on: On, init: WorldInit = {}) {
     return { value: undefined }
   })
   on('session.cwd', () => ({ value: w.cwd }))
+  // The engine moving the pane's window: it takes every move.
+  on('ui.scroll', (_$, e) => {
+    w.scrolls.push({ offset: e.offset, by: e.by })
+    return {}
+  })
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('ui.toast', (_$, e) => {
     w.toasts.push(e.text)
