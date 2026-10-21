@@ -1,6 +1,6 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { branchExists, currentBranch, topLevel, worktrees, type Worktree } from './git.ts';
+import { branchExists, currentBranch, git, topLevel, worktrees, type Worktree } from './git.ts';
 import type { Track } from './types.ts';
 import { CliError } from './util.ts';
 
@@ -14,9 +14,18 @@ export const planBranch = (slug: string, track: Track) => `${track === 'fix' ? '
 export const taskBranch = (slug: string, task: string) => `task/${slug}/${task}`;
 /** Worktree folder for a branch: `/` becomes `-`. */
 export const worktreeName = (branch: string) => branch.replace(/\//g, '-');
-/** Existing plan branches for a slug, on any prefix. */
-export const planBranchesFor = (slug: string, cwd: string): string[] => PLAN_PREFIXES.map((p) => `${p}${slug}`).filter((b) => branchExists(b, cwd));
 export const planRel = (slug: string) => `${PLANS_DIR}/${slug}`;
+/** The branch a ref's committed plan state records for the plan, if it holds one. */
+export function recordedBranch(ref: string, slug: string, cwd: string): string | undefined {
+  try {
+    return JSON.parse(git(['show', `${ref}:${planRel(slug)}/state.json`], cwd)).branch;
+  } catch {
+    return undefined;
+  }
+}
+/** Existing plan branches for a slug, on any prefix: only refs whose committed state records that very ref. */
+export const planBranchesFor = (slug: string, cwd: string): string[] =>
+  PLAN_PREFIXES.map((p) => `${p}${slug}`).filter((b) => branchExists(b, cwd) && recordedBranch(b, slug, cwd) === b);
 
 export interface PlanRef {
   slug: string;
@@ -47,11 +56,9 @@ export function parseBranch(branch: string): { slug?: string; task?: string } {
   return {};
 }
 
-export function planRef(slug: string, wts: Worktree[]): PlanRef {
-  const wt = wts.find((w) => {
-    const b = parseBranch(w.branch ?? '');
-    return b.slug === slug && !b.task;
-  });
+/** The plan's worktree: the one with the plan's own branch checked out. */
+export function planRef(slug: string, wts: Worktree[], planBranch?: string): PlanRef {
+  const wt = planBranch ? wts.find((w) => w.branch === planBranch) : undefined;
   return wt ? { slug, worktree: wt.path, dir: join(wt.path, planRel(slug)) } : { slug };
 }
 
@@ -68,10 +75,29 @@ export function context(cwd: string, slugOverride?: string): Ctx {
   const ctx: Ctx = { cwd, top, mainRoot: wts[0]?.path ?? top, branch, worktrees: wts, task };
   const s = slugOverride ?? slug;
   if (s) {
-    const ref = planRef(s, wts);
-    // A hand-made feature/, fix/ or task/ branch with no plan files is not a plan: behave as on main.
-    const legacy = branch.startsWith('sdlc/') || branch.startsWith('sdlc-task/');
-    if (slugOverride || legacy || existsSync(join(top, planRel(s), 'state.json'))) ctx.plan = ref;
+    // A hand-made feature/, fix/ or task/ branch that isn't a plan's recorded branch is not a plan: behave as on main.
+    let planBr: string | undefined;
+    let accept = false;
+    if (slugOverride) {
+      planBr = planBranchesFor(s, top)[0];
+      accept = true;
+    } else {
+      let recorded: string | undefined;
+      try {
+        recorded = JSON.parse(readFileSync(join(top, planRel(s), 'state.json'), 'utf8')).branch;
+      } catch {
+        // no readable state here
+      }
+      const legacy = branch.startsWith('sdlc/') || branch.startsWith('sdlc-task/');
+      if (task) {
+        planBr = recorded ?? (legacy ? `sdlc/${s}` : undefined);
+        accept = legacy || (!!recorded && branchExists(recorded, top));
+      } else {
+        planBr = branch;
+        accept = legacy || recorded === branch;
+      }
+    }
+    if (accept) ctx.plan = planRef(s, wts, planBr);
   }
   return ctx;
 }

@@ -29,9 +29,9 @@ export function cmdPause(ctx: Ctx, opts: Opts): Result {
 
 export function cmdResume(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   if (slug && ctx.plan?.slug !== slug) {
-    const ref = planRef(slug, ctx.worktrees);
     const branch = planBranchesFor(slug, ctx.top)[0];
     if (!branch) throw new Refusal(`no plan named "${slug}"`, ['cairn status --all']);
+    const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
       const wt = join(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));

@@ -316,3 +316,61 @@ test('re-plan from verify adds fix tasks, keeps progress, and re-runs verificati
   ok(fwt, 'advance');
   assert.deepEqual((ok(fwt, 'ready').data!.ready as { id: string }[]).map((x) => x.id), ['idempotency']);
 });
+
+test('a hand-made branch that shares a plan slug is not that plan', () => {
+  const r = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-dup-')));
+  try {
+    g(r, 'init', '-q', '-b', 'main');
+    write(join(r, 'README.md'), 'hi\n');
+    g(r, 'add', '-A');
+    g(r, 'commit', '-q', '-m', 'init');
+    const slugs = (cwd: string) => (ok(cwd, 'status', '--all').data!.plans as { state: { slug: string } }[]).map((p) => p.state.slug);
+
+    // (a) a second branch with the plan's slug is not listed twice
+    const foo = ok(r, 'new', 'foo').data!.worktree as string;
+    g(r, 'branch', 'fix/foo');
+    assert.deepEqual(slugs(r), ['foo']);
+
+    // (b) a merged plan's files on main do not make a hand-made fix/foo cut from main a plan
+    g(r, 'merge', '-q', '--no-ff', '-m', 'merge foo', 'feature/foo');
+    g(r, 'branch', '-D', 'fix/foo');
+    g(r, 'worktree', 'remove', '--force', foo);
+    g(r, 'branch', '-D', 'feature/foo');
+    g(r, 'switch', '-q', '-c', 'fix/foo');
+    assert.equal(ok(r, 'status').data!.state, undefined, 'a hand-made branch shows the index, not the merged plan');
+    g(r, 'switch', '-q', 'main');
+    g(r, 'branch', '-D', 'fix/foo');
+
+    // (c) a legacy sdlc/ plan stays itself when a hand-made feature/ branch shares its slug
+    const orig = ok(r, 'new', 'leg').data!.worktree as string;
+    const file = join(orig, 'docs/sdlc/plans/leg/state.json');
+    write(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), branch: 'sdlc/leg' }));
+    g(orig, 'add', '-A');
+    g(orig, 'commit', '-q', '-m', 'legacy name');
+    g(r, 'worktree', 'remove', '--force', orig);
+    g(r, 'branch', '-m', 'feature/leg', 'sdlc/leg');
+    const leg = join(r, '.claude/worktrees/sdlc-leg');
+    g(r, 'worktree', 'add', '-q', leg, 'sdlc/leg');
+    const fake = join(r, '.claude/worktrees/feature-leg');
+    g(r, 'worktree', 'add', '-q', '-b', 'feature/leg', fake, 'main');
+    assert.deepEqual(slugs(r), ['leg']);
+    assert.equal((ok(r, 'status', '--all').data!.plans as { worktree: string }[])[0].worktree, leg);
+    assert.equal((ok(leg, 'status').data!.state as { slug: string }).slug, 'leg');
+    assert.ok(Array.isArray(ok(fake, 'status').data!.plans), 'the hand-made worktree acts as on main');
+    g(r, 'worktree', 'remove', '--force', fake);
+
+    // finding 2: resume checks out the recorded legacy branch, not the hand-made one
+    g(r, 'worktree', 'remove', '--force', leg);
+    g(r, 'branch', '-D', 'feature/leg');
+    g(r, 'branch', 'feature/leg', 'main');
+    assert.equal(ok(r, 'resume', 'leg').data!.worktree, leg);
+    assert.equal(g(leg, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc/leg');
+
+    // a hand-made feature/bar does not block `new bar --track fix`
+    g(r, 'branch', 'feature/bar', 'main');
+    assert.equal(g(ok(r, 'new', 'bar', '--track', 'fix').data!.worktree as string, 'rev-parse', '--abbrev-ref', 'HEAD'), 'fix/bar');
+    refused(r, /already exists \(sdlc\/leg\)/, 'new', 'leg');
+  } finally {
+    rmSync(r, { recursive: true, force: true });
+  }
+});

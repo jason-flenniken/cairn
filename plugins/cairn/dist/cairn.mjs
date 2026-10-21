@@ -7362,11 +7362,11 @@ var require_dist = __commonJS({
 });
 
 // plugins/cairn/cli/src/main.ts
-import { readFileSync as readFileSync5 } from "node:fs";
+import { readFileSync as readFileSync6 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 
 // plugins/cairn/cli/src/locate.ts
-import { existsSync as existsSync2 } from "node:fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
 import { basename, dirname as dirname2, join as join2 } from "node:path";
 
 // plugins/cairn/cli/src/git.ts
@@ -7467,8 +7467,15 @@ var TASK_PREFIXES = ["task/", "sdlc-task/"];
 var planBranch = (slug, track) => `${track === "fix" ? "fix/" : "feature/"}${slug}`;
 var taskBranch = (slug, task) => `task/${slug}/${task}`;
 var worktreeName = (branch) => branch.replace(/\//g, "-");
-var planBranchesFor = (slug, cwd) => PLAN_PREFIXES.map((p) => `${p}${slug}`).filter((b) => branchExists(b, cwd));
 var planRel = (slug) => `${PLANS_DIR}/${slug}`;
+function recordedBranch(ref, slug, cwd) {
+  try {
+    return JSON.parse(git(["show", `${ref}:${planRel(slug)}/state.json`], cwd)).branch;
+  } catch {
+    return void 0;
+  }
+}
+var planBranchesFor = (slug, cwd) => PLAN_PREFIXES.map((p) => `${p}${slug}`).filter((b) => branchExists(b, cwd) && recordedBranch(b, slug, cwd) === b);
 function parseBranch(branch) {
   for (const p of PLAN_PREFIXES) if (branch.startsWith(p)) return { slug: branch.slice(p.length) };
   for (const p of TASK_PREFIXES)
@@ -7478,11 +7485,8 @@ function parseBranch(branch) {
     }
   return {};
 }
-function planRef(slug, wts) {
-  const wt = wts.find((w) => {
-    const b = parseBranch(w.branch ?? "");
-    return b.slug === slug && !b.task;
-  });
+function planRef(slug, wts, planBranch2) {
+  const wt = planBranch2 ? wts.find((w) => w.branch === planBranch2) : void 0;
   return wt ? { slug, worktree: wt.path, dir: join2(wt.path, planRel(slug)) } : { slug };
 }
 function context(cwd, slugOverride) {
@@ -7498,9 +7502,27 @@ function context(cwd, slugOverride) {
   const ctx = { cwd, top, mainRoot: wts[0]?.path ?? top, branch, worktrees: wts, task };
   const s = slugOverride ?? slug;
   if (s) {
-    const ref = planRef(s, wts);
-    const legacy = branch.startsWith("sdlc/") || branch.startsWith("sdlc-task/");
-    if (slugOverride || legacy || existsSync2(join2(top, planRel(s), "state.json"))) ctx.plan = ref;
+    let planBr;
+    let accept = false;
+    if (slugOverride) {
+      planBr = planBranchesFor(s, top)[0];
+      accept = true;
+    } else {
+      let recorded;
+      try {
+        recorded = JSON.parse(readFileSync2(join2(top, planRel(s), "state.json"), "utf8")).branch;
+      } catch {
+      }
+      const legacy = branch.startsWith("sdlc/") || branch.startsWith("sdlc-task/");
+      if (task) {
+        planBr = recorded ?? (legacy ? `sdlc/${s}` : void 0);
+        accept = legacy || !!recorded && branchExists(recorded, top);
+      } else {
+        planBr = branch;
+        accept = legacy || recorded === branch;
+      }
+    }
+    if (accept) ctx.plan = planRef(s, wts, planBr);
   }
   return ctx;
 }
@@ -7538,7 +7560,7 @@ var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join3(mainRoot, cfg.wor
 
 // plugins/cairn/cli/src/proof.ts
 import { createHash as createHash2, randomBytes, timingSafeEqual } from "node:crypto";
-import { closeSync, constants, fstatSync, linkSync, openSync, readFileSync as readFileSync2, readSync, renameSync, rmSync } from "node:fs";
+import { closeSync, constants, fstatSync, linkSync, openSync, readFileSync as readFileSync3, readSync, renameSync, rmSync } from "node:fs";
 import { join as join4 } from "node:path";
 var HEARTBEAT_FRESH_MS = 1e4;
 var cairnDir = (common) => join4(common, "cairn");
@@ -7571,7 +7593,7 @@ function readRegularFile(path) {
     return void 0;
   }
   try {
-    return fstatSync(fd).isFile() ? readFileSync2(fd, "utf8") : void 0;
+    return fstatSync(fd).isFile() ? readFileSync3(fd, "utf8") : void 0;
   } finally {
     closeSync(fd);
   }
@@ -7955,7 +7977,7 @@ function template(name) {
 }
 
 // plugins/cairn/cli/src/commands/plans.ts
-import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync4 } from "node:fs";
 import { join as join7, resolve } from "node:path";
 function cmdNew(ctx, slug, opts) {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "\u2026"');
@@ -8014,7 +8036,7 @@ function cmdDecide(ctx, question, answer, opts) {
 function readDecisionFile(cwd, file) {
   let data;
   try {
-    data = JSON.parse(readFileSync3(resolve(cwd, file), "utf8"));
+    data = JSON.parse(readFileSync4(resolve(cwd, file), "utf8"));
   } catch (e) {
     throw new CliError(`cannot read decision file ${file}: ${e.message}`);
   }
@@ -8732,7 +8754,7 @@ import { existsSync as existsSync7, readdirSync } from "node:fs";
 import { join as join12 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync6, readFileSync as readFileSync4 } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync5 } from "node:fs";
 import { join as join11 } from "node:path";
 function listPlans(ctx) {
   const refs = git(["for-each-ref", "--format=%(refname:short)", ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split("\n").filter(Boolean);
@@ -8740,10 +8762,12 @@ function listPlans(ctx) {
   for (const b of refs) {
     const slug = parseBranch(b).slug;
     if (!slug) continue;
-    const ref = planRef(slug, ctx.worktrees);
+    const ref = planRef(slug, ctx.worktrees, b);
     try {
-      const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync4(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
-      rows.push({ state: parseState(raw), live: !!ref.dir, worktree: ref.worktree });
+      const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync5(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
+      const state = parseState(raw);
+      if (state.branch !== b) continue;
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree });
     } catch {
     }
   }
@@ -9023,9 +9047,9 @@ function cmdPause(ctx, opts) {
 }
 function cmdResume(ctx, slug, opts) {
   if (slug && ctx.plan?.slug !== slug) {
-    const ref = planRef(slug, ctx.worktrees);
     const branch = planBranchesFor(slug, ctx.top)[0];
     if (!branch) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
+    const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
       const wt = join13(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
@@ -9147,7 +9171,7 @@ ${v}` : v;
   const noteFile = opts["note-file"];
   if (typeof noteFile === "string") {
     try {
-      opts.note = readFileSync5(resolve3(cwd, noteFile), "utf8");
+      opts.note = readFileSync6(resolve3(cwd, noteFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --note-file ${noteFile}: ${e.message}`);
     }
@@ -9155,7 +9179,7 @@ ${v}` : v;
   const textFile = opts["text-file"];
   if (typeof textFile === "string") {
     try {
-      opts.text = readFileSync5(resolve3(cwd, textFile), "utf8");
+      opts.text = readFileSync6(resolve3(cwd, textFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --text-file ${textFile}: ${e.message}`);
     }
@@ -9229,7 +9253,7 @@ ${USAGE2}`);
 }
 function readStdin() {
   try {
-    return JSON.parse(readFileSync5(0, "utf8") || "{}");
+    return JSON.parse(readFileSync6(0, "utf8") || "{}");
   } catch {
     return {};
   }
