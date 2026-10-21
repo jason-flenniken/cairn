@@ -3,7 +3,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnView } from '../../types/index.d.ts'
-import { etaMs, fmtDuration, LINGER_MS, readAgents, readMain, readTick, type EtaTask } from './activity.ts'
+import { etaMs, fmtDuration, LINGER_MS, readAgents, readFeed, readMain, readTick, type EtaTask } from './activity.ts'
 import { approveAs, type Kind } from './approve.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
@@ -30,7 +30,6 @@ const APPROVE = 'Approve'
 const KINDS: readonly string[] = ['prd', 'plan', 'ship']
 const DOCK_COLUMNS = 48
 const INLINE_ROWS = 7
-const RECENT_SHOWN = 5
 const UP_NEXT_SHOWN = 4
 const DEFAULT_PARALLEL = 3
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -282,14 +281,14 @@ function logText(entry: { event?: string; detail?: string }): string | undefined
   return `${event.charAt(0).toUpperCase()}${event.slice(1)}${detail ? `: ${detail}` : ''}`
 }
 
-/** The last few events, oldest first: the plan's log and the agents that finished. */
+/** Every event of the plan's log and the agents that finished, oldest first. */
 function recentLines(s: CairnPlanState, feed: { at: number; text: string }[]): string[] {
   const fromLog = list<{ at?: string; event?: string; detail?: string }>(s.log).flatMap(entry => {
     const text = logText(entry)
     const at = Date.parse(entry.at ?? '')
     return text === undefined || Number.isNaN(at) ? [] : [{ at, text }]
   })
-  return [...fromLog, ...feed].sort((a, b) => a.at - b.at).slice(-RECENT_SHOWN).map(l => `${hourMinute(l.at)} ${l.text}`)
+  return [...fromLog, ...feed].sort((a, b) => a.at - b.at).map(l => `${hourMinute(l.at)} ${l.text}`)
 }
 
 export function install(on: On): void {
@@ -441,11 +440,22 @@ export function install(on: On): void {
       </Box>
     )
 
-    if (!isInline && shownTab !== 'now') {
+    if (!isInline && shownTab === 'records') {
       return (
         <Box flexDirection="column">
           {tabs}
-          <Text key="placeholder" dimColor>{`${shownTab === 'history' ? 'History' : 'Records'} is coming.`}</Text>
+          <Text key="placeholder" dimColor>Records is coming.</Text>
+        </Box>
+      )
+    }
+
+    if (!isInline && shownTab === 'history') {
+      const lines = here === undefined ? [] : recentLines(here.state, await readFeed($)).reverse()
+      return (
+        <Box flexDirection="column">
+          {tabs}
+          {lines.length === 0 && <Text dimColor>Nothing logged yet.</Text>}
+          {lines.map((line, i) => <Text key={`history:${i}`} color={accent} wrap="truncate-end">{line}</Text>)}
         </Box>
       )
     }

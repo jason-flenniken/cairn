@@ -727,6 +727,24 @@ describe('approval card and pressable cards (FR-11..FR-14)', () => {
   })
 })
 
+describe('History tab (FR-07)', () => {
+  test('shows every plan log entry, newest first, in the stage color', async ($, on) => {
+    const log = Array.from({ length: 12 }, (_, i) => ({ at: `2026-03-01T12:${String(i).padStart(2, '0')}:00.000Z`, event: 'task done', detail: `t-${String(i + 1).padStart(2, '0')}` }))
+    world(on, { rows: [row(plan({ ...EXECUTE, log }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:history' })
+    const text = await drawn(ui)
+    for (let i = 1; i <= 12; i++) expect(text).toContain(`Task done: t-${String(i).padStart(2, '0')}`)
+    expect(text.indexOf('Task done: t-12')).toBeLessThan(text.indexOf('Task done: t-01'))
+    expect(text.indexOf('Task done: t-12')).toBeLessThan(text.indexOf('Task done: t-11'))
+    const inStage = (await ui.findAll({ type: 'Text' })).filter((n: { props: { color?: string } }) => n.props.color === 'yellowBright').map((t: { text: string }) => t.text)
+    expect(inStage.some((t: string) => t.endsWith('Task done: t-12'))).toBe(true)
+    expect(inStage.length).toBe(12)
+    await ui.unmount()
+  })
+})
+
 describe('agent cards', () => {
   test('a spawned agent gets a card with its steps and action; it finishes green, lingers, then drops off', async ($, on) => {
     const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
@@ -834,7 +852,7 @@ describe('tabs and the Now view (FR-01..FR-06, FR-19)', () => {
     expect((await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter(isTab)).toEqual(['tab:now', 'tab:history', 'tab:records'])
     expect(await drawn(ui)).toContain('Main session')
     await ui.press({ key: 'tab:history' })
-    expect(await drawn(ui)).toContain('History is coming')
+    expect(await drawn(ui)).not.toContain('History is coming')
     expect(await drawn(ui)).not.toContain('Main session')
     await ui.press({ key: 'tab:records' })
     expect(await drawn(ui)).toContain('Records is coming')
