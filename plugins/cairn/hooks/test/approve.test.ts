@@ -261,6 +261,43 @@ describe('menu approval (FR-02)', () => {
     expect(got.context?.join()).toMatch(/prd approved/)
   })
 
+  test('FR-17: a stop tagged twice, answered Revise then Approve, records the approval', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'shop', stage: 'prd', worktree: '/wt/shop' }])
+    const a = 'Approve the PRD? [cairn:approve prd shop]'
+    const b = 'Really approve the PRD? [cairn:approve prd shop]'
+    dialog(on, { [a]: 'Revise', [b]: 'Approve (Recommended)' })
+    const got = await $.tool.call(ask(a, b))
+    expect(approveRuns()).toHaveLength(1)
+    expect(got.context?.join('\n')).toMatch(/prd approved/)
+    expect(toasts.join('\n')).toMatch(/prd approved/)
+  })
+
+  test('security: a stop tagged twice, Revise then a clicked "Yes" option, records no approval', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'yes', stage: 'prd', worktree: '/wt/yes' }])
+    const a = 'Approve the PRD? [cairn:approve prd yes]'
+    const b = 'Really approve the PRD? [cairn:approve prd yes]'
+    dialog(on, { [a]: 'Revise', [b]: 'Yes' })
+    const call = ask(a, b)
+    for (const q of call.questions) q.options.push({ label: 'Yes', description: 'Yes' })
+    const got = await $.tool.call(call)
+    expect(approveRuns()).toEqual([])
+    expect(got.context?.join('\n')).not.toMatch(/prd approved/)
+    expect(toasts).toEqual([])
+  })
+
+  test('FR-18: a question payload that is not a list passes through untouched', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'odd', stage: 'prd', worktree: '/wt/odd' }])
+    const answers = { 'Approve? [cairn:approve prd odd]': 'Approve' }
+    const shape = { question: 'Approve? [cairn:approve prd odd]', options: [] }
+    on('tool.call', { tool: 'AskUserQuestion' }, () => ({ result: { questions: shape, answers } as never }))
+    const got = await $.tool.call({ tool: 'AskUserQuestion', questions: shape } as never)
+    expect(got.deny).toBeUndefined()
+    expect(got.result).toEqual({ questions: shape, answers })
+    expect(got.context).toBeUndefined()
+    expect(approveRuns()).toEqual([])
+    expect(toasts).toEqual([])
+  })
+
   test('a tag in a header or an option label is not a tag', async ($, on) => {
     const { approveRuns } = world(on, [{ slug: 'hidden', stage: 'prd', worktree: '/wt/hidden' }])
     const q = 'Ready?'
