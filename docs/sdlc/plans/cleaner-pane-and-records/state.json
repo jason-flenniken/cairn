@@ -6,8 +6,8 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T15:15:54.797Z",
-  "stage": "review",
+  "updated": "2026-10-21T15:15:54.928Z",
+  "stage": "ship",
   "paused": null,
   "approvals": {
     "prd": {
@@ -688,6 +688,11 @@
       "at": "2026-10-21T15:15:54.797Z",
       "event": "review pass",
       "detail": "2 blocking fixed in place (record folders after rename now resolve through main; old follow-up grouping made an explicit learn step); 4 follow-ups logged"
+    },
+    {
+      "at": "2026-10-21T15:15:54.927Z",
+      "event": "advanced",
+      "detail": "ship"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
