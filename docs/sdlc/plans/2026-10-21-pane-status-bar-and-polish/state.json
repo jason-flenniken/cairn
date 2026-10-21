@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:50:37.741Z",
+  "updated": "2026-10-21T22:50:44.636Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -27,7 +27,7 @@
     {
       "id": "frame",
       "name": "Pinned bar and late-stage steps",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "pinned-bar",
@@ -96,7 +96,7 @@
     {
       "id": "fill",
       "name": "Fill the pane",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "usage-lines",
@@ -307,6 +307,11 @@
       "at": "2026-10-21T22:50:37.741Z",
       "event": "task done",
       "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:50:44.636Z",
+      "event": "phase finished",
+      "detail": "Pinned bar and late-stage steps (tests green (0 fail))"
     }
   ],
   "suggestions": [
