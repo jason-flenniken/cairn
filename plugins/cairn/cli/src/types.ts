@@ -92,6 +92,10 @@ export interface Suggestion {
   at: string;
   /** `<slug>:<id>` of the suggestion this entry closes. */
   resolves?: string;
+  /** `<slug>:<id>` of a suggestion this entry records one decline of. */
+  declines?: string;
+  /** `<slug>:<id>` of the suggestions this entry groups into one; they count as merged. */
+  merges?: string[];
   dismissed?: boolean;
   note?: string;
 }

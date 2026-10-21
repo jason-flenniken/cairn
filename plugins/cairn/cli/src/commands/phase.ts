@@ -9,7 +9,7 @@ import { gate, mutate, planCtx, runTests, testsGate, type Opts, type Result, typ
 /** "3 new suggestions (2 tests, 1 security)" for suggestions logged since the last phase boundary. */
 export function newSuggestionsText(s: State): string {
   const since = [...s.log].reverse().find((l) => l.event === 'phase finished' || (l.event === 'advanced' && l.detail === 'execute'))?.at ?? s.created;
-  const fresh = (s.suggestions ?? []).filter((x: Suggestion) => !x.resolves && x.at > since);
+  const fresh = (s.suggestions ?? []).filter((x: Suggestion) => !x.resolves && !x.declines && x.at > since);
   if (!fresh.length) return '0 new suggestions';
   const by = new Map<string, number>();
   for (const x of fresh) by.set(x.area, (by.get(x.area) ?? 0) + 1);

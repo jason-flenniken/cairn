@@ -18,8 +18,17 @@ Read `decisions.md` in the plan directory; it may hold earlier answers.
 
 **Done when:** you hold a short fact list and can name the open decisions.
 
+## 2b. Offer matching follow-ups
+Take the file paths the research found and run `cairn suggest list --open --for <path>`, one `--for` per path or glob. Skip this step when nothing matches.
+
+When some match, ask one AskUserQuestion with `multiSelect: true`: "These recommended follow-ups touch the same files. Which belong in this plan?" One option per match, labelled with its text and `<slug>:<id>`; offer the first four when there are more.
+- Each one picked: add it to `decisions.md` as a requirement to carry into the PRD, then run `cairn suggest resolve <slug>:<id> --note "brought into <this plan's slug>"`.
+- All the others: run `cairn suggest decline <slug>:<id>...` once. A follow-up declined twice expires on its own.
+
+**Done when:** every match was picked or declined, or none matched.
+
 ## 3. Ask one decision at a time
-Cover only: who the users are, the core flow, the non-goals, and anything risky (auth, money, deleting data, migrations, public API). Skip anything research already answers; mention those facts in one line. Order questions by dependency.
+Cover only: who the users are, the core flow, the non-goals, and anything risky (auth, money, deleting data, migrations, public API). Skip anything research already answers; mention those facts in one line. Order questions by dependency. Picked follow-ups are already decided; do not ask about them again.
 
 For each open decision:
 1. Ask with AskUserQuestion: 2-4 options, the recommended one first and labelled "(Recommended)", each with a one-line consequence. Add a preview to any option that is visual or structural.

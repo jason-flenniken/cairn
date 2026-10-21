@@ -74,7 +74,7 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   next | status [--all] | new <slug> --title "…" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
-  suggest add|list|resolve …
+  suggest add|list|resolve|merge|decline …
   pause [--now] | resume [<slug>] | close | render
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
@@ -115,7 +115,7 @@ export function run(argv: string[], cwd = process.cwd()): Result {
     case 'phase':
       return cmdPhase(ctx(), a, opts);
     case 'suggest':
-      return cmdSuggest(ctx(), a, b, opts);
+      return cmdSuggest(ctx(), a, b, opts, rest);
     case 'drift':
       if (a !== 'ack') throw new CliError('usage: cairn drift ack <path>|--all');
       return cmdDriftAck(ctx(), b, opts);

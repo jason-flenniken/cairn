@@ -104,6 +104,10 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn suggest add --area tests|security|perf|quality|ux|docs [--where <glob>]... (--text "…" | --text-file <f>) [--from task-review|branch-review|check|implementer|plan|user]`: appends to the current plan and prints `<slug>:<id>`.
   - `cairn suggest list [--open] [--for <glob>]... [--json]`: all plans (worktrees, plan branches, closed plans in this checkout), grouped by area. `--for` keeps suggestions whose `where` overlaps the globs.
   - `cairn suggest resolve <slug>:<id> [--dismiss] [--note "…"]`: closes a suggestion from the current plan.
+  - `cairn suggest merge <key> <key>... --area <a> [--where <glob>]... --text "…"`: groups open follow-ups into one new item in the current plan (its `where` defaults to theirs combined). The grouped ones become `merged`.
+  - `cairn suggest decline <key>...`: records one decline of each open follow-up. The second decline expires it.
+  - Each listed follow-up has a derived `status` in `suggest list --json`: `open`, `closed` (resolved or dismissed), `merged`, or `expired` (declined twice, or older than 60 days). `open` is true only for `open`.
+  - `cairn close` refuses when more than 5 open follow-ups come from the plan, and names them.
 - **Evidence and out-of-scope edits**
   - `cairn evidence verify|review pass|fail [--note "…"] [--blocking N]`
   - `cairn evidence phase [--note "…"]`: reads the phase's direction report and its one ` ```yaml cairn-direction ` block, the direction scorecard. The scorecard has three lists: `requirements`, `nfr`, and `unplanned`.
