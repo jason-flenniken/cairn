@@ -15,7 +15,8 @@ Every `Agent` dispatch passes an explicit `model`. An omitted model inherits the
 | Role | Model |
 |---|---|
 | implementer | the task's complexity tier |
-| task-reviewer (risky tasks only) | sonnet |
+| task-reviewer (every task) | sonnet |
+| security-reviewer (risky tasks, and the whole branch) | sonnet |
 | Explore (research) | sonnet |
 | acceptance-checker, recorder | sonnet |
 | branch-reviewer | opus |
