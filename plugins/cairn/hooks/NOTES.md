@@ -19,13 +19,15 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - Before `fs.stat` sees a path, the engine has already made it absolute against the session folder and folded `..` lexically.
 - A missing path rejects with `ENOENT`. For a missing path, the guard resolves the deepest existing ancestor and appends the rest, because a Write creates folders. Any other stat error propagates, and the `.catch` denies.
 - A path starting with `~` is denied, because the guard can't tell where the tool would land it.
+- Heredoc and here-string bodies fed to `python`, `node`, `ruby`, `perl` and similar are code, not shell, so they are not scanned. Bodies fed to `sh`/`bash`/`zsh`, or anything else, are scanned as shell. Text piped into a bare shell (`echo … | bash`, `cat <<EOF | sh`) is scanned.
+- Arguments to `cairn decide` and `--note`/`--why` values are prose: an approve word there is not an approval. Only single-quoted prose skips substitution scanning. In double-quoted or bare prose, backticks and `$(…)` are scanned the way a shell would run them. Markdown-heavy text goes in single quotes or a file (`--file`/`--note-file`).
 - Read, Grep, and Glob may read plan state. No tool may read or write under `.git/cairn/`, which holds the secret's hash (`mod-secret.sha256`) and the heartbeat.
   - Grep and Glob may not search a `.git` folder at all.
   - Native builds don't register Grep or Glob, so those searches go through Bash.
 - The Bash guard tokenizes the command the way a shell would: quotes, `;` `&&` `||` `|` `&`, subshells, `$(…)`, backticks, `sh -c`, and `eval`. It denies only these:
   - an `approve` argument to `cairn`, `…/bin/cairn`, or `node …/cairn.mjs`
   - setting `CAIRN_APPROVER`, by assignment or with `export`, `declare`, `read`, and the like
-  - writes to a `state.json`: redirects, `sed -i`/`perl -pi`, `tee`, `cp`/`mv`/`rm`/`truncate`/`dd`/`ln`, `git checkout`/`restore`, or interpreter `-c`/`-e` code that names it
+  - writes to a `state.json`: redirects, `sed -i`/`perl -pi`, `tee`, `cp`/`mv`/`rm`/`truncate`/`dd`/`ln`, `git checkout`/`restore`, or interpreter code (`-c`/`-e`, or a heredoc or here-string body) that names it and could write it (`open(…,'w'/'a'/'r+')`, `write_text`, `json.dump`, `writeFileSync`, `fs.write`, a shell-out). Interpreter code that only reads one runs.
   - anything under `.git/cairn/`, except a read of `.git/cairn/mod-heartbeat` named exactly
   - a glob in or after a path component that could be `.git`, a recursive read of a `.git` folder, and `$(git rev-parse --git-common-dir)`-style paths
   - a pseudo-terminal wrapper around `cairn` (`script`, `expect`, `unbuffer`, `tmux`, `screen`, python/perl `pty`)
@@ -36,7 +38,7 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 
 - The secret lives only in `mod/approve.ts`'s memory. `<git common dir>/cairn/mod-secret.sha256` holds its SHA-256 as lowercase hex, written with `$.fs.write` and then `chmod 600`, because `$.fs.write` takes no mode.
 - The hash file doesn't exist until the first approval or override. The mod writes the secret and its hash just before first use, and writes a fresh pair after every use, whatever the CLI answered. Uses run one at a time, so two approvals that land together each get their own secret.
-- The engine allows only one `session.start` hook without a matcher per module. The heartbeat owns it, so approve.ts has none.
+- The engine allows one matcherless hook per event per module. `register.tsx` owns the single `session.start` hook and calls each module's start work in turn (heartbeat, pause, pane). A failing module never stops the others or the session, so approve.ts, pause.ts, and pane.tsx have no `session.start` hook of their own.
 - The approval hook reads only `result.answers` from the dialog. It ignores answers the model put in its own call's input, which it copies before the dialog runs, a result with `afkTimeoutMs`, a dismissed or failed dialog, and subagents' dialogs. It has no `.catch`: if it throws, the hook is skipped and the user's answer goes on unchanged.
 - Every `process.run` the mod makes has a timeout: 60 s for `status` and `chmod`, 10 minutes for `approve` and an override. A hung CLI then can't hold up later uses of the secret, and its failure is reported.
 - An "Override" answer is held in memory for 10 minutes. The Bash hook runs the model's plain `cairn … --override "…"` itself and returns the CLI's output as the tool's result. It runs the command for the plan whose worktree the session is in, or for the one plan holding an override. Commands run as written, with a context line saying why the override wasn't used, when they contain any of these:
@@ -45,6 +47,13 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 
   That includes `cd <wt> && cairn …`. A command that includes `approve` is never run this way.
 - A hook can't mark a Bash result as an error. Core ignores `isError` on a hook's Bash result, and a string result fails Bash's output schema (checked in a `-p` probe). So a failed override's stdout starts with `Exit code N`, the way the Bash tool's own does, and its context line names the exit code. The probe also showed that a hook's `{ stdout, stderr, interrupted }` result and its `context` reach the model.
+
+## Mod commands, pause, and Stop now
+
+- Mod command names have no ":" because the engine forbids it: `cairn-pane`, `cairn-approve`, `cairn-pause-now`, `cairn-pause-mod`, `cairn-resume-mod`.
+- A plugin's own `$.command.run` skips its own hooks. The mod can't run its own commands through it.
+- Stop now cuts the running turn, and the engine refuses a `prompt.submit` made from the command's own hook (it would wait on the turn the hook holds). The mod remembers the id of the cut turn and sends the message to the model when that turn completes. The message tells it to stop its subagents, record each slice's substep, commit work in progress, and finish with `cairn pause --now`.
+- Pause (`cairn-pause-mod`) waits for in-flight work to reach a safe point instead of cutting the turn.
 
 ## Testing
 

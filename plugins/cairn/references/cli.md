@@ -11,27 +11,54 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 
 ## Human proof
 `cairn approve prd|plan|phase|ship` and any command run with `--override` succeed only with human proof. Each recorded approval or override notes its source.
-- **Mod menu (`source: mod`).** The session's mod asks through AskUserQuestion and runs the approval when the user picks "Approve (Recommended)". The CLI checks `CAIRN_APPROVER` against the mod secret at `<git common dir>/cairn/mod-secret` (mode 0600). The secret is rotated after each use.
+- **Mod menu (`source: mod`).** The session's mod asks through AskUserQuestion and runs the approval when the user picks "Approve (Recommended)". The pane's Approve button and `/cairn-approve` run it the same way.
+  - The mod keeps the secret in memory only. On disk, `<git common dir>/cairn/mod-secret.sha256` (mode 0600) holds the secret's SHA-256 as lowercase hex.
+  - The mod passes the secret to the CLI in `CAIRN_APPROVER`. The CLI hashes it and compares. On a match the CLI claims and deletes the hash file, so a used secret can't be replayed. The mod then writes a fresh secret and hash.
+  - The hash file doesn't exist until the first approval or override.
 - **Terminal (`source: terminal`).** Run `cairn approve <kind> --human` in your own terminal. It needs a TTY on stdin and stdout, and you type the plan slug at the prompt. Without a TTY it exits 2 and says to run it in your terminal. Agents can't supply this proof.
-- **Override grant (`--override` only).** When the user picks "Override" on an Override menu (question tagged `[cairn:override <slug>]`), the mod writes a single-use grant to `<git common dir>/cairn/grants/<slug>.json`. It holds the question text as its reason and expires after 10 minutes. The CLI accepts `--override` only while a valid, unused grant for the plan exists, and consumes it.
+- **Mod-run override (`--override` only).** When the user picks "Override" on an Override menu (question tagged `[cairn:override <slug>]`), the mod holds a pending override for that plan in memory for 10 minutes. Nothing is written to disk.
+  - The model then runs `cairn <command> --override "<reason>"` as a plain command, alone: no `cd`, no `&&`. The mod runs it itself with the secret and returns the CLI's output as the tool result.
+  - The mod picks the plan whose worktree the session is in, or the one plan holding a pending override.
+  - The mod runs the command as written only when it holds none of ``; | & $ ` > <``, a newline, or a backslash, and no unquoted `# * ? ~ ( ) { } [ ]`. Otherwise it doesn't run it and says why. A command that includes `approve` is never run this way.
+  - A failed override's output starts with `Exit code N`.
 
 **Procedures never run `cairn approve`.** They ask the user through a tagged menu, or tell the user to run `cairn approve <kind> --human` when the mod is not active. Either way they confirm the result with `cairn status --json`.
 
-`modActive` in `cairn status --json` and `cairn next --json` is `true` when the mod's heartbeat (`<git common dir>/cairn/mod-heartbeat`, written every 2 seconds) is under 10 seconds old. When it is `false`, the menu can't record an approval, so procedures switch to the terminal command.
+### Mod heartbeat and `modActive`
+`<git common dir>/cairn/mod-heartbeat` holds one value: epoch milliseconds as plain decimal text, with no newline (for example `1792532987012`). The mod writes it at session start and every 2 seconds after that.
+
+`modActive` is `true` when that value is under 10 seconds old. It appears in `cairn status --json`, `cairn status --all --json`, and `cairn next --json`. When it is `false`, the menu can't record an approval, so procedures switch to the terminal command.
+
+### Mod commands
+The mod registers these commands. Their names have no ":" because the engine forbids it.
+- `/cairn-pane`: opens the plan pane.
+- `/cairn-approve [kind]`: approves the stop waiting on the session's plan.
+- `/cairn-pause-now`: stops the running turn and pauses the plan now (Stop now).
+- `/cairn-pause-mod`: pauses the plan once in-flight work reaches a safe point.
+- `/cairn-resume-mod [plan]`: resumes a paused plan, here or after `/clear`.
 
 ## Where things live
-- Plan branch: `sdlc/<slug>`, usually checked out in its own worktree.
+- Plan branch: `sdlc/<slug>`, usually checked out in its own worktree. The orchestrator session stays at the repo root and runs `cd <plan worktree> && cairn <command>`.
 - Plan dir, committed on the plan branch: `docs/sdlc/plans/<slug>/`, containing:
   - `decisions.md`: append-only, written via `cairn decide`
   - `prd.md`, `plan.md`, `handoff.md`, `RECORD.md`: written by procedures from `templates/`
+  - `direction/<phase-id>.md`: one direction report per phase, with its `cairn-direction` scorecard
   - `state.json`, `STATUS.md`: CLI only
 - Slice branches: `sdlc-slice/<slug>/<slice>`, each in its own worktree. Slice workers never touch `docs/sdlc/`.
 - Product track, on main: `docs/sdlc/product/PRD.md` and `docs/sdlc/product/decisions/`.
-- Repo config: `.sdlc/config.json`, with keys `setup` (run in every new plan or slice worktree, for example to install dependencies), `test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `worktreeRoot`, `autoCommit`.
+- Repo config: `.sdlc/config.json`, with keys:
+  - `setup`: run in every new plan or slice worktree, for example to install dependencies
+  - `test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `worktreeRoot`, `autoCommit`
+  - `resumeFreshAfterMinutes`: how long a pause counts as recent before resume offers a clean start (default 60)
+  - `fixMaxFiles`: how many files a fix may change before `slice done fix` refuses and names `escalate` (default 8)
+  - `reproTimeoutMinutes`: how long `cairn repro` may run (default 10)
+- Config lock (FR-32): plan approval records a hash of the `setup`, `test`, and `build` commands. On the fix track the hash is taken when the repro is recorded. `slice start`, `slice done`, `repro`, and `close` refuse while the hash differs, and name the fix: the user re-approves the plan, or chooses Override.
 - The active plan is decided by the current git branch: `sdlc/<slug>` or `sdlc-slice/<slug>/…`. On any other branch the CLI works on the index of all plans.
 
 ## Stages
 `discover → prd → plan → execute → verify → review → ship → learn → closed`
+
+The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage: `repro → execute → review → ship → closed`. See Fix track below.
 
 | Command | Gate (refused unless…) |
 |---|---|
@@ -41,36 +68,47 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 | `cairn plan load` | `plan.md` has the required sections and a valid `cairn-slices` YAML block: unique ids, `blocked_by` only to the same or an earlier phase, no cycles, non-empty `scope`, `covers` ids exist in the PRD, and every PRD `FR-` id is covered or listed under `## Deferred requirements` |
 | `cairn approve plan` | the plan is loaded and `plan.md` is unchanged since it was loaded |
 | `cairn advance` (to execute) | plan approved |
-| `cairn slice start <id>` | the slice is in the ready set (`cairn ready`) |
-| `cairn slice done <id>` | the slice branch is merged into the plan branch, and the config `test` command passes in the plan worktree |
-| `cairn approve phase` | every slice in the current phase is done, and all drift is acknowledged (`cairn drift ack`) |
+| `cairn slice start <id>` | the slice is in the ready set (`cairn ready`), and the config lock holds |
+| `cairn slice done <id>` | the slice branch is merged into the plan branch, the config `test` command passes in the plan worktree, and the config lock holds |
+| `cairn evidence phase` | the phase's direction report has one valid `cairn-direction` block with a row for every covered requirement |
+| `cairn approve phase` | every slice in the current phase is done, all drift is acknowledged (`cairn drift ack`), and the direction verdict is recorded, not red, and current for the code |
 | (last phase approved) | stage moves to verify automatically |
 | `cairn advance` (to review) | `cairn evidence verify pass` recorded |
 | `cairn advance` (to ship) | `cairn evidence review pass` recorded with no blocking findings |
 | `cairn approve ship` | `RECORD.md` has every section and is within its length budget |
 | `cairn advance` (to learn) | ship approved |
-| `cairn close` | stage is learn, `RECORD.md` is valid, and tests pass |
+| `cairn close` | stage is learn, `RECORD.md` is valid, tests pass, and the config lock holds |
 
 ## Commands
 - **Routing and status**
   - `cairn next [--json]`: what to do now. Returns `{stage, substep, procedure: <abs path>, summary, plan}`. Read and follow the procedure file it names.
   - `cairn status [--all] [--json]`: one plan, or every plan with `--all`, read live from each worktree.
 - **Plans**
-  - `cairn new <slug> --title "…" [--track feature|fix] [--from <ref>] [--no-worktree]`: creates the branch, the worktree, the plan dir, and state.
+  - `cairn new <slug> --title "…" [--track feature|fix] [--from <ref>] [--no-worktree]`: creates the branch, the worktree, the plan dir, and state, and prints the worktree path.
   - `cairn product init`: creates `docs/sdlc/product/` from templates, on the current branch.
   - `cairn decide "<question>" "<answer>" [--why "…"]`: appends to `decisions.md`.
+  - `cairn decide --file <path>`: reads the decision from a JSON file, `{question, answer, why?}`.
+  - `--note-file <path>`: works on any command that takes `--note`, and reads the note from the file.
+  - Prefer `--file` and `--note-file` for text with quotes, apostrophes, or backticks, so the shell never parses it.
 - **Stage transitions**
   - `cairn approve prd|plan|phase|ship [--note "…"]`: through the mod's menu, or `--human` in the user's terminal (see Human proof)
   - `cairn advance [--to <stage>]`
 - **Plan and slices**
   - `cairn plan load [--replan]`: parses `plan.md` into state. Use `--replan` during execute, verify, or review, for example to add fix slices. Existing slice progress is kept, the stage returns to plan, the plan needs approval again, and verify and review evidence is cleared, so both run again after the fixes are built.
   - `cairn ready [--json]`: slices that can start now (blockers done, no scope overlap, under the parallel cap).
-  - `cairn slice start <id>`: creates the slice worktree and branch, and prints the path.
+  - `cairn slice start <id>`: creates the slice worktree and branch, and prints the path. On a fix plan at review, `cairn slice start fix` reopens the fix (see Fix track).
   - `cairn slice step <id> implementing|reviewing|fixing|merging|blocked [--note "…"]`: `fixing` increments the fix round. After 5 rounds it is refused, so escalate or re-plan.
   - `cairn slice done <id>`
 - **Evidence and drift**
   - `cairn evidence verify|review pass|fail [--note "…"] [--blocking N]`
+  - `cairn evidence phase [--note "…"]`: reads the phase's direction report and its one ` ```yaml cairn-direction ` block, the direction scorecard. The scorecard has three lists: `requirements`, `nfr`, and `unplanned`.
+    - Each `requirements` and `nfr` row has `id`, `verdict` (`aligned`, `partial`, `missing`, or `contradicted`), `evidence` as `path:line`, and an optional `note`.
+    - Each `unplanned` row has `what`, `class` (`pulled-forward`, `unplanned`, `non-goal-breach`, or `supporting`), and `evidence` as `path:line`.
+    - The CLI computes the color (green, yellow, or red) from the rows and records it with the commit. Agents never state the color. It refuses an invalid scorecard.
   - `cairn drift ack <path|--all> [--note "…"]`
+- **Fix track**
+  - `cairn repro "<command>"`: runs the command in the plan worktree under `reproTimeoutMinutes`. A non-zero exit means the repro shows the bug: it is recorded and the stage becomes execute. Exit 0, a timeout, or a command that can't start is refused.
+  - `cairn escalate`: turns a fix plan into a feature plan at stage prd. Use it when `slice done fix` refuses for too many files, or the fix needs a requirement the bug report didn't state.
 - **Pause, resume, close**
   - `cairn pause [--now]`: requires `handoff.md` with In flight / Open questions / Next action sections.
   - `cairn resume`: clears the pause and prints a recap: status, the handoff, and the next procedure.
@@ -81,11 +119,20 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 
 The CLI commits the plan dir on the plan branch only at transitions: approve, advance, plan load, slice done, pause, resume, and close.
 
+## Fix track
+`cairn new <slug> --track fix` starts a plan at stage repro.
+1. `cairn repro "<command>"` records a failing repro and moves the plan to execute.
+2. `cairn advance` creates the single slice `fix` (scope `**`). Build it as in `procedures/execute.md`.
+3. `cairn slice done fix` moves the plan to review. It refuses when more than `fixMaxFiles` files changed and names `cairn escalate`.
+4. A review pass with no blocking findings moves the plan to ship. `cairn approve ship` and `cairn advance` then close it.
+
+A blocking review finding has two exits. `cairn slice start fix` reopens the slice from review: the plan returns to execute, the review result is cleared, and the repro and the slice base are kept. `cairn escalate` turns the plan into a feature plan at stage prd.
+
 ## JSON shapes (`--json`)
-- `next`: `{ok, plan, stage, substep, procedure, summary, text, warnings[], planWorktree, modActive}`. On a non-plan branch: `{plan: null, procedure, plans[]}`.
+- `next`: `{ok, plan, stage, substep, procedure, summary, text, warnings[], planWorktree, modActive}`. On a non-plan branch: `{plan: null, procedure, plans[], modActive}`.
 - `status`: `{ok, state, next, warnings[], slice, planWorktree, modActive}`.
   - `state` is the full state.json: `phases[].slices[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals`, `evidence`, `drift[]`, and `log[]`.
-  - `status --all`: `{plans: [{state, live, worktree, next}]}`.
+  - `status --all`: `{plans: [{state, live, worktree, next}], modActive}`.
 - `ready`: `{paused, phase, phaseStatus, ready: [slice + model], inProgress: [slice], waiting: [{id, on[]}]}`.
 - `slice start`: `{worktree, branch, planBranch}`.
 - `new`: `{slug, branch, base, worktree, dir}`.

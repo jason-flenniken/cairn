@@ -28,14 +28,14 @@ Run `cairn new <slug> --title "<title>"`. The output prints the plan worktree pa
 
 **Done when:** the command exits 0 and you have the worktree path.
 
-## 5. Switch into the worktree
-Call the EnterWorktree tool with the printed path (path form).
-- Success: confirm with `cairn status --json` that the stage is `discover`.
-- EnterWorktree unavailable or refused: tell the user, in two lines, `cd <path> && claude` then `/cairn:next`, and stop.
+## 5. Tell the user where the plan lives
+Tell the user the plan worktree path in one line. Never move the session into the worktree with a worktree-entering tool: a session locked to a worktree blocks its subagents from editing and committing in slice worktrees. You stay at the repo root, and every later `cairn` command runs as `cd <plan worktree> && cairn <command>`.
 
-**Done when:** the session's working directory is the plan worktree, or the user has the two-line instruction.
+Confirm with `cd <plan worktree> && cairn status --json` that the stage is `discover`.
+
+**Done when:** the user has the worktree path and the stage is `discover`.
 
 ## 6. Continue
-Tell the user in one line that the plan exists and discovery starts. Run `cairn next --json` and follow the procedure it names (discover).
+Tell the user in one line that the plan exists and discovery starts. Run `cd <plan worktree> && cairn next --json` and follow the procedure it names (discover).
 
 **Done when:** the discover procedure is running.
