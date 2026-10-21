@@ -80,6 +80,12 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - Inline (the 7-row pane) has no pinning: the bar is one line at the end, the active step. The "run /tui fullscreen" tip shows only while it still fits the 7 rows (it goes for a fallback plan with an approval waiting).
 - Bar lines wrap between steps to fit `bodyColumns - 2` cells (46 docked), counting an emoji as 2 cells (NFR-01).
 
+## Usage lines (pane)
+
+- `usage.ts` owns the `usage` and `planBaseline` atoms. A `session.measure` hook (registered from `pane.tsx`'s `install`) stores the model, context, rate limits and cost; the bar only reads them, so there is no timer beyond the 2 s poll (NFR-02). Before the first measure `readUsage` asks `$.session.usage()`.
+- The plan cost is the session cost less the baseline. The baseline is set when the shown plan is first seen active, when it changes, or when it is resumed after a pause (the pane's refresh and poll call `syncBaseline`). A paused plan seen first has no baseline, so the line shows the session total labelled "session", as it does with no plan.
+- Line 2 is the model, cost, context bar with percent and tokens; line 3 is the 5h and 7d bars (warning from 80% with the reset time, error from 95%), left out with no rate limits. Each shrinks (shorter bar, then fewer parts) to fit the bar's columns. Inline, one line: the active step, the plan cost and the limit percents.
+
 ## Testing
 
 `claude plugin test <dir>` runs every `*.test.ts` under `<dir>`, skipping only `node_modules` and dot-folders. That includes `cli/test`, whose node:test files can't load in the mod environment.
