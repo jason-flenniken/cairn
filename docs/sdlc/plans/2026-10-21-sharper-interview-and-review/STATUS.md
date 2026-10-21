@@ -21,6 +21,7 @@ Branch `feature/sharper-interview-and-review` from `main` · started 2026-10-21 
 ## Checkpoints
 - PRD approved 2026-10-21 (you, in the menu)
 - Plan approved 2026-10-21 (you, in the menu)
+- Verify: pass (tests: 367 passing; 21 of 22 requirements met plus 1 fixed, 2 untested logged; secret scan clean, npm audit 0 vulnerabilities, no lockfile changes)
 
 ## Out-of-scope edits to review
 - `plugins/cairn/cli/test/fix.test.ts`: changed outside task "Close only when merged" scope (found at task done)
@@ -28,6 +29,7 @@ Branch `feature/sharper-interview-and-review` from `main` · started 2026-10-21 
 - `plugins/cairn/cli/test/proof.test.ts`: changed outside task "Close only when merged" scope (found at task done)
 
 ## Recent activity
+- 2026-10-21 21:43 verify pass: tests: 367 passing; 21 of 22 requirements met plus 1 fixed, 2 untested logged; secret scan clean, npm audit 0 vulnerabilities, no lockfile changes
 - 2026-10-21 21:40 advanced: verify
 - 2026-10-21 21:40 phase finished: Wire into the flow (tests green (0 fail))
 - 2026-10-21 21:40 task done: Pane background, notice and truncation
@@ -35,4 +37,3 @@ Branch `feature/sharper-interview-and-review` from `main` · started 2026-10-21 
 - 2026-10-21 21:36 task done: Review every task and fix-track routing
 - 2026-10-21 21:36 task merging: Review every task and fix-track routing
 - 2026-10-21 21:36 task done: Threat model, wider risk and pre-ship scans
-- 2026-10-21 21:35 task merging: Threat model, wider risk and pre-ship scans
