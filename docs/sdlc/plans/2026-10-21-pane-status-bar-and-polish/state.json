@@ -6,8 +6,8 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T23:38:12.697Z",
-  "stage": "review",
+  "updated": "2026-10-21T23:38:12.793Z",
+  "stage": "ship",
   "paused": null,
   "approvals": {
     "prd": {
@@ -665,6 +665,11 @@
       "at": "2026-10-21T23:38:12.696Z",
       "event": "review pass",
       "detail": "whole-branch and security review: 2 Required fixed (inline row budget, step wording from the CLI) plus bar redraw on close and tab switch; a pre-existing approve-test flake fixed; follow-ups logged"
+    },
+    {
+      "at": "2026-10-21T23:38:12.792Z",
+      "event": "advanced",
+      "detail": "ship"
     }
   ],
   "suggestions": [
