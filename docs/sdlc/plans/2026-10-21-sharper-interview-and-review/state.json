@@ -6,7 +6,7 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:19:15.250Z",
+  "updated": "2026-10-21T21:21:29.652Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -17,7 +17,175 @@
       "hash": "2d6967bccebeefb7"
     }
   },
-  "phases": [],
+  "phases": [
+    {
+      "id": "material",
+      "name": "Interview, checklists and close rule",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "goal-interview",
+          "name": "Goal-first interview",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-05"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/procedures/discover.md",
+            "plugins/cairn/cli/test/interview-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "review-checklist",
+          "name": "Review checklist and reviewers",
+          "covers": [
+            "FR-06",
+            "FR-09"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/references/review-checklist.md",
+            "plugins/cairn/agents/task-reviewer.md",
+            "plugins/cairn/agents/branch-reviewer.md",
+            "plugins/cairn/cli/test/review-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "security-checklist",
+          "name": "Security checklist, reviewer and credit",
+          "covers": [
+            "FR-10",
+            "FR-13",
+            "FR-22"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/references/security-checklist.md",
+            "plugins/cairn/agents/security-reviewer.md",
+            "plugins/cairn/agents/implementer.md",
+            "plugins/cairn/NOTICE",
+            "plugins/cairn/UPSTREAM.md",
+            "plugins/cairn/cli/test/security-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "close-when-merged",
+          "name": "Close only when merged",
+          "covers": [
+            "FR-17"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/**",
+            "plugins/cairn/cli/test/lifecycle.test.ts",
+            "plugins/cairn/cli/test/close-merged.test.ts",
+            "plugins/cairn/procedures/learn.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/dist/**"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "changes when the CLI refuses to close a plan; a wrong check blocks every close"
+        }
+      ]
+    },
+    {
+      "id": "wiring",
+      "name": "Wire into the flow",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "review-routing",
+          "name": "Review every task and fix-track routing",
+          "covers": [
+            "FR-07",
+            "FR-08",
+            "FR-14",
+            "FR-16",
+            "FR-21"
+          ],
+          "blockedBy": [
+            "review-checklist",
+            "security-checklist",
+            "close-when-merged"
+          ],
+          "scope": [
+            "plugins/cairn/procedures/execute.md",
+            "plugins/cairn/procedures/review.md",
+            "plugins/cairn/procedures/fix.md",
+            "plugins/cairn/references/model-tiers.md",
+            "plugins/cairn/cli/test/fix-procedure.test.ts",
+            "plugins/cairn/cli/test/routing-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "security-design",
+          "name": "Threat model, wider risk and pre-ship scans",
+          "covers": [
+            "FR-11",
+            "FR-12",
+            "FR-15"
+          ],
+          "blockedBy": [
+            "security-checklist"
+          ],
+          "scope": [
+            "plugins/cairn/templates/prd.md",
+            "plugins/cairn/templates/plan.md",
+            "plugins/cairn/templates/config.json",
+            "plugins/cairn/procedures/prd.md",
+            "plugins/cairn/procedures/plan.md",
+            "plugins/cairn/procedures/verify.md",
+            "plugins/cairn/references/cli.md",
+            "plugins/cairn/cli/test/security-flow-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "pane-polish",
+          "name": "Pane background, notice and truncation",
+          "covers": [
+            "FR-18",
+            "FR-19",
+            "FR-20"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/**"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    }
+  ],
   "evidence": {},
   "drift": [],
   "log": [
@@ -39,6 +207,11 @@
       "at": "2026-10-21T21:19:15.249Z",
       "event": "advanced",
       "detail": "plan"
+    },
+    {
+      "at": "2026-10-21T21:21:29.652Z",
+      "event": "plan loaded",
+      "detail": "2 phases, 7 tasks"
     }
   ],
   "suggestions": [
@@ -80,5 +253,6 @@
       "resolves": "cleaner-pane-and-records:s23",
       "note": "brought into sharper-interview-and-review"
     }
-  ]
+  ],
+  "planHash": "f94805128506beb0"
 }
