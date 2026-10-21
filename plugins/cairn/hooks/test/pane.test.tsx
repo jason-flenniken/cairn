@@ -285,6 +285,14 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await ui.unmount()
     })
 
+    test(`a learn plan whose branch is not merged reads PR open (${surface})`, async ($, on) => {
+      world(on, { rows: [{ ...row(plan({ stage: 'learn' }), WT), prOpen: true }] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      expect(await drawn(ui)).toContain('Learn · PR open')
+      await ui.unmount()
+    })
+
     test(`a paused plan: Resume and Status, no Pause (${surface})`, async ($, on) => {
       world(on, { rows: [row(plan({ paused: { at: '2026-03-01T11:00:00.000Z', mode: 'drain' } }), WT)] })
       await start($, WT)

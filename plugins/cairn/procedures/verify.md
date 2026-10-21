@@ -17,8 +17,29 @@ Run the repo's test command (`test` in `.sdlc/config.json`) in the plan worktree
 ## 3. Security scan and dependency audit
 Read the Secrets section of `references/security-checklist.md`, and the `[deps]` section when the branch touches a manifest or lockfile. Work from the branch diff, `git diff <base>...<plan branch>`, in the plan worktree.
 
-- **Secret scan.** Search the added lines for private key headers, AWS, GitHub, Slack and Stripe-style tokens, `password=`, `secret=` and `api_key=` assignments with a literal value, and added `.env` files. Report the file, the line and the kind. Never print the value. A secret in the diff blocks: remove it in step 5. A committed secret counts as leaked, so tell the user to revoke it.
-- **Dependency audit.** Run the `audit` command from `.sdlc/config.json` when it is set. Otherwise detect it from the lockfile: `package-lock.json` runs `npm audit --omit=dev --audit-level=high`, `pnpm-lock.yaml` runs `pnpm audit`, `yarn.lock` runs `yarn npm audit` (berry) or `yarn audit` (v1), `Cargo.lock` runs `cargo audit` when installed, `poetry.lock` or `requirements*.txt` runs `pip-audit` when installed. Run the audit command only: never an install, never an audit fix (no `npm audit fix --force`).
+- **Secret scan.** The output of every scan command must contain only the file, the line and the kind, never the matched text. Do not run a bare `grep`, `grep -n` or `git diff | grep` over the diff, and do not open a hit to double-check it: if the kind looks doubtful, report it as found and let the user look.
+  1. Count the added lines that look like a secret (a number only):
+     ```sh
+     git diff <base>...<plan branch> -U0 --no-color | grep -E '^\+' | grep -cE -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' -e 'AKIA[0-9A-Z]{16}' -e 'gh[pousr]_[A-Za-z0-9]{36}' -e 'xox[abprs]-[A-Za-z0-9-]{10}' -e '[sr]k_(live|test)_[A-Za-z0-9]{16}' -e "(password|secret|api_key) *[=:] *[\"'][^\"' ]{4}"
+     ```
+  2. List where they are, as `file:line:kind` only (private key header, AWS, GitHub, Slack and Stripe-style tokens, `password`, `secret` and `api_key` assignments with a literal value):
+     ```sh
+     git diff <base>...<plan branch> -U0 --no-color | awk '
+     /^\+\+\+ b\//{f=substr($0,7);next}
+     /^@@/{match($0,/\+[0-9]+/);n=substr($0,RSTART+1,RLENGTH-1)+0;next}
+     /^\+/{l=substr($0,2);k=""
+       if(l~/-----BEGIN [A-Z ]*PRIVATE KEY-----/)k="private key"
+       else if(l~/AKIA[0-9A-Z]{16}/)k="aws key"
+       else if(l~/gh[pousr]_[A-Za-z0-9]{36}/)k="github token"
+       else if(l~/xox[abprs]-[A-Za-z0-9-]{10}/)k="slack token"
+       else if(l~/[sr]k_(live|test)_[A-Za-z0-9]{16}/)k="stripe key"
+       else if(l~/(password|secret|api_key)[ ]*[=:][ ]*["\047][^"\047 ]{4}/)k="literal credential"
+       if(k!="")print f":"n":"k
+       n++}'
+     ```
+  3. Added `.env` files, by path only: `git diff --name-only --diff-filter=A <base>...<plan branch> | grep -E '(^|/)\.env($|\.)'`.
+  A secret in the diff blocks: remove it in step 5. A committed secret counts as leaked, so tell the user to revoke it.
+- **Dependency audit.** Run the `audit` command from `.sdlc/config.json` when it is set. Otherwise detect it from the lockfile: `package-lock.json` runs `npm audit --omit=dev --audit-level=high`, `pnpm-lock.yaml` runs `pnpm audit`, `yarn.lock` runs `yarn npm audit` (berry) or `yarn audit` (v1), `Cargo.lock` runs `cargo audit` when installed, and a pinned `requirements*.txt` runs `pip-audit --no-deps --disable-pip -r <file>` when installed (that form installs nothing; it needs every requirement pinned with `==`, so skip an unpinned file with a one-line note). `poetry.lock` is not audited unless the config sets a command. Run the audit command only: never an install, never an audit fix (no `npm audit fix --force`), and never `pip-audit` without `--no-deps --disable-pip` (it builds the packages in a temp environment, which can run their build scripts).
 - **Triage by reachability.** A critical or high advisory in code the build reaches blocks: fix it in step 5. Everything else is logged: `cairn suggest add --area security --from check --where <lockfile> --text "<advisory and package>"`.
 - **Lockfile diff.** When the branch changes a lockfile, list the new and bumped packages. Flag install scripts and names that look like a typosquat.
 - **No audit tool.** With no configured command and no known audit for the stack, say in one line that the audit was skipped and why, then go on.

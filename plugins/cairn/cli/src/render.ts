@@ -55,14 +55,15 @@ export function nextFor(s: State): Next {
   }
 }
 
-export function progress(s: State): string {
+export function progress(s: State, prOpen = false): string {
+  const stage = `${STAGE_LABEL[s.stage]}${prOpen ? ' · PR open' : ''}`;
   const all = s.phases.flatMap((p) => p.tasks);
-  if (!s.phases.length) return STAGE_LABEL[s.stage];
+  if (!s.phases.length) return stage;
   const done = all.filter((x) => x.status === 'done').length;
   const running = all.filter((x) => x.status === 'in_progress').length;
   const pi = s.phases.findIndex((p) => p.status !== 'done');
   const phase = pi === -1 ? 'all phases done' : `phase ${pi + 1}/${s.phases.length} "${s.phases[pi].name}"`;
-  return `${STAGE_LABEL[s.stage]} · ${phase} · ${done}/${all.length} tasks done${running ? ` · ${running} running` : ''}`;
+  return `${stage} · ${phase} · ${done}/${all.length} tasks done${running ? ` · ${running} running` : ''}`;
 }
 
 const SOURCE_LABEL = { mod: 'you, in the menu', terminal: 'you, in the terminal' } as const;
@@ -81,9 +82,9 @@ const overrideSource = (detail = ''): string => {
 
 const openDrift = (s: State) => s.drift.filter((d) => !d.acked);
 
-export function summary(s: State): string {
+export function summary(s: State, prOpen = false): string {
   const drift = openDrift(s).length;
-  return `${s.title} (${s.slug}): ${progress(s)}${s.paused ? ' · PAUSED' : ''}${drift ? ` · ${drift} out-of-scope edit(s)` : ''}`;
+  return `${s.title} (${s.slug}): ${progress(s, prOpen)}${s.paused ? ' · PAUSED' : ''}${drift ? ` · ${drift} out-of-scope edit(s)` : ''}`;
 }
 
 const taskIcon = (x: Task, done: Set<string>) =>
@@ -145,6 +146,8 @@ export interface IndexRow {
   state: State;
   live: boolean;
   worktree?: string;
+  /** Set by `cairn status` only: closed or in learn, and the branch is not merged yet. */
+  prOpen?: boolean;
   /** Absolute plan folder: in its worktree, else where it would sit in the main checkout. */
   dir: string;
 }
@@ -154,6 +157,6 @@ export function renderIndex(rows: IndexRow[]): string {
   if (!rows.length) return out.concat('No plans yet. Start one with `/cairn:new`.').join('\n') + '\n';
   out.push('| Plan | Where | Next | Worktree |', '|---|---|---|---|');
   for (const r of rows)
-    out.push(`| ${r.state.title} (\`${r.state.slug}\`) | ${progress(r.state)}${r.state.paused ? ' · PAUSED' : ''} | ${nextFor(r.state).text} | ${r.worktree ?? '(not checked out)'} |`);
+    out.push(`| ${r.state.title} (\`${r.state.slug}\`) | ${progress(r.state, r.prOpen)}${r.state.paused ? ' · PAUSED' : ''} | ${nextFor(r.state).text} | ${r.worktree ?? '(not checked out)'} |`);
   return out.join('\n') + '\n';
 }

@@ -275,7 +275,7 @@ export function install(on: On): void {
           // The dialog is still open under its question: say where the approval came from. A dialog that has
           // already closed refuses the line; that is no reason to fail the answer.
           try {
-            await $.ui.notice(e.tool_use_id, 'Approved in the pane')
+            await $.ui.toast('Approved in the pane')
           } catch {
             // The question closed first; the answer below still stands.
           }

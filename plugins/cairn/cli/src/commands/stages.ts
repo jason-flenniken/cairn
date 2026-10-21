@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { commitPath, mergeState, type MergeState } from '../git.ts';
+import { commitPath } from '../git.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
@@ -36,7 +36,7 @@ const recordCheck = (pc: PlanCtx, track: Track) =>
     : { problems: recordProblems(pc), fix: 'write RECORD.md from templates/record.md' };
 
 /** The checks for closing a plan: the record, green tests, and the approved commands. */
-function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: string[]; fix: string }, tests: TestRun | undefined, merge: MergeState): void {
+function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: string[]; fix: string }, tests: TestRun | undefined): void {
   configGate(s, pc.cfg, 'close', opts);
   const open = collectSuggestions(pc.ctx).filter((x) => x.open && x.slug === s.slug);
   gate(
@@ -49,16 +49,6 @@ function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: strin
   );
   gate(!record.problems.length, s, 'close', opts, record.problems.join('; '), [record.fix]);
   testsGate(tests, s, 'close', opts);
-  gate(
-    merge === 'merged',
-    s,
-    'close',
-    opts,
-    merge === 'open'
-      ? `the pull request is still open: \`${s.branch}\` is not merged into \`${s.base}\``
-      : `merge status unknown: could not check whether \`${s.branch}\` is merged into \`${s.base}\` (offline, or the base is missing)`,
-    ['merge the pull request, then run this again'],
-  );
 }
 /** Why prd.md cannot be approved yet: missing or empty sections, open questions. */
 function prdProblems(md: string | undefined): string[] {
@@ -159,7 +149,7 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         gate(!record.problems.length, s, 'approve ship', opts, record.problems.join('; '), [record.fix]);
         s.approvals.ship = approval();
         log(s, 'ship approved', source);
-        return { message: 'Ship approved. Next: open the PR, then `cairn advance`.' };
+        return { message: 'Ship approved. Next: open the PR, then `cairn advance`; offer the merge last.' };
       });
     default:
       throw new CliError(APPROVE_USAGE);
@@ -176,7 +166,6 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
   if (closing) configGate(pre, pc.cfg, 'close', opts);
   const record = closing ? recordCheck(pc, 'fix') : undefined;
   const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : undefined;
-  const merge: MergeState = closing ? mergeState(pc.plan.worktree, pre.branch, pre.base) : 'unknown';
   let to: Stage | undefined;
   const r = mutate(pc, undefined, (s) => {
     to = nextStage(s);
@@ -209,7 +198,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         break;
       case 'ship':
         gate(!!s.approvals.ship, s, 'advance', opts, 'shipping is not approved', ['cairn approve ship']);
-        if (record) closeGates(pc, s, opts, record, tests, merge);
+        if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
     s.stage = to;
@@ -230,11 +219,9 @@ export function cmdClose(ctx: Ctx, opts: Opts): Result {
   configGate(loadState(pc.plan.dir), pc.cfg, 'close', opts);
   const record = recordCheck(pc, 'feature');
   const tests = runTests(pc.cfg, pc.plan.worktree);
-  const pre = loadState(pc.plan.dir);
-  const merge = mergeState(pc.plan.worktree, pre.branch, pre.base);
   return mutate(pc, 'closed', (s) => {
     gate(s.stage === 'learn', s, 'close', opts, `the plan is in ${s.stage}, not learn`);
-    closeGates(pc, s, opts, record, tests, merge);
+    closeGates(pc, s, opts, record, tests);
     s.stage = 'closed';
     log(s, 'closed');
     return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };

@@ -62,7 +62,7 @@ const list = <T,>(x: unknown): T[] => (Array.isArray(x) ? (x.filter(v => v !== n
 const phasesOf = (s: CairnPlanState) => list<Phase>(s.phases)
 const tasksOf = (s: CairnPlanState) => phasesOf(s).flatMap(p => list<Task>(p.tasks))
 const openDrift = (s: CairnPlanState) => list<Drift>(s.drift).filter(d => !d.acked)
-const stageOf = (s: CairnPlanState) => STAGE_LABEL[s.stage ?? ''] ?? String(s.stage ?? '?')
+const stageOf = (s: CairnPlanState, prOpen?: boolean) => `${STAGE_LABEL[s.stage ?? ''] ?? String(s.stage ?? '?')}${prOpen === true ? ' · PR open' : ''}`
 const isActive = (r: CairnPlanRow) => r.state.stage !== 'closed'
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
@@ -137,7 +137,7 @@ async function statusLine($: EngineInterface, v: CairnView): Promise<string | un
   const tasks = tasksOf(row.state)
   const working = (await readAgents($)).filter(c => c.status === 'working').length
   const parts = [
-    tasks.length > 0 ? `${stageOf(row.state)} ${tasks.filter(x => x.status === 'done').length}/${tasks.length} tasks` : stageOf(row.state),
+    tasks.length > 0 ? `${stageOf(row.state, row.prOpen)} ${tasks.filter(x => x.status === 'done').length}/${tasks.length} tasks` : stageOf(row.state, row.prOpen),
     working > 0 && `${working} working`,
     row.state.paused ? 'paused' : etaText(row, await $.clock.now()),
   ]
@@ -423,7 +423,7 @@ export function install(on: On): void {
       // One Box, so a gap never splits the header from its progress bar.
       const header = (
         <Box key="header" flexDirection="column">
-        <Text key="head" bold color={accent} wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s)}${where}`}</Text>
+        <Text key="head" bold color={accent} wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s, row.prOpen)}${where}`}</Text>
         {v?.isFallback && <Text key="fallback" dimColor wrap="truncate-end">{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>}
         {isPaused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>}
         {tasks.length > 0 ? <Text key="bar" color={accent} wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor color={accent} wrap="truncate-end">{label}</Text>}
@@ -544,7 +544,7 @@ export function install(on: On): void {
             <Text bold>Other active plans</Text>
             {others.map(r => (
               <Box key={`plan:${r.state.slug}`} flexDirection="row" gap={1}>
-                <Text wrap="truncate-end">{`${r.state.title ?? r.state.slug} · ${stageOf(r.state)} · ${r.next?.text ?? ''}`}</Text>
+                <Text wrap="truncate-end">{`${r.state.title ?? r.state.slug} · ${stageOf(r.state, r.prOpen)} · ${r.next?.text ?? ''}`}</Text>
                 <Button key={`resume:${r.state.slug}`} label="Resume" onPress={() => act($, () => resumeOther($, r.state.slug))} />
               </Box>
             ))}

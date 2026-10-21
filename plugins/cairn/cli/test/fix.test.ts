@@ -189,11 +189,7 @@ test('the full fix track runs repro, execute, review, ship, closed', () => {
   refusedByUser(wt, /missing sections: Cause/, 'approve', 'ship');
   write(join(dirOf(wt, 'full'), 'RECORD.md'), fixRecord(150));
   byUser(wt, 'approve', 'ship');
-  // The PR lands in main for the close check, then main goes back so later tests start from the unfixed bug.
-  const mainTip = g(repo, 'rev-parse', 'HEAD');
-  g(repo, 'merge', '-q', '--no-ff', '-m', 'merge PR', s.branch);
   ok(wt, 'advance');
-  g(repo, 'reset', '-q', '--hard', mainTip);
   s = stateOf(wt, 'full');
   assert.equal(s.stage, 'closed');
   assert.ok(!s.log.some((l: { detail?: string }) => l.detail === 'learn'), 'no learn stage');

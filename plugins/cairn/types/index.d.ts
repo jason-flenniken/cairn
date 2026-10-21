@@ -29,6 +29,8 @@ export type CairnReady = { kind: 'prd' | 'plan' | 'ship'; file: string; summary:
 export type CairnPlanRow = {
   state: CairnPlanState
   worktree?: string
+  /** True while a closed or learn plan's branch is not merged yet; the CLI works it out, the pane never does. */
+  prOpen?: boolean
   /** Absolute plan folder (dated folders included); the pane watches `${dir}/state.json`. */
   dir?: string
   next?: { text?: string }

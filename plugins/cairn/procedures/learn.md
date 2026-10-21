@@ -1,6 +1,6 @@
 # Learn
 
-Finish the record, then close the plan. Learn asks the user nothing.
+Finish the record, close the plan, then hand off to the merge step. Learn asks the user nothing itself.
 
 v0.1 scope. A later version adds structured learnings written to `docs/sdlc/learnings/`.
 
@@ -22,6 +22,11 @@ Check the `## Findings` section of `docs/sdlc/plans/<date>-<slug>/RECORD.md`. If
 **Done when:** the Findings section has lines (or says "None.") and the change is committed.
 
 ## 4. Close
-Run `cairn close`. It needs the plan branch merged into its base, a valid `RECORD.md` (every section, Findings included, within 600 words) and passing tests; on refusal, fix what it names and rerun. If it says the pull request is still open, tell the user in one line that the PR needs merging, and run `cairn close` again once they say it is. If it says merge status is unknown (offline), say so and stop; only the user can choose to override.
+Run `cairn close`. It needs a valid `RECORD.md` (every section, Findings included, within 600 words) and passing tests; on refusal, fix what it names and rerun.
 
-**Done when:** the stage is `closed`. Tell the user in one line that the plan is closed.
+**Done when:** the stage is `closed`. Commit anything the close wrote on the plan branch.
+
+## 5. Merge
+The plan is closed, but its branch is not in main yet, so `cairn status` and the pane show "Closed · PR open". Follow the "Merge (the last step, after close)" section of `procedures/ship.md`; it holds the question to put to the user. Learn itself still asks nothing.
+
+**Done when:** the PR is merged, or the user said they will merge it. Tell the user in one line that the plan is closed and where the PR stands.

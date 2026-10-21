@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -32,8 +33,10 @@ test('plan template and procedure carry the wider risky list and the misuse-case
 test('verify.md scans for secrets without printing values, audits, and reviews the lockfile', () => {
   const src = read('procedures/verify.md');
   for (const needle of [
-    'the file, the line and the kind',
-    'Never print the value',
+    'only the file, the line and the kind',
+    'grep -cE',
+    'awk',
+    'pip-audit --no-deps --disable-pip -r',
     'npm audit --omit=dev --audit-level=high',
     'never an install',
     'npm audit fix --force',
@@ -44,6 +47,36 @@ test('verify.md scans for secrets without printing values, audits, and reviews t
   ]) {
     assert.ok(src.includes(needle), needle);
   }
+});
+
+test('verify.md never audits Python by installing, and leaves poetry.lock out', () => {
+  const src = read('procedures/verify.md');
+  for (const m of src.matchAll(/pip-audit(?! --no-deps --disable-pip)[^\n]*/g)) {
+    assert.match(m[0], /^pip-audit` without/, `bare pip-audit: ${m[0].slice(0, 60)}`);
+  }
+  assert.doesNotMatch(src, /`poetry\.lock` or/);
+  assert.match(src, /`poetry\.lock` is not audited/);
+});
+
+test('the awk secret scan prints file, line and kind and never the matched text', () => {
+  const src = read('procedures/verify.md');
+  const prog = src.match(/awk '\n([\s\S]*?)'\n/)?.[1].replace(/^ {5}/gm, '');
+  assert.ok(prog, 'awk program in verify.md');
+  const ghp = `ghp_${'a'.repeat(36)}`;
+  const diff = [
+    '+++ b/src/config.js',
+    '@@ -1,0 +5,3 @@',
+    '+const ok = 1',
+    '+const password = "hunter2xyz"',
+    '+const key = "AKIAABCDEFGHIJKLMNOP"',
+    '+++ b/src/other.js',
+    '@@ -9 +20 @@',
+    `+token = ${ghp}`,
+    '',
+  ].join('\n');
+  const out = execFileSync('awk', [prog], { input: diff, encoding: 'utf8' });
+  assert.equal(out, 'src/config.js:6:literal credential\nsrc/config.js:7:aws key\nsrc/other.js:20:github token\n');
+  for (const v of ['AKIAABCDEFGHIJKLMNOP', 'hunter2xyz', ghp]) assert.ok(!out.includes(v), 'value leaked');
 });
 
 test('config template and cli.md name the audit key', () => {

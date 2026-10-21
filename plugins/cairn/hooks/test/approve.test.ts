@@ -359,12 +359,12 @@ describe('menu approval (FR-02)', () => {
     expect((got.result as { answers: unknown }).answers).toEqual({ [q]: ALREADY_APPROVED })
   })
 
-  test('FR-19: approving a stop in the pane while its question is open puts a notice under the question', async ($, on) => {
-    world(on, [{ slug: 'noticed', stage: 'prd', worktree: '/wt/noticed' }])
+  test('FR-19: approving a stop in the pane while its question is open shows a toast, since the answered line goes at once', async ($, on) => {
+    const { toasts } = world(on, [{ slug: 'noticed', stage: 'prd', worktree: '/wt/noticed' }])
     const q = 'Approve? [cairn:approve prd noticed]'
-    const notices: { text?: string }[] = []
+    const notices: unknown[] = []
     on('ui.notice', (_$, e) => {
-      notices.push(e as { text?: string })
+      notices.push(e)
       return { value: undefined }
     })
     openThenAnswered(on, { [q]: 'Approve' })
@@ -372,19 +372,8 @@ describe('menu approval (FR-02)', () => {
     await settleSoon()
     await $.tool.call(ask(q))
     const got = await open
-    expect(notices.map(n => n.text)).toEqual(['Approved in the pane'])
-    expect((got.result as { answers: unknown }).answers).toEqual({ [q]: ALREADY_APPROVED })
-  })
-
-  test('FR-19: a notice refused because the question already closed does not fail the answer', async ($, on) => {
-    world(on, [{ slug: 'closed', stage: 'prd', worktree: '/wt/closed' }])
-    const q = 'Approve? [cairn:approve prd closed]'
-    on('ui.notice', () => ({ deny: 'The dialog is not open.' }))
-    openThenAnswered(on, { [q]: 'Approve' })
-    const open = $.tool.call(ask(q))
-    await settleSoon()
-    await $.tool.call(ask(q))
-    const got = await open
+    expect(toasts.filter(t => t === 'Approved in the pane')).toHaveLength(1)
+    expect(notices).toEqual([])
     expect((got.result as { answers: unknown }).answers).toEqual({ [q]: ALREADY_APPROVED })
   })
 

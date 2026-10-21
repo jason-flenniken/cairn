@@ -43,14 +43,17 @@ From the plan worktree: push the plan branch, then `gh pr create --base <base> -
 
 **Done when:** `gh pr create` printed a URL, and `RECORD.md` links to it.
 
-## 7. Merge
-`cairn close` refuses while the plan branch is not merged into its base, and a fix plan's `cairn advance` closes it, so the PR has to be merged. Ask with AskUserQuestion (a plain choice, not an approval):
-  - Merge it now (Recommended): run `gh pr merge <PR URL> --merge`, and say when it is merged. If it fails (checks pending, conflicts, no access), say why and ask again.
-  - I'll merge it: stop and wait for the user to say it is merged.
-
-**Done when:** the PR is merged (`gh pr view <PR URL> --json state` says `MERGED`).
-
-## 8. Advance
+## 7. Advance
 Run `cairn advance`. Report the PR URL in one line.
 
-**Done when:** the stage is `learn`. Then run `cairn next --json` and follow the procedure it names.
+**Done when:** the stage is `learn`. Then run `cairn next --json` and follow the procedure it names. The merge is the last step of the whole plan: `learn.md` (and `fix.md` for a fix) sends you back to the Merge section below once the plan is closed.
+
+## Merge (the last step, after close)
+Closing records everything first so every record lands on main with the merge; `cairn status` and the pane show "PR open" until the branch is in main. Run this once the plan is closed:
+1. Push the plan branch again, so the PR carries the closing commits (findings, record, PR link).
+2. Tell the user once, in one line, that the plan shows "PR open" until the PR is merged.
+3. Ask with AskUserQuestion (a plain choice, not an approval):
+   - Merge it now (Recommended): run `gh pr merge <PR URL> --merge`; if the repo disallows merge commits, use the method it allows (`--squash` or `--rebase`). If it fails (checks pending, conflicts, no access), say why and ask again.
+   - I'll merge it: stop; the plan stays "PR open" until the user merges.
+
+**Done when:** the PR is merged (`gh pr view <PR URL> --json state` says `MERGED`) or the user chose to merge it themselves.

@@ -86,12 +86,10 @@ Show the user the record in about five lines, plus the count of open recommended
 
 **Done when:** the ship approval is already recorded, or the user chose Approve, or said the terminal approval ran.
 
-## 9. Confirm, open the PR, merge, advance
+## 9. Confirm, open the PR, advance, merge
 Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu or the terminal reported, and return to step 8. Then:
 1. Open the PR from the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<bug title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped). Put the PR URL into the record's Links section and commit it on the plan branch.
-2. Merge. `cairn advance` closes a fix plan, and it refuses while the plan branch is not merged into its base. Ask with AskUserQuestion (a plain choice, not an approval):
-   - Merge it now (Recommended): run `gh pr merge <PR URL> --merge`, and say when it is merged. If it fails (checks pending, conflicts, no access), say why and ask again.
-   - I'll merge it: stop and wait for the user to say it is merged.
-3. Once `gh pr view <PR URL> --json state` says `MERGED`, run `cairn advance`. It closes the plan; a fix track has no learn stage.
+2. Run `cairn advance`. It closes the plan (a fix track has no learn stage); `cairn status` and the pane show "Closed · PR open" until the branch is in main.
+3. Merge last, so the closing commits land on main too: follow the "Merge (the last step, after close)" section of `procedures/ship.md` (push the plan branch again, tell the user once about "PR open", then ask "Merge it now (Recommended)" or "I'll merge it").
 
-**Done when:** the PR is merged, `cairn advance` exits 0, and `cairn status --json` shows the plan closed.
+**Done when:** `cairn advance` exits 0, `cairn status --json` shows the plan closed, and the PR is merged or the user said they will merge it.
