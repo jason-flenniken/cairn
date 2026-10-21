@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T13:45:25.527Z",
+  "updated": "2026-10-21T13:46:05.212Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -17,7 +17,70 @@
       "hash": "4ad36f067cf7742e"
     }
   },
-  "phases": [],
+  "phases": [
+    {
+      "id": "rename-branches",
+      "name": "Standard branch names",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "cli-branches",
+          "name": "CLI branch names and plan discovery",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-05",
+            "FR-06",
+            "FR-07"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "pane-watch",
+          "name": "Pane notices plans on the new prefixes",
+          "covers": [
+            "FR-08"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/**"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "docs-names",
+          "name": "Docs and procedures use the new names",
+          "covers": [
+            "FR-09"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "README.md",
+            "plugins/cairn/procedures/**",
+            "plugins/cairn/references/**",
+            "plugins/cairn/skills/**"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    }
+  ],
   "evidence": {},
   "drift": [],
   "log": [
@@ -39,6 +102,24 @@
       "at": "2026-10-21T13:45:25.527Z",
       "event": "advanced",
       "detail": "plan"
+    },
+    {
+      "at": "2026-10-21T13:46:05.211Z",
+      "event": "plan loaded",
+      "detail": "1 phases, 3 tasks"
     }
-  ]
+  ],
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "quality",
+      "text": "A menu approval that succeeds also shows a second note saying the plan is not waiting for approval; the approval hook appears to run twice (likely the mod loaded twice). Make the note appear once, or say it was already approved.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T13:45:25.662Z"
+    }
+  ],
+  "planHash": "f293c604f106cad6"
 }
