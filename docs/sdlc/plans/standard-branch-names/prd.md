@@ -21,6 +21,26 @@ A branch counts as a cairn plan only when it carries the plan's files, so your o
 - **FR-08** The pane picks up newly created or deleted plans on the new prefixes within a few seconds, as it does today for `sdlc/`. Check: after `cairn new`, the pane lists the plan without a reload.
 - **FR-09** The README, the CLI reference (`references/cli.md`), and the procedures that name branches (new, execute, ship) use the new names. Check: `grep -rn "sdlc/<slug>\|sdlc-task/" README.md plugins/cairn/procedures plugins/cairn/references` finds only notes about legacy plans.
 
+### Approvals you can see (added after PRD approval, at the user's request)
+The pane's Approve card used to appear as soon as a plan entered a stage, before the document existed, and it didn't show what was being approved.
+
+- **FR-10** `cairn status --json` and `--all --json` report `ready` for a plan only when approving would pass its checks:
+  - `prd`: the five sections are present and there are no open questions.
+  - `plan`: the plan is loaded and `plan.md` is unchanged since.
+  - `ship`: `RECORD.md` is complete and within budget.
+
+  `ready` holds `{kind, file, summary}`, where `summary` is a short markdown excerpt. Check: at the start of the PRD stage `ready` is absent, and once a valid `prd.md` is written it is `{kind: "prd", …}`.
+- **FR-11** The pane shows the Waiting-on-you approval card only while `ready` is set. Check: while a PRD is being drafted the pane shows no Approve button.
+- **FR-12** The approval card shows what is being approved, plus a **Read all** button that shows the whole document in the pane:
+  - for a PRD: the problem line, each requirement's id and short text, and the non-goals
+  - for a plan: the phase and task tree, with sizes and risky marks
+  - for ship: the record's "What was built"
+
+  Check: a pane test renders the requirement lines for a ready PRD.
+- **FR-13** Approving in the pane closes the chat's matching question. When the model asks a tagged approval question for a stop that is already approved, the mod answers it with "Already approved from the pane" instead of showing it. The procedures then confirm the approval and move on. Check: the question isn't shown and the procedure advances.
+- **FR-14** Clicking an agent card switches the main view to that agent's conversation. Clicking the approval card or the Main session card switches to the main conversation. Check: the press calls the view switch with that agent's id.
+- **FR-15** A menu approval produces one note, not a second "not waiting for approval" note. Check: one approval through the menu yields exactly one cairn note (follow-up standard-branch-names:s1).
+
 ## Non-goals
 - A configurable branch prefix, because feature/ and fix/ are the standard, and a config key is code nobody asked for.
 - Renaming existing branches, because two old plans don't justify a migration; they finish under their old names.

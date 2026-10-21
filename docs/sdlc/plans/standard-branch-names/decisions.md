@@ -26,3 +26,18 @@ _2026-10-21 13:44_
 **Decision:** After the branch, with the slash as a dash: .claude/worktrees/feature-<slug> or fix-<slug>; a task folder is the plan folder plus --<task>.
 **Why:** Folder names that match the branch are easier to find; old plans keep their sdlc- folders.
 _2026-10-21 13:44_
+
+### 6. When should the pane Approve card appear?
+**Decision:** Only when the approval is ready: the document passes the checks the approval runs. Approving in the pane also closes the matching chat question.
+**Why:** Approve showed before the PRD existed; the user wants it only when truly waiting and ready.
+_2026-10-21 13:49_
+
+### 7. What must the approval card show?
+**Decision:** What is being approved: a PRD summary (problem, requirements, non-goals), the plan task tree, or the ship record, with Read all to see the whole document in the pane. Clicking a card switches the main view to that agent.
+**Why:** The user needs to see what they are approving before clicking Approve.
+_2026-10-21 13:49_
+
+### 8. Where does the approval work go?
+**Decision:** A second phase of this plan, plus the double approval note fix (follow-up s1).
+**Why:** User chose to add it here rather than start a separate plan.
+_2026-10-21 13:49_

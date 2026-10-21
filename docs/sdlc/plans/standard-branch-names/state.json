@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T13:46:05.212Z",
+  "updated": "2026-10-21T13:49:57.069Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -79,6 +79,55 @@
           "risky": false
         }
       ]
+    },
+    {
+      "id": "visible-approvals",
+      "name": "Approvals you can see",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "approval-ready",
+          "name": "CLI says when an approval is ready",
+          "covers": [
+            "FR-10",
+            "FR-13"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/procedures/prd.md",
+            "plugins/cairn/procedures/plan.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/references/cli.md"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "pane-approvals",
+          "name": "Pane approval card, clickable cards, one note",
+          "covers": [
+            "FR-11",
+            "FR-12",
+            "FR-13",
+            "FR-14",
+            "FR-15"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/**",
+            "plugins/cairn/types/**"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "decides when a human approval is recorded; must never approve on the model's say-so"
+        }
+      ]
     }
   ],
   "evidence": {},
@@ -107,6 +156,11 @@
       "at": "2026-10-21T13:46:05.211Z",
       "event": "plan loaded",
       "detail": "1 phases, 3 tasks"
+    },
+    {
+      "at": "2026-10-21T13:49:57.068Z",
+      "event": "plan loaded",
+      "detail": "2 phases, 5 tasks"
     }
   ],
   "suggestions": [
@@ -121,5 +175,5 @@
       "at": "2026-10-21T13:45:25.662Z"
     }
   ],
-  "planHash": "f293c604f106cad6"
+  "planHash": "ac8f391969859259"
 }
