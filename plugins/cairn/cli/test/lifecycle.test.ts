@@ -255,6 +255,8 @@ test('full lifecycle with every checkpoint', () => {
   write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
   byUser(wt, 'approve', 'ship');
   ok(wt, 'advance');
+  refused(wt, /pull request is still open/, 'close');
+  g(repo, 'merge', '-q', '--no-ff', '-m', 'merge the PR', state().branch);
   ok(wt, 'close');
   assert.equal(state().stage, 'closed');
 

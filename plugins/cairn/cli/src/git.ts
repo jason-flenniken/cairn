@@ -49,3 +49,20 @@ export function commitPath(cwd: string, path: string, message: string): boolean 
   git(['commit', '-q', '-m', message, '--', path], cwd);
   return true;
 }
+
+export type MergeState = 'merged' | 'open' | 'unknown';
+
+/**
+ * Whether `branch` has landed in `base`. Prefers `origin/<base>` after fetching it, since a PR merges there;
+ * with no origin copy of the base, the local base decides. A failed fetch or a missing ref is `unknown`.
+ */
+export function mergeState(cwd: string, branch: string, base: string): MergeState {
+  if (!branchExists(branch, cwd)) return 'unknown';
+  let ref = base;
+  if (gitOk(['show-ref', '--verify', '--quiet', `refs/remotes/origin/${base}`], cwd)) {
+    const f = spawnSync('git', [...NO_AUTO_MAINTENANCE, 'fetch', '-q', 'origin', base], { cwd, encoding: 'utf8', timeout: 30_000 });
+    if (f.status !== 0) return 'unknown';
+    ref = `origin/${base}`;
+  } else if (!branchExists(base, cwd)) return 'unknown';
+  return gitOk(['merge-base', '--is-ancestor', branch, ref], cwd) ? 'merged' : 'open';
+}

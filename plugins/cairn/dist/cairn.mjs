@@ -7459,6 +7459,16 @@ function commitPath(cwd, path, message) {
   git(["commit", "-q", "-m", message, "--", path], cwd);
   return true;
 }
+function mergeState(cwd, branch, base) {
+  if (!branchExists(branch, cwd)) return "unknown";
+  let ref = base;
+  if (gitOk(["show-ref", "--verify", "--quiet", `refs/remotes/origin/${base}`], cwd)) {
+    const f = spawnSync("git", [...NO_AUTO_MAINTENANCE, "fetch", "-q", "origin", base], { cwd, encoding: "utf8", timeout: 3e4 });
+    if (f.status !== 0) return "unknown";
+    ref = `origin/${base}`;
+  } else if (!branchExists(base, cwd)) return "unknown";
+  return gitOk(["merge-base", "--is-ancestor", branch, ref], cwd) ? "merged" : "open";
+}
 
 // plugins/cairn/cli/src/locate.ts
 var PLANS_DIR = "docs/sdlc/plans";
@@ -8297,9 +8307,10 @@ ${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.st
   const s = loadState(pc.plan.dir);
   const w = warnings(pc, s);
   const next = nextFor(s);
+  const prOpen = s.stage === "learn" && mergeState(pc.plan.worktree, s.branch, s.base) === "open";
   return {
-    message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []].join("\n"),
-    data: { state: s, next, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
+    message: [`${summary(s)}${prOpen ? " \xB7 PR open" : ""}`, `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []].join("\n"),
+    data: { state: s, next, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
   };
 }
 var procedurePath = (name) => join9(pluginRoot(), "procedures", `${name}.md`);
@@ -8493,7 +8504,7 @@ function fixRecordProblems(pc) {
   return p;
 }
 var recordCheck = (pc, track) => track === "fix" ? { problems: fixRecordProblems(pc), fix: "write RECORD.md from templates/record-fix.md" } : { problems: recordProblems(pc), fix: "write RECORD.md from templates/record.md" };
-function closeGates(pc, s, opts, record, tests) {
+function closeGates(pc, s, opts, record, tests, merge) {
   configGate(s, pc.cfg, "close", opts);
   const open = collectSuggestions(pc.ctx).filter((x) => x.open && x.slug === s.slug);
   gate(
@@ -8506,6 +8517,14 @@ function closeGates(pc, s, opts, record, tests) {
   );
   gate(!record.problems.length, s, "close", opts, record.problems.join("; "), [record.fix]);
   testsGate(tests, s, "close", opts);
+  gate(
+    merge === "merged",
+    s,
+    "close",
+    opts,
+    merge === "open" ? `the pull request is still open: \`${s.branch}\` is not merged into \`${s.base}\`` : `merge status unknown: could not check whether \`${s.branch}\` is merged into \`${s.base}\` (offline, or the base is missing)`,
+    ["merge the pull request, then run this again"]
+  );
 }
 function prdProblems(md) {
   const problems = docProblems(md, "prd.md", PRD_SECTIONS);
@@ -8602,6 +8621,7 @@ function cmdAdvance(ctx, opts) {
   if (closing) configGate(pre, pc.cfg, "close", opts);
   const record = closing ? recordCheck(pc, "fix") : void 0;
   const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : void 0;
+  const merge = closing ? mergeState(pc.plan.worktree, pre.branch, pre.base) : "unknown";
   let to;
   const r = mutate(pc, void 0, (s) => {
     to = nextStage(s);
@@ -8633,7 +8653,7 @@ function cmdAdvance(ctx, opts) {
         break;
       case "ship":
         gate(!!s.approvals.ship, s, "advance", opts, "shipping is not approved", ["cairn approve ship"]);
-        if (record) closeGates(pc, s, opts, record, tests);
+        if (record) closeGates(pc, s, opts, record, tests, merge);
         break;
     }
     s.stage = to;
@@ -8653,9 +8673,11 @@ function cmdClose(ctx, opts) {
   configGate(loadState(pc.plan.dir), pc.cfg, "close", opts);
   const record = recordCheck(pc, "feature");
   const tests = runTests(pc.cfg, pc.plan.worktree);
+  const pre = loadState(pc.plan.dir);
+  const merge = mergeState(pc.plan.worktree, pre.branch, pre.base);
   return mutate(pc, "closed", (s) => {
     gate(s.stage === "learn", s, "close", opts, `the plan is in ${s.stage}, not learn`);
-    closeGates(pc, s, opts, record, tests);
+    closeGates(pc, s, opts, record, tests, merge);
     s.stage = "closed";
     log(s, "closed");
     return { message: `Closed "${s.title}". The record is ${join11(pc.plan.dir, "RECORD.md")}.` };

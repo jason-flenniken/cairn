@@ -43,7 +43,14 @@ From the plan worktree: push the plan branch, then `gh pr create --base <base> -
 
 **Done when:** `gh pr create` printed a URL, and `RECORD.md` links to it.
 
-## 7. Advance
+## 7. Merge
+`cairn close` refuses while the plan branch is not merged into its base, and a fix plan's `cairn advance` closes it, so the PR has to be merged. Ask with AskUserQuestion (a plain choice, not an approval):
+  - Merge it now (Recommended): run `gh pr merge <PR URL> --merge`, and say when it is merged. If it fails (checks pending, conflicts, no access), say why and ask again.
+  - I'll merge it: stop and wait for the user to say it is merged.
+
+**Done when:** the PR is merged (`gh pr view <PR URL> --json state` says `MERGED`).
+
+## 8. Advance
 Run `cairn advance`. Report the PR URL in one line.
 
 **Done when:** the stage is `learn`. Then run `cairn next --json` and follow the procedure it names.

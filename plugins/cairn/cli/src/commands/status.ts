@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { commonDir, git } from '../git.ts';
+import { commonDir, git, mergeState } from '../git.ts';
 import { PLAN_PREFIXES, parseBranch, planRef, planRelIn, resolvePlanDir, type Ctx } from '../locate.ts';
 import { modActive } from '../proof.ts';
 import { nextFor, renderIndex, summary, type IndexRow } from '../render.ts';
@@ -59,9 +59,11 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   const s = loadState(pc.plan.dir);
   const w = warnings(pc, s);
   const next = nextFor(s);
+  // A plan at learn whose branch is not merged yet is waiting on its pull request.
+  const prOpen = s.stage === 'learn' && mergeState(pc.plan.worktree, s.branch, s.base) === 'open';
   return {
-    message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
+    message: [`${summary(s)}${prOpen ? ' · PR open' : ''}`, `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
+    data: { state: s, next, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
   };
 }
 
