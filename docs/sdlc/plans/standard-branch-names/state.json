@@ -6,8 +6,8 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T14:16:11.297Z",
-  "stage": "review",
+  "updated": "2026-10-21T14:16:11.424Z",
+  "stage": "ship",
   "paused": null,
   "approvals": {
     "prd": {
@@ -364,6 +364,11 @@
       "at": "2026-10-21T14:16:11.297Z",
       "event": "review pass",
       "detail": "2 blocking findings fixed in place (plan lookup now keyed on the recorded branch); 6 follow-ups logged"
+    },
+    {
+      "at": "2026-10-21T14:16:11.424Z",
+      "event": "advanced",
+      "detail": "ship"
     }
   ],
   "suggestions": [
