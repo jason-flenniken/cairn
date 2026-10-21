@@ -15,7 +15,7 @@ Run `cairn suggest list --open` and note the count by area. Dispatch the `record
 **Done when:** `RECORD.md` exists with every template heading and is within 500 words (`wc -w`).
 
 ## 3. Show and stop
-Show the user the record, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json` and read `modActive`.
+Show the user the record, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output:
   - Approve (Recommended): approve the record, then open the PR
   - Revise the record: ask what to change, edit, recheck the word count

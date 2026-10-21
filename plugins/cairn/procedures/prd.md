@@ -22,7 +22,7 @@ Write `docs/sdlc/plans/<slug>/prd.md` in the plan worktree from `${CLAUDE_PLUGIN
 ## 3. Stop for approval
 Present about four lines: the problem, the solution, the number of requirements, and the sharpest non-goal.
 
-Run `cairn status --json` and read `modActive`.
+Run `cairn status --json`. If `state.approvals.prd` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve prd <slug>]`, with the plan slug from the status output. Options:
   - Approve (Recommended)
   - Revise: ask what to change and apply it

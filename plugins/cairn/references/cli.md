@@ -135,9 +135,10 @@ A blocking review finding has two exits. `cairn task start fix` reopens the task
 
 ## JSON shapes (`--json`)
 - `next`: `{ok, plan, stage, substep, procedure, summary, text, warnings[], planWorktree, modActive}`. On a non-plan branch: `{plan: null, procedure, plans[], modActive}`.
-- `status`: `{ok, state, next, warnings[], task, planWorktree, modActive, openSuggestions}`.
+- `status`: `{ok, state, next, ready?, warnings[], task, planWorktree, modActive, openSuggestions}`.
+  - `ready` is present only when approving the current stop would pass its checks: `{kind: "prd"|"plan"|"ship", file, summary}`. `file` is the absolute path of the document; `summary` is a short markdown excerpt.
   - `state` is the full state.json: `phases[].tasks[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals`, `evidence`, `drift[]`, `suggestions[]`, and `log[]`. A task also has `risky`, `riskReason`, and `startedAt`.
-  - `status --all`: `{plans: [{state, live, worktree, next}], modActive, openSuggestions}`.
+  - `status --all`: `{plans: [{state, live, worktree, next, ready?}], modActive, openSuggestions}`.
 - `ready`: `{paused, phase, phaseStatus, ready: [task + model], inProgress: [task], waiting: [{id, on[]}]}`.
 - `task start`: `{worktree, branch, planBranch}`.
 - `new`: `{slug, branch, base, worktree, dir}`.

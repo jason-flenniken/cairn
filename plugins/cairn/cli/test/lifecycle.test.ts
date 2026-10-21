@@ -125,11 +125,19 @@ test('full lifecycle with every checkpoint', () => {
 
   // prd approval gates
   refusedByUser(wt, /prd\.md does not exist/, 'approve', 'prd');
+  assert.equal(ok(wt, 'status').data!.ready, undefined);
   write(join(planDir(), 'prd.md'), PRD);
+  assert.equal(ok(wt, 'status').data!.ready, undefined, 'open questions block ready');
   refusedByUser(wt, /open question/, 'approve', 'prd');
   refused(wt, /not approved/, 'advance');
   write(join(planDir(), 'prd.md'), PRD.replace('- [ ] which', '- [x] which'));
+  const prdReady = ok(wt, 'status').data!.ready as { kind: string; file: string; summary: string };
+  assert.equal(prdReady.kind, 'prd');
+  assert.equal(prdReady.file, join(planDir(), 'prd.md'));
+  assert.match(prdReady.summary, /- FR-01 charge\./);
+  assert.equal((ok(repo, 'status', '--all').data!.plans as { ready?: { kind: string } }[])[0].ready?.kind, 'prd');
   byUser(wt, 'approve', 'prd');
+  assert.equal(ok(wt, 'status').data!.ready, undefined, 'approved stops are not ready');
   ok(wt, 'advance');
   assert.equal(state().stage, 'plan');
 
@@ -141,6 +149,7 @@ test('full lifecycle with every checkpoint', () => {
   write(join(planDir(), 'plan.md'), PLAN + '\nedit\n');
   refusedByUser(wt, /changed since it was loaded/, 'approve', 'plan');
   ok(wt, 'plan', 'load');
+  assert.equal((ok(wt, 'status').data!.ready as { kind: string }).kind, 'plan');
   byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   assert.equal(state().stage, 'execute');

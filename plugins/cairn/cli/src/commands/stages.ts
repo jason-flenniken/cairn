@@ -40,6 +40,59 @@ function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: strin
   gate(!record.problems.length, s, 'close', opts, record.problems.join('; '), [record.fix]);
   testsGate(tests, s, 'close', opts);
 }
+/** Why prd.md cannot be approved yet: missing or empty sections, open questions. */
+function prdProblems(md: string | undefined): string[] {
+  const problems = docProblems(md, 'prd.md', PRD_SECTIONS);
+  const open = uncheckedItems(md ? sections(md).get('open questions') : '');
+  if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(' | ')}`);
+  return problems;
+}
+
+export interface Ready {
+  kind: 'prd' | 'plan' | 'ship';
+  file: string;
+  summary: string;
+}
+
+const firstSentence = (text = '') => (text.replace(/\s+/g, ' ').trim().match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text.trim());
+
+function prdSummary(md: string): string {
+  const sec = sections(md);
+  const reqs = (sec.get('requirements') ?? '').split('\n').filter((l) => /\bFR-\d+\b/.test(l)).map((l) => `- ${l.replace(/^\s*[-*]\s+/, '').replace(/\*\*/g, '').split(/Check:/)[0].trim()}`);
+  return [firstSentence(sec.get('problem')), '', '**Requirements**', ...reqs, '', '**Non-goals**', sec.get('non-goals') ?? ''].join('\n').trim();
+}
+
+function planSummary(s: State): string {
+  return s.phases
+    .flatMap((ph, i) => [`${i + 1}. **${ph.name}**`, ...ph.tasks.map((t) => `   - ${t.name} (${t.complexity})${t.risky ? ' risky' : ''}`)])
+    .join('\n');
+}
+
+/** The stop the plan is waiting on, when approving it now would pass its checks. Never throws. */
+export function readyFor(pc: { plan: { dir: string } }): Ready | undefined {
+  try {
+    const s = loadState(pc.plan.dir);
+    const file = (name: string) => join(pc.plan.dir, name);
+    const pcLike = pc as PlanCtx;
+    if (s.stage === 'prd' && !s.approvals.prd) {
+      const md = readText(file('prd.md'));
+      return md && !prdProblems(md).length ? { kind: 'prd', file: file('prd.md'), summary: prdSummary(md) } : undefined;
+    }
+    if (s.stage === 'plan' && !s.approvals.plan) {
+      const md = readText(file('plan.md'));
+      return s.phases.length && md && s.planHash === hashText(md) ? { kind: 'plan', file: file('plan.md'), summary: planSummary(s) } : undefined;
+    }
+    if (s.stage === 'ship' && !s.approvals.ship && s.evidence.review?.result === 'pass') {
+      if (recordCheck(pcLike, fastLane(s) ? 'fix' : 'feature').problems.length) return undefined;
+      const md = readText(file('RECORD.md')) ?? '';
+      return { kind: 'ship', file: file('RECORD.md'), summary: (sections(md).get('what was built') ?? '').trim() };
+    }
+  } catch {
+    // Not ready: the state or a document could not be read.
+  }
+  return undefined;
+}
+
 const APPROVAL_KINDS = ['prd', 'plan', 'ship'];
 const APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "…"]';
 
@@ -53,9 +106,7 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
       const md = readText(planFile(pc, 'prd.md'));
       return mutate(pc, 'PRD approved', (s) => {
         gate(s.stage === 'prd', s, 'approve prd', opts, `the plan is in ${s.stage}, not prd`);
-        const problems = docProblems(md, 'prd.md', PRD_SECTIONS);
-        const open = uncheckedItems(md ? sections(md).get('open questions') : '');
-        if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(' | ')}`);
+        const problems = prdProblems(md);
         gate(!problems.length, s, 'approve prd', opts, problems.join('; '), ['finish prd.md, resolving open questions with the user']);
         s.approvals.prd = { ...approval(), hash: md ? hashText(md) : undefined };
         log(s, 'PRD approved', source);
