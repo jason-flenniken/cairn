@@ -38,13 +38,13 @@ The mod registers these commands. Their names have no ":" because the engine for
 - `/cairn-resume-mod [plan]`: resumes a paused plan, here or after `/clear`.
 
 ## Where things live
-- Plan branch: `sdlc/<slug>`, usually checked out in its own worktree. The orchestrator session stays at the repo root and runs `cd <plan worktree> && cairn <command>`.
+- Plan branch (from `cairn status --json`, `state.branch`): `feature/<slug>` for a feature plan, `fix/<slug>` for a fix. It is usually checked out in its own worktree. The orchestrator session stays at the repo root and runs `cd <plan worktree> && cairn <command>`.
 - Plan dir, committed on the plan branch: `docs/sdlc/plans/<slug>/`, containing:
   - `decisions.md`: append-only, written via `cairn decide`
   - `prd.md`, `plan.md`, `handoff.md`, `RECORD.md`: written by procedures from `templates/`
   - `direction/<phase-id>.md`: one direction report per phase, with its `cairn-direction` scorecard
   - `state.json`, `STATUS.md`: CLI only
-- Task branches: `sdlc-task/<slug>/<task>`, each in its own worktree. Task workers never touch `docs/sdlc/`.
+- Task branches: `task/<slug>/<task>`, each in its own worktree, in a folder named after the plan folder plus `--<task>`. Task workers never touch `docs/sdlc/`.
 - Product track, on main: `docs/sdlc/product/PRD.md` and `docs/sdlc/product/decisions/`.
 - Repo config: `.sdlc/config.json`, with keys:
   - `setup`: run in every new plan or task worktree, for example to install dependencies
@@ -53,7 +53,7 @@ The mod registers these commands. Their names have no ":" because the engine for
   - `fixMaxFiles`: how many files a fix may change before `task done fix` refuses and names `escalate` (default 8)
   - `reproTimeoutMinutes`: how long `cairn repro` may run (default 10)
 - Config lock (FR-32): plan approval records a hash of the `setup`, `test`, and `build` commands. On the fix track the hash is taken when the repro is recorded. `task start`, `task done`, `repro`, and `close` refuse while the hash differs, and name the fix: the user re-approves the plan, or chooses Override.
-- The active plan is decided by the current git branch: `sdlc/<slug>` or `sdlc-task/<slug>/…`. On any other branch the CLI works on the index of all plans.
+- The active plan is decided by the current git branch. A branch counts as a plan only when it holds `docs/sdlc/plans/<slug>/state.json`; hand-made `feature/` branches are ignored. On any other branch the CLI works on the index of all plans. Plans created before the `feature/`, `fix/`, and `task/` names keep `sdlc/<slug>`, `sdlc-task/<slug>/<task>`, and `sdlc-<slug>` folders, finish under those names, and cairn still recognises them.
 
 ## Stages
 `discover → prd → plan → execute → verify → review → ship → learn → closed`

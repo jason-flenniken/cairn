@@ -4,7 +4,7 @@ Orchestrate the current phase: start every ready task, build it, review it only 
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`; model choices follow `references/model-tiers.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
-You stay at the repo root. The session is not locked to a worktree, so your subagents can edit and commit in task worktrees. The plan lives in its own worktree on the plan branch `sdlc/<slug>`. You are the only one who merges, and the only one who runs `cairn`. Agents get a worktree path and a brief; they never touch `docs/sdlc/`. Every `Agent` call sets `description` to "<Role> · <task name>" (Build, Review, Fix, Check, Record), per `references/reporting.md`.
+You stay at the repo root. The session is not locked to a worktree, so your subagents can edit and commit in task worktrees. The plan lives in its own worktree on the plan branch (from `cairn status --json`, `state.branch`). You are the only one who merges, and the only one who runs `cairn`. Agents get a worktree path and a brief; they never touch `docs/sdlc/`. Every `Agent` call sets `description` to "<Role> · <task name>" (Build, Review, Fix, Check, Record), per `references/reporting.md`.
 
 **Running cairn.** Every `cairn` command below runs from the plan worktree: `cd <plan worktree> && cairn <command>`. The one exception is an override command (a `cairn` command the user chose to override). It runs alone, with no `cd` and no `&&`, because the mod refuses compound commands and resolves the plan itself. Keep its reason plain text, as `procedures/review.md` describes.
 
@@ -37,7 +37,7 @@ For each started task, dispatch the `implementer` agent in the background, with 
 1. The task's `### Task: <id>` section from `plan.md`, verbatim, and whether the task is `risky`.
 2. The PRD requirements the task covers, quoted verbatim from `prd.md`.
 3. The plan's Global constraints, when it has that section.
-4. The task worktree path and the plan branch name (`sdlc/<slug>`).
+4. The task worktree path and the plan branch name (from `cairn status --json`, `state.branch`).
 
 Then run `cd <plan worktree> && cairn task step <id> implementing`.
 
@@ -63,7 +63,7 @@ Only blocking findings are fixed. Run `cd <plan worktree> && cairn task step <id
 
 ## 7. Merge
 When the task is ready to merge: run `cd <plan worktree> && cairn task step <id> merging`. Then, in the plan worktree:
-1. `cd <plan worktree> && git merge --no-ff sdlc-task/<slug>/<id> -m "merge task <id>"`.
+1. `cd <plan worktree> && git merge --no-ff <task branch> -m "merge task <id>"`, where the task branch is the one `cairn task start` printed (also `branch` on the task in `cairn status --json`).
 2. Tasks never change `docs/sdlc/`, so the merge leaves it alone. If git reports a conflict under `docs/sdlc/`, keep the plan branch's side (`cd <plan worktree> && git checkout --ours -- docs/sdlc`) and tell the user the task broke that rule. Don't reset or check out `docs/sdlc/` any other way: `state.json` there has live changes that aren't committed.
 3. On conflicts, resolve them using the task scopes in `plan.md`; when the resolution involves a judgment call, report it per the deviations rule.
 4. Run `cd <plan worktree> && cairn task done <id>`. The CLI runs the repo's test command in the plan worktree.

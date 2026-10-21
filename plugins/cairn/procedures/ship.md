@@ -30,7 +30,7 @@ Run `cairn status --json` and check that the ship approval is recorded. If it is
 **Done when:** `cairn status --json` shows the ship approval.
 
 ## 5. Open the PR
-From the plan worktree: push the plan branch, then `gh pr create --base <base> --head sdlc/<slug> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan). Put the PR URL into the record's Links section and commit it on the plan branch.
+From the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan). Put the PR URL into the record's Links section and commit it on the plan branch.
 
 **Done when:** `gh pr create` printed a URL, and `RECORD.md` links to it.
 
