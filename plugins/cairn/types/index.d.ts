@@ -97,8 +97,6 @@ declare module 'claude-code' {
       feed: { at: number; text: string }[]
       /** Ticked while anything is active, so the pane redraws its timers. */
       now: number
-      /** The file whose full text the approval card shows ("Read all"); null when closed. */
-      readAllOf: string | null
       /** The pane's tab. */
       tab: 'now' | 'history' | 'records'
       /** The session's usage; null before the first measurement. */

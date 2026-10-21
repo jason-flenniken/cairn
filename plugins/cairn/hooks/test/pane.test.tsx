@@ -499,29 +499,6 @@ describe('/cairn-approve (FR-05)', () => {
 describe('approval card and pressable cards (FR-11..FR-14)', () => {
   const PRD_FILE = `${WT}/docs/sdlc/plans/shop/prd.md`
 
-  test('Read all shows the file text through Markdown, and Close takes it away again', async ($, on) => {
-    const { w } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
-    w.files.set(PRD_FILE, '# The PRD\n\n- FR-01 whole document line')
-    await start($, WT)
-    const ui = await mount($, 'terminal')
-    const shown = async () => (await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text)
-    expect(await shown()).toEqual(['- **FR-01** the prd summary'])
-    await ui.press({ key: 'readall' })
-    expect(await shown()).toEqual(['- **FR-01** the prd summary', '# The PRD\n\n- FR-01 whole document line'])
-    await ui.press({ key: 'readall' })
-    expect(await shown()).toEqual(['- **FR-01** the prd summary'])
-    await ui.unmount()
-  })
-
-  test('Read all says so when the file cannot be read', async ($, on) => {
-    world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
-    await start($, WT)
-    const ui = await mount($, 'terminal')
-    await ui.press({ key: 'readall' })
-    expect((await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text).join()).toContain(`Could not read ${PRD_FILE}`)
-    await ui.unmount()
-  })
-
   test('Approve on a ready card approves once through the secret path', async ($, on) => {
     const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
     await start($, WT)
