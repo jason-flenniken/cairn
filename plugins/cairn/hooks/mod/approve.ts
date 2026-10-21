@@ -88,39 +88,39 @@ function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promi
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 export type PlanState = { slug?: string; stage?: string; approvals?: Record<string, unknown> }
-type PlanRow = { state?: PlanState; worktree?: string }
+type PlanRow = { state?: PlanState; worktree?: string; ready?: { kind?: string } }
 
 /** Every plan, from `cairn status --all --json` run where the session is. */
 async function planRows($: EngineInterface): Promise<PlanRow[]> {
   return (await cairn($, ['status', '--all', '--json'], quick)).json?.plans ?? []
 }
 
-/** The stop a plan's state is waiting on, if any. */
-export function waitingStop(state: PlanState): Kind | undefined {
-  const approvals = state.approvals ?? {}
-  switch (state.stage) {
-    case 'prd':
-    case 'plan':
-    case 'ship':
-      return approvals[state.stage] ? undefined : state.stage
-  }
-  return undefined
+/** True when the CLI's status shows `kind` approved on plan `slug`. */
+function isApproved(rows: PlanRow[], slug: string, kind: Kind): boolean {
+  return Boolean(rows.find(p => p.state?.slug === slug)?.state?.approvals?.[kind])
 }
 
 /**
  * Approves `kind` on plan `slug` with the secret, or says why not: the one approval path, shared by
  * the menu answer, the pane's Approve button and /cairn-approve, so every use takes its turn with one secret.
+ * Only a stop the CLI reports ready is approved. A stop already approved says nothing (undefined), so a second pass is silent.
  */
-export async function approveAs($: EngineInterface, slug: string, kind: Kind): Promise<string> {
-  const row = (await planRows($)).find(p => p.state?.slug === slug)
+export async function approveAs($: EngineInterface, slug: string, kind: Kind): Promise<string | undefined> {
+  const rows = await planRows($)
+  const row = rows.find(p => p.state?.slug === slug)
   if (row?.state === undefined) return `cairn: no plan "${slug}", so nothing was approved.`
   if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so nothing was approved.`
-  if (waitingStop(row.state) !== kind) return `cairn: plan "${slug}" is not waiting for ${kind} approval, so nothing was approved.`
+  if (row.ready?.kind !== kind) {
+    if (isApproved(rows, slug, kind)) return undefined
+    return `cairn: plan "${slug}" is not waiting for ${kind} approval, so nothing was approved.`
+  }
   const ran = await cairnWithSecret($, ['approve', kind], row.worktree).catch((err: unknown) => message(err))
   if (typeof ran === 'string') return `cairn: ${slug} ${kind} approval failed: ${ran}`
   const said = `${ran.stdout}${ran.stderr}`.trim()
   return ran.exitCode === 0 ? `cairn: ${slug}: ${said}` : `cairn: ${slug} ${kind} approval refused: ${said}`
 }
+
+export const ALREADY_APPROVED = 'Already approved from the pane'
 
 // FR-34: plan slug -> when the user answered "Override". Memory only: no file stands for one.
 const OVERRIDE_MS = 10 * 60_000
@@ -216,6 +216,17 @@ export function install(on: On): void {
 
   // No deny catch (NFR-02): a hook that fails is skipped, and the user's answer goes on as it was.
   on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
+    // A question made only of approval tags whose stops the CLI already shows approved is answered here, not shown.
+    // This reports an approval that exists; it records none. A subagent's, an untagged or a mixed dialog is left alone.
+    if (e.agentId === undefined) {
+      const asked = parseTags(e.questions)
+      if (asked.length > 0 && asked.length === e.questions.length && asked.every(t => t.kind !== undefined)) {
+        const rows = await planRows($).catch(() => undefined)
+        if (rows !== undefined && asked.every(t => isApproved(rows, t.slug, t.kind as Kind))) {
+          return { result: { questions: e.questions, answers: Object.fromEntries(asked.map(t => [t.question, ALREADY_APPROVED])) } as never }
+        }
+      }
+    }
     // Answers the model wrote into its own call are not the user's: read them before the dialog runs.
     const prefilled = { ...(e as { answers?: Record<string, unknown> }).answers }
     const ran = await next(e)
@@ -226,6 +237,7 @@ export function install(on: On): void {
     const result = ran.result as { answers?: Record<string, unknown>; afkTimeoutMs?: number } | undefined
     const answers = result?.answers ?? {}
     const notes: string[] = []
+    const judged = new Set<string>()
     for (const tag of tags) {
       if (tag.override) {
         if (answers[tag.question] === 'Override' && !(tag.question in prefilled) && result?.afkTimeoutMs === undefined) {
@@ -235,6 +247,9 @@ export function install(on: On): void {
         continue
       }
       if (tag.kind === undefined) continue
+      // One stop is approved once per dialog, however many questions carry its tag (FR-15).
+      if (judged.has(`${tag.kind} ${tag.slug}`)) continue
+      judged.add(`${tag.kind} ${tag.slug}`)
       const skipped = (why: string) => notes.push(`cairn: ${tag.slug} ${tag.kind} not approved: ${why}.`)
       if (tag.question in prefilled) skipped('the answer came from the model\'s call, not from you')
       else if (result?.afkTimeoutMs !== undefined) skipped('the dialog answered itself while you were away')
@@ -243,6 +258,7 @@ export function install(on: On): void {
       }
       else {
         const outcome = await approveAs($, tag.slug, tag.kind)
+        if (outcome === undefined) continue
         $.ui.toast(outcome)
         notes.push(outcome)
       }

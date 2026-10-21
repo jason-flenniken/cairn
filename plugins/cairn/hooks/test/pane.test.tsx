@@ -10,7 +10,8 @@ const HASH_FILE = '/repo/.git/cairn/mod-secret.sha256'
 const NOW = Date.parse('2026-03-01T12:00:00.000Z')
 const SURFACES = ['terminal', 'desktop'] as const
 
-type Row = { state: Record<string, unknown>; live: boolean; worktree?: string; next: { text: string } }
+type Ready = { kind: 'prd' | 'plan' | 'ship'; file: string; summary: string }
+type Row = { state: Record<string, unknown>; live: boolean; worktree?: string; next: { text: string }; ready?: Ready }
 
 /** A plan's state.json as the CLI writes it, with the fields under test overridden. */
 function plan(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -25,9 +26,12 @@ const task = (id: string, name: string, over: Record<string, unknown> = {}) => (
 })
 
 /** A `cairn status --all --json` row: live when it has a worktree. */
-function row(state: Record<string, unknown>, worktree?: string, next = `next step for ${String(state.slug)}`): Row {
-  return { state, live: worktree !== undefined, worktree, next: { text: next } }
+function row(state: Record<string, unknown>, worktree?: string, next = `next step for ${String(state.slug)}`, ready?: Ready): Row {
+  return { state, live: worktree !== undefined, worktree, next: { text: next }, ready }
 }
+
+/** What the CLI reports for a document waiting on the human. */
+const ready = (kind: Ready['kind'], summary = `- **FR-01** the ${kind} summary`): Ready => ({ kind, file: `${WT}/docs/sdlc/plans/shop/${kind}.md`, summary })
 
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -59,6 +63,9 @@ function world(on: On, init: WorldInit = {}) {
     commands: [] as string[],
     aborts: [] as string[],
     secrets: [] as string[],
+    files: new Map<string, string>(),
+    views: [] as Record<string, unknown>[],
+    viewDeny: undefined as string | undefined,
   }
   let onDisk: string | undefined
   const clock = mock.clock(on, { now: NOW })
@@ -75,7 +82,7 @@ function world(on: On, init: WorldInit = {}) {
       const here = w.rows.find(r => r.worktree === w.cwd)
       return here === undefined
         ? answer(1, JSON.stringify({ ok: false, error: 'not in a plan' }))
-        : answer(0, JSON.stringify({ ok: true, state: here.state, planWorktree: here.worktree }))
+        : answer(0, JSON.stringify({ ok: true, state: here.state, planWorktree: here.worktree, ready: here.ready }))
     }
     if (args[0] === 'approve') {
       const given = e.init?.env?.CAIRN_APPROVER
@@ -101,7 +108,14 @@ function world(on: On, init: WorldInit = {}) {
       ? { deny: `ENOENT: no such file or directory, stat '${e.path}'` }
       : { value: { kind: 'file', size: 1, mtimeMs: m, isLink: false } as never }
   })
-  on('fs.read', () => ({ deny: 'ENOENT: no such file' }))
+  on('fs.read', (_$, e) => {
+    const text = w.files.get(e.path)
+    return text === undefined ? { deny: 'ENOENT: no such file' } : { value: text as never }
+  })
+  on('ui.view', (_$, e) => {
+    w.views.push(e as Record<string, unknown>)
+    return { value: (w.viewDeny === undefined ? {} : { deny: w.viewDeny }) as never }
+  })
   on('fs.write', (_$, e) => {
     if (e.path === HASH_FILE) onDisk = e.text
     return { value: undefined }
@@ -167,8 +181,15 @@ async function drawn(ui: any): Promise<string> {
   return (await ui.findAll({ type: 'Text' })).map((t: { text: string }) => t.text).join('\n')
 }
 
+const isCardPress = (key: string) => key === 'main' || key === 'approval' || key.startsWith('agent:')
+
+/** The controls drawn; the presses on the cards themselves are listed apart by cardKeys. */
 async function buttonKeys(ui: any): Promise<string[]> {
-  return (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key)
+  return (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter((k: string) => !isCardPress(k))
+}
+
+async function cardKeys(ui: any): Promise<string[]> {
+  return (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter(isCardPress)
 }
 
 // The fixtures of FR-09 and FR-12: what each draws and exactly which buttons it shows.
@@ -246,13 +267,24 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
     })
 
     test(`a pending stop: Waiting on you names it above the cards, and Approve appears (${surface})`, async ($, on) => {
-      world(on, { rows: [row(plan({ stage: 'prd' }), WT)] })
+      world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
       await start($, WT)
       const ui = await mount($, surface)
       const text = await drawn(ui)
       expect(text).toMatch(/Waiting on you: prd approval/)
       expect(text.indexOf('Waiting on you')).toBeLessThan(text.indexOf('NOW'))
-      expect(await buttonKeys(ui)).toEqual(['approve', 'pause', 'status'])
+      expect(await buttonKeys(ui)).toEqual(['readall', 'approve', 'pause', 'status'])
+      expect((await ui.findAll({ type: 'Markdown' }))[0]?.text).toContain('FR-01')
+      await ui.unmount()
+    })
+
+    test(`the PRD stage with ready absent: no Approve, no Waiting on you (${surface})`, async ($, on) => {
+      world(on, { rows: [row(plan({ stage: 'prd' }), WT)] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      expect(await drawn(ui)).not.toContain('Waiting on you')
+      expect(await buttonKeys(ui)).toEqual(['pause', 'status'])
+      expect(await cardKeys(ui)).not.toContain('approval')
       await ui.unmount()
     })
 
@@ -490,10 +522,11 @@ describe('opening the pane (FR-08)', () => {
 })
 
 const SHIP_STOP = plan({ stage: 'ship' })
+const shipRow = () => row(SHIP_STOP, WT, undefined, ready('ship'))
 
 describe('pane buttons (FR-05, FR-12, FR-17)', () => {
   test('Approve confirms with the mod\'s fixed wording, then approves once through the secret path', async ($, on) => {
-    const { w, ran, clock } = world(on, { rows: [row(SHIP_STOP, WT)] })
+    const { w, ran, clock } = world(on, { rows: [shipRow()] })
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
@@ -506,7 +539,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
   })
 
   test('cancelling or dismissing the confirm approves nothing', async ($, on) => {
-    const { w, ran } = world(on, { rows: [row(SHIP_STOP, WT)], answer: 'Cancel' })
+    const { w, ran } = world(on, { rows: [shipRow()], answer: 'Cancel' })
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
@@ -520,7 +553,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
 
   test('a menu approval and a button approval back to back each use their own secret, and both land (Review focus 2)', async ($, on) => {
     const { w, ran } = world(on, {
-      rows: [row(SHIP_STOP, WT), row(plan({ slug: 'beta', title: 'Beta', stage: 'prd' }), '/repo/.claude/worktrees/sdlc-beta')],
+      rows: [shipRow(), row(plan({ slug: 'beta', title: 'Beta', stage: 'prd' }), '/repo/.claude/worktrees/sdlc-beta', undefined, ready('prd'))],
     })
     await start($, WT)
     const ui = await mount($, 'terminal')
@@ -614,13 +647,13 @@ describe('/cairn-approve (FR-05)', () => {
     const { w, ran } = world(on, { rows: [row(EXECUTE, WT)] })
     await start($, WT)
     const out = await command($, 'cairn-approve')
-    expect(out.text).toMatch(/nothing is waiting/)
+    expect(out.text).toMatch(/nothing is ready/)
     expect(w.asked).toEqual([])
     expect(ran('approve')).toEqual([])
   })
 
   test('with no kind it confirms, then approves the stop waiting on this plan', async ($, on) => {
-    const { w, ran } = world(on, { rows: [row(plan({ stage: 'plan' }), WT)] })
+    const { w, ran } = world(on, { rows: [row(plan({ stage: 'plan' }), WT, undefined, ready('plan'))] })
     await start($, WT)
     const out = await command($, 'cairn-approve')
     expect(w.asked.map(a => a.question)).toEqual(['Approve the plan stop of plan shop?'])
@@ -629,7 +662,7 @@ describe('/cairn-approve (FR-05)', () => {
   })
 
   test('a kind that is not the waiting stop refuses', async ($, on) => {
-    const { ran } = world(on, { rows: [row(plan({ stage: 'plan' }), WT)] })
+    const { ran } = world(on, { rows: [row(plan({ stage: 'plan' }), WT, undefined, ready('plan'))] })
     await start($, WT)
     const out = await command($, 'cairn-approve', 'ship')
     expect(out.text).toMatch(/waiting for plan approval, not ship/)
@@ -637,7 +670,7 @@ describe('/cairn-approve (FR-05)', () => {
   })
 
   test('a word that is not a stop kind refuses', async ($, on) => {
-    const { ran } = world(on, { rows: [row(plan({ stage: 'plan' }), WT)] })
+    const { ran } = world(on, { rows: [row(plan({ stage: 'plan' }), WT, undefined, ready('plan'))] })
     await start($, WT)
     const out = await command($, 'cairn-approve', 'everything')
     expect(out.text).toMatch(/not a stop/)
@@ -650,6 +683,69 @@ describe('/cairn-approve (FR-05)', () => {
     const out = await command($, 'cairn-approve')
     expect(out.text).toMatch(/not in a plan/)
     expect(ran('approve')).toEqual([])
+  })
+})
+
+describe('approval card and pressable cards (FR-11..FR-14)', () => {
+  const PRD_FILE = `${WT}/docs/sdlc/plans/shop/prd.md`
+
+  test('Read all shows the file text through Markdown, and Close takes it away again', async ($, on) => {
+    const { w } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
+    w.files.set(PRD_FILE, '# The PRD\n\n- FR-01 whole document line')
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    const shown = async () => (await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text)
+    expect(await shown()).toEqual(['- **FR-01** the prd summary'])
+    await ui.press({ key: 'readall' })
+    expect(await shown()).toEqual(['- **FR-01** the prd summary', '# The PRD\n\n- FR-01 whole document line'])
+    await ui.press({ key: 'readall' })
+    expect(await shown()).toEqual(['- **FR-01** the prd summary'])
+    await ui.unmount()
+  })
+
+  test('Read all says so when the file cannot be read', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'readall' })
+    expect((await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text).join()).toContain(`Could not read ${PRD_FILE}`)
+    await ui.unmount()
+  })
+
+  test('Approve on a ready card approves once through the secret path', async ($, on) => {
+    const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'approve' })
+    await clock.settle()
+    expect(ran('approve')).toEqual([['approve', 'prd']])
+    expect(w.secrets).toHaveLength(1)
+    await ui.unmount()
+  })
+
+  test('pressing an agent card views that agent; the Main and approval cards view the main conversation', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Draft the PRD', subagentType: 'cairn:implementer' })
+    await clock.advance(1_000)
+    expect(await cardKeys(ui)).toEqual(['approval', 'agent:agent-1', 'main'])
+    await ui.press({ key: 'agent:agent-1' })
+    await ui.press({ key: 'main' })
+    await ui.press({ key: 'approval' })
+    expect(w.views).toEqual([{ agentId: 'agent-1' }, {}, {}])
+    await ui.unmount()
+  })
+
+  test('a refused view is a toast, not a throw', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.viewDeny = 'no agent holds that id'
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'main' })
+    expect(w.toasts.join()).toContain('no agent holds that id')
+    await ui.unmount()
   })
 })
 
