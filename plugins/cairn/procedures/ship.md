@@ -49,7 +49,7 @@ Run `cairn advance`. Report the PR URL in one line.
 **Done when:** the stage is `learn`. Then run `cairn next --json` and follow the procedure it names. The merge is the last step of the whole plan: `learn.md` (and `fix.md` for a fix) sends you back to the Merge section below once the plan is closed.
 
 ## Merge (the last step, after close)
-Run `cd <plan worktree> && cairn step merging` first (the CLI records steps only at ship, so once the plan has closed it refuses: ignore that refusal). Closing records everything first so every record lands on main with the merge; `cairn status` and the pane show "PR open" until the branch is in main. Run this once the plan is closed:
+Closing records everything first so every record lands on main with the merge; `cairn status` and the pane show "PR open" until the branch is in main. Run this once the plan is closed:
 1. Push the plan branch again, so the PR carries the closing commits (findings, record, PR link).
 2. Tell the user once, in one line, that the plan shows "PR open" until the PR is merged.
 3. Ask with AskUserQuestion (a plain choice, not an approval):

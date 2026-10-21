@@ -7774,7 +7774,7 @@ var STAGE_LABEL = {
 var STEPS = {
   verify: ["testing", "scanning", "fixing"],
   review: ["reviewing", "fixing", "rechecking"],
-  ship: ["approving", "opening-pr", "merging"]
+  ship: ["approving", "opening-pr"]
 };
 var STEP_LABEL = {
   testing: "running tests",
@@ -7783,8 +7783,7 @@ var STEP_LABEL = {
   reviewing: "reviewing",
   rechecking: "re-checking",
   approving: "waiting on approval",
-  "opening-pr": "opening the PR",
-  merging: "merging"
+  "opening-pr": "opening the PR"
 };
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 var SUGGESTION_AREAS = ["tests", "security", "perf", "quality", "ux", "docs"];

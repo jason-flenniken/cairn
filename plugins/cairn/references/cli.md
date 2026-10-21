@@ -103,7 +103,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn step <name> [--count N]`: records what the current stage is doing, shown as "Review · fixing 3 findings" in `cairn status`, STATUS.md and `status --json` (`state.step`). The step clears when the stage changes. Names by stage:
     - check: `testing` (running tests), `scanning` (scanning for secrets), `fixing`;
     - review: `reviewing`, `fixing`, `rechecking`;
-    - ship: `approving` (waiting on approval), `opening-pr`, `merging`.
+    - ship: `approving` (waiting on approval), `opening-pr`.
     - The fix track uses review and ship. A name not valid for the current stage exits 2 and lists the valid ones. `--count` is a whole number, shown with `fixing` ("fixing 3 findings").
   - `cairn phase finish`: finishes the current phase with no human proof and prints one summary line (tasks, tests, new suggestions, out-of-scope edits). It opens the next phase, or moves the plan to Check after the last one.
 - **Suggestions**

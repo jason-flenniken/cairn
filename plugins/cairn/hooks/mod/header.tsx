@@ -29,7 +29,7 @@ const LATE_STAGES = ['verify', 'review', 'ship', 'learn']
 /** Mirrors STEP_LABEL in cli/src/types.ts: the step the CLI recorded, in words. */
 const STEP_LABEL: Record<string, string> = {
   testing: 'running tests', scanning: 'scanning for secrets', fixing: 'fixing', reviewing: 'reviewing',
-  rechecking: 're-checking', approving: 'waiting on approval', 'opening-pr': 'opening the PR', merging: 'merging',
+  rechecking: 're-checking', approving: 'waiting on approval', 'opening-pr': 'opening the PR',
 }
 
 /** "fixing 3 findings" for the current stage's recorded step; nothing for another stage's stale step. */

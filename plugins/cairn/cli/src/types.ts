@@ -16,7 +16,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
 export const STEPS: Partial<Record<Stage, readonly string[]>> = {
   verify: ['testing', 'scanning', 'fixing'],
   review: ['reviewing', 'fixing', 'rechecking'],
-  ship: ['approving', 'opening-pr', 'merging'],
+  ship: ['approving', 'opening-pr'],
 };
 export const STEP_LABEL: Record<string, string> = {
   testing: 'running tests',
@@ -26,7 +26,6 @@ export const STEP_LABEL: Record<string, string> = {
   rechecking: 're-checking',
   approving: 'waiting on approval',
   'opening-pr': 'opening the PR',
-  merging: 'merging',
 };
 export interface Step {
   stage: Stage;
