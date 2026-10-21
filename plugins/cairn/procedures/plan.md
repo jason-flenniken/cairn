@@ -24,9 +24,9 @@ Write `docs/sdlc/plans/<date>-<slug>/plan.md` from `${CLAUDE_PLUGIN_ROOT}/templa
 - **Parallel by default:** disjoint `scope` globs, minimal `blocked_by`. Two tasks touching the same files get an edge between them.
 - **Complexity:** `simple` (mechanical, 1-2 files), `standard` (default), `complex` (architecture judgment, broad integration).
 - **Coverage:** every FR is in some task's `covers`, or listed under `## Deferred requirements` with a reason.
-- **Risk:** set `risky: true` (with a one-line `riskReason`) on any task that touches auth, money, deleting data, migrations, or a public API. Everything else is `risky: false`.
+- **Risk:** set `risky: true` (with a one-line `riskReason`) on any task that touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data. Everything else is `risky: false`.
 
-Under `## Phases` put exactly one `yaml cairn-tasks` block, then one `### Task: <id>` section per task with a one-line **Check:** and **Interfaces**. Only risky tasks list **Test cases** (Happy / Unhappy / Security bullets, each concrete).
+Under `## Phases` put exactly one `yaml cairn-tasks` block, then one `### Task: <id>` section per task with a one-line **Check:** and **Interfaces**. Only risky tasks list **Test cases** (Happy / Unhappy / Security bullets, each concrete). Each misuse case in the PRD's Security section becomes a Security test case on the task that covers it.
 
 When you consciously skip tests on a non-risky task (an area worth covering later), log up to 5 of them as suggestions: `cairn suggest add --area tests --from plan --where <glob> --text "<what to cover and why>"`.
 

@@ -33,9 +33,12 @@ Optional. Only the failures that matter: bad input, denied access, dependency do
 - [FR-01] When <failure>, the system <exact response or state>.
 
 ## Security
-Optional. Only when the plan touches auth, money, personal data, or untrusted input: the threat and the control.
+Optional, but required when discover recorded a trust boundary. A short threat model (see the Threat model section of `references/security-checklist.md`).
 
-- <threat>: <control>
+- Trust boundaries: <where data enters or leaves, and what is untrusted>
+- Assets: <what an attacker wants>
+- STRIDE: <per boundary, the letters that apply (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege) and the control for each>
+- Misuse cases: <how someone would abuse this, and the control>. Each becomes a Security test on the task that covers it.
 
 ## Non-functional requirements
 Optional. Only when a number matters (speed, size, compatibility).

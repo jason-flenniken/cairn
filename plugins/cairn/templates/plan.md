@@ -32,7 +32,7 @@ phases:
         blocked_by: []         # task ids in this or an earlier phase
         scope: ["src/cart/**", "test/cart/**"]   # globs the task may touch
         complexity: standard   # simple | standard | complex -> haiku | sonnet | opus
-        risky: false           # true when it touches auth, money, deletes data, migrations, or a public API
+        risky: false           # true when it touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data
         # riskReason: "deletes carts"   # one line, when risky
 ```
 
@@ -44,7 +44,7 @@ phases:
 - Consumes: <exact signatures from earlier tasks, or "none">
 - Produces: <exact function names, types, routes, schemas that later tasks rely on>
 
-<!-- Risky tasks only: list the tests below. Non-risky tasks stop at Interfaces. -->
+<!-- Risky tasks only: list the tests below. Non-risky tasks stop at Interfaces. Each PRD misuse case becomes a Security test on the task that covers it. -->
 
 **Test cases**
 - Happy: <concrete test: input -> expected result>
