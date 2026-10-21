@@ -5,6 +5,7 @@ import {
   cmdClose,
   cmdDecide,
   cmdDriftAck,
+  cmdEscalate,
   cmdEvidence,
   cmdNew,
   cmdNext,
@@ -12,6 +13,7 @@ import {
   cmdPlanLoad,
   cmdProductInit,
   cmdReady,
+  cmdRepro,
   cmdRender,
   cmdResume,
   cmdSlice,
@@ -51,6 +53,7 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   approve prd|plan|phase|ship | advance [--to <stage>] | plan load [--replan] | ready
   slice start|step|done <id> | evidence verify|review pass|fail | drift ack <path>|--all
   pause [--now] | resume [<slug>] | close | render
+  repro "<command>" | escalate (fix plans)
 Flags: --json, --note "…", --override "reason" (only when the user chose to skip a check)`;
 
 export function run(argv: string[], cwd = process.cwd()): Result {
@@ -78,6 +81,10 @@ export function run(argv: string[], cwd = process.cwd()): Result {
       return cmdPlanLoad(ctx(), opts);
     case 'ready':
       return cmdReady(ctx());
+    case 'repro':
+      return cmdRepro(ctx(), a, opts);
+    case 'escalate':
+      return cmdEscalate(ctx(), opts);
     case 'slice':
       return cmdSlice(ctx(), a, b, rest, opts);
     case 'evidence':

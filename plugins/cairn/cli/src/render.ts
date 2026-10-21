@@ -1,6 +1,7 @@
 import type { Phase, Slice, Stage, State } from './types.ts';
 
 export const STAGE_LABEL: Record<Stage, string> = {
+  repro: 'Repro',
   discover: 'Discover',
   prd: 'PRD',
   plan: 'Plan',
@@ -28,6 +29,10 @@ export function nextFor(s: State): Next {
   if (s.paused) return { procedure: 'resume', text: `Paused ${day(s.paused.at)}. Resume to pick up where it stopped.` };
   const all = s.phases.flatMap((p) => p.slices);
   switch (s.stage) {
+    case 'repro':
+      return s.repro
+        ? { procedure: 'fix', substep: 'advance', text: 'Repro recorded. Advance to the fix.' }
+        : { procedure: 'fix', text: 'Record a command that reproduces the bug (cairn repro).' };
     case 'discover':
       return { procedure: 'discover', text: 'Interview: settle the open decisions, then move on to the PRD.' };
     case 'prd':
@@ -40,6 +45,7 @@ export function nextFor(s: State): Next {
         : { procedure: 'plan', text: 'Write the phased plan, load it, and get it approved.' };
     case 'execute': {
       const phase = s.phases.find((p) => p.status !== 'done');
+      if (!phase && s.track === 'fix' && s.repro) return { procedure: 'review', text: 'The fix is built. Advance to review.' };
       if (!phase) return { procedure: 'verify', text: 'All phases are done. Advance to verification.' };
       if (phase.status === 'awaiting_approval')
         return { procedure: 'phase-end', text: `Phase "${phase.name}" is built. Review it and approve it to continue.` };

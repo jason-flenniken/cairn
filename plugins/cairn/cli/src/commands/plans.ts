@@ -5,7 +5,7 @@ import { branchExists, commitPath, git, gitOk } from '../git.ts';
 import { planBranch, planRel, type Ctx } from '../locate.ts';
 import { newState, saveState } from '../state.ts';
 import { CliError, now, readText, Refusal, SLUG, writeText } from '../util.ts';
-import { ensureExcluded, planCtx, planFile, runSetup, template, type Opts, type Result } from '../shared.ts';
+import { ensureExcluded, planCtx, planFile, runSetup, template, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "…"');
@@ -30,7 +30,9 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   }
   const dir = join(wt, planRel(slug));
   writeText(join(dir, 'decisions.md'), `# Decisions: ${title}\n\nAppend-only. Written by \`cairn decide\` as each decision is made.\n`);
-  saveState(dir, newState(slug, title, track, branch, base));
+  const state = newState(slug, title, track, branch, base);
+  if (track === 'fix') state.stage = 'repro';
+  saveState(dir, state);
   if (cfg.autoCommit) commitPath(wt, planRel(slug), `cairn(${slug}): start plan "${title}"`);
   const setup = opts['no-worktree'] ? '' : runSetup(cfg, wt, ctx.mainRoot);
   return {
@@ -54,11 +56,15 @@ export function cmdProductInit(ctx: Ctx): Result {
 
 export function cmdDecide(ctx: Ctx, question: string | undefined, answer: string | undefined, opts: Opts): Result {
   if (!question || !answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "…"]');
-  const pc = planCtx(ctx);
+  const n = appendDecision(planCtx(ctx), question, answer, typeof opts.why === 'string' ? opts.why : undefined);
+  return { message: `Recorded decision ${n}: ${answer}`, data: { number: n } };
+}
+
+/** Append a numbered decision to decisions.md; returns its number. */
+export function appendDecision(pc: PlanCtx, question: string, answer: string, why?: string): number {
   const file = planFile(pc, 'decisions.md');
   const cur = readText(file) ?? '# Decisions\n';
   const n = (cur.match(/^### /gm)?.length ?? 0) + 1;
-  const why = typeof opts.why === 'string' ? `\n**Why:** ${opts.why}` : '';
-  writeText(file, `${cur.replace(/\n*$/, '\n')}\n### ${n}. ${question}\n**Decision:** ${answer}${why}\n_${now().slice(0, 16).replace('T', ' ')}_\n`);
-  return { message: `Recorded decision ${n}: ${answer}`, data: { number: n } };
+  writeText(file, `${cur.replace(/\n*$/, '\n')}\n### ${n}. ${question}\n**Decision:** ${answer}${why ? `\n**Why:** ${why}` : ''}\n_${now().slice(0, 16).replace('T', ' ')}_\n`);
+  return n;
 }
