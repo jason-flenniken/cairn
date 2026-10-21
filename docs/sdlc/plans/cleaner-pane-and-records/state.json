@@ -6,8 +6,8 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T15:08:26.446Z",
-  "stage": "verify",
+  "updated": "2026-10-21T15:08:26.557Z",
+  "stage": "review",
   "paused": null,
   "approvals": {
     "prd": {
@@ -672,6 +672,11 @@
       "at": "2026-10-21T15:08:26.446Z",
       "event": "verify pass",
       "detail": "tests: 161 CLI and 353 mod passing, typecheck clean; 18 requirements met, 1 untested; FR-13 deferred"
+    },
+    {
+      "at": "2026-10-21T15:08:26.556Z",
+      "event": "advanced",
+      "detail": "review"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
