@@ -6,8 +6,8 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:43:26.834Z",
-  "stage": "verify",
+  "updated": "2026-10-21T21:43:26.955Z",
+  "stage": "review",
   "paused": null,
   "approvals": {
     "prd": {
@@ -489,6 +489,11 @@
       "at": "2026-10-21T21:43:26.834Z",
       "event": "verify pass",
       "detail": "tests: 367 passing; 21 of 22 requirements met plus 1 fixed, 2 untested logged; secret scan clean, npm audit 0 vulnerabilities, no lockfile changes"
+    },
+    {
+      "at": "2026-10-21T21:43:26.954Z",
+      "event": "advanced",
+      "detail": "review"
     }
   ],
   "suggestions": [
