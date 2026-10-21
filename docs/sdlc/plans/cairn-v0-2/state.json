@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T10:20:14.129Z",
+  "updated": "2026-10-21T10:39:14.918Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -350,12 +350,15 @@
             "plugins/cairn/cli/test/fix.test.ts"
           ],
           "complexity": "complex",
-          "status": "in_progress",
-          "fixRound": 0,
-          "substep": "implementing",
+          "status": "done",
+          "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/fix-cli",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--fix-cli",
-          "base": "f4a011fcf6079bda5816ecc0afdf7b701561a88f"
+          "base": "f4a011fcf6079bda5816ecc0afdf7b701561a88f",
+          "note": "config lock skipped under --override before proof; minors",
+          "doneAt": "2026-10-21T10:39:14.918Z",
+          "tip": "8f825f5",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
         },
         {
           "id": "stop-now-fix",
@@ -909,6 +912,26 @@
       "at": "2026-10-21T10:20:14.129Z",
       "event": "slice done",
       "detail": "Fix procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:30:11.587Z",
+      "event": "slice reviewing",
+      "detail": "Fix track in the CLI"
+    },
+    {
+      "at": "2026-10-21T10:33:09.681Z",
+      "event": "slice fixing",
+      "detail": "Fix track in the CLI (round 1): config lock skipped under --override before proof; minors"
+    },
+    {
+      "at": "2026-10-21T10:38:44.975Z",
+      "event": "slice merging",
+      "detail": "Fix track in the CLI"
+    },
+    {
+      "at": "2026-10-21T10:39:14.918Z",
+      "event": "slice done",
+      "detail": "Fix track in the CLI"
     }
   ],
   "planHash": "8c7f32988aef9d04"
