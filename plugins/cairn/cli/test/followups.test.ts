@@ -59,6 +59,14 @@ test('close refuses more than 5 open follow-ups and names them; merging three le
   assert.match(run(['close'], wt).message, /Closed "Many"/);
 });
 
+test('close refuses a record with no Findings section', () => {
+  const wt = run(['new', 'nofind', '--title', 'No findings'], repo).data!.worktree as string;
+  edit(wt, 'nofind', (s) => (s.stage = 'learn'));
+  const tpl = readFileSync(join(import.meta.dirname, '../../templates/record.md'), 'utf8');
+  writeFileSync(join(pd(wt, 'nofind'), 'RECORD.md'), tpl.replace(/## Findings[\s\S]*?(?=## Follow-ups)/, ''));
+  refused(wt, /RECORD\.md is missing sections: Findings/, 'close');
+});
+
 test('close counts only follow-ups from the closing plan', () => {
   const wt = run(['new', 'other', '--title', 'Other'], repo).data!.worktree as string;
   for (let i = 1; i <= 6; i++) run(['suggest', 'add', '--area', 'ux', '--text', `other ${i}`], wt);

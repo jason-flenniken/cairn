@@ -252,7 +252,7 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
   ok(wt, 'advance');
   refusedByUser(wt, /RECORD\.md does not exist/, 'approve', 'ship');
-  write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Follow-ups\nnone\n');
+  write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
   byUser(wt, 'approve', 'ship');
   ok(wt, 'advance');
   ok(wt, 'close');

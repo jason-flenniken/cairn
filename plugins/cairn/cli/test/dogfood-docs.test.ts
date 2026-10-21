@@ -88,3 +88,20 @@ test('hooks/NOTES.md records the session.start fan-out and the mod command namin
   const src = read('hooks/NOTES.md');
   for (const needle of ['register.tsx', 'one matcherless hook per event', '$.command.run', 'cairn-pause-now', 'cut turn']) assert.ok(src.includes(needle), `NOTES.md names ${needle}`);
 });
+
+test('learn.md asks nothing, groups follow-ups to 5, and has the recorder write Findings before close', () => {
+  const src = read('procedures/learn.md');
+  assert.doesNotMatch(src, /AskUserQuestion/);
+  assert.match(src, /Findings/);
+  assert.match(src, /recorder/);
+  assert.match(src, /at most 5/);
+  assert.match(src, /600 words/);
+  assert.doesNotMatch(src, /900/);
+});
+
+test('the recorder agent writes Findings within the 600-word budget', () => {
+  const src = read('agents/recorder.md');
+  assert.match(src, /Findings/);
+  assert.match(src, /600 words/);
+  assert.doesNotMatch(src, /500/);
+});
