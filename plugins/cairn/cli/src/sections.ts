@@ -40,6 +40,10 @@ export const uncheckedItems = (body = ''): string[] =>
 export const wordCount = (md: string): number =>
   md.replace(/<!--[\s\S]*?-->/g, '').split(/\s+/).filter(Boolean).length;
 
+/** Words of prose: headings and HTML comments don't count. */
+export const proseWordCount = (md: string): number =>
+  wordCount(md.replace(/<!--[\s\S]*?-->/g, '').split('\n').filter((l) => !/^\s*#{1,6}\s/.test(l)).join('\n'));
+
 export const PRD_SECTIONS = [
   'Problem',
   'Solution',
@@ -56,6 +60,8 @@ export const PLAN_SECTIONS = ['Goal', 'Architecture', 'Global constraints', 'Rev
 export const RECORD_SECTIONS = ['Links', 'Why', 'What was built', 'How it works', 'Evidence', 'Deviations', 'Follow-ups'] as const;
 export const HANDOFF_SECTIONS = ['In flight', 'Open questions', 'Next action'] as const;
 export const RECORD_WORD_BUDGET = 900;
+export const FIX_RECORD_SECTIONS = ['Links', 'Bug', 'Cause', 'Fix', 'Evidence'] as const;
+export const FIX_RECORD_WORD_BUDGET = 300;
 
 export const FR_ID = /\bFR-\d+\b/g;
 export const ids = (text = ''): string[] => [...new Set(text.match(FR_ID) ?? [])];

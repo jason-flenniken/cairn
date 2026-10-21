@@ -15,17 +15,19 @@ Dispatch the `recorder` agent (`model: sonnet`). Give it: the output of `cairn s
 **Done when:** `RECORD.md` exists with every template heading and is within 900 words (`wc -w`).
 
 ## 3. Show and stop
-Show the user the record. Then ask with AskUserQuestion:
-- Ship: open the PR (Recommended)
-- Revise the record: ask what to change, edit, recheck the word count
-- Hold: stop here; the plan stays at ship
+Show the user the record. Run `cairn status --json` and read `modActive`.
+- True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output:
+  - Approve (Recommended): approve the record, then open the PR
+  - Revise the record: ask what to change, edit, recheck the word count
+  - Hold: stop here; the plan stays at ship
+- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve ship --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
-**Done when:** the user chose Ship.
+**Done when:** the user chose Approve, or said the terminal approval ran.
 
-## 4. Approve
-Run `cairn approve ship`. On refusal (a missing section or over budget), fix `RECORD.md` and rerun.
+## 4. Confirm
+Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names a missing section or an over-budget record, fix `RECORD.md`, recheck the word count, and return to step 3.
 
-**Done when:** `cairn approve ship` exits 0.
+**Done when:** `cairn status --json` shows the ship approval.
 
 ## 5. Open the PR
 From the plan worktree: push the plan branch, then `gh pr create --base <base> --head sdlc/<slug> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan). Put the PR URL into the record's Links section and commit it on the plan branch.

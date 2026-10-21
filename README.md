@@ -9,6 +9,8 @@ A personal Claude Code marketplace. It holds **cairn**, an agent-driven software
 /plugin install cairn@ai-workflow
 ```
 
+cairn needs Claude Code v2.1.287 or later, for the mod (menu approvals, the pane, pause and Stop now).
+
 In repos that use cairn, disable Superpowers and Compound Engineering. Their auto-triggering skills compete with cairn's.
 
 ## Use
@@ -18,6 +20,9 @@ In repos that use cairn, disable Superpowers and Compound Engineering. Their aut
 | `/cairn:next` | Does the one correct next thing for the plan you're in. This is the only command you need to remember. |
 | `/cairn:new` | Starts a plan: its own branch and worktree, then the discovery interview. |
 | `/cairn:product` | Product-level PRD and roadmap (`docs/sdlc/product/`). |
+| `/cairn:fix` | The fix lane for one bug: a failing repro, a test-first fix in one slice, a security-focused review, and a short record. |
+| `/cairn:direction` | Checks the code against the PRD and shows a green, yellow, or red verdict per phase. |
+| `/cairn-pane` | Opens the pane that stays beside the chat with the plan's stage, slices, and pending stops. |
 | `/cairn:status` | Shows every plan: where it is, what's done, what's next, what's blocked. |
 | `/cairn:pause` / `/cairn:resume` | Stop at any point with a handoff note, and pick up exactly there later. |
 

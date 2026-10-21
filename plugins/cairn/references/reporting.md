@@ -37,4 +37,6 @@ Restate every subagent result in this contract's terms. Subagents run on a bound
 At each human stop (PRD, plan, phase end, ship), present a short summary (about 5 lines) and a menu through AskUserQuestion. Wait for the answer.
 
 ## Refusals
-When the CLI refuses a command (exit code 2), read what it says is missing, do that, and rerun. Pass `--override` only when the user explicitly chose it, and report that an override was used.
+When the CLI refuses a command (exit code 2), read what it says is missing, do that, and rerun. An approval refusal is fixed and approved again, never overridden from a procedure.
+
+A refusal that the user may choose to overrule gets an Override menu: AskUserQuestion with `[cairn:override <slug>]` in the question text, and an option labeled exactly "Override". Rerun the command with `--override "<reason>"` only after the user picks Override, and report that an override was used.

@@ -5,6 +5,7 @@ import { SLUG } from './util.ts';
 
 const BLOCK = /```ya?ml\s+cairn-slices\s*\n([\s\S]*?)```/;
 const COMPLEXITY: Complexity[] = ['simple', 'standard', 'complex'];
+const KINDS = ['prefactor'];
 
 export interface ParsedPlan {
   phases: Phase[];
@@ -33,7 +34,9 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
   if (!Array.isArray(rawPhases) || rawPhases.length === 0)
     return { phases: [], problems: [...problems, 'cairn-slices needs a non-empty `phases:` list'] };
 
-  const prdIds = new Set(ids(sections(prdMd).get('functional requirements')));
+  const requirements = sections(prdMd).get('functional requirements');
+  const prdIds = new Set(ids(requirements));
+  problems.push(...badRequirementIds(requirements));
   const phases: Phase[] = [];
   const phaseOf = new Map<string, number>();
   const seenPhase = new Set<string>();
@@ -55,11 +58,13 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
       const blockedBy = strList(rs?.blocked_by ?? []) ?? [];
       const scope = strList(rs?.scope) ?? [];
       const complexity = (rs?.complexity ?? 'standard') as Complexity;
-      if (!covers.length) problems.push(`${where}: \`covers\` must list the PRD FR ids it implements`);
+      const kind = rs?.kind === undefined ? undefined : String(rs.kind);
+      if (kind !== undefined && !KINDS.includes(kind)) problems.push(`${where}: kind must be ${KINDS.join(' or ')}, or left out`);
+      if (!covers.length && kind !== 'prefactor') problems.push(`${where}: \`covers\` must list the PRD FR ids it implements (only kind: prefactor may leave it empty)`);
       for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Functional requirements`);
       if (!scope.length) problems.push(`${where}: \`scope\` must list the file globs it may touch`);
       if (!COMPLEXITY.includes(complexity)) problems.push(`${where}: complexity must be simple, standard, or complex`);
-      slices.push({ id: sid, name: String(rs?.name ?? sid), covers, blockedBy, scope, complexity, status: 'pending', fixRound: 0 });
+      slices.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, blockedBy, scope, complexity, status: 'pending', fixRound: 0 });
     }
     phases.push({ id: pid, name: String(rp?.name ?? pid), status: 'pending', slices });
   });
@@ -83,6 +88,16 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
     problems.push(`PRD requirements not covered by any slice: ${uncovered.join(', ')}. Cover them or list them under ## Deferred requirements`);
 
   return { phases, problems };
+}
+
+/** Bold ids that look like requirement ids but are not FR-<digits>, which coverage would silently skip (FR-39). */
+function badRequirementIds(requirements = ''): string[] {
+  const bad = new Set<string>();
+  for (const m of requirements.matchAll(/\*\*([^*]+)\*\*/g)) {
+    const id = m[1].trim().split(/\s+/)[0].replace(/[.:,;]+$/, '');
+    if (/^fr[-_\d]/i.test(id) && !/^FR-\d+$/.test(id)) bad.add(id);
+  }
+  return [...bad].map((id) => `PRD requirement id "${id}" must have the form FR-<digits>`);
 }
 
 function findCycle(slices: Slice[]): string[] | undefined {
@@ -116,7 +131,7 @@ export function mergeProgress(next: Phase[], prev: Phase[]): { phases: Phase[]; 
       const o = old.get(s.id);
       if (!o) continue;
       kept.add(s.id);
-      p.slices[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
+      p.slices[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
     }
   const lostDone = [...old.values()].filter((s) => s.status !== 'pending' && !kept.has(s.id)).map((s) => s.id);
   for (const p of next) p.status = phaseStatus(p, prev.find((q) => q.id === p.id)?.status);

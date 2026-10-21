@@ -1,4 +1,4 @@
-export const STAGES = ['discover', 'prd', 'plan', 'execute', 'verify', 'review', 'ship', 'learn', 'closed'] as const;
+export const STAGES = ['repro', 'discover', 'prd', 'plan', 'execute', 'verify', 'review', 'ship', 'learn', 'closed'] as const;
 export type Stage = (typeof STAGES)[number];
 export type Track = 'feature' | 'fix';
 export type Complexity = 'simple' | 'standard' | 'complex';
@@ -12,11 +12,14 @@ export interface Approval {
   via: 'agent' | 'human';
   note?: string;
   hash?: string;
+  source?: 'mod' | 'terminal' | 'agent';
 }
 
 export interface Slice {
   id: string;
   name: string;
+  /** `prefactor` slices prepare the code and may cover no requirement. */
+  kind?: 'prefactor';
   covers: string[];
   blockedBy: string[];
   scope: string[];
@@ -39,6 +42,7 @@ export interface Phase {
   name: string;
   status: PhaseStatus;
   slices: Slice[];
+  verdict?: { result: 'green' | 'yellow' | 'red'; at: string; commit: string; note?: string };
 }
 
 export interface Evidence {
@@ -76,6 +80,8 @@ export interface State {
   paused: { at: string; mode: 'drain' | 'now'; handoffHash?: string } | null;
   approvals: { prd?: Approval; plan?: Approval; ship?: Approval };
   planHash?: string;
+  repro?: { cmd: string; tail: string; at: string };
+  configHash?: string;
   phases: Phase[];
   evidence: { verify?: Evidence; review?: Evidence };
   drift: DriftEntry[];
@@ -93,4 +99,7 @@ export interface Config {
   maxParallel: number;
   autoCommit: boolean;
   worktreeRoot?: string;
+  resumeFreshAfterMinutes?: number;
+  fixMaxFiles?: number;
+  reproTimeoutMinutes?: number;
 }

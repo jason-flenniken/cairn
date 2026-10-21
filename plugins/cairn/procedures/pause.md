@@ -15,15 +15,15 @@ When slices are running, ask with AskUserQuestion: Drain (Recommended: in-flight
 **Done when:** you know whether to drain or stop now.
 
 ## 3. Settle in-flight work
-- Drain: wait for each running agent to finish its current sub-step; start nothing new.
-- Stop now: for each in-progress slice worktree, commit work in progress: `git -C <worktree> add -A && git -C <worktree> commit -m "wip: <slice id>"`.
+- Drain: wait for each running agent to finish its current sub-step; start nothing new. The mod's `/cairn-pause-mod` command does this from the pane.
+- Stop now: the mod's `/cairn-pause-now` command cuts the running turn and sends you here. Stop every running subagent with TaskStop, record each in-progress slice's current substep with `cairn slice step <id> <substep>`, then for each in-progress slice worktree, commit work in progress: `git -C <worktree> add -A && git -C <worktree> commit -m "wip: <slice id>"`.
 
 **Done when:** no agent is mid-edit and every slice worktree is committed.
 
 ## 4. Write handoff.md
 Write `docs/sdlc/plans/<slug>/handoff.md` from `${CLAUDE_PLUGIN_ROOT}/templates/handoff.md`, keeping its three `## ` headings:
 - **In flight:** each in-progress slice with its recorded substep (from `cairn status --json`), its worktree path, and what is committed.
-- **Open questions:** anything waiting on the user, with your recommendation.
+- **Open questions:** anything waiting on the user, with your recommendation. Keep the questions an earlier handoff already lists and append the new ones; the mod's pause does the same.
 - **Next action:** the exact first step on resume, for example "re-run review for the cart API slice" or "continue the plan procedure at step 4".
 
 **Done when:** all three sections have content a fresh session can act on.

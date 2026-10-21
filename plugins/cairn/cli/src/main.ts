@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   cmdAdvance,
   cmdApprove,
   cmdClose,
   cmdDecide,
   cmdDriftAck,
+  cmdEscalate,
   cmdEvidence,
   cmdNew,
   cmdNext,
@@ -12,6 +14,7 @@ import {
   cmdPlanLoad,
   cmdProductInit,
   cmdReady,
+  cmdRepro,
   cmdRender,
   cmdResume,
   cmdSlice,
@@ -24,9 +27,9 @@ import {
 } from './commands.ts';
 import { CliError, Refusal } from './util.ts';
 
-const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree']);
+const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human']);
 
-export function parseArgs(argv: string[]): { pos: string[]; opts: Opts } {
+export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[]; opts: Opts } {
   const pos: string[] = [];
   const opts: Opts = {};
   for (let i = 0; i < argv.length; i++) {
@@ -43,18 +46,27 @@ export function parseArgs(argv: string[]): { pos: string[]; opts: Opts } {
       opts[name] = argv[++i];
     }
   }
+  const noteFile = opts['note-file'];
+  if (typeof noteFile === 'string') {
+    try {
+      opts.note = readFileSync(resolve(cwd, noteFile), 'utf8');
+    } catch (e) {
+      throw new CliError(`cannot read --note-file ${noteFile}: ${(e as Error).message}`);
+    }
+  }
   return { pos, opts };
 }
 
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
-  next | status [--all] | new <slug> --title "…" | product init | decide "<q>" "<a>" [--why]
+  next | status [--all] | new <slug> --title "…" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|phase|ship | advance [--to <stage>] | plan load [--replan] | ready
-  slice start|step|done <id> | evidence verify|review pass|fail | drift ack <path>|--all
+  slice start|step|done <id> | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   pause [--now] | resume [<slug>] | close | render
-Flags: --json, --note "…", --override "reason" (only when the user chose to skip a check)`;
+  repro "<command>" | escalate (fix plans)
+Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 
 export function run(argv: string[], cwd = process.cwd()): Result {
-  const { pos, opts } = parseArgs(argv);
+  const { pos, opts } = parseArgs(argv, cwd);
   const [cmd, a, b, ...rest] = pos;
   const ctx = () => context(cwd);
   switch (cmd) {
@@ -78,6 +90,10 @@ export function run(argv: string[], cwd = process.cwd()): Result {
       return cmdPlanLoad(ctx(), opts);
     case 'ready':
       return cmdReady(ctx());
+    case 'repro':
+      return cmdRepro(ctx(), a, opts);
+    case 'escalate':
+      return cmdEscalate(ctx(), opts);
     case 'slice':
       return cmdSlice(ctx(), a, b, rest, opts);
     case 'evidence':

@@ -1,0 +1,1281 @@
+{
+  "schema": 1,
+  "slug": "cairn-v0-2",
+  "title": "cairn v0.2",
+  "track": "feature",
+  "branch": "sdlc/cairn-v0-2",
+  "base": "main",
+  "created": "2026-10-20T21:00:43.533Z",
+  "updated": "2026-10-21T12:42:04.830Z",
+  "stage": "closed",
+  "paused": null,
+  "approvals": {
+    "prd": {
+      "at": "2026-10-20T21:26:48.293Z",
+      "via": "agent",
+      "note": "bootstrap: approved in menu, relayed by agent because the mod does not exist yet",
+      "hash": "5bde3d913b280c57"
+    },
+    "plan": {
+      "at": "2026-10-21T11:21:18.160Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "cc54213ff13f0bd3"
+    },
+    "ship": {
+      "at": "2026-10-21T12:41:28.371Z",
+      "via": "human",
+      "source": "mod"
+    }
+  },
+  "phases": [
+    {
+      "id": "proof",
+      "name": "Proof of the user",
+      "status": "done",
+      "slices": [
+        {
+          "id": "cli-split",
+          "name": "Split CLI commands into modules",
+          "covers": [
+            "FR-33"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/**",
+            "plugins/cairn/cli/test/**"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/cli-split",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--cli-split",
+          "tip": "f46394b",
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'",
+          "doneAt": "2026-10-20T21:36:01.631Z",
+          "note": "resumed after the worktree lock was lifted"
+        },
+        {
+          "id": "mod-guards",
+          "name": "Mod skeleton, guards, heartbeat",
+          "covers": [
+            "FR-03",
+            "FR-04"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/register.tsx",
+            "plugins/cairn/hooks/hooks.json",
+            "plugins/cairn/hooks/mod/guards.ts",
+            "plugins/cairn/hooks/mod/heartbeat.ts",
+            "plugins/cairn/hooks/mod/cli.ts",
+            "plugins/cairn/hooks/mod/approve.ts",
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/guards.test.ts",
+            "plugins/cairn/hooks/NOTES.md",
+            "plugins/cairn/types/**",
+            "plugins/cairn/.claude-plugin/plugin.json",
+            "package.json"
+          ],
+          "complexity": "complex",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/mod-guards",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--mod-guards",
+          "tip": "d75fb43",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-20T22:55:24.647Z",
+          "note": "false positives on git/grep/commit; glob bypass; timer stacking"
+        },
+        {
+          "id": "human-proof",
+          "name": "CLI human proof, grants, modActive",
+          "covers": [
+            "FR-01",
+            "FR-06"
+          ],
+          "blockedBy": [
+            "cli-split"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/proof.ts",
+            "plugins/cairn/cli/src/shared.ts",
+            "plugins/cairn/cli/src/commands/stages.ts",
+            "plugins/cairn/cli/src/commands/status.ts",
+            "plugins/cairn/cli/test/proof.test.ts",
+            "plugins/cairn/cli/test/lifecycle.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/human-proof",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--human-proof",
+          "tip": "2e40088",
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'",
+          "doneAt": "2026-10-20T21:50:37.165Z",
+          "note": "hardening minors from review"
+        },
+        {
+          "id": "approval-procedures",
+          "name": "Tagged approval menus in procedures",
+          "covers": [
+            "FR-07"
+          ],
+          "blockedBy": [
+            "cli-split"
+          ],
+          "scope": [
+            "plugins/cairn/procedures/prd.md",
+            "plugins/cairn/procedures/plan.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/procedures/verify.md",
+            "plugins/cairn/procedures/review.md",
+            "plugins/cairn/procedures/phase-end.md",
+            "plugins/cairn/references/cli.md",
+            "plugins/cairn/references/reporting.md",
+            "plugins/cairn/cli/test/procedures.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/approval-procedures",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--approval-procedures",
+          "tip": "d3b1552",
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'",
+          "doneAt": "2026-10-20T21:43:27.377Z",
+          "note": "review step 5 dead end; tighten tests; rename phase-end option"
+        },
+        {
+          "id": "secret-hash",
+          "name": "Hashed single-use secret in the CLI",
+          "covers": [
+            "FR-01"
+          ],
+          "blockedBy": [
+            "human-proof"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/proof.ts",
+            "plugins/cairn/cli/src/shared.ts",
+            "plugins/cairn/cli/test/proof.test.ts",
+            "plugins/cairn/cli/test/lifecycle.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/secret-hash",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--secret-hash",
+          "tip": "5e6ad42",
+          "tests": "npm run typecheck && npm test → npm notice run node --test 'plugins/cairn/cli/test/*.test.ts'",
+          "doneAt": "2026-10-20T22:50:03.820Z",
+          "note": "atomic claim of the hash file"
+        },
+        {
+          "id": "menu-approval",
+          "name": "Approve from the menu answer",
+          "covers": [
+            "FR-02",
+            "FR-34"
+          ],
+          "blockedBy": [
+            "secret-hash",
+            "mod-guards"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/approve.ts",
+            "plugins/cairn/hooks/test/approve.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/menu-approval",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--menu-approval",
+          "tip": "3616911",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-20T23:20:43.592Z",
+          "note": "snapshot prefilled answers, timeouts, stricter argv, isError, test gaps"
+        }
+      ]
+    },
+    {
+      "id": "visibility",
+      "name": "Pane, pause, resume, verdict",
+      "status": "done",
+      "slices": [
+        {
+          "id": "pause-resume",
+          "name": "Instant pause, Stop now, fresh resume",
+          "covers": [
+            "FR-13",
+            "FR-14",
+            "FR-15",
+            "FR-16"
+          ],
+          "blockedBy": [
+            "menu-approval"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/register.tsx",
+            "plugins/cairn/hooks/mod/heartbeat.ts",
+            "plugins/cairn/hooks/test/heartbeat.test.ts",
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/test/pause.test.ts",
+            "plugins/cairn/cli/src/commands/pause.ts",
+            "plugins/cairn/cli/test/pause.test.ts",
+            "plugins/cairn/procedures/execute.md",
+            "plugins/cairn/procedures/pause.md",
+            "plugins/cairn/procedures/resume.md",
+            "plugins/cairn/templates/config.json"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/pause-resume",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--pause-resume",
+          "tip": "6c04334",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T09:43:46.170Z",
+          "note": "stop message tied to aborted turn id; null-safe handoff; real fan-out isolation test"
+        },
+        {
+          "id": "direction-cli",
+          "name": "Computed drift verdict in the CLI",
+          "covers": [
+            "FR-19",
+            "FR-20",
+            "FR-22"
+          ],
+          "blockedBy": [
+            "human-proof"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/direction.ts",
+            "plugins/cairn/cli/src/commands/evidence.ts",
+            "plugins/cairn/cli/src/commands/stages.ts",
+            "plugins/cairn/cli/src/commands/planload.ts",
+            "plugins/cairn/cli/test/direction.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/direction-cli",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--direction-cli",
+          "tip": "eba5574",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T09:40:05.665Z",
+          "note": "CRLF block match and hunt-case tests"
+        },
+        {
+          "id": "pane",
+          "name": "Live pane and status line",
+          "covers": [
+            "FR-05",
+            "FR-08",
+            "FR-09",
+            "FR-10",
+            "FR-11",
+            "FR-12",
+            "FR-17"
+          ],
+          "blockedBy": [
+            "pause-resume"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/mod/approve.ts",
+            "plugins/cairn/hooks/test/approve.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/pane",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--pane",
+          "tip": "023f6be",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:08:58.388Z"
+        }
+      ]
+    },
+    {
+      "id": "drift-and-fix",
+      "name": "Drift check and fast lane",
+      "status": "done",
+      "slices": [
+        {
+          "id": "direction-procedure",
+          "name": "Direction check procedure and command",
+          "covers": [
+            "FR-18",
+            "FR-21",
+            "FR-30"
+          ],
+          "blockedBy": [
+            "direction-cli"
+          ],
+          "scope": [
+            "plugins/cairn/procedures/phase-end.md",
+            "plugins/cairn/procedures/direction.md",
+            "plugins/cairn/skills/direction/**",
+            "plugins/cairn/agents/direction-checker.md",
+            "plugins/cairn/cli/test/templates.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/direction-procedure",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--direction-procedure",
+          "tip": "d4675c1",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:18:57.693Z",
+          "note": "unverified rows, missing refusals, example block parsed in test"
+        },
+        {
+          "id": "fix-cli",
+          "name": "Fix track in the CLI",
+          "covers": [
+            "FR-24",
+            "FR-25",
+            "FR-27",
+            "FR-28",
+            "FR-32"
+          ],
+          "blockedBy": [
+            "direction-cli"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/commands/fix.ts",
+            "plugins/cairn/cli/src/commands/stages.ts",
+            "plugins/cairn/cli/src/commands/slices.ts",
+            "plugins/cairn/cli/src/commands/plans.ts",
+            "plugins/cairn/cli/src/render.ts",
+            "plugins/cairn/cli/src/sections.ts",
+            "plugins/cairn/cli/test/fix.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/fix-cli",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--fix-cli",
+          "tip": "8f825f5",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:39:14.918Z",
+          "note": "config lock skipped under --override before proof; minors"
+        },
+        {
+          "id": "stop-now-fix",
+          "name": "Stop now records the pause; pause shows the clear tip",
+          "covers": [
+            "FR-13",
+            "FR-14"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/test/pause.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/stop-now-fix",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--stop-now-fix",
+          "tip": "090c994",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:15:27.329Z"
+        },
+        {
+          "id": "fix-procedure",
+          "name": "Fix procedure and command",
+          "covers": [
+            "FR-23",
+            "FR-26"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/procedures/fix.md",
+            "plugins/cairn/skills/fix/**",
+            "plugins/cairn/templates/record-fix.md",
+            "plugins/cairn/cli/test/fix-procedure.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/fix-procedure",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--fix-procedure",
+          "tip": "e368d37",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:20:14.128Z",
+          "note": "review inputs for fix track; blocking-finding loop pending fix-cli"
+        }
+      ]
+    },
+    {
+      "id": "dogfood",
+      "name": "Dogfood fixes",
+      "status": "done",
+      "slices": [
+        {
+          "id": "test-flake",
+          "name": "Find and fix the flaky git invalid-object test failure",
+          "covers": [
+            "FR-19"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/test/**",
+            "plugins/cairn/cli/src/shared.ts",
+            "plugins/cairn/cli/src/git.ts"
+          ],
+          "complexity": "complex",
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/test-flake",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--test-flake",
+          "note": "root cause: detached git maintenance after every commit",
+          "doneAt": "2026-10-21T11:43:23.118Z",
+          "tip": "8172aa7",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+        },
+        {
+          "id": "file-input",
+          "name": "Decisions and notes from files",
+          "covers": [
+            "FR-29"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/main.ts",
+            "plugins/cairn/cli/src/commands/plans.ts",
+            "plugins/cairn/cli/test/fileinput.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/file-input",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--file-input",
+          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665",
+          "doneAt": "2026-10-21T11:47:29.997Z",
+          "tip": "64110b3",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+        },
+        {
+          "id": "skill-permissions",
+          "name": "Named pre-approved cairn commands",
+          "covers": [
+            "FR-31"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/skills/**",
+            "plugins/cairn/cli/test/skills.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/skill-permissions",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--skill-permissions",
+          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665",
+          "doneAt": "2026-10-21T11:49:18.965Z",
+          "tip": "1fd9e86",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+        },
+        {
+          "id": "mod-polish",
+          "name": "Pause placeholder, pane repro label, guard false positives",
+          "covers": [
+            "FR-03",
+            "FR-09",
+            "FR-13"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/guards.ts",
+            "plugins/cairn/hooks/test/pause.test.ts",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/guards.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/mod-polish",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--mod-polish",
+          "base": "a0f7e61fdd7305fb07c6df79cfcae99bf7a42bc7",
+          "note": "keep scanning double-quoted backticks",
+          "doneAt": "2026-10-21T11:29:38.876Z",
+          "tip": "36464cf",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+        },
+        {
+          "id": "dogfood-docs",
+          "name": "Unlocked orchestrator and documented formats",
+          "covers": [
+            "FR-35",
+            "FR-38"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/procedures/new.md",
+            "plugins/cairn/procedures/execute.md",
+            "plugins/cairn/procedures/review.md",
+            "plugins/cairn/procedures/fix.md",
+            "plugins/cairn/procedures/phase-end.md",
+            "plugins/cairn/references/cli.md",
+            "plugins/cairn/hooks/NOTES.md",
+            "README.md",
+            "plugins/cairn/cli/test/dogfood-docs.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/dogfood-docs",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--dogfood-docs",
+          "base": "78f2ef8fc28b89ecb09fd6b67ea7e1f9b7115665",
+          "doneAt": "2026-10-21T11:49:54.431Z",
+          "tip": "6acac0f",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+        },
+        {
+          "id": "cli-polish",
+          "name": "Test summary, approval sources, strict ids, prefactor slices",
+          "covers": [
+            "FR-28",
+            "FR-36",
+            "FR-37",
+            "FR-39",
+            "FR-40",
+            "FR-41",
+            "FR-42"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/shared.ts",
+            "plugins/cairn/cli/src/render.ts",
+            "plugins/cairn/cli/src/plan-parse.ts",
+            "plugins/cairn/cli/src/types.ts",
+            "plugins/cairn/cli/src/commands/slices.ts",
+            "plugins/cairn/cli/src/commands/planload.ts",
+            "plugins/cairn/cli/src/commands/plans.ts",
+            "plugins/cairn/cli/test/polish.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "branch": "sdlc-slice/cairn-v0-2/cli-polish",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--cli-polish",
+          "base": "897267cc87b6ab2da83606aa381559de39d2f3ee",
+          "doneAt": "2026-10-21T11:54:23.852Z",
+          "tip": "377f32f",
+          "tests": "npm run typecheck && npm test → 0 fail"
+        }
+      ],
+      "verdict": {
+        "result": "yellow",
+        "at": "2026-10-21T11:56:56.355Z",
+        "commit": "0a0ac42ea629f983049320abc545ae860b680879",
+        "note": "14 aligned, 1 partial (guard rule narrower than FR-03 text)"
+      }
+    }
+  ],
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-21T11:59:25.042Z",
+      "note": "typecheck clean, 151 CLI tests and mod tests pass, validate passes; live: mod approvals, mod-run override, and pane all exercised during the build"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T12:41:15.805Z",
+      "note": "whole-branch review: 2 blocking found and fixed in 4ab58d8; 152 CLI and 304 mod tests pass",
+      "blocking": 0
+    }
+  },
+  "drift": [
+    {
+      "path": "plugins/cairn/hooks/mod/pause.ts",
+      "at": "2026-10-21T09:55:31.927Z",
+      "reason": "edited outside slice \"Live pane and status line\" scope",
+      "slice": "pane",
+      "acked": {
+        "at": "2026-10-21T10:12:12.001Z",
+        "note": "approved exports for the pane, no behavior change"
+      }
+    },
+    {
+      "path": "plugins/cairn/hooks/NOTES.md",
+      "at": "2026-10-21T11:26:18.762Z",
+      "reason": "edited outside slice \"Pause placeholder, pane repro label, guard false positives\" scope",
+      "slice": "mod-polish",
+      "acked": {
+        "at": "2026-10-21T11:57:13.314Z",
+        "note": "user accepted: approved out-of-scope edits during phase 4"
+      }
+    },
+    {
+      "path": "plugins/cairn/cli/test/templates.test.ts",
+      "at": "2026-10-21T11:46:16.940Z",
+      "reason": "edited outside slice \"Named pre-approved cairn commands\" scope",
+      "slice": "skill-permissions",
+      "acked": {
+        "at": "2026-10-21T11:57:13.314Z",
+        "note": "user accepted: approved out-of-scope edits during phase 4"
+      }
+    },
+    {
+      "path": "plugins/cairn/cli/test/fix-procedure.test.ts",
+      "at": "2026-10-21T11:47:56.680Z",
+      "reason": "edited outside slice \"Named pre-approved cairn commands\" scope",
+      "slice": "skill-permissions",
+      "acked": {
+        "at": "2026-10-21T11:57:13.314Z",
+        "note": "user accepted: approved out-of-scope edits during phase 4"
+      }
+    },
+    {
+      "path": "plugins/cairn/cli/src/commands/fix.ts",
+      "at": "2026-10-21T11:54:23.852Z",
+      "reason": "changed outside slice \"Test summary, approval sources, strict ids, prefactor slices\" scope (found at slice done)",
+      "slice": "cli-polish",
+      "acked": {
+        "at": "2026-10-21T11:57:13.314Z",
+        "note": "user accepted: approved out-of-scope edits during phase 4"
+      }
+    }
+  ],
+  "log": [
+    {
+      "at": "2026-10-20T21:00:43.533Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-10-20T21:09:59.237Z",
+      "event": "advanced",
+      "detail": "prd"
+    },
+    {
+      "at": "2026-10-20T21:26:48.294Z",
+      "event": "PRD approved",
+      "detail": "agent"
+    },
+    {
+      "at": "2026-10-20T21:26:48.428Z",
+      "event": "advanced",
+      "detail": "plan"
+    },
+    {
+      "at": "2026-10-20T21:29:49.194Z",
+      "event": "plan loaded",
+      "detail": "4 phases, 13 slices"
+    },
+    {
+      "at": "2026-10-20T21:30:07.349Z",
+      "event": "plan approved",
+      "detail": "agent"
+    },
+    {
+      "at": "2026-10-20T21:30:07.469Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-20T21:30:13.458Z",
+      "event": "slice started",
+      "detail": "Split CLI commands into modules"
+    },
+    {
+      "at": "2026-10-20T21:30:14.576Z",
+      "event": "slice started",
+      "detail": "Mod skeleton, guards, heartbeat"
+    },
+    {
+      "at": "2026-10-20T21:32:37.110Z",
+      "event": "slice implementing",
+      "detail": "Split CLI commands into modules: resumed after the worktree lock was lifted"
+    },
+    {
+      "at": "2026-10-20T21:35:16.021Z",
+      "event": "slice reviewing",
+      "detail": "Split CLI commands into modules"
+    },
+    {
+      "at": "2026-10-20T21:35:53.807Z",
+      "event": "slice merging",
+      "detail": "Split CLI commands into modules"
+    },
+    {
+      "at": "2026-10-20T21:36:01.632Z",
+      "event": "slice done",
+      "detail": "Split CLI commands into modules"
+    },
+    {
+      "at": "2026-10-20T21:36:08.299Z",
+      "event": "slice started",
+      "detail": "CLI human proof, grants, modActive"
+    },
+    {
+      "at": "2026-10-20T21:36:08.779Z",
+      "event": "slice started",
+      "detail": "Tagged approval menus in procedures"
+    },
+    {
+      "at": "2026-10-20T21:40:27.733Z",
+      "event": "slice reviewing",
+      "detail": "Tagged approval menus in procedures"
+    },
+    {
+      "at": "2026-10-20T21:41:21.395Z",
+      "event": "slice fixing",
+      "detail": "Tagged approval menus in procedures (round 1): review step 5 dead end; tighten tests; rename phase-end option"
+    },
+    {
+      "at": "2026-10-20T21:43:20.245Z",
+      "event": "slice merging",
+      "detail": "Tagged approval menus in procedures"
+    },
+    {
+      "at": "2026-10-20T21:43:27.378Z",
+      "event": "slice done",
+      "detail": "Tagged approval menus in procedures"
+    },
+    {
+      "at": "2026-10-20T21:46:17.763Z",
+      "event": "slice reviewing",
+      "detail": "CLI human proof, grants, modActive"
+    },
+    {
+      "at": "2026-10-20T21:47:35.347Z",
+      "event": "slice fixing",
+      "detail": "CLI human proof, grants, modActive (round 1): hardening minors from review"
+    },
+    {
+      "at": "2026-10-20T21:50:29.626Z",
+      "event": "slice merging",
+      "detail": "CLI human proof, grants, modActive"
+    },
+    {
+      "at": "2026-10-20T21:50:37.165Z",
+      "event": "slice done",
+      "detail": "CLI human proof, grants, modActive"
+    },
+    {
+      "at": "2026-10-20T21:58:46.640Z",
+      "event": "slice reviewing",
+      "detail": "Mod skeleton, guards, heartbeat"
+    },
+    {
+      "at": "2026-10-20T22:00:04.814Z",
+      "event": "re-plan loaded",
+      "detail": "16 slices"
+    },
+    {
+      "at": "2026-10-20T22:46:21.897Z",
+      "event": "plan approved",
+      "detail": "agent"
+    },
+    {
+      "at": "2026-10-20T22:46:22.017Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-20T22:46:22.143Z",
+      "event": "slice fixing",
+      "detail": "Mod skeleton, guards, heartbeat (round 1): false positives on git/grep/commit; glob bypass; timer stacking"
+    },
+    {
+      "at": "2026-10-20T22:46:22.800Z",
+      "event": "slice started",
+      "detail": "Hashed single-use secret in the CLI"
+    },
+    {
+      "at": "2026-10-20T22:48:18.598Z",
+      "event": "slice reviewing",
+      "detail": "Hashed single-use secret in the CLI"
+    },
+    {
+      "at": "2026-10-20T22:49:07.642Z",
+      "event": "slice fixing",
+      "detail": "Hashed single-use secret in the CLI (round 1): atomic claim of the hash file"
+    },
+    {
+      "at": "2026-10-20T22:49:55.348Z",
+      "event": "slice merging",
+      "detail": "Hashed single-use secret in the CLI"
+    },
+    {
+      "at": "2026-10-20T22:50:03.820Z",
+      "event": "slice done",
+      "detail": "Hashed single-use secret in the CLI"
+    },
+    {
+      "at": "2026-10-20T22:52:25.442Z",
+      "event": "slice merging",
+      "detail": "Mod skeleton, guards, heartbeat"
+    },
+    {
+      "at": "2026-10-20T22:55:24.647Z",
+      "event": "override: slice done",
+      "detail": "sdlc-slice/cairn-v0-2/mod-guards has no commits since the slice started",
+      "override": "user chose Override: re-plan dropped the slice base commit (cairn bug); 3 reviewed commits are merged"
+    },
+    {
+      "at": "2026-10-20T22:55:24.647Z",
+      "event": "slice done",
+      "detail": "Mod skeleton, guards, heartbeat"
+    },
+    {
+      "at": "2026-10-20T22:55:32.649Z",
+      "event": "slice started",
+      "detail": "Approve from the menu answer"
+    },
+    {
+      "at": "2026-10-20T23:12:39.987Z",
+      "event": "slice reviewing",
+      "detail": "Approve from the menu answer"
+    },
+    {
+      "at": "2026-10-20T23:15:29.291Z",
+      "event": "slice fixing",
+      "detail": "Approve from the menu answer (round 1): snapshot prefilled answers, timeouts, stricter argv, isError, test gaps"
+    },
+    {
+      "at": "2026-10-20T23:20:34.086Z",
+      "event": "slice merging",
+      "detail": "Approve from the menu answer"
+    },
+    {
+      "at": "2026-10-20T23:20:43.593Z",
+      "event": "slice done",
+      "detail": "Approve from the menu answer"
+    },
+    {
+      "at": "2026-10-21T09:29:10.229Z",
+      "event": "re-plan loaded",
+      "detail": "16 slices"
+    },
+    {
+      "at": "2026-10-21T09:30:43.364Z",
+      "event": "plan approved",
+      "detail": "agent"
+    },
+    {
+      "at": "2026-10-21T09:30:43.490Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T09:30:43.601Z",
+      "event": "phase approved",
+      "detail": "Proof of the user"
+    },
+    {
+      "at": "2026-10-21T09:30:48.946Z",
+      "event": "slice started",
+      "detail": "Instant pause, Stop now, fresh resume"
+    },
+    {
+      "at": "2026-10-21T09:30:49.374Z",
+      "event": "slice started",
+      "detail": "Computed drift verdict in the CLI"
+    },
+    {
+      "at": "2026-10-21T09:34:35.651Z",
+      "event": "slice reviewing",
+      "detail": "Computed drift verdict in the CLI"
+    },
+    {
+      "at": "2026-10-21T09:35:53.240Z",
+      "event": "slice fixing",
+      "detail": "Computed drift verdict in the CLI (round 1): CRLF block match and hunt-case tests"
+    },
+    {
+      "at": "2026-10-21T09:39:39.820Z",
+      "event": "slice merging",
+      "detail": "Computed drift verdict in the CLI"
+    },
+    {
+      "at": "2026-10-21T09:40:05.665Z",
+      "event": "slice done",
+      "detail": "Computed drift verdict in the CLI"
+    },
+    {
+      "at": "2026-10-21T09:40:28.490Z",
+      "event": "slice reviewing",
+      "detail": "Instant pause, Stop now, fresh resume"
+    },
+    {
+      "at": "2026-10-21T09:41:45.325Z",
+      "event": "slice fixing",
+      "detail": "Instant pause, Stop now, fresh resume (round 1): stop message tied to aborted turn id; null-safe handoff; real fan-out isolation test"
+    },
+    {
+      "at": "2026-10-21T09:43:20.046Z",
+      "event": "slice merging",
+      "detail": "Instant pause, Stop now, fresh resume"
+    },
+    {
+      "at": "2026-10-21T09:43:46.170Z",
+      "event": "slice done",
+      "detail": "Instant pause, Stop now, fresh resume"
+    },
+    {
+      "at": "2026-10-21T09:43:46.982Z",
+      "event": "slice started",
+      "detail": "Live pane and status line"
+    },
+    {
+      "at": "2026-10-21T09:55:31.928Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/mod/pause.ts"
+    },
+    {
+      "at": "2026-10-21T10:06:38.301Z",
+      "event": "slice reviewing",
+      "detail": "Live pane and status line"
+    },
+    {
+      "at": "2026-10-21T10:08:30.038Z",
+      "event": "slice merging",
+      "detail": "Live pane and status line"
+    },
+    {
+      "at": "2026-10-21T10:08:58.389Z",
+      "event": "slice done",
+      "detail": "Live pane and status line"
+    },
+    {
+      "at": "2026-10-21T10:11:42.101Z",
+      "event": "re-plan loaded",
+      "detail": "18 slices"
+    },
+    {
+      "at": "2026-10-21T10:12:11.758Z",
+      "event": "plan approved",
+      "detail": "agent"
+    },
+    {
+      "at": "2026-10-21T10:12:11.879Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T10:12:12.001Z",
+      "event": "drift reviewed",
+      "detail": "plugins/cairn/hooks/mod/pause.ts"
+    },
+    {
+      "at": "2026-10-21T10:12:12.073Z",
+      "event": "phase approved",
+      "detail": "Pane, pause, resume, verdict"
+    },
+    {
+      "at": "2026-10-21T10:12:18.718Z",
+      "event": "slice started",
+      "detail": "Direction check procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:12:19.190Z",
+      "event": "slice started",
+      "detail": "Fix track in the CLI"
+    },
+    {
+      "at": "2026-10-21T10:12:19.626Z",
+      "event": "slice started",
+      "detail": "Stop now records the pause; pause shows the clear tip"
+    },
+    {
+      "at": "2026-10-21T10:14:58.951Z",
+      "event": "slice merging",
+      "detail": "Stop now records the pause; pause shows the clear tip"
+    },
+    {
+      "at": "2026-10-21T10:15:27.330Z",
+      "event": "slice done",
+      "detail": "Stop now records the pause; pause shows the clear tip"
+    },
+    {
+      "at": "2026-10-21T10:15:44.939Z",
+      "event": "slice started",
+      "detail": "Fix procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:16:02.601Z",
+      "event": "slice reviewing",
+      "detail": "Direction check procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:17:46.331Z",
+      "event": "slice fixing",
+      "detail": "Direction check procedure and command (round 1): unverified rows, missing refusals, example block parsed in test"
+    },
+    {
+      "at": "2026-10-21T10:18:18.525Z",
+      "event": "slice fixing",
+      "detail": "Fix procedure and command (round 1): review inputs for fix track; blocking-finding loop pending fix-cli"
+    },
+    {
+      "at": "2026-10-21T10:18:29.202Z",
+      "event": "slice merging",
+      "detail": "Direction check procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:18:57.693Z",
+      "event": "slice done",
+      "detail": "Direction check procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:19:46.808Z",
+      "event": "slice merging",
+      "detail": "Fix procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:20:14.129Z",
+      "event": "slice done",
+      "detail": "Fix procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:30:11.587Z",
+      "event": "slice reviewing",
+      "detail": "Fix track in the CLI"
+    },
+    {
+      "at": "2026-10-21T10:33:09.681Z",
+      "event": "slice fixing",
+      "detail": "Fix track in the CLI (round 1): config lock skipped under --override before proof; minors"
+    },
+    {
+      "at": "2026-10-21T10:38:44.975Z",
+      "event": "slice merging",
+      "detail": "Fix track in the CLI"
+    },
+    {
+      "at": "2026-10-21T10:39:14.918Z",
+      "event": "slice done",
+      "detail": "Fix track in the CLI"
+    },
+    {
+      "at": "2026-10-21T10:39:15.665Z",
+      "event": "slice started",
+      "detail": "Find and fix the flaky git invalid-object test failure"
+    },
+    {
+      "at": "2026-10-21T11:05:14.406Z",
+      "event": "re-plan loaded",
+      "detail": "18 slices"
+    },
+    {
+      "at": "2026-10-21T11:09:20.221Z",
+      "event": "plan approved",
+      "detail": "agent"
+    },
+    {
+      "at": "2026-10-21T11:09:20.355Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T11:19:25.422Z",
+      "event": "direction yellow",
+      "detail": "Drift check and fast lane"
+    },
+    {
+      "at": "2026-10-21T11:19:35.455Z",
+      "event": "phase approved",
+      "detail": "Drift check and fast lane (source: mod)"
+    },
+    {
+      "at": "2026-10-21T11:20:53.617Z",
+      "event": "re-plan loaded",
+      "detail": "19 slices"
+    },
+    {
+      "at": "2026-10-21T11:21:18.161Z",
+      "event": "plan approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T11:21:20.649Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T11:21:45.549Z",
+      "event": "slice started",
+      "detail": "Pause placeholder, pane repro label, guard false positives"
+    },
+    {
+      "at": "2026-10-21T11:26:18.763Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/NOTES.md"
+    },
+    {
+      "at": "2026-10-21T11:27:45.713Z",
+      "event": "slice fixing",
+      "detail": "Pause placeholder, pane repro label, guard false positives (round 1): keep scanning double-quoted backticks"
+    },
+    {
+      "at": "2026-10-21T11:29:08.706Z",
+      "event": "slice merging",
+      "detail": "Pause placeholder, pane repro label, guard false positives"
+    },
+    {
+      "at": "2026-10-21T11:29:38.877Z",
+      "event": "slice done",
+      "detail": "Pause placeholder, pane repro label, guard false positives"
+    },
+    {
+      "at": "2026-10-21T11:41:08.684Z",
+      "event": "slice merging",
+      "detail": "Find and fix the flaky git invalid-object test failure: root cause: detached git maintenance after every commit"
+    },
+    {
+      "at": "2026-10-21T11:43:23.117Z",
+      "event": "override: slice done",
+      "detail": "sdlc-slice/cairn-v0-2/test-flake has no commits since the slice started (source: mod)",
+      "override": "user chose Override in the menu because the re-plan dropped the slice base commit which the cli-polish slice fixes"
+    },
+    {
+      "at": "2026-10-21T11:43:23.118Z",
+      "event": "slice done",
+      "detail": "Find and fix the flaky git invalid-object test failure"
+    },
+    {
+      "at": "2026-10-21T11:43:32.064Z",
+      "event": "slice started",
+      "detail": "Unlocked orchestrator and documented formats"
+    },
+    {
+      "at": "2026-10-21T11:43:32.559Z",
+      "event": "slice started",
+      "detail": "Named pre-approved cairn commands"
+    },
+    {
+      "at": "2026-10-21T11:44:07.696Z",
+      "event": "slice started",
+      "detail": "Decisions and notes from files"
+    },
+    {
+      "at": "2026-10-21T11:46:16.941Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/templates.test.ts"
+    },
+    {
+      "at": "2026-10-21T11:47:01.861Z",
+      "event": "slice merging",
+      "detail": "Decisions and notes from files"
+    },
+    {
+      "at": "2026-10-21T11:47:29.998Z",
+      "event": "slice done",
+      "detail": "Decisions and notes from files"
+    },
+    {
+      "at": "2026-10-21T11:47:30.706Z",
+      "event": "slice started",
+      "detail": "Test summary, approval sources, strict ids, prefactor slices"
+    },
+    {
+      "at": "2026-10-21T11:47:56.681Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/fix-procedure.test.ts"
+    },
+    {
+      "at": "2026-10-21T11:48:48.882Z",
+      "event": "slice merging",
+      "detail": "Named pre-approved cairn commands"
+    },
+    {
+      "at": "2026-10-21T11:49:18.966Z",
+      "event": "slice done",
+      "detail": "Named pre-approved cairn commands"
+    },
+    {
+      "at": "2026-10-21T11:49:24.367Z",
+      "event": "slice merging",
+      "detail": "Unlocked orchestrator and documented formats"
+    },
+    {
+      "at": "2026-10-21T11:49:54.431Z",
+      "event": "slice done",
+      "detail": "Unlocked orchestrator and documented formats"
+    },
+    {
+      "at": "2026-10-21T11:52:41.370Z",
+      "event": "slice reviewing",
+      "detail": "Test summary, approval sources, strict ids, prefactor slices"
+    },
+    {
+      "at": "2026-10-21T11:53:55.464Z",
+      "event": "slice merging",
+      "detail": "Test summary, approval sources, strict ids, prefactor slices"
+    },
+    {
+      "at": "2026-10-21T11:54:23.852Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/src/commands/fix.ts"
+    },
+    {
+      "at": "2026-10-21T11:54:23.852Z",
+      "event": "slice done",
+      "detail": "Test summary, approval sources, strict ids, prefactor slices"
+    },
+    {
+      "at": "2026-10-21T11:56:56.356Z",
+      "event": "direction yellow",
+      "detail": "Dogfood fixes"
+    },
+    {
+      "at": "2026-10-21T11:57:13.314Z",
+      "event": "drift reviewed",
+      "detail": "plugins/cairn/hooks/NOTES.md, plugins/cairn/cli/test/templates.test.ts, plugins/cairn/cli/test/fix-procedure.test.ts, plugins/cairn/cli/src/commands/fix.ts"
+    },
+    {
+      "at": "2026-10-21T11:58:27.968Z",
+      "event": "phase approved",
+      "detail": "Dogfood fixes (source: mod)"
+    },
+    {
+      "at": "2026-10-21T11:58:27.969Z",
+      "event": "advanced",
+      "detail": "verify"
+    },
+    {
+      "at": "2026-10-21T11:59:25.044Z",
+      "event": "verify pass",
+      "detail": "typecheck clean, 151 CLI tests and mod tests pass, validate passes; live: mod approvals, mod-run override, and pane all exercised during the build"
+    },
+    {
+      "at": "2026-10-21T11:59:25.191Z",
+      "event": "advanced",
+      "detail": "review"
+    },
+    {
+      "at": "2026-10-21T12:41:15.805Z",
+      "event": "review pass",
+      "detail": "whole-branch review: 2 blocking found and fixed in 4ab58d8; 152 CLI and 304 mod tests pass"
+    },
+    {
+      "at": "2026-10-21T12:41:15.918Z",
+      "event": "advanced",
+      "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T12:41:28.372Z",
+      "event": "ship approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T12:41:35.653Z",
+      "event": "advanced",
+      "detail": "learn"
+    },
+    {
+      "at": "2026-10-21T12:42:04.830Z",
+      "event": "closed"
+    }
+  ],
+  "planHash": "cc54213ff13f0bd3",
+  "configHash": "12129909968d47d2"
+}

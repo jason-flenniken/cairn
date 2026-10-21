@@ -49,16 +49,20 @@ Phase 2: Checkout
   - Checkout form (standard)     blocked by: Cart API
 ```
 
-Ask with AskUserQuestion, with the tree as the preview on the first option:
-- Approve (Recommended)
-- Revise: ask what to change; edit `plan.md`; rerun step 4
-- Pause: go to the pause procedure
+Run `cairn status --json` and read `modActive`.
+- True: ask with AskUserQuestion, with the tree as the preview on the first option. The question text includes `[cairn:approve plan <slug>]`, with the plan slug from the status output:
+  - Approve (Recommended)
+  - Revise: ask what to change; edit `plan.md`; rerun step 4
+  - Pause: go to the pause procedure
+- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve plan --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
 Do not approve on the user's behalf.
 
-**Done when:** the user chose Approve.
+**Done when:** the user chose Approve, or said the terminal approval ran.
 
-## 6. Approve and advance
-Run `cairn approve plan`. If refused because `plan.md` changed since loading, rerun `cairn plan load`. Then run `cairn advance`.
+## 6. Confirm and advance
+Run `cairn status --json` and check that the plan approval is recorded. If it is not, say what the menu outcome or the terminal output reported. If `plan.md` changed since loading, rerun `cairn plan load` and return to step 5.
+
+Once the approval is recorded, run `cairn advance`.
 
 **Done when:** the stage is `execute`. Then run `cairn next --json` and follow the procedure it names.

@@ -1,5 +1,7 @@
+import './no-auto-gc.ts';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -19,8 +21,28 @@ const write = (p: string, s: string) => {
 const ok = (cwd: string, ...argv: string[]) => run(argv, cwd);
 const refused = (cwd: string, pattern: RegExp, ...argv: string[]) =>
   assert.throws(() => run(argv, cwd), (e: unknown) => e instanceof Refusal && pattern.test(e.message));
+/** Act as the user through the mod: write the hash of a fresh mod secret and pass the secret in CAIRN_APPROVER, as the mod does. */
+function asUser<T>(fn: () => T): T {
+  const secret = randomBytes(16).toString('hex');
+  mkdirSync(join(repo, '.git/cairn'), { recursive: true });
+  writeFileSync(join(repo, '.git/cairn/mod-secret.sha256'), createHash('sha256').update(secret).digest('hex'), { mode: 0o600 });
+  process.env.CAIRN_APPROVER = secret;
+  try {
+    return fn();
+  } finally {
+    delete process.env.CAIRN_APPROVER;
+  }
+}
+const byUser = (cwd: string, ...argv: string[]) => asUser(() => ok(cwd, ...argv));
+const refusedByUser = (cwd: string, pattern: RegExp, ...argv: string[]) => asUser(() => refused(cwd, pattern, ...argv));
 const state = () => JSON.parse(readFileSync(join(wt, 'docs/sdlc/plans/billing/state.json'), 'utf8'));
 const ctxOf = (out: string) => (out ? JSON.parse(out).hookSpecificOutput.additionalContext : '');
+/** Record a green direction verdict for the phase that is waiting for approval. */
+const greenVerdict = (cwd: string, dir: string, phaseId: string, reqs: string[]) => {
+  const rows = reqs.map((id) => ({ id, verdict: 'aligned', evidence: 'src/x.ts:1' }));
+  write(join(dir, `direction/${phaseId}.md`), `# Direction\n\n\`\`\`yaml cairn-direction\n${JSON.stringify({ requirements: rows })}\n\`\`\`\n`);
+  ok(cwd, 'evidence', 'phase');
+};
 const planDir = () => join(wt, 'docs/sdlc/plans/billing');
 
 const PRD = `# Billing PRD
@@ -105,12 +127,12 @@ test('full lifecycle with every checkpoint', () => {
   assert.equal(state().stage, 'prd');
 
   // prd approval gates
-  refused(wt, /prd\.md does not exist/, 'approve', 'prd');
+  refusedByUser(wt, /prd\.md does not exist/, 'approve', 'prd');
   write(join(planDir(), 'prd.md'), PRD);
-  refused(wt, /open question/, 'approve', 'prd');
+  refusedByUser(wt, /open question/, 'approve', 'prd');
   refused(wt, /not approved/, 'advance');
   write(join(planDir(), 'prd.md'), PRD.replace('- [ ] which', '- [x] which'));
-  ok(wt, 'approve', 'prd');
+  byUser(wt, 'approve', 'prd');
   ok(wt, 'advance');
   assert.equal(state().stage, 'plan');
 
@@ -120,9 +142,9 @@ test('full lifecycle with every checkpoint', () => {
   write(join(planDir(), 'plan.md'), PLAN);
   ok(wt, 'plan', 'load');
   write(join(planDir(), 'plan.md'), PLAN + '\nedit\n');
-  refused(wt, /changed since it was loaded/, 'approve', 'plan');
+  refusedByUser(wt, /changed since it was loaded/, 'approve', 'plan');
   ok(wt, 'plan', 'load');
-  ok(wt, 'approve', 'plan');
+  byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   assert.equal(state().stage, 'execute');
 
@@ -173,9 +195,10 @@ test('full lifecycle with every checkpoint', () => {
   assert.equal(state().phases[0].status, 'awaiting_approval');
 
   // phase approval requires drift review
-  refused(wt, /drift not reviewed/, 'approve', 'phase');
+  refusedByUser(wt, /drift not reviewed/, 'approve', 'phase');
   ok(wt, 'drift', 'ack', '--all', '--note', 'reverted');
-  ok(wt, 'approve', 'phase');
+  greenVerdict(wt, planDir(), 'core', ['FR-01', 'FR-02']);
+  byUser(wt, 'approve', 'phase');
   assert.equal(state().phases[1].status, 'in_progress');
 
   // pause / resume
@@ -204,7 +227,8 @@ test('full lifecycle with every checkpoint', () => {
   g(receiptWt, 'commit', '-q', '-m', 'receipt');
   g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'sdlc-slice/billing/receipt');
   ok(wt, 'slice', 'done', 'receipt');
-  ok(wt, 'approve', 'phase');
+  greenVerdict(wt, planDir(), 'extras', ['FR-03']);
+  byUser(wt, 'approve', 'phase');
   assert.equal(state().stage, 'verify');
 
   // verify -> review -> ship -> learn -> closed
@@ -214,9 +238,9 @@ test('full lifecycle with every checkpoint', () => {
   refused(wt, /blocking/, 'evidence', 'review', 'pass', '--blocking', '2');
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
   ok(wt, 'advance');
-  refused(wt, /RECORD\.md does not exist/, 'approve', 'ship');
+  refusedByUser(wt, /RECORD\.md does not exist/, 'approve', 'ship');
   write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Evidence\ne\n## Deviations\nnone\n## Follow-ups\nnone\n');
-  ok(wt, 'approve', 'ship');
+  byUser(wt, 'approve', 'ship');
   ok(wt, 'advance');
   ok(wt, 'close');
   assert.equal(state().stage, 'closed');
@@ -231,7 +255,7 @@ test('full lifecycle with every checkpoint', () => {
 test('override lets a refused step through and logs the reason', () => {
   const r = ok(repo, 'new', 'spike', '--title', 'Spike');
   const swt = r.data!.worktree as string;
-  ok(swt, 'advance', '--override', 'user wants to skip the interview');
+  byUser(swt, 'advance', '--override', 'user wants to skip the interview');
   const s = JSON.parse(readFileSync(join(swt, 'docs/sdlc/plans/spike/state.json'), 'utf8'));
   assert.equal(s.stage, 'prd');
   assert.ok(s.log.some((l: { override?: string }) => l.override === 'user wants to skip the interview'));
@@ -251,12 +275,12 @@ test('re-plan from verify adds fix slices, keeps progress, and re-runs verificat
   ok(fwt, 'decide', 'q', 'a');
   ok(fwt, 'advance');
   write(join(dir, 'prd.md'), PRD.replace('- [ ] which', '- [x] which').replace('- FR-02 refund\n- FR-03 receipt\n', ''));
-  ok(fwt, 'approve', 'prd');
+  byUser(fwt, 'approve', 'prd');
   ok(fwt, 'advance');
   const one = (extra = '') => PLAN.replace(/  - id: core[\s\S]*```/, `  - id: core\n    name: Core\n    slices:\n      - { id: charge, name: Charge, covers: [FR-01], scope: ["src/charge/**"] }\n${extra}\`\`\``);
   write(join(dir, 'plan.md'), one());
   ok(fwt, 'plan', 'load');
-  ok(fwt, 'approve', 'plan');
+  byUser(fwt, 'approve', 'plan');
   ok(fwt, 'advance');
   const swt = ok(fwt, 'slice', 'start', 'charge').data!.worktree as string;
   write(join(swt, 'src/charge/a.ts'), '1\n');
@@ -264,7 +288,8 @@ test('re-plan from verify adds fix slices, keeps progress, and re-runs verificat
   g(swt, 'commit', '-q', '-m', 'c');
   g(fwt, 'merge', '-q', '--no-ff', '-m', 'm', 'sdlc-slice/fixes/charge');
   ok(fwt, 'slice', 'done', 'charge');
-  ok(fwt, 'approve', 'phase');
+  greenVerdict(fwt, dir, 'core', ['FR-01']);
+  byUser(fwt, 'approve', 'phase');
   ok(fwt, 'evidence', 'verify', 'fail', '--note', 'double charge');
   refused(fwt, /re-plan/, 'plan', 'load');
   write(join(dir, 'plan.md'), one('  - id: hardening\n    name: Hardening\n    slices:\n      - { id: idempotency, name: Idempotency, covers: [FR-01], scope: ["src/charge/idem/**"] }\n'));
@@ -276,7 +301,7 @@ test('re-plan from verify adds fix slices, keeps progress, and re-runs verificat
   assert.equal(s.phases[0].status, 'done');
   assert.equal(s.phases[0].slices[0].status, 'done');
   assert.equal(s.phases[1].status, 'pending');
-  ok(fwt, 'approve', 'plan');
+  byUser(fwt, 'approve', 'plan');
   ok(fwt, 'advance');
   assert.deepEqual((ok(fwt, 'ready').data!.ready as { id: string }[]).map((x) => x.id), ['idempotency']);
 });

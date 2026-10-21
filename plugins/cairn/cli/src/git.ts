@@ -1,14 +1,21 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { CliError } from './util.ts';
 
+/**
+ * Git forks `maintenance run --auto --detach` after commit, merge and similar commands. That
+ * background process can repack or prune while the CLI's next git command runs in the same
+ * repo, so every CLI git call turns auto maintenance off. The user's own git commands are unaffected.
+ */
+const NO_AUTO_MAINTENANCE = ['-c', 'gc.auto=0', '-c', 'maintenance.auto=false'];
+
 export function git(args: string[], cwd: string): string {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  const r = spawnSync('git', [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: 'utf8' });
   if (r.status !== 0) throw new CliError(`git ${args.join(' ')} failed: ${(r.stderr || r.stdout).trim()}`);
   return r.stdout.trim();
 }
 
 export function gitOk(args: string[], cwd: string): boolean {
-  return spawnSync('git', args, { cwd, encoding: 'utf8' }).status === 0;
+  return spawnSync('git', [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: 'utf8' }).status === 0;
 }
 
 export interface Worktree {
