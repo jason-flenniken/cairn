@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T12:41:15.918Z",
+  "updated": "2026-10-21T12:41:28.372Z",
   "stage": "ship",
   "paused": null,
   "approvals": {
@@ -21,6 +21,11 @@
       "via": "human",
       "source": "mod",
       "hash": "cc54213ff13f0bd3"
+    },
+    "ship": {
+      "at": "2026-10-21T12:41:28.371Z",
+      "via": "human",
+      "source": "mod"
     }
   },
   "phases": [
@@ -1255,6 +1260,11 @@
       "at": "2026-10-21T12:41:15.918Z",
       "event": "advanced",
       "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T12:41:28.372Z",
+      "event": "ship approved",
+      "detail": "mod"
     }
   ],
   "planHash": "cc54213ff13f0bd3",

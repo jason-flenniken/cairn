@@ -49,6 +49,7 @@ In cairn v0.1 the model relayed approvals itself, and plan state was visible onl
 - The Bash guard denies writes, assignments, and access to `.git/cairn`, not every mention of those words. That was your choice after the broad rule blocked normal work.
 - "Start clean" is a follow-up after the phase approval, not a menu option (FR-30).
 - Two overrides were needed for the re-plan bug, before the CLI cleanup slice fixed it.
+- The final review found two blocking bugs. The mod couldn't find the plan from the repo root, and the printed terminal approval command couldn't run. Both were fixed in one commit on the plan branch (`4ab58d8`), outside a tracked slice, at your request.
 - During dogfooding the installed marketplace points at the plan worktree. It goes back to main at ship.
 
 ## Follow-ups
