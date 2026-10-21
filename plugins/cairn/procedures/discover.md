@@ -73,6 +73,8 @@ Out of scope: <what we will not do>
 
 Ask "Is this right?" with AskUserQuestion: Yes, or fix a line. Record the card with `cairn decide "Read-back" "<the card>" --why "confirmed by the user"` only after an explicit yes. A fix means update the card and ask again. Silence or "sure, whatever" is not a yes.
 
+After two revisions with no explicit yes, say plainly that something foundational seems to be missing, and ask with AskUserQuestion whether to step back: Step back to the goal questions (Recommended), Keep refining the card, or Pause.
+
 Stop interviewing when you can predict the user's next three answers. If you cannot, ask the question you could not predict before showing the card.
 
 **Done when:** the card is recorded as the last decision, after an explicit yes.

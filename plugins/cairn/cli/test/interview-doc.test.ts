@@ -37,6 +37,9 @@ test('discover.md ends with a read-back card recorded only after an explicit yes
   assert.match(src, /only after an explicit yes/);
   assert.match(src, /predict the user's next three answers/);
   assert.ok(src.indexOf('Read-back card') < src.indexOf('Advance'));
+  const step7 = src.slice(src.indexOf('## 7. Read-back card'), src.indexOf('## 8.'));
+  assert.match(step7, /two revisions/);
+  assert.match(step7, /step back/);
 });
 
 test('discover.md keeps the follow-up step and drops the old completeness wording', () => {
