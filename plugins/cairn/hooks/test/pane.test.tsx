@@ -305,6 +305,13 @@ describe('status line (FR-11)', () => {
     expect(w.statuses.at(-1)).toMatch(/^Acme Storefront \(shop\): /)
   })
 
+  test('a plan kept in the main checkout does not claim the other plans\' worktrees under it', async ($, on) => {
+    const rows = [row(plan({ slug: 'inplace', title: 'In Place' }), MAIN), row(plan(), WT)]
+    const { w } = world(on, { rows })
+    await start($, WT)
+    expect(w.statuses.at(-1)).toMatch(/^Acme Storefront \(shop\): /)
+  })
+
   test('on main with two active plans it shows "2 active plans"', async ($, on) => {
     const { w } = world(on, {
       cwd: MAIN,
@@ -449,7 +456,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
     await clock.settle()
-    expect(w.asked).toEqual([{ question: 'Approve the phase stop of plan shop?', options: ['Approve', 'Cancel'] }])
+    expect(w.asked).toEqual([{ question: 'Approve the phase stop of plan shop?', options: ['Cancel', 'Approve'] }])
     expect(ran('approve')).toEqual([['approve', 'phase']])
     expect(w.secrets).toHaveLength(1)
     expect(w.toasts.join('\n')).toMatch(/phase approved/)

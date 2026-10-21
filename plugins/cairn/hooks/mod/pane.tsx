@@ -66,9 +66,18 @@ function summary(s: CairnPlanState): string {
 
 const isUnder = (cwd: string, dir: string | undefined) => !!dir && (cwd === dir || cwd.startsWith(`${dir}/`))
 
-/** The plan whose worktree, or one of whose slice worktrees, holds the session. */
+/**
+ * The plan whose worktree, or one of whose slice worktrees, holds the session: the deepest match, since a
+ * plan kept in the main checkout holds every other plan's worktree under it.
+ */
 function hereSlug(plans: CairnPlanRow[], cwd: string): string | undefined {
-  return plans.find(r => isUnder(cwd, r.worktree) || slicesOf(r.state).some(x => isUnder(cwd, x.worktree)))?.state.slug
+  let best: { slug: string; depth: number } | undefined
+  for (const r of plans) {
+    for (const dir of [r.worktree, ...slicesOf(r.state).map(x => x.worktree)]) {
+      if (isUnder(cwd, dir) && (best === undefined || dir!.length > best.depth)) best = { slug: r.state.slug, depth: dir!.length }
+    }
+  }
+  return best?.slug
 }
 
 const stateFile = (r: CairnPlanRow) => `${r.worktree}/docs/sdlc/plans/${r.state.slug}/state.json`
@@ -165,11 +174,15 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
   if (v?.here !== undefined) await openPane($)
 }
 
+const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${kind} stop of plan ${slug}?`
+
 /** Confirms with fixed wording, then approves through the shared secret path (FR-05). */
 async function confirmAndApprove($: EngineInterface, slug: string, kind: Kind): Promise<string> {
   // The slug is the only plan text in the question, and only when it is a plain slug: no tag can ride in.
   if (!SLUG.test(slug)) return 'cairn: the plan name is not a plain slug, so nothing was approved.'
-  const answer = await $.ui.ask(`Approve the ${kind} stop of plan ${slug}?`, [APPROVE, 'Cancel']).catch(() => undefined)
+  // $.ui.ask answers only a label, so a dialog that answered itself while the user was away can't be told
+  // apart here. Cancel comes first, so a dialog that takes its first option approves nothing.
+  const answer = await $.ui.ask(confirmQuestion(kind, slug), ['Cancel', APPROVE]).catch(() => undefined)
   if (answer !== APPROVE) return 'cairn: not approved; nothing was recorded.'
   return approveAs($, slug, kind)
 }
