@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "slug": "roomier-pane-visuals",
+  "title": "Roomier pane visuals",
+  "track": "feature",
+  "branch": "feature/roomier-pane-visuals",
+  "base": "main",
+  "created": "2026-10-21T20:32:04.977Z",
+  "updated": "2026-10-21T20:32:04.977Z",
+  "stage": "discover",
+  "paused": null,
+  "approvals": {},
+  "phases": [],
+  "evidence": {},
+  "drift": [],
+  "log": [
+    {
+      "at": "2026-10-21T20:32:04.977Z",
+      "event": "created"
+    }
+  ]
+}
