@@ -53,6 +53,7 @@ function world(on: On, init: WorldInit = {}) {
     answer: 'answer' in init ? init.answer : 'Approve',
     branchGone: init.branchGone ?? false,
     raw: undefined as string | undefined,
+    records: undefined as unknown[] | undefined,
     mtimes: new Map<string, number>([[STATE, 1]]),
     runs: [] as string[][],
     toasts: [] as string[],
@@ -78,6 +79,7 @@ function world(on: On, init: WorldInit = {}) {
     if (args.join(' ') === 'status --all --json') {
       return answer(0, w.raw ?? JSON.stringify({ ok: true, message: '', plans: w.rows, modActive: true }))
     }
+    if (args.join(' ') === 'records --json') return answer(0, JSON.stringify({ ok: true, records: w.records ?? [] }))
     if (args.join(' ') === 'status --json') {
       const here = w.rows.find(r => r.worktree === w.cwd)
       return here === undefined
@@ -868,7 +870,7 @@ describe('tabs and the Now view (FR-01..FR-06, FR-19)', () => {
     expect(await drawn(ui)).not.toContain('History is coming')
     expect(await drawn(ui)).not.toContain('Main session')
     await ui.press({ key: 'tab:records' })
-    expect(await drawn(ui)).toContain('Records is coming')
+    expect(await drawn(ui)).toContain('No finished plans yet.')
     await ui.press({ key: 'tab:now' })
     expect(await drawn(ui)).toContain('Main session')
     await ui.unmount()
@@ -943,5 +945,73 @@ describe('tabs and the Now view (FR-01..FR-06, FR-19)', () => {
     expect(await drawn(ui)).not.toMatch(/Waiting on you/i)
     expect(await cardKeys(ui)).not.toContain('approval')
     await ui.unmount()
+  })
+})
+
+describe('Records tab (FR-08, FR-09)', () => {
+  const rec = (slug: string, date: string, over: Record<string, unknown> = {}) => ({
+    slug, title: `Plan ${slug}`, date, stage: 'closed', why: `why ${slug}`, record: `/repo/docs/sdlc/plans/${slug}/RECORD.md`, followUps: [], ...over,
+  })
+
+  test('lists the plans as given, in progress first, each with date, name and why; none before a press', async ($, on) => {
+    const { w, statusReads, ran } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('live', '2026-10-21', { stage: 'execute', record: undefined }), rec('newer', '2026-10-20'), rec('older', '2026-09-03')]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect(ran('records')).toEqual([])
+    await ui.press({ key: 'tab:records' })
+    expect(ran('records')).toHaveLength(1)
+    const text = await drawn(ui)
+    expect(text.indexOf('In progress · Plan live')).toBeGreaterThanOrEqual(0)
+    expect(text.indexOf('In progress · Plan live')).toBeLessThan(text.indexOf('Oct 20 · Plan newer'))
+    expect(text.indexOf('Oct 20 · Plan newer')).toBeLessThan(text.indexOf('Sep 3 · Plan older'))
+    expect(text).toContain('why older')
+    expect(statusReads()).toBeGreaterThan(0)
+    await ui.unmount()
+  })
+
+  test('with no records it says so', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    expect(await drawn(ui)).toContain('No finished plans yet.')
+    await ui.unmount()
+  })
+
+  test('opening a record shows its text and open follow-ups; Back returns to the list', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20', { followUps: [{ text: 'tidy the cache', area: 'quality', status: 'open' }, { text: 'old thing', area: 'docs', status: 'done' }] }), rec('b', '2026-09-03')]
+    w.files.set('/repo/docs/sdlc/plans/a/RECORD.md', '# Record A\n\nit shipped')
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    await ui.press({ key: 'record:a' })
+    const md = (await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text)
+    expect(md[0]).toBe('# Record A\n\nit shipped')
+    expect(md[1]).toContain('tidy the cache')
+    expect(md[1]).not.toContain('old thing')
+    await ui.press({ key: 'back' })
+    expect(await drawn(ui)).toContain('Plan b')
+    expect(await ui.findAll({ type: 'Markdown' })).toHaveLength(0)
+    await ui.unmount()
+  })
+
+  test('a closed plan without a record says so', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('gone', '2026-10-20', { record: undefined })]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    await ui.press({ key: 'record:gone' })
+    expect(await drawn(ui)).toContain('No record for this plan.')
+    await ui.unmount()
+  })
+
+  test('a dated plan folder is watched through dir', async ($, on) => {
+    const { w } = world(on, { rows: [{ ...row(EXECUTE, WT), dir: `${WT}/docs/sdlc/plans/2026-10-21-shop` } as Row] })
+    w.mtimes.set(`${WT}/docs/sdlc/plans/2026-10-21-shop/state.json`, 1)
+    await start($, WT)
+    expect(w.runs.filter(a => a[0] === 'status')).toHaveLength(1)
   })
 })

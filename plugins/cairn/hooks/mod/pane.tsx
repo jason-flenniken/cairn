@@ -2,7 +2,7 @@
 // state files and re-reads `cairn status --all --json` only when one changed (NFR-01).
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, SessionStartInput, Timer } from 'claude-code'
-import type { CairnPlanRow, CairnPlanState, CairnView } from '../../types/index.d.ts'
+import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
 import { etaMs, fmtDuration, LINGER_MS, readAgents, readFeed, readMain, readTick, type EtaTask } from './activity.ts'
 import { approveAs, type Kind } from './approve.ts'
 import { cairn } from './cli.ts'
@@ -20,6 +20,9 @@ const isTurnRunning = atom({ plugin: 'cairn', key: 'isTurnRunning' } as const, f
 const readAllOf = atom({ plugin: 'cairn', key: 'readAllOf' } as const, null as string | null)
 // The tab showing; the pane opens on Now.
 const tab = atom({ plugin: 'cairn', key: 'tab' } as const, 'now' as 'now' | 'history' | 'records')
+// Records tab: the last `cairn records --json` (null until read) and the plan whose record is open.
+const records = atom({ plugin: 'cairn', key: 'records' } as const, null as CairnRecord[] | null)
+const openRecord = atom({ plugin: 'cairn', key: 'openRecord' } as const, null as string | null)
 const TABS = [['now', 'Now'], ['history', 'History'], ['records', 'Records']] as const
 
 const PANE = 'cairn'
@@ -79,7 +82,7 @@ function hereSlug(plans: CairnPlanRow[], cwd: string): string | undefined {
   return best?.slug
 }
 
-const stateFile = (r: CairnPlanRow) => `${r.worktree}/docs/sdlc/plans/${r.state.slug}/state.json`
+const stateFile = (r: CairnPlanRow) => `${r.dir ?? `${r.worktree}/docs/sdlc/plans/${r.state.slug}`}/state.json`
 
 // Poll bookkeeping. Nothing here is drawn, and a reload's session.start sets it up again.
 let ticking: Timer | undefined
@@ -93,6 +96,15 @@ async function readPlans($: EngineInterface): Promise<CairnPlanRow[] | undefined
   const r = await cairn($, ['status', '--all', '--json'], quick).catch(() => undefined)
   if (r?.exitCode !== 0 || r.json?.ok !== true || !Array.isArray(r.json.plans)) return undefined
   return list<CairnPlanRow>(r.json.plans).filter(p => typeof p.state?.slug === 'string')
+}
+
+/** Reads `cairn records --json` into the Records tab; a failed read keeps what was there. */
+async function fetchRecords($: EngineInterface): Promise<void> {
+  const r = await cairn($, ['records', '--json'], quick).catch(() => undefined)
+  const body = r?.json as { records?: unknown } | undefined
+  if (r?.exitCode !== 0 || !Array.isArray(body?.records)) return
+  const found = list<CairnRecord>(body.records).filter(x => typeof x.slug === 'string')
+  await update($, records, () => found)
 }
 
 /** The files whose modification times say a plan changed: live state files, plan branches, worktrees. */
@@ -157,6 +169,7 @@ async function refresh($: EngineInterface): Promise<boolean> {
     : { plans, here: pickCurrent(plans)?.state.slug, isFallback: true }
   await update($, view, () => next)
   await showStatus($, next)
+  if ((await read($, tab)) === 'records') await fetchRecords($)
   return true
 }
 
@@ -266,6 +279,13 @@ const steps = (n: number) => `${n} step${n === 1 ? '' : 's'}`
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+/** "Oct 21" for a record's YYYY-MM-DD date; the text itself when it is not one. */
+const dateText = (date: string) => {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(date)
+  const month = m === null ? undefined : MONTHS[Number(m[1]) - 1]
+  return m === null || month === undefined ? date : `${month} ${Number(m[2])}`
+}
+
 /** "14:05" for an event today, "Oct 20 14:05" for one from any earlier day. */
 const stampOf = (ms: number, nowMs: number) => {
   const d = new Date(ms)
@@ -311,6 +331,7 @@ export function install(on: On): void {
     const v = await read($, view)
     const isRunning = await read($, isTurnRunning)
     const shownTab = await read($, tab)
+    const openedRecord = await read($, openRecord)
     await readTick($)
     const t = await $.clock.now()
     const isInline = e.props.placement === 'inline'
@@ -439,16 +460,45 @@ export function install(on: On): void {
     const tabs = (
       <Box key="tabs" flexDirection="row" gap={1}>
         {TABS.map(([id, name]) => (
-          <Button key={`tab:${id}`} label={name} variant={shownTab === id ? 'primary' : undefined} onPress={() => act($, () => update($, tab, () => id))} />
+          <Button key={`tab:${id}`} label={name} variant={shownTab === id ? 'primary' : undefined} onPress={() => act($, async () => {
+            await update($, tab, () => id)
+            if (id === 'records') await fetchRecords($)
+          })} />
         ))}
       </Box>
     )
 
     if (!isInline && shownTab === 'records') {
+      const all = await read($, records)
+      const shown = all?.find(x => x.slug === openedRecord)
+      if (shown !== undefined) {
+        const text = shown.record === undefined ? '' : await $.fs.read(shown.record).catch((err: unknown) => `Could not read ${shown.record}: ${message(err)}`)
+        const open = shown.followUps.filter(f => f.status === 'open')
+        return (
+          <Box flexDirection="column">
+            {tabs}
+            <Button key="back" label="Back" onPress={() => act($, () => update($, openRecord, () => null))} />
+            {shown.record === undefined
+              ? <Text key="missing" dimColor>{shown.stage === 'closed' ? 'No record for this plan.' : 'Still in progress: no record yet.'}</Text>
+              : <Markdown key="record" text={text} />}
+            {open.length > 0 && <Markdown key="followups" text={`**Follow-ups**\n\n${open.map(f => `- ${f.text} (${f.area})`).join('\n')}`} />}
+          </Box>
+        )
+      }
       return (
         <Box flexDirection="column">
           {tabs}
-          <Text key="placeholder" dimColor>Records is coming.</Text>
+          {all !== null && all.length === 0 && <Text dimColor>No finished plans yet.</Text>}
+          {(all ?? []).map(x => (
+            <Box key={`record:${x.slug}:row`} flexDirection="column">
+              <Button key={`record:${x.slug}`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
+                <Text wrap="truncate-end">{`${x.stage === 'closed' ? dateText(x.date) : 'In progress'} · ${x.title}`}</Text>
+              </Button>
+              <Button key={`record:${x.slug}:why`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
+                <Text dimColor wrap="truncate-end">{x.why}</Text>
+              </Button>
+            </Box>
+          ))}
         </Box>
       )
     }
