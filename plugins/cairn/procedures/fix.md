@@ -1,6 +1,6 @@
 # Fix
 
-Take one bug from repro to a shipped fix on a fix-track plan: a failing repro, a fix in one task, a review only when the fix is risky, and a short record.
+Take one bug from repro to a shipped fix on a fix-track plan: a failing repro, a fix in one task, a review of every fix, and a short record.
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -33,7 +33,7 @@ Write a failing test or a command that reproduces the bug, in the plan worktree.
 **Done when:** `cairn repro` exited with a non-zero status and the stage is execute.
 
 ## 4. Execute the fix
-Run `cairn advance`. It creates the single task `fix`, with scope `**`. Follow `procedures/execute.md` for that task. The repro is the failing test: the implementer makes it pass and adds a test for the obvious neighbouring failure. When the fix touches auth, money, deleting data, a migration, or a public API, treat the task as risky: test-first with unhappy and security cases.
+Run `cairn advance`. It creates the single task `fix`, with scope `**`. Follow `procedures/execute.md` for that task, except its review: step 6 below reviews the fix once, on the finished branch. Task folders are named from the plan worktree folder: `<plan worktree folder>--fix` under `.claude/worktrees`, and with `--no-worktree` (the plan worktree is the main checkout) `<repo folder>--fix`. The task branch is always `task/<slug>/fix`, including for plans recorded under old branch names. The repro is the failing test: the implementer makes it pass and adds a test for the obvious neighbouring failure. When the fix touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data, treat the task as risky: test-first with unhappy and security cases.
 
 When the implementer or the reviewer names a requirement that the bug report did not state, go to step 5 before merging.
 
@@ -49,39 +49,49 @@ The question names the reason and offers two options: "Escalate to a feature pla
 **Done when:** the user has chosen, and either the plan is escalated or the fix task is back in the loop.
 
 ## 6. Review
-Decide whether the fix is risky (auth, money, deleting data, migrations, public API). If it is not, run the repo's tests and record `cairn evidence review pass --blocking 0 --note "not risky: no review"`, then run `cairn advance`; skip to step 7.
+Every fix is reviewed, risky or not. Dispatch one `task-reviewer` agent (`model: sonnet`, `description` "Review · fix"). Give it only the plugin root path (`${CLAUDE_PLUGIN_ROOT}`), the bug title, the repro command from `state.repro` in `cairn status --json`, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`.
 
-If it is risky, dispatch one `branch-reviewer` agent (`model: sonnet`, `description` "Review · fix"). Give it only the bug title, the repro command from `state.repro` in `cairn status --json`, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`. It returns blocking and non-blocking findings, each with `path:line`. Log each non-blocking one with `cd <plan worktree> && cairn suggest add --area <area> --from branch-review --where <path> --text "<finding>"`.
+When the fix touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data, also dispatch the `security-reviewer` agent in the same message, so both run in parallel (`model: sonnet`, `description` "Review · fix (security)"), with the same brief.
+
+Each reviewer returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI, each with `path:line` and a proposed fix. Route them:
+- Optional and Nit: log each with `cd <plan worktree> && cairn suggest add --area <area> --from task-review --where <path> --text "<finding>"` (`--from security-review` for the security reviewer's).
+- FYI: mention once to the user. Do not log it.
+- Critical and Required: these block the fix.
 
 Record the result with the existing evidence command:
-- No blocking findings: `cairn evidence review pass --blocking 0 --note "<N follow-ups logged>"`.
-- Blocking findings, N of them: `cairn evidence review fail --blocking N --note "<N blocking; A advisory>"`. Tell the user the blocking findings, each with its `path:line`. Then ask with AskUserQuestion, with these options in order:
-  - "Fix in place (Recommended when small)": run `cairn task start fix`. It reopens the fix task from review: the stage returns to execute, the old review result is cleared, and the repro and the task base are kept. Go to step 4 and give the implementer the blocking findings.
+- No Critical or Required findings: `cairn evidence review pass --blocking 0 --note "<N follow-ups logged>"`.
+- Critical or Required findings, N of them: `cairn evidence review fail --blocking N --note "<N blocking; A advisory>"`. Tell the user each one with its `path:line` and proposed fix. Then ask with AskUserQuestion, with these options in order:
+  - "Fix in place (Recommended when small)": run `cairn task start fix`. It reopens the fix task from review: the stage returns to execute, the old review result is cleared, and the repro and the task base are kept. Go to step 4 and give the implementer the findings; the one fix attempt is that reopened task, then review again here, limited to those findings and the fix diff.
   - "Escalate to a feature plan": run `cairn escalate` and stop this procedure.
   - "Hold": stop here; the plan stays at review.
 
-Run `cairn advance` only when there were no blocking findings. It is refused until a pass with zero blocking findings is recorded. 
+Run `cairn advance` only when there were no Critical or Required findings. It is refused until a pass with zero blocking findings is recorded.
 
 **Done when:** `cairn status --json` shows a review pass with `--blocking 0` and the stage is ship.
 
 ## 7. Draft the record
-Write `docs/sdlc/plans/<date>-<slug>/RECORD.md` from `templates/record-fix.md`. Keep the five sections, in that order. Fill Links with the plan path and the PR URL once it exists.
+Write `docs/sdlc/plans/<date>-<slug>/RECORD.md` from `templates/record-fix.md`. Keep the five sections, in that order. Fill Links with the plan path; the PR URL goes in once step 9 opens the PR.
 
 The record is at most 200 words. Count the words with headings and HTML comments left out. Trim until it fits.
 
 **Done when:** `RECORD.md` has the five sections and is at most 200 words.
 
 ## 8. Ship stop
-Show the user the record in about five lines, plus the count of open recommended follow-ups when there are any. Run `cairn status --json` and read `modActive`.
+Show the user the record in about five lines, plus the count of open recommended follow-ups when there are any. Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to step 9. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output. Options:
   - Approve (Recommended): approve the record
   - Revise the record: ask what to change, edit, recheck the word count, and show it again
   - Hold: stop here; the plan stays at ship
 - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve ship --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
-**Done when:** the user chose Approve, or said the terminal approval ran.
+**Done when:** the ship approval is already recorded, or the user chose Approve, or said the terminal approval ran.
 
-## 9. Confirm and advance
-Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu or the terminal reported, and return to step 8. Then run `cairn advance`. It closes the plan; a fix track has no learn stage.
+## 9. Confirm, open the PR, merge, advance
+Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu or the terminal reported, and return to step 8. Then:
+1. Open the PR from the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<bug title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped). Put the PR URL into the record's Links section and commit it on the plan branch.
+2. Merge. `cairn advance` closes a fix plan, and it refuses while the plan branch is not merged into its base. Ask with AskUserQuestion (a plain choice, not an approval):
+   - Merge it now (Recommended): run `gh pr merge <PR URL> --merge`, and say when it is merged. If it fails (checks pending, conflicts, no access), say why and ask again.
+   - I'll merge it: stop and wait for the user to say it is merged.
+3. Once `gh pr view <PR URL> --json state` says `MERGED`, run `cairn advance`. It closes the plan; a fix track has no learn stage.
 
-**Done when:** `cairn advance` exits 0 and `cairn status --json` shows the plan closed.
+**Done when:** the PR is merged, `cairn advance` exits 0, and `cairn status --json` shows the plan closed.
