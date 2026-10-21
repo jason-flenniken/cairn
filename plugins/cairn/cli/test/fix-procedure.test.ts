@@ -18,7 +18,9 @@ test('the fix skill is user-invoked only and runs cairn commands', () => {
   const skill = read('skills/fix/SKILL.md');
   assert.match(skill, /^name: fix$/m);
   assert.match(skill, /^disable-model-invocation: true$/m);
-  assert.match(skill, /^allowed-tools: Bash\(cairn:\*\)$/m);
+  assert.match(skill, /^\s+- "Bash\(cairn status:\*\)"\s*$/m);
+  assert.doesNotMatch(skill, /cairn:\*/);
+  assert.doesNotMatch(skill, /cairn repro/);
   assert.match(skill, /\$\{CLAUDE_PLUGIN_ROOT\}\/procedures\/fix\.md/);
   assert.match(skill, /Procedure files are not variable-expanded/);
 });
