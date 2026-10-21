@@ -6,10 +6,17 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:40:37.753Z",
+  "updated": "2026-10-21T14:41:34.810Z",
   "stage": "prd",
   "paused": null,
-  "approvals": {},
+  "approvals": {
+    "prd": {
+      "at": "2026-10-21T14:41:34.810Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "7d9f4955ae8003a5"
+    }
+  },
   "phases": [],
   "evidence": {},
   "drift": [],
@@ -22,6 +29,11 @@
       "at": "2026-10-21T14:40:37.753Z",
       "event": "advanced",
       "detail": "prd"
+    },
+    {
+      "at": "2026-10-21T14:41:34.810Z",
+      "event": "PRD approved",
+      "detail": "mod"
     }
   ]
 }
