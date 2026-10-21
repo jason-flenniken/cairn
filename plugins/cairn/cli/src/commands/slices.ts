@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { worktreeRoot } from '../config.ts';
 import { branchExists, git, gitOk } from '../git.ts';
+import { matchesAny } from '../glob.ts';
 import { planBranch, planRel, sliceBranch, type Ctx } from '../locate.ts';
 import { phaseStatus } from '../plan-parse.ts';
 import { findSlice, readySet } from '../ready.ts';
@@ -127,6 +128,8 @@ function sliceDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const repro = fix && merged && pre.repro ? runRepro(pre.repro.cmd, plan.worktree, pc.cfg) : undefined;
   const heads = [pb, ...(tip ? [sl.branch] : [])];
   const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base!, h))).size : 0;
+  // Files the slice changed, from its base to its branch: this catches edits made through Bash, which the edit hook never sees (FR-41).
+  const outside = tip && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `slice done: ${sl.name}`, (s) => {
     const cur = findSlice(s, id)!;
@@ -140,6 +143,11 @@ function sliceDone(pc: PlanCtx, id: string, opts: Opts): Result {
       gate(repro?.outcome === 'passes', s, 'slice done', opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` → ${repro.detail})` : 'the repro was not run: the slice is not merged', ['fix the bug so the repro command exits 0']);
       gate(changed <= maxFiles, s, 'slice done', opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ['this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work']);
     }
+    for (const path of outside)
+      if (!s.drift.some((d) => d.path === path && !d.acked)) {
+        s.drift.push({ path, at: now(), reason: `changed outside slice "${cur.name}" scope (found at slice done)`, slice: cur.id });
+        log(s, 'drift', path);
+      }
     Object.assign(cur, { status: 'done', substep: undefined, doneAt: now(), tip, tests: tests ? `${tests.cmd} → ${tests.tail}` : undefined });
     const phase = s.phases.find((p) => p.slices.some((x) => x.id === id))!;
     phase.status = phaseStatus(phase, phase.status);

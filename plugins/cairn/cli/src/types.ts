@@ -18,6 +18,8 @@ export interface Approval {
 export interface Slice {
   id: string;
   name: string;
+  /** `prefactor` slices prepare the code and may cover no requirement. */
+  kind?: 'prefactor';
   covers: string[];
   blockedBy: string[];
   scope: string[];

@@ -1,4 +1,4 @@
-import type { Phase, Slice, Stage, State } from './types.ts';
+import type { Approval, Phase, Slice, Stage, State } from './types.ts';
 
 export const STAGE_LABEL: Record<Stage, string> = {
   repro: 'Repro',
@@ -77,6 +77,20 @@ export function progress(s: State): string {
   return `${STAGE_LABEL[s.stage]} · ${phase} · ${done}/${all.length} slices done${running ? ` · ${running} running` : ''}`;
 }
 
+const SOURCE_LABEL = { mod: 'you, in the menu', terminal: 'you, in the terminal' } as const;
+
+/** Who gave an approval: the user (menu or terminal) or the agent relaying. */
+const approvedBy = (a: Approval): string => {
+  if (a.source === 'mod' || a.source === 'terminal') return ` (${SOURCE_LABEL[a.source]})`;
+  return a.via === 'agent' ? ' (relayed by agent)' : '';
+};
+
+/** The proof source an override logged in its detail, as a label. */
+const overrideSource = (detail = ''): string => {
+  const m = detail.match(/\(source: (mod|terminal)\)\s*$/);
+  return m ? ` (${SOURCE_LABEL[m[1] as 'mod' | 'terminal']})` : '';
+};
+
 const openDrift = (s: State) => s.drift.filter((d) => !d.acked);
 
 export function summary(s: State): string {
@@ -122,18 +136,18 @@ export function renderStatus(s: State): string {
 
   const checkpoints: string[] = [];
   const a = s.approvals;
-  if (a.prd) checkpoints.push(`PRD approved ${day(a.prd.at)}${a.prd.via === 'agent' ? ' (relayed by agent)' : ''}`);
-  if (a.plan) checkpoints.push(`Plan approved ${day(a.plan.at)}${a.plan.via === 'agent' ? ' (relayed by agent)' : ''}`);
+  if (a.prd) checkpoints.push(`PRD approved ${day(a.prd.at)}${approvedBy(a.prd)}`);
+  if (a.plan) checkpoints.push(`Plan approved ${day(a.plan.at)}${approvedBy(a.plan)}`);
   if (s.evidence.verify) checkpoints.push(`Verify: ${s.evidence.verify.result}${s.evidence.verify.note ? ` (${s.evidence.verify.note})` : ''}`);
   if (s.evidence.review) checkpoints.push(`Review: ${s.evidence.review.result}${s.evidence.review.note ? ` (${s.evidence.review.note})` : ''}`);
-  if (a.ship) checkpoints.push(`Ship approved ${day(a.ship.at)}`);
+  if (a.ship) checkpoints.push(`Ship approved ${day(a.ship.at)}${approvedBy(a.ship)}`);
   if (checkpoints.length) out.push('', '## Checkpoints', ...checkpoints.map((c) => `- ${c}`));
 
   const drift = openDrift(s);
   if (drift.length) out.push('', '## Drift to review', ...drift.map((d) => `- \`${d.path}\`: ${d.reason}`));
 
   const overrides = s.log.filter((l) => l.override);
-  if (overrides.length) out.push('', '## Overrides', ...overrides.map((l) => `- ${day(l.at)} ${l.event}: ${l.override}`));
+  if (overrides.length) out.push('', '## Overrides', ...overrides.map((l) => `- ${day(l.at)} ${l.event}: ${l.override}${overrideSource(l.detail)}`));
 
   out.push('', '## Recent activity', ...s.log.slice(-8).reverse().map((l) => `- ${l.at.slice(0, 16).replace('T', ' ')} ${l.event}${l.detail ? `: ${l.detail}` : ''}`));
   return out.join('\n') + '\n';
