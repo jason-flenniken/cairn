@@ -6,8 +6,8 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T14:07:21.190Z",
-  "stage": "verify",
+  "updated": "2026-10-21T14:07:21.309Z",
+  "stage": "review",
   "paused": null,
   "approvals": {
     "prd": {
@@ -348,6 +348,11 @@
       "at": "2026-10-21T14:07:21.190Z",
       "event": "verify pass",
       "detail": "tests: 146 CLI and 331 mod passing, build ok; 15 requirements met, 3 with test gaps logged as follow-ups (old sdlc plans end to end, doc wording, pane approval closing an already-open chat question)"
+    },
+    {
+      "at": "2026-10-21T14:07:21.308Z",
+      "event": "advanced",
+      "detail": "review"
     }
   ],
   "suggestions": [
