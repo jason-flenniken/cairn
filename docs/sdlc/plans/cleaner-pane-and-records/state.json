@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:53:16.981Z",
+  "updated": "2026-10-21T14:53:22.686Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -27,7 +27,7 @@
     {
       "id": "readable-now",
       "name": "Readable Now tab and dated folders",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "dated-folders",
@@ -123,7 +123,7 @@
     {
       "id": "few-follow-ups",
       "name": "Few follow-ups and automatic findings",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "followup-rules",
@@ -468,6 +468,11 @@
       "at": "2026-10-21T14:53:16.981Z",
       "event": "task done",
       "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:53:22.686Z",
+      "event": "phase finished",
+      "detail": "Readable Now tab and dated folders (tests green (0 fail))"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
