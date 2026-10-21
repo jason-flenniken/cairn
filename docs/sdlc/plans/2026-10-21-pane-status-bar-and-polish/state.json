@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T23:00:53.096Z",
+  "updated": "2026-10-21T23:02:57.741Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -209,15 +209,18 @@
             "plugins/cairn/hooks/test/doc.test.tsx"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
           "riskReason": "renders agent-written documents next to the Approve button",
-          "substep": "implementing",
           "branch": "task/pane-status-bar-and-polish/doc-viewer",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--doc-viewer",
           "base": "518d8544e56d44b07c17ac406e282aa0eeea9d17",
-          "startedAt": "2026-10-21T22:57:00.816Z"
+          "startedAt": "2026-10-21T22:57:00.816Z",
+          "doneAt": "2026-10-21T23:02:57.741Z",
+          "tip": "342feb9",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "d74a09cba5dc0a5889293e38cd145ca3e7ff3cc7"
         },
         {
           "id": "followup-tests",
@@ -238,9 +241,14 @@
             "plugins/cairn/cli/test/fix-procedure.test.ts"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "substep": "implementing",
+          "branch": "task/pane-status-bar-and-polish/followup-tests",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--followup-tests",
+          "base": "2f54df3536753c60f050cf06a45fc3f755b56fea",
+          "startedAt": "2026-10-21T23:00:58.642Z"
         }
       ]
     }
@@ -288,6 +296,24 @@
       "at": "2026-10-21T23:00:53.096Z",
       "reason": "changed outside task \"Accurate header and status line\" scope (found at task done)",
       "task": "accurate-header"
+    },
+    {
+      "path": "plugins/cairn/hooks/mod/doc.tsx",
+      "at": "2026-10-21T23:02:57.741Z",
+      "reason": "changed outside task \"One scrolling doc viewer\" scope (found at task done)",
+      "task": "doc-viewer"
+    },
+    {
+      "path": "plugins/cairn/hooks/test/pane.test.tsx",
+      "at": "2026-10-21T23:02:57.741Z",
+      "reason": "changed outside task \"One scrolling doc viewer\" scope (found at task done)",
+      "task": "doc-viewer"
+    },
+    {
+      "path": "plugins/cairn/types/index.d.ts",
+      "at": "2026-10-21T23:02:57.741Z",
+      "reason": "changed outside task \"One scrolling doc viewer\" scope (found at task done)",
+      "task": "doc-viewer"
     }
   ],
   "log": [
@@ -514,6 +540,46 @@
       "at": "2026-10-21T23:00:53.096Z",
       "event": "task done",
       "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T23:00:58.069Z",
+      "event": "task reviewing",
+      "detail": "One scrolling doc viewer"
+    },
+    {
+      "at": "2026-10-21T23:00:58.643Z",
+      "event": "task started",
+      "detail": "Tighter pane, approval and close tests"
+    },
+    {
+      "at": "2026-10-21T23:00:58.722Z",
+      "event": "task implementing",
+      "detail": "Tighter pane, approval and close tests"
+    },
+    {
+      "at": "2026-10-21T23:02:27.904Z",
+      "event": "task merging",
+      "detail": "One scrolling doc viewer"
+    },
+    {
+      "at": "2026-10-21T23:02:57.741Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/mod/doc.tsx"
+    },
+    {
+      "at": "2026-10-21T23:02:57.741Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/pane.test.tsx"
+    },
+    {
+      "at": "2026-10-21T23:02:57.741Z",
+      "event": "drift",
+      "detail": "plugins/cairn/types/index.d.ts"
+    },
+    {
+      "at": "2026-10-21T23:02:57.741Z",
+      "event": "task done",
+      "detail": "One scrolling doc viewer"
     }
   ],
   "suggestions": [
@@ -706,6 +772,26 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T22:59:17.675Z"
+    },
+    {
+      "id": "s19",
+      "area": "ux",
+      "text": "Doc viewer polish: scroll to the top on Back, close the viewer after a successful Approve, route records without a file through the same viewer and drop openRecord, share the pane id constant, and test the viewer when ready changes while open",
+      "where": [
+        "plugins/cairn/hooks/mod/doc.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T23:02:23.701Z"
+    },
+    {
+      "id": "s20",
+      "area": "security",
+      "text": "(security review) Doc viewer approval hardening: hash the text shown and refuse Approve if the file changed before confirm; show a visible truncation line and hide Approve when a doc passes Markdown's 100000-character limit",
+      "where": [
+        "plugins/cairn/hooks/mod/doc.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T23:02:27.837Z"
     }
   ],
   "planHash": "0eaa106a32c142a9",
