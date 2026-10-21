@@ -6,8 +6,8 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:45:13.602Z",
-  "stage": "plan",
+  "updated": "2026-10-21T14:45:16.459Z",
+  "stage": "execute",
   "paused": null,
   "approvals": {
     "prd": {
@@ -27,7 +27,7 @@
     {
       "id": "readable-now",
       "name": "Readable Now tab and dated folders",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "dated-folders",
@@ -247,6 +247,11 @@
       "at": "2026-10-21T14:45:13.602Z",
       "event": "plan approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T14:45:16.458Z",
+      "event": "advanced",
+      "detail": "execute"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
