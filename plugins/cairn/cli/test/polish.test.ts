@@ -131,7 +131,7 @@ function buildTask(wt: string, slug: string, id: string, files: Record<string, s
   for (const [p, s] of Object.entries(files)) write(join(swt, p), s);
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', id);
-  g(wt, 'merge', '-q', '--no-ff', '-m', `merge ${id}`, `sdlc-task/${slug}/${id}`);
+  g(wt, 'merge', '-q', '--no-ff', '-m', `merge ${id}`, `task/${slug}/${id}`);
   return swt;
 }
 
@@ -241,7 +241,7 @@ test('a task started before a re-plan can be marked done after it, with no overr
   write(join(swt, 'src/charge/a.ts'), '1\n');
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', 'charge');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'sdlc-task/replan/charge');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'task/replan/charge');
   ok(wt, 'task', 'done', 'charge');
   const s = stateOf(dir);
   assert.equal(s.phases[0].tasks[0].status, 'done');
@@ -276,7 +276,7 @@ test('task done does not add drift for a path already logged and unreviewed', ()
   const st = stateOf(dir);
   st.drift.push({ path: 'README.md', at: '2026-10-21T00:00:00Z', reason: 'edited outside task "Charge" scope', task: 'charge' });
   writeFileSync(join(dir, 'state.json'), JSON.stringify(st));
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge', 'sdlc-task/nodup/charge');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge', 'task/nodup/charge');
   ok(wt, 'task', 'done', 'charge');
   assert.equal(stateOf(dir).drift.length, 1);
 });

@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { worktreeRoot } from '../config.ts';
 import { branchExists, git, gitOk } from '../git.ts';
 import { matchesAny } from '../glob.ts';
-import { planBranch, planRel, taskBranch, type Ctx } from '../locate.ts';
+import { planRel, taskBranch, type Ctx } from '../locate.ts';
 import { phaseStatus } from '../plan-parse.ts';
 import { findTask, readySet } from '../ready.ts';
 import { loadState, log } from '../state.ts';
@@ -51,9 +51,11 @@ export function cmdTask(ctx: Ctx, action: string | undefined, id: string | undef
 
 function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
   const { plan, ctx, cfg } = pc;
-  const branch = taskBranch(plan.slug, id);
-  const path = join(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${plan.slug}--${id}`);
   const r = mutate(pc, undefined, (s) => {
+    // Plans recorded on old names keep them: the task branch is new-style, the folder follows the plan folder.
+    const branch = taskBranch(plan.slug, id);
+    const path = join(worktreeRoot(cfg, ctx.mainRoot), `${basename(plan.worktree)}--${id}`);
+    const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ['cairn ready']);
     if (sl.status === 'in_progress') return { message: `Task "${sl.name}" is already running (${sl.substep}) at ${sl.worktree}.`, data: { worktree: sl.worktree, branch: sl.branch, resumed: true } };
@@ -71,18 +73,18 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
     const ready = readySet(s, cfg.maxParallel);
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, 'task start', opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(', ')}` : `task "${sl.name}" is not in the current phase`, ['cairn ready']);
-    const base = git(['rev-parse', planBranch(plan.slug)], plan.worktree);
+    const base = git(['rev-parse', pb], plan.worktree);
     let setup = '';
     if (!existsSync(path)) {
       if (branchExists(branch, plan.worktree)) git(['worktree', 'add', '-q', path, branch], plan.worktree);
-      else git(['worktree', 'add', '-q', '-b', branch, path, planBranch(plan.slug)], plan.worktree);
+      else git(['worktree', 'add', '-q', '-b', branch, path, pb], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
     }
     Object.assign(sl, { status: 'in_progress', substep: 'implementing', fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now() });
     const phase = s.phases.find((p) => p.tasks.includes(sl))!;
     if (phase.status === 'pending') phase.status = 'in_progress';
     log(s, 'task started', sl.name);
-    return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: planBranch(plan.slug) } };
+    return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: pb } };
   });
   ensureExcluded(ctx.mainRoot, '.claude/worktrees/');
   return r;
@@ -110,7 +112,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const sl = findTask(pre, id);
   if (!sl) throw new Refusal(`no task "${id}" in this plan`);
   if (sl.status !== 'in_progress' || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`);
-  const pb = planBranch(plan.slug);
+  const pb = pre.branch;
   // A changed command never runs before this check (an override needs the user's proof first).
   configGate(pre, pc.cfg, 'task done', opts);
   // Evidence is gathered before taking the lock: tests can be slow.

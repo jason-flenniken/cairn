@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { loadConfig, worktreeRoot } from '../config.ts';
-import { branchExists, git } from '../git.ts';
-import { planBranch, planRef, type Ctx } from '../locate.ts';
+import { git } from '../git.ts';
+import { planBranchesFor, planRef, worktreeName, type Ctx } from '../locate.ts';
 import { allTasks } from '../ready.ts';
 import { nextFor, summary } from '../render.ts';
 import { HANDOFF_SECTIONS } from '../sections.ts';
@@ -30,11 +30,12 @@ export function cmdPause(ctx: Ctx, opts: Opts): Result {
 export function cmdResume(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   if (slug && ctx.plan?.slug !== slug) {
     const ref = planRef(slug, ctx.worktrees);
-    if (!branchExists(planBranch(slug), ctx.top)) throw new Refusal(`no plan named "${slug}"`, ['cairn status --all']);
+    const branch = planBranchesFor(slug, ctx.top)[0];
+    if (!branch) throw new Refusal(`no plan named "${slug}"`, ['cairn status --all']);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
-      git(['worktree', 'add', '-q', wt, planBranch(slug)], ctx.top);
+      const wt = join(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      git(['worktree', 'add', '-q', wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, '.claude/worktrees/');
       ref.worktree = wt;
     }
