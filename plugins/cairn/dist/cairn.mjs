@@ -7722,6 +7722,15 @@ function progress(s) {
   const phase = pi === -1 ? "all phases done" : `phase ${pi + 1}/${s.phases.length} "${s.phases[pi].name}"`;
   return `${STAGE_LABEL[s.stage]} \xB7 ${phase} \xB7 ${done}/${all.length} slices done${running ? ` \xB7 ${running} running` : ""}`;
 }
+var SOURCE_LABEL = { mod: "you, in the menu", terminal: "you, in the terminal" };
+var approvedBy = (a) => {
+  if (a.source === "mod" || a.source === "terminal") return ` (${SOURCE_LABEL[a.source]})`;
+  return a.via === "agent" ? " (relayed by agent)" : "";
+};
+var overrideSource = (detail = "") => {
+  const m = detail.match(/\(source: (mod|terminal)\)\s*$/);
+  return m ? ` (${SOURCE_LABEL[m[1]]})` : "";
+};
 var openDrift = (s) => s.drift.filter((d) => !d.acked);
 function summary(s) {
   const drift = openDrift(s).length;
@@ -7761,16 +7770,16 @@ function renderStatus(s) {
   }
   const checkpoints = [];
   const a = s.approvals;
-  if (a.prd) checkpoints.push(`PRD approved ${day(a.prd.at)}${a.prd.via === "agent" ? " (relayed by agent)" : ""}`);
-  if (a.plan) checkpoints.push(`Plan approved ${day(a.plan.at)}${a.plan.via === "agent" ? " (relayed by agent)" : ""}`);
+  if (a.prd) checkpoints.push(`PRD approved ${day(a.prd.at)}${approvedBy(a.prd)}`);
+  if (a.plan) checkpoints.push(`Plan approved ${day(a.plan.at)}${approvedBy(a.plan)}`);
   if (s.evidence.verify) checkpoints.push(`Verify: ${s.evidence.verify.result}${s.evidence.verify.note ? ` (${s.evidence.verify.note})` : ""}`);
   if (s.evidence.review) checkpoints.push(`Review: ${s.evidence.review.result}${s.evidence.review.note ? ` (${s.evidence.review.note})` : ""}`);
-  if (a.ship) checkpoints.push(`Ship approved ${day(a.ship.at)}`);
+  if (a.ship) checkpoints.push(`Ship approved ${day(a.ship.at)}${approvedBy(a.ship)}`);
   if (checkpoints.length) out.push("", "## Checkpoints", ...checkpoints.map((c) => `- ${c}`));
   const drift = openDrift(s);
   if (drift.length) out.push("", "## Drift to review", ...drift.map((d) => `- \`${d.path}\`: ${d.reason}`));
   const overrides = s.log.filter((l) => l.override);
-  if (overrides.length) out.push("", "## Overrides", ...overrides.map((l) => `- ${day(l.at)} ${l.event}: ${l.override}`));
+  if (overrides.length) out.push("", "## Overrides", ...overrides.map((l) => `- ${day(l.at)} ${l.event}: ${l.override}${overrideSource(l.detail)}`));
   out.push("", "## Recent activity", ...s.log.slice(-8).reverse().map((l) => `- ${l.at.slice(0, 16).replace("T", " ")} ${l.event}${l.detail ? `: ${l.detail}` : ""}`));
   return out.join("\n") + "\n";
 }
@@ -7874,12 +7883,14 @@ function childEnv() {
   const { CAIRN_APPROVER: _approver, ...rest } = process.env;
   return rest;
 }
+var COUNTS = /\b(?:pass(?:ed|ing)?|fail(?:ed|ing|ures?)?)\b\s*[:=]?\s*\d|\d+\s+(?:pass(?:ed|ing)?|fail(?:ed|ing|ures?)?)\b/i;
+var testSummary = (lines) => [...lines].reverse().find((l) => COUNTS.test(l)) ?? lines.slice(-1)[0];
 function runTests(cfg, cwd) {
   if (!cfg.test) return void 0;
   const r = spawnSync2("sh", ["-c", cfg.test], { cwd, encoding: "utf8", env: childEnv(), maxBuffer: 64 * 1024 * 1024 });
   const lines = `${r.stdout ?? ""}
 ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
-  return { ok: r.status === 0, cmd: cfg.test, tail: lines.slice(-1)[0] ?? `exit ${r.status}` };
+  return { ok: r.status === 0, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
 }
 function testsGate(t, s, event, opts) {
   if (!t) {
@@ -7965,7 +7976,7 @@ Append-only. Written by \`cairn decide\` as each decision is made.
     message: [
       `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
       `Worktree: ${wt}`,
-      `Next: switch into the worktree (EnterWorktree with path ${wt}, or \`cd ${wt} && claude\`), then run /cairn:next.`
+      `Next: \`cd ${wt} && claude\`, then run /cairn:next.`
     ].join("\n"),
     data: { slug, branch, base, worktree: wt, dir }
   };
@@ -8099,6 +8110,7 @@ function configGate(s, cfg, event, opts) {
 }
 var changedFiles = (cwd, slug, base, head) => git(["diff", "--name-only", "-z", "-M", base, head, "--", ".", `:!${planRel(slug)}`], cwd).split("\0").filter(Boolean);
 var GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
+var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
 function runRepro(cmd, cwd, cfg) {
   const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
   const tmp = mkdtempSync(join8(tmpdir(), "cairn-repro-"));
@@ -8114,7 +8126,7 @@ function runRepro(cmd, cwd, cfg) {
   }
   rmSync2(tmp, { recursive: true, force: true });
   const lines = `${r.stdout ?? ""}
-${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
+${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter((l) => l && !SETPGID_FAILURE.test(l));
   const last = lines.slice(-1)[0] ?? `exit ${r.status}`;
   if (timedOut) return { outcome: "timeout", detail: `timed out after ${Math.round(minutes * 60)}s` };
   if (r.error) return { outcome: "nostart", detail: r.error.message };
@@ -8341,6 +8353,7 @@ function cmdClose(ctx, opts) {
 var import_yaml = __toESM(require_dist(), 1);
 var BLOCK = /```ya?ml\s+cairn-slices\s*\n([\s\S]*?)```/;
 var COMPLEXITY = ["simple", "standard", "complex"];
+var KINDS = ["prefactor"];
 var strList = (v) => Array.isArray(v) && v.every((x) => typeof x === "string") ? v : void 0;
 function parsePlan(planMd, prdMd) {
   const problems = [];
@@ -8357,7 +8370,9 @@ function parsePlan(planMd, prdMd) {
   const rawPhases = doc?.phases;
   if (!Array.isArray(rawPhases) || rawPhases.length === 0)
     return { phases: [], problems: [...problems, "cairn-slices needs a non-empty `phases:` list"] };
-  const prdIds = new Set(ids(sections(prdMd).get("functional requirements")));
+  const requirements = sections(prdMd).get("functional requirements");
+  const prdIds = new Set(ids(requirements));
+  problems.push(...badRequirementIds(requirements));
   const phases = [];
   const phaseOf = /* @__PURE__ */ new Map();
   const seenPhase = /* @__PURE__ */ new Set();
@@ -8378,11 +8393,13 @@ function parsePlan(planMd, prdMd) {
       const blockedBy = strList(rs?.blocked_by ?? []) ?? [];
       const scope = strList(rs?.scope) ?? [];
       const complexity = rs?.complexity ?? "standard";
-      if (!covers.length) problems.push(`${where}: \`covers\` must list the PRD FR ids it implements`);
+      const kind = rs?.kind === void 0 ? void 0 : String(rs.kind);
+      if (kind !== void 0 && !KINDS.includes(kind)) problems.push(`${where}: kind must be ${KINDS.join(" or ")}, or left out`);
+      if (!covers.length && kind !== "prefactor") problems.push(`${where}: \`covers\` must list the PRD FR ids it implements (only kind: prefactor may leave it empty)`);
       for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Functional requirements`);
       if (!scope.length) problems.push(`${where}: \`scope\` must list the file globs it may touch`);
       if (!COMPLEXITY.includes(complexity)) problems.push(`${where}: complexity must be simple, standard, or complex`);
-      slices.push({ id: sid, name: String(rs?.name ?? sid), covers, blockedBy, scope, complexity, status: "pending", fixRound: 0 });
+      slices.push({ id: sid, name: String(rs?.name ?? sid), ...kind === "prefactor" ? { kind } : {}, covers, blockedBy, scope, complexity, status: "pending", fixRound: 0 });
     }
     phases.push({ id: pid, name: String(rp?.name ?? pid), status: "pending", slices });
   });
@@ -8401,6 +8418,14 @@ function parsePlan(planMd, prdMd) {
   if (uncovered.length)
     problems.push(`PRD requirements not covered by any slice: ${uncovered.join(", ")}. Cover them or list them under ## Deferred requirements`);
   return { phases, problems };
+}
+function badRequirementIds(requirements = "") {
+  const bad = /* @__PURE__ */ new Set();
+  for (const m of requirements.matchAll(/\*\*([^*]+)\*\*/g)) {
+    const id = m[1].trim().split(/\s+/)[0].replace(/[.:,;]+$/, "");
+    if (/^fr[-_\d]/i.test(id) && !/^FR-\d+$/.test(id)) bad.add(id);
+  }
+  return [...bad].map((id) => `PRD requirement id "${id}" must have the form FR-<digits>`);
 }
 function findCycle(slices) {
   const deps = new Map(slices.map((s) => [s.id, s.blockedBy]));
@@ -8431,7 +8456,7 @@ function mergeProgress(next, prev) {
       const o = old.get(s.id);
       if (!o) continue;
       kept.add(s.id);
-      p.slices[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
+      p.slices[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
     }
   const lostDone = [...old.values()].filter((s) => s.status !== "pending" && !kept.has(s.id)).map((s) => s.id);
   for (const p of next) p.status = phaseStatus(p, prev.find((q) => q.id === p.id)?.status);
@@ -8456,6 +8481,8 @@ function cmdPlanLoad(ctx, opts) {
     const replanning = s.stage !== "plan";
     if (replanning && !opts.replan) throw new Refusal(`the plan is in ${s.stage}; changing it mid-flight is a re-plan`, ["cairn plan load --replan"]);
     if (!["plan", "execute", "verify", "review"].includes(s.stage)) throw new Refusal(`a plan can't be loaded in ${s.stage}`);
+    const dropsFix = s.log.some((l) => l.event === "escalated") && allSlices(s).some((x) => x.id === "fix") && !parsed.phases.some((p) => p.slices.some((x) => x.id === "fix"));
+    if (dropsFix) throw new Refusal('the new plan drops the "fix" slice that escalate kept', ['keep a slice with id "fix" in plan.md']);
     const { phases, lostDone } = mergeProgress(parsed.phases, s.phases);
     if (lostDone.length) throw new Refusal(`the new plan drops slices that already started or finished: ${lostDone.join(", ")}`, ["keep them in plan.md"]);
     s.phases = phases;
@@ -8583,6 +8610,7 @@ function sliceDone(pc, id, opts) {
   const repro = fix && merged && pre.repro ? runRepro(pre.repro.cmd, plan.worktree, pc.cfg) : void 0;
   const heads = [pb, ...tip ? [sl.branch] : []];
   const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base, h))).size : 0;
+  const outside = tip && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `slice done: ${sl.name}`, (s) => {
     const cur = findSlice(s, id);
@@ -8596,6 +8624,11 @@ function sliceDone(pc, id, opts) {
       gate(repro?.outcome === "passes", s, "slice done", opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` \u2192 ${repro.detail})` : "the repro was not run: the slice is not merged", ["fix the bug so the repro command exits 0"]);
       gate(changed <= maxFiles, s, "slice done", opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ["this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work"]);
     }
+    for (const path of outside)
+      if (!s.drift.some((d) => d.path === path && !d.acked)) {
+        s.drift.push({ path, at: now(), reason: `changed outside slice "${cur.name}" scope (found at slice done)`, slice: cur.id });
+        log(s, "drift", path);
+      }
     Object.assign(cur, { status: "done", substep: void 0, doneAt: now(), tip, tests: tests ? `${tests.cmd} \u2192 ${tests.tail}` : void 0 });
     const phase = s.phases.find((p) => p.slices.some((x) => x.id === id));
     phase.status = phaseStatus(phase, phase.status);
