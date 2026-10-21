@@ -1062,6 +1062,18 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
     await ui.unmount()
   })
 
+  test('FR-20: at a narrow width the inline fallback and tip lines truncate instead of wrapping', async ($, on) => {
+    world(on, { cwd: MAIN, rows: [row(EXECUTE, WT)] })
+    await start($, MAIN)
+    const ui = await mountAs($, { placement: 'inline', bodyColumns: 30 })
+    const texts = await ui.findAll({ type: 'Text' })
+    const fallback = texts.find((t: { text: string }) => t.text.startsWith('Showing '))
+    const tip = texts.find((t: { text: string }) => t.text.startsWith('Full-height side pane'))
+    expect(fallback.props.wrap).toBe('truncate-end')
+    expect(tip.props.wrap).toBe('truncate-end')
+    await ui.unmount()
+  })
+
   test('History keeps its lines together in one gapless box', async ($, on) => {
     const log = [1, 2, 3].map(n => ({ at: `2026-03-01T11:0${n}:00.000Z`, event: 'task done', detail: `t${n}` }))
     world(on, { rows: [row(plan({ log }), WT)] })
