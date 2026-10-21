@@ -75,7 +75,7 @@ Show the user the record in about five lines. Run `cairn status --json` and read
   - Approve (Recommended): approve the record
   - Revise the record: ask what to change, edit, recheck the word count, and show it again
   - Hold: stop here; the plan stays at ship
-- False: the mod can't record a menu answer. Tell the user to run `cairn approve ship --human` in their own terminal, then wait for them to say it's done.
+- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve ship --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
 **Done when:** the user chose Approve, or said the terminal approval ran.
 

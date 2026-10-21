@@ -33,7 +33,7 @@ Show the report: slices done, test result, diff size, the color the CLI recorded
 **Done when:** the user chose an option.
 
 ## 5. Act on the choice
-- **Fix first:** ask what to fix, add a fix slice to the current phase in `plan.md` (own scope, `covers` the affected requirements, concrete tests), run `cairn plan load --replan`, then get the user's approval of the changed plan. Run `cairn status --json` and read `modActive`. When true, ask with AskUserQuestion, with the question text including `[cairn:approve plan <slug>]`: Approve (Recommended) / Revise. When false, tell the user to run `cairn approve plan --human` in their own terminal and wait for them to say it's done. Then run `cairn status --json` to confirm, and `cairn next --json` to return to execute.
+- **Fix first:** ask what to fix, add a fix slice to the current phase in `plan.md` (own scope, `covers` the affected requirements, concrete tests), run `cairn plan load --replan`, then get the user's approval of the changed plan. Run `cairn status --json` and read `modActive`. When true, ask with AskUserQuestion, with the question text including `[cairn:approve plan <slug>]`: Approve (Recommended) / Revise. When false, tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve plan --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed) and wait for them to say it's done. Then run `cairn status --json` to confirm, and `cairn next --json` to return to execute.
 - **Re-plan:** edit the later phases in `plan.md` with the user, then the same replan approval.
 - **Pause:** follow the pause procedure.
 - **Continue to phase approval:** go to step 6.
@@ -52,7 +52,7 @@ Run `cairn status --json` and read `modActive`.
   - Hold: stop here; the phase stays open
 
   The mod records an approval only for the labels "Approve" and "Approve (Recommended)", so the approval option keeps that exact label.
-- False: the mod can't record a menu answer. Tell the user to run `cairn approve phase --human` in their own terminal, then wait for them to say it's done.
+- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve phase --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
 Then run `cairn status --json` to confirm the phase approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names an unfinished slice or unacknowledged drift, resolve it and return to this step. When it names a red direction verdict or code changed since the check, return to step 3; never override. The last approved phase moves the plan to verify automatically.
 

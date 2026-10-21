@@ -422,8 +422,14 @@ describe('opening the pane (FR-08)', () => {
     expect(w.toasts).toEqual([])
   })
 
-  test('on main it does not open unasked', async ($, on) => {
+  test('on main it opens for exactly one active plan', async ($, on) => {
     const { w } = world(on, { cwd: MAIN, rows: [row(plan(), WT)] })
+    await start($, MAIN)
+    expect(w.opens).toEqual(['cairn'])
+  })
+
+  test('on main with several active plans it does not open unasked', async ($, on) => {
+    const { w } = world(on, { cwd: MAIN, rows: [row(plan(), WT), row(plan({ slug: 'beta' }), '/repo/.claude/worktrees/sdlc-beta')] })
     await start($, MAIN)
     expect(w.opens).toEqual([])
   })
@@ -436,7 +442,7 @@ describe('opening the pane (FR-08)', () => {
   })
 
   test('/cairn-pane opens it, and says why when it cannot be placed', async ($, on) => {
-    const { w } = world(on, { cwd: MAIN, rows: [row(plan(), WT)] })
+    const { w } = world(on, { cwd: MAIN, rows: [row(plan(), WT), row(plan({ slug: 'beta' }), undefined)] })
     await start($, MAIN)
     expect((await command($, 'cairn-pane')).text).toMatch(/open/)
     expect(w.opens).toEqual(['cairn'])
@@ -612,8 +618,8 @@ describe('/cairn-approve (FR-05)', () => {
     expect(ran('approve')).toEqual([])
   })
 
-  test('outside a plan it refuses', async ($, on) => {
-    const { ran } = world(on, { cwd: MAIN, rows: [row(plan({ stage: 'plan' }), WT)] })
+  test('with no active plan it refuses', async ($, on) => {
+    const { ran } = world(on, { cwd: MAIN, rows: [row(plan({ stage: 'closed' }), WT)] })
     await start($, MAIN)
     const out = await command($, 'cairn-approve')
     expect(out.text).toMatch(/not in a plan/)

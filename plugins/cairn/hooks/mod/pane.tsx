@@ -6,7 +6,7 @@ import type { CairnPlanRow, CairnPlanState, CairnView } from '../../types/index.
 import { approveAs, waitingStop, type Kind, type PlanState as StopState } from './approve.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
-import { pause, resume, stopNow, turnRunning } from './pause.ts'
+import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
 
 type Slice = { id?: string; name?: string; status?: string; substep?: string; fixRound?: number; blockedBy?: unknown; worktree?: string }
 type Phase = { name?: string; status?: string; slices?: unknown; verdict?: { result?: string } }
@@ -107,7 +107,7 @@ async function signature($: EngineInterface, paths: string[]): Promise<string> {
 }
 
 function showStatus($: EngineInterface, v: CairnView): void {
-  const here = v.plans.find(r => r.state.slug === v.here)
+  const here = v.isFallback ? undefined : v.plans.find(r => r.state.slug === v.here)
   const active = v.plans.filter(isActive).length
   $.ui.status(here ? summary(here.state) : active > 0 ? `${active} active plan${active === 1 ? '' : 's'}` : undefined)
 }
@@ -121,7 +121,10 @@ async function refresh($: EngineInterface): Promise<boolean> {
     if (!old.worktree || plans.some(p => p.state.slug === old.state.slug)) continue
     if (await $.fs.stat(stateFile(old)).then(() => true, () => false)) return false
   }
-  const next: CairnView = { plans, here: hereSlug(plans, await $.session.cwd()) }
+  const located = hereSlug(plans, await $.session.cwd())
+  const next: CairnView = located !== undefined
+    ? { plans, here: located }
+    : { plans, here: pickCurrent(plans)?.state.slug, isFallback: true }
   await update($, view, () => next)
   showStatus($, next)
   return true
@@ -171,7 +174,7 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
   seen = await signature($, watched(v?.plans ?? []))
   ticking?.cancel()
   ticking = $.clock.every(EVERY_MS, () => void poll($).catch(() => undefined))
-  if (v?.here !== undefined) await openPane($)
+  if (v?.here !== undefined && (!v.isFallback || v.plans.filter(isActive).length === 1)) await openPane($)
 }
 
 const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${kind} stop of plan ${slug}?`
@@ -190,9 +193,9 @@ async function confirmAndApprove($: EngineInterface, slug: string, kind: Kind): 
 /** /cairn-approve [kind]: the stop waiting on the session's plan, resolved by `cairn status --json`. */
 async function approveCommand($: EngineInterface, arg: string): Promise<string> {
   if (arg !== '' && !KINDS.includes(arg)) return `cairn: "${arg}" is not a stop; use prd, plan, phase or ship.`
-  const r = await cairn($, ['status', '--json'], quick)
-  const state = (r.json as { state?: CairnPlanState } | undefined)?.state
-  if (r.exitCode !== 0 || typeof state?.slug !== 'string') return 'cairn: this session is not in a plan, so nothing was approved.'
+  const found = await plan($)
+  if (typeof found === 'string') return 'cairn: this session is not in a plan, so nothing was approved.'
+  const state = found.state as CairnPlanState
   const waiting = waitingStop(state as StopState)
   if (waiting === undefined) return `cairn: nothing is waiting for approval on ${state.slug}.`
   if (arg !== '' && arg !== waiting) return `cairn: ${state.slug} is waiting for ${waiting} approval, not ${arg}; nothing was approved.`
@@ -252,6 +255,7 @@ export function install(on: On): void {
       const isSliceRunning = slices.some(x => x.status === 'in_progress')
       return [
         <Text bold>{s.title ?? s.slug}</Text>,
+        v?.isFallback && <Text dimColor>{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>,
         <Text>{`${stageOf(s)}${where}`}</Text>,
         isPaused && <Text color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>,
         ...phases.flatMap(p => [<Text>{phaseLine(p)}</Text>, ...list<Slice>(p.slices).map(x => <Text>{sliceLine(x, byId)}</Text>)]),

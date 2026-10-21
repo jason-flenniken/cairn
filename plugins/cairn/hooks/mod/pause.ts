@@ -7,6 +7,8 @@ export type PlanState = {
   slug: string
   paused?: { at?: string; mode?: string } | null
   phases?: { slices?: Slice[] }[]
+  stage?: string
+  updated?: string
 }
 export type Outcome = { ok: boolean; message: string }
 
@@ -90,14 +92,25 @@ const said = (r: { stdout: string; stderr: string }): string => (r.stderr.trim()
 
 type Plan = { state: PlanState; worktree: string }
 
-/** The session's plan from `cairn status --json`, or why there is none. */
-async function plan($: EngineInterface): Promise<Plan | string> {
+/** The plan a session at the repo root works on: the one active plan, else the most recently updated. */
+export function pickCurrent<R extends { state: { stage?: string; updated?: string }; worktree?: string }>(rows: R[]): R | undefined {
+  const active = rows.filter(r => r.worktree !== undefined && r.state.stage !== 'closed')
+  const stamp = (r: R) => Date.parse(r.state.updated ?? '') || 0
+  return active.sort((a, b) => stamp(b) - stamp(a))[0]
+}
+
+/** The session's plan from `cairn status --json`; from the repo root, the active plan from `status --all`. */
+export async function plan($: EngineInterface): Promise<Plan | string> {
   const r = await cairn($, ['status', '--json'], quick)
   const json = r.json as { state?: PlanState; planWorktree?: string } | undefined
-  if (r.exitCode !== 0 || json?.state === undefined || json.planWorktree === undefined) {
-    return `no active plan here: ${said(r) || 'open Claude Code in a plan worktree'}`
+  if (r.exitCode === 0 && json?.state !== undefined && json.planWorktree !== undefined) {
+    return { state: json.state, worktree: json.planWorktree }
   }
-  return { state: json.state, worktree: json.planWorktree }
+  const all = await cairn($, ['status', '--all', '--json'], quick)
+  const rows = Array.isArray(all.json?.plans) ? (all.json.plans as { state: PlanState; worktree?: string }[]) : []
+  const picked = all.exitCode === 0 ? pickCurrent(rows.filter(p => typeof p.state?.slug === 'string')) : undefined
+  if (picked?.worktree === undefined) return `no active plan here: ${said(r) || 'open Claude Code in a plan worktree'}`
+  return { state: picked.state, worktree: picked.worktree }
 }
 
 const fail = ($: EngineInterface, message: string): Outcome => {
@@ -114,7 +127,7 @@ export async function pause($: EngineInterface, mode: 'drain' | 'now'): Promise<
   const file = `${worktree}/docs/sdlc/plans/${state.slug}/handoff.md`
   const existing = await $.fs.read(file).catch(() => undefined)
   await $.fs.write(file, handoffFromState(state, existing))
-  const r = await cairn($, mode === 'now' ? ['pause', '--now'] : ['pause'], quick)
+  const r = await cairn($, mode === 'now' ? ['pause', '--now'] : ['pause'], { ...quick, cwd: worktree })
   if (r.exitCode !== 0) return fail($, `pause refused: ${said(r)}`)
   $.ui.toast(`cairn: ${r.stdout.trim()}`)
   $.ui.toast(`cairn: ${CLEAR_TIP}`)
@@ -130,8 +143,8 @@ async function freshMinutes($: EngineInterface, worktree: string): Promise<numbe
   }
 }
 
-async function runResume($: EngineInterface, args: string[]): Promise<Outcome> {
-  const r = await cairn($, args, quick)
+async function runResume($: EngineInterface, args: string[], cwd?: string): Promise<Outcome> {
+  const r = await cairn($, args, cwd === undefined ? quick : { ...quick, cwd })
   if (r.exitCode !== 0) return fail($, `resume refused: ${said(r)}`)
   const text = r.stdout.trim()
   $.ui.toast(`cairn: ${text.split('\n')[0]}`)
@@ -144,12 +157,12 @@ export async function resume($: EngineInterface, slug?: string): Promise<Outcome
   const found = await plan($)
   if (typeof found === 'string') return fail($, found)
   const age = pauseAge(found.state, await $.clock.now())
-  if (age < (await freshMinutes($, found.worktree))) return runResume($, ['resume'])
+  if (age < (await freshMinutes($, found.worktree))) return runResume($, ['resume'], found.worktree)
   const answer = await $.ui
     .ask(`Paused ${ageText(age)} ago. For a fresh context run /clear, then /cairn:resume. Resume here anyway?`, [RESUME_HERE, 'Not now'])
     .catch(() => undefined)
   if (answer !== RESUME_HERE) return { ok: false, message: 'Not resumed. Run /clear, then /cairn:resume.' }
-  return runResume($, ['resume'])
+  return runResume($, ['resume'], found.worktree)
 }
 
 /** Pauses with mode now, then cuts the running turn and tells the model to wind down; with no turn, just pauses. */

@@ -14,6 +14,7 @@ export type CairnPlanState = {
   slug: string
   title?: string
   stage?: string
+  updated?: string
   paused?: { at?: string } | null
   approvals?: Record<string, unknown>
   phases?: unknown
@@ -23,8 +24,8 @@ export type CairnPlanState = {
 /** One row of `cairn status --all --json`. */
 export type CairnPlanRow = { state: CairnPlanState; worktree?: string; next?: { text?: string } }
 
-/** The pane's last good read: every plan, and the slug of the one the session is in. */
-export type CairnView = { plans: CairnPlanRow[]; here?: string }
+/** The pane's last good read: every plan, and the slug of the one the session works on (isFallback: chosen from the repo root, not by location). */
+export type CairnView = { plans: CairnPlanRow[]; here?: string; isFallback?: boolean }
 
 declare module 'claude-code' {
   interface PluginState {

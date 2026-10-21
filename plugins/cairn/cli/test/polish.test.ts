@@ -12,7 +12,7 @@ import { parsePlan } from '../src/plan-parse.ts';
 import { renderStatus } from '../src/render.ts';
 import { testSummary } from '../src/shared.ts';
 import { newState } from '../src/state.ts';
-import { Refusal } from '../src/util.ts';
+import { pluginRoot, Refusal } from '../src/util.ts';
 
 const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
 process.env.GIT_AUTHOR_NAME = 't';
@@ -312,7 +312,17 @@ test('cairn new gives the path and cd command, with no EnterWorktree', () => {
   const wt = r.data!.worktree as string;
   assert.ok(!r.message.includes('EnterWorktree'));
   assert.ok(r.message.includes(`Worktree: ${wt}`));
-  assert.ok(r.message.includes(`cd ${wt} && claude`));
+  assert.ok(r.message.includes('/cairn:next'));
+  assert.ok(!r.message.includes('claude`'));
+});
+
+test('the terminal approval hint is a runnable command: cd to the plan worktree, then the absolute bin/cairn', () => {
+  const repo = mkRepo();
+  const wt = ok(repo, 'new', 'hint2', '--title', 'Hint2').data!.worktree as string;
+  assert.throws(
+    () => run(['approve', 'prd'], wt),
+    (e: unknown) => e instanceof Refusal && e.fixes.some(f => f.includes(`cd ${wt} && ${pluginRoot()}/bin/cairn approve prd --human`)),
+  );
 });
 
 // repro wrapper under the Bash sandbox

@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { handoffFromState, pauseAge } from '../mod/pause.ts'
+import { handoffFromState, pauseAge, pickCurrent } from '../mod/pause.ts'
 
 const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const WT = '/repo/.claude/worktrees/sdlc-shop'
@@ -407,4 +407,11 @@ test('a module whose start throws does not stop the other module or the session'
   expect(await start($)).toEqual({ cwd: '/repo' })
   expect(w.beats).toEqual([])
   expect(w.registered.filter(n => PAUSE_COMMANDS.includes(n))).toEqual(PAUSE_COMMANDS)
+})
+
+test('from the repo root the current plan is the most recently updated active one; closed plans are skipped', () => {
+  const row = (slug: string, stage: string, updated: string) => ({ state: { slug, stage, updated }, worktree: `/wt/${slug}` })
+  const rows = [row('old', 'plan', '2026-03-01T00:00:00Z'), row('new', 'execute', '2026-03-02T00:00:00Z'), row('shipped', 'closed', '2026-03-03T00:00:00Z')]
+  expect(pickCurrent(rows)?.state.slug).toBe('new')
+  expect(pickCurrent([row('shipped', 'closed', '2026-03-03T00:00:00Z')])).toBeUndefined()
 })

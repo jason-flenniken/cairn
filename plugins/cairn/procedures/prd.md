@@ -44,7 +44,7 @@ Run `cairn status --json` and read `modActive`.
   - Approve (Recommended)
   - Revise: ask what to change, apply, rerun steps 3-4 for the changed parts
   - Pause: go to the pause procedure
-- False: the mod can't record a menu answer. Tell the user to run `cairn approve prd --human` in their own terminal, then wait for them to say it's done.
+- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve prd --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
 Do not approve on the user's behalf.
 

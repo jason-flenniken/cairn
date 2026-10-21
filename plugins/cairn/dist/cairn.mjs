@@ -7845,7 +7845,7 @@ function requireHumanProof(kind, opts, io) {
   if (p) return p.source;
   throw new Refusal("approvals come from the user, and this command has no proof that one did", [
     `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${current?.ctx.plan?.slug}]`,
-    `or the user runs, in their own terminal: cairn approve ${kind} --human`,
+    `or the user runs, in their own terminal: cd ${current?.ctx.plan?.worktree ?? "<plan worktree>"} && ${pluginRoot()}/bin/cairn approve ${kind} --human`,
     "or the user presses Approve in the cairn pane (or runs /cairn:approve)"
   ]);
 }
@@ -7976,7 +7976,7 @@ Append-only. Written by \`cairn decide\` as each decision is made.
     message: [
       `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
       `Worktree: ${wt}`,
-      `Next: \`cd ${wt} && claude\`, then run /cairn:next.`
+      `The plan is ready. Continue with /cairn:next from where you are.`
     ].join("\n"),
     data: { slug, branch, base, worktree: wt, dir }
   };
