@@ -7362,7 +7362,8 @@ var require_dist = __commonJS({
 });
 
 // plugins/cairn/cli/src/main.ts
-import { readFileSync as readFileSync4 } from "node:fs";
+import { readFileSync as readFileSync5 } from "node:fs";
+import { resolve as resolve3 } from "node:path";
 
 // plugins/cairn/cli/src/locate.ts
 import { existsSync as existsSync2 } from "node:fs";
@@ -7928,8 +7929,8 @@ function template(name) {
 }
 
 // plugins/cairn/cli/src/commands/plans.ts
-import { existsSync as existsSync3 } from "node:fs";
-import { join as join7 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
+import { join as join7, resolve } from "node:path";
 function cmdNew(ctx, slug, opts) {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "\u2026"');
   const branch = planBranch(slug);
@@ -7978,9 +7979,22 @@ function cmdProductInit(ctx) {
   return { message: `Created docs/sdlc/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
 }
 function cmdDecide(ctx, question, answer, opts) {
-  if (!question || !answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "\u2026"]');
-  const n = appendDecision(planCtx(ctx), question, answer, typeof opts.why === "string" ? opts.why : void 0);
-  return { message: `Recorded decision ${n}: ${answer}`, data: { number: n } };
+  const d = typeof opts.file === "string" ? readDecisionFile(ctx.cwd, opts.file) : { question, answer, why: typeof opts.why === "string" ? opts.why : void 0 };
+  if (!d.question || !d.answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "\u2026"] | cairn decide --file <path>');
+  const n = appendDecision(planCtx(ctx), d.question, d.answer, d.why);
+  return { message: `Recorded decision ${n}: ${d.answer}`, data: { number: n } };
+}
+function readDecisionFile(cwd, file) {
+  let data;
+  try {
+    data = JSON.parse(readFileSync3(resolve(cwd, file), "utf8"));
+  } catch (e) {
+    throw new CliError(`cannot read decision file ${file}: ${e.message}`);
+  }
+  const obj = data;
+  if (!obj || typeof obj !== "object" || Array.isArray(obj) || typeof obj.question !== "string" || typeof obj.answer !== "string" || obj.why !== void 0 && typeof obj.why !== "string")
+    throw new CliError(`decision file ${file} must be a JSON object {"question": "\u2026", "answer": "\u2026", "why": "\u2026"} (why optional)`);
+  return { question: obj.question, answer: obj.answer, why: obj.why };
 }
 function appendDecision(pc, question, answer, why) {
   const file = planFile(pc, "decisions.md");
@@ -8705,7 +8719,7 @@ function cmdDriftAck(ctx, path, opts) {
 import { join as join12 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync6, readFileSync as readFileSync3 } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync4 } from "node:fs";
 import { join as join11 } from "node:path";
 function listPlans(ctx) {
   const refs = git(["for-each-ref", "--format=%(refname:short)", "refs/heads/sdlc/"], ctx.top).split("\n").filter(Boolean);
@@ -8714,7 +8728,7 @@ function listPlans(ctx) {
     const slug = b.slice("sdlc/".length);
     const ref = planRef(slug, ctx.worktrees);
     try {
-      const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync3(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
+      const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync4(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
       rows.push({ state: parseState(raw), live: !!ref.dir, worktree: ref.worktree });
     } catch {
     }
@@ -8840,7 +8854,7 @@ function cmdResume(ctx, slug, opts) {
 
 // plugins/cairn/cli/src/commands/hooks.ts
 import { existsSync as existsSync7 } from "node:fs";
-import { dirname as dirname3, isAbsolute, join as join13, relative, resolve } from "node:path";
+import { dirname as dirname3, isAbsolute, join as join13, relative, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
@@ -8862,7 +8876,7 @@ function hookSessionStart(input) {
 function hookPostEdit(input) {
   const file = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
   if (!file) return "";
-  const abs = isAbsolute(file) ? file : resolve(input.cwd ?? process.cwd(), file);
+  const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
   let dir = dirname3(abs);
   while (!existsSync7(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
   const ctx = context(dir);
@@ -8902,7 +8916,7 @@ function hookPostEdit(input) {
 
 // plugins/cairn/cli/src/main.ts
 var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human"]);
-function parseArgs(argv) {
+function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];
   const opts = {};
   for (let i = 0; i < argv.length; i++) {
@@ -8919,17 +8933,25 @@ function parseArgs(argv) {
       opts[name] = argv[++i];
     }
   }
+  const noteFile = opts["note-file"];
+  if (typeof noteFile === "string") {
+    try {
+      opts.note = readFileSync5(resolve3(cwd, noteFile), "utf8");
+    } catch (e) {
+      throw new CliError(`cannot read --note-file ${noteFile}: ${e.message}`);
+    }
+  }
   return { pos, opts };
 }
 var USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
-  next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why]
+  next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|phase|ship | advance [--to <stage>] | plan load [--replan] | ready
-  slice start|step|done <id> | evidence verify|review pass|fail | drift ack <path>|--all
+  slice start|step|done <id> | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   pause [--now] | resume [<slug>] | close | render
   repro "<command>" | escalate (fix plans)
-Flags: --json, --note "\u2026", --override "reason" (only when the user chose to skip a check)`;
+Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 function run(argv, cwd = process.cwd()) {
-  const { pos, opts } = parseArgs(argv);
+  const { pos, opts } = parseArgs(argv, cwd);
   const [cmd, a, b, ...rest] = pos;
   const ctx = () => context(cwd);
   switch (cmd) {
@@ -8983,7 +9005,7 @@ ${USAGE}`);
 }
 function readStdin() {
   try {
-    return JSON.parse(readFileSync4(0, "utf8") || "{}");
+    return JSON.parse(readFileSync5(0, "utf8") || "{}");
   } catch {
     return {};
   }
