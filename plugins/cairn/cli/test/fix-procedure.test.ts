@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { taskBranch } from '../src/locate.ts';
 import { pluginRoot } from '../src/util.ts';
 
 const root = pluginRoot();
@@ -85,4 +86,17 @@ test('fix.md step 6 offers a fix in place, escalate, or hold for blocking findin
   assert.match(step, /Escalate to a feature plan/);
   assert.match(step, /"Hold"|Hold/);
   assert.doesNotMatch(step, /fix each blocking finding in a fix task/i);
+});
+
+test('fix.md names the fix task, its folder and its branch the way tasks.ts does', () => {
+  const src = read('procedures/fix.md');
+  const tasks = read('cli/src/commands/tasks.ts');
+  const stages = read('cli/src/commands/stages.ts');
+  assert.equal(taskBranch('my-plan', 'fix'), 'task/my-plan/fix');
+  assert.ok(src.includes('`task/<slug>/fix`'), 'fix.md names the branch task/<slug>/fix');
+  assert.ok(tasks.includes('const branch = taskBranch(plan.slug, id);'), 'tasks.ts names the branch with taskBranch');
+  assert.ok(src.includes('`<plan worktree folder>--fix`'), 'fix.md names the folder <plan worktree folder>--fix');
+  assert.ok(tasks.includes('`${basename(plan.worktree)}--${id}`'), 'tasks.ts names the folder <plan worktree folder>--<task id>');
+  assert.match(stages, /tasks: \[\{ id: 'fix', name: 'Fix'/, 'advance creates the single task with id fix');
+  assert.ok(src.includes('creates the single task `fix`'), 'fix.md says advance creates the task fix');
 });
