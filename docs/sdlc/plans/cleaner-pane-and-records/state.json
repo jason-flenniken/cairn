@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T15:08:26.557Z",
+  "updated": "2026-10-21T15:15:54.797Z",
   "stage": "review",
   "paused": null,
   "approvals": {
@@ -285,6 +285,12 @@
       "result": "pass",
       "at": "2026-10-21T15:08:26.446Z",
       "note": "tests: 161 CLI and 353 mod passing, typecheck clean; 18 requirements met, 1 untested; FR-13 deferred"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T15:15:54.797Z",
+      "note": "2 blocking fixed in place (record folders after rename now resolve through main; old follow-up grouping made an explicit learn step); 4 follow-ups logged",
+      "blocking": 0
     }
   },
   "drift": [
@@ -677,6 +683,11 @@
       "at": "2026-10-21T15:08:26.556Z",
       "event": "advanced",
       "detail": "review"
+    },
+    {
+      "at": "2026-10-21T15:15:54.797Z",
+      "event": "review pass",
+      "detail": "2 blocking fixed in place (record folders after rename now resolve through main; old follow-up grouping made an explicit learn step); 4 follow-ups logged"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
@@ -781,6 +792,46 @@
       ],
       "from": "check",
       "at": "2026-10-21T15:08:26.375Z"
+    },
+    {
+      "id": "s11",
+      "area": "quality",
+      "text": "allStates reads plan folders from the current checkout only; also read main's plans folder so markers survive a deleted branch.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T15:13:23.228Z"
+    },
+    {
+      "id": "s12",
+      "area": "quality",
+      "text": "Count a decline once per plan, so running discovery twice cannot expire a follow-up.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T15:13:23.299Z"
+    },
+    {
+      "id": "s13",
+      "area": "quality",
+      "text": "suggest resolve accepts an already merged or expired follow-up, unlike merge and decline.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T15:13:23.369Z"
+    },
+    {
+      "id": "s14",
+      "area": "docs",
+      "text": "A merged follow-up restarts the 60-day clock; state whether that is intended.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T15:13:23.451Z"
     }
   ]
 }
