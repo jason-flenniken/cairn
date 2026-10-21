@@ -22,6 +22,6 @@ Check the `## Findings` section of `docs/sdlc/plans/<date>-<slug>/RECORD.md`. If
 **Done when:** the Findings section has lines (or says "None.") and the change is committed.
 
 ## 4. Close
-Run `cairn close`. It needs a valid `RECORD.md` (every section, Findings included, within 600 words) and passing tests; on refusal, fix what it names and rerun.
+Run `cairn close`. It needs the plan branch merged into its base, a valid `RECORD.md` (every section, Findings included, within 600 words) and passing tests; on refusal, fix what it names and rerun. If it says the pull request is still open, tell the user in one line that the PR needs merging, and run `cairn close` again once they say it is. If it says merge status is unknown (offline), say so and stop; only the user can choose to override.
 
-**Done when:** the stage is `closed`. Tell the user in one line that the plan is closed and the PR is the remaining step.
+**Done when:** the stage is `closed`. Tell the user in one line that the plan is closed.

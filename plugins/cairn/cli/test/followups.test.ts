@@ -56,6 +56,7 @@ test('close refuses more than 5 open follow-ups and names them; merging three le
   assert.equal(statusOf(wt, 'many:s7'), 'open');
   assert.deepEqual(rowOf(wt, 'many:s7').where, ['src/p1/**', 'src/p2/**', 'src/p3/**']);
   assert.equal(rows(wt).filter((r) => r.key.startsWith('many:') && r.open).length, 4);
+  g(repo, 'merge', '-q', '--no-ff', '-m', 'merge PR', 'feature/many');
   assert.match(run(['close'], wt).message, /Closed "Many"/);
 });
 
@@ -72,6 +73,7 @@ test('close counts only follow-ups from the closing plan', () => {
   for (let i = 1; i <= 6; i++) run(['suggest', 'add', '--area', 'ux', '--text', `other ${i}`], wt);
   const wt2 = run(['new', 'quiet', '--title', 'Quiet'], repo).data!.worktree as string;
   toLearn(wt2, 'quiet');
+  g(repo, 'merge', '-q', '--no-ff', '-m', 'merge PR', 'feature/quiet');
   assert.match(run(['close'], wt2).message, /Closed/);
 });
 
