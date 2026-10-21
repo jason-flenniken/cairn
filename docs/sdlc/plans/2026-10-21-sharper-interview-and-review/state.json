@@ -6,8 +6,8 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T22:00:01.126Z",
-  "stage": "review",
+  "updated": "2026-10-21T22:00:01.253Z",
+  "stage": "ship",
   "paused": null,
   "approvals": {
     "prd": {
@@ -515,6 +515,11 @@
       "at": "2026-10-21T22:00:01.126Z",
       "event": "review pass",
       "detail": "4 blocking fixed in one pass (close redesign, value-free secret scan, no-install pip audit, pane toast); 8 follow-ups logged"
+    },
+    {
+      "at": "2026-10-21T22:00:01.252Z",
+      "event": "advanced",
+      "detail": "ship"
     }
   ],
   "suggestions": [
