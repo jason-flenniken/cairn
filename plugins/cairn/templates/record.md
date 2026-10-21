@@ -1,6 +1,6 @@
 # Record: <title>
 
-> Hard budget: 500 words. User-visible outcomes first. Terse.
+> Hard budget: 600 words. User-visible outcomes first. Terse.
 
 ## Links
 - PRD: <path>
@@ -18,6 +18,11 @@ One or two lines per phase. Lead with what a user can now do.
 
 ## How it works
 One short paragraph: key components, data flow, entry-point files.
+
+## Findings
+From the plan log: tasks that escalated, review findings that repeated, checks that failed, scope added mid-plan, and anything surprising. Write "None." if there were none.
+
+- <finding>
 
 ## Follow-ups
 Deferred requirements, anything accepted as is, the follow-ups dropped while tidying (grouped or dismissed, listed once), and the count of open recommended follow-ups (see `/cairn:suggestions`).

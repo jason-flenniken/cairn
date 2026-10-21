@@ -75,7 +75,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 | (last phase finished) | stage moves to verify automatically |
 | `cairn advance` (to review) | `cairn evidence verify pass` recorded |
 | `cairn advance` (to ship) | `cairn evidence review pass` recorded with no blocking findings |
-| `cairn approve ship` | `RECORD.md` has its five sections and is within 500 words |
+| `cairn approve ship` | `RECORD.md` has its six sections (Links, Why, What was built, How it works, Findings, Follow-ups) and is within 600 words |
 | `cairn advance` (to learn) | ship approved |
 | `cairn close` | stage is learn, `RECORD.md` is valid, tests pass, and the config lock holds |
 

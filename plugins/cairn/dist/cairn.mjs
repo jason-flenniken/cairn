@@ -7703,9 +7703,9 @@ var wordCount = (md) => md.replace(/<!--[\s\S]*?-->/g, "").split(/\s+/).filter(B
 var proseWordCount = (md) => wordCount(md.replace(/<!--[\s\S]*?-->/g, "").split("\n").filter((l) => !/^\s*#{1,6}\s/.test(l)).join("\n"));
 var PRD_SECTIONS = ["Problem", "Solution", "Requirements", "Non-goals", "Open questions"];
 var PLAN_SECTIONS = ["Goal", "Architecture", "Phases"];
-var RECORD_SECTIONS = ["Links", "Why", "What was built", "How it works", "Follow-ups"];
+var RECORD_SECTIONS = ["Links", "Why", "What was built", "How it works", "Findings", "Follow-ups"];
 var HANDOFF_SECTIONS = ["In flight", "Open questions", "Next action"];
-var RECORD_WORD_BUDGET = 500;
+var RECORD_WORD_BUDGET = 600;
 var FIX_RECORD_SECTIONS = ["Links", "Bug", "Cause", "Fix", "Evidence"];
 var FIX_RECORD_WORD_BUDGET = 200;
 var FR_ID = /\bFR-\d+\b/g;
