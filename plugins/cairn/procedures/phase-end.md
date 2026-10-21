@@ -1,6 +1,6 @@
 # Phase end
 
-Check the finished phase against the PRD, then stop for the user's decision.
+Check the finished phase against the PRD, record the CLI's direction verdict, then stop for the user's decision.
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -18,21 +18,14 @@ Collect:
 
 **Done when:** you hold a slice list, a test result from a run in this step, a diff stat, and the drift list.
 
-## 3. Alignment check
-Dispatch one Explore agent (`model: sonnet`). Give it: the phase's covered requirements quoted from `prd.md` with their acceptance criteria and unhappy paths, the product PRD's non-goals and must-not-trade-off items when present, the diff stat, and this instruction: read the code for each requirement and return a verdict per requirement with `path:line` evidence.
+## 3. Direction check
+Follow `procedures/direction.md` with this phase's id. It fans out `direction-checker` agents, writes `docs/sdlc/plans/<slug>/direction/<phase-id>.md` with its `cairn-direction` scorecard, and runs `cairn evidence phase`. The CLI computes the color; do not state or record one yourself. If `cairn evidence phase` refuses, fix the report as the direction procedure says and rerun. Never override it.
 
-- aligned: behavior matches, including limits, messages, and rules
-- partial: implemented, but a detail differs
-- missing: required but absent
-- Also list code that no covered requirement explains (unplanned work) and any breach of a non-goal.
-
-Reading the code is the only evidence; a matching function name does not count.
-
-**Done when:** every covered requirement has a verdict with evidence, and unplanned work is listed or stated as none.
+**Done when:** `cairn evidence phase` recorded a verdict for this phase.
 
 ## 4. Report and ask
-Present, in about 8 lines: slices done, test result, diff size, the verdict counts, and each partial/missing item and each drift entry in one line. Then ask with AskUserQuestion:
-- Continue to phase approval (Recommended when nothing is missing or partial)
+Show the report: slices done, test result, diff size, the color the CLI recorded, the verdict counts, and each partial, missing, or contradicted item and each drift entry in one line, about 8 lines. Name the report path. Then ask with AskUserQuestion:
+- Continue to phase approval (Recommended when nothing is missing, partial, or contradicted)
 - Fix first: user describes the problem
 - Re-plan: changes to later phases
 - Pause
@@ -57,8 +50,20 @@ Run `cairn status --json` and read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve phase <slug>]`, with the plan slug from the status output:
   - Approve (Recommended)
   - Hold: stop here; the phase stays open
+
+  The mod records an approval only for the labels "Approve" and "Approve (Recommended)", so the approval option keeps that exact label.
 - False: the mod can't record a menu answer. Tell the user to run `cairn approve phase --human` in their own terminal, then wait for them to say it's done.
 
-Then run `cairn status --json` to confirm the phase approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names an unfinished slice or unacknowledged drift, resolve it and return to this step. The last approved phase moves the plan to verify automatically.
+Then run `cairn status --json` to confirm the phase approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names an unfinished slice or unacknowledged drift, resolve it and return to this step. When it names a red direction verdict or code changed since the check, return to step 3; never override. The last approved phase moves the plan to verify automatically.
 
-**Done when:** `cairn status --json` shows the phase approved. Then run `cairn next --json` and follow the procedure it names.
+**Done when:** `cairn status --json` shows the phase approved.
+
+## 8. Clean start
+Once the approval is confirmed, ask with AskUserQuestion (no approval tag; this question records nothing):
+- Approve and start clean: the phase is already approved; this ends here so the user can clear context
+- Continue in this session
+
+If the user picks Approve and start clean, tell them: "/clear, then /cairn:next". Stop.
+Otherwise run `cairn next --json` and follow the procedure it names.
+
+**Done when:** the user was told "/clear, then /cairn:next", or the next procedure started.

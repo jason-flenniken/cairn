@@ -17,11 +17,38 @@ test('templates carry every section the CLI gates on', () => {
 });
 
 test('every procedure cairn next can route to exists', () => {
-  for (const p of ['new', 'discover', 'prd', 'plan', 'execute', 'phase-end', 'verify', 'review', 'ship', 'learn', 'resume', 'status'])
+  for (const p of ['new', 'discover', 'prd', 'plan', 'execute', 'phase-end', 'direction', 'verify', 'review', 'ship', 'learn', 'resume', 'status'])
     assert.ok(existsSync(join(root, 'procedures', `${p}.md`)), `procedures/${p}.md`);
 });
 
 test('every agent pins a model and every skill is user-invoked only', () => {
   for (const f of readdirSync(join(root, 'agents'))) assert.match(read(`agents/${f}`), /^model:\s*(haiku|sonnet|opus)\s*$/m, f);
   for (const d of readdirSync(join(root, 'skills'))) assert.match(read(`skills/${d}/SKILL.md`), /^disable-model-invocation:\s*true\s*$/m, d);
+});
+
+test('phase-end runs the direction check, lets only the CLI compute the verdict, and offers a clean start', () => {
+  const t = read('procedures/phase-end.md');
+  assert.match(t, /cairn-direction/);
+  assert.match(t, /cairn evidence phase/);
+  assert.match(t, /\[cairn:approve phase <slug>\]/);
+  assert.match(t, /Approve \(Recommended\)/);
+  assert.match(t, /\/clear, then \/cairn:next/);
+  assert.doesNotMatch(t, /evidence phase[^\n]*--(result|verdict|color)/i);
+  assert.doesNotMatch(t, /record (the |a )?(verdict|colou?r)/i);
+});
+
+test('the direction procedure, agent, and skill fit together', () => {
+  const t = read('procedures/direction.md');
+  assert.match(t, /```yaml cairn-direction/);
+  assert.match(t, /direction-checker/);
+  assert.match(t, /docs\/sdlc\/product\/PRD\.md/);
+  assert.match(t, /cairn evidence phase/);
+  assert.match(t, /never (override|overrid)/i);
+  assert.doesNotMatch(t, /--override/);
+  const a = read('agents/direction-checker.md');
+  assert.match(a, /^model:\s*sonnet\s*$/m);
+  assert.doesNotMatch(a, /^tools:.*\b(Write|Edit)\b/m);
+  const k = read('skills/direction/SKILL.md');
+  assert.match(k, /^allowed-tools:\s*Bash\(cairn:\*\)\s*$/m);
+  assert.match(k, /procedures\/direction\.md/);
 });
