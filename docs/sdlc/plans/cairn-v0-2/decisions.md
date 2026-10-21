@@ -86,3 +86,8 @@ _2026-10-21 09:29_
 **Decision:** At the Verify stage, after v0.2 is merged and installed: a real menu approval, an Override, and the 0600 check in one sitting. Until then approvals use the v0.1 relayed path.
 **Why:** Avoids a second terminal mid-plan; the installed plugin only becomes v0.2 after merge.
 _2026-10-21 09:30_
+
+### 18. Open items carried to later slices
+**Decision:** A one-time flaky test failure (slice reported not merged in a test setup helper) is investigated at Verify. The CLI usage text in main.ts gets evidence phase in the file-input slice. references/cli.md gets evidence phase in the dogfood-docs slice.
+**Why:** Reported by the drift-verdict slice; kept so nothing is lost.
+_2026-10-21 09:40_

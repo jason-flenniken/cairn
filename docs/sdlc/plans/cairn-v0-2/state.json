@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T09:40:05.665Z",
+  "updated": "2026-10-21T09:43:46.170Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -224,12 +224,15 @@
             "plugins/cairn/templates/config.json"
           ],
           "complexity": "standard",
-          "status": "in_progress",
-          "fixRound": 0,
-          "substep": "implementing",
+          "status": "done",
+          "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/pause-resume",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--pause-resume",
-          "base": "f5bbaa5ddf075eb24e29beebc9ef1ca8a70dd5c7"
+          "base": "f5bbaa5ddf075eb24e29beebc9ef1ca8a70dd5c7",
+          "note": "stop message tied to aborted turn id; null-safe handoff; real fan-out isolation test",
+          "doneAt": "2026-10-21T09:43:46.170Z",
+          "tip": "6c04334",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
         },
         {
           "id": "direction-cli",
@@ -700,6 +703,26 @@
       "at": "2026-10-21T09:40:05.665Z",
       "event": "slice done",
       "detail": "Computed drift verdict in the CLI"
+    },
+    {
+      "at": "2026-10-21T09:40:28.490Z",
+      "event": "slice reviewing",
+      "detail": "Instant pause, Stop now, fresh resume"
+    },
+    {
+      "at": "2026-10-21T09:41:45.325Z",
+      "event": "slice fixing",
+      "detail": "Instant pause, Stop now, fresh resume (round 1): stop message tied to aborted turn id; null-safe handoff; real fan-out isolation test"
+    },
+    {
+      "at": "2026-10-21T09:43:20.046Z",
+      "event": "slice merging",
+      "detail": "Instant pause, Stop now, fresh resume"
+    },
+    {
+      "at": "2026-10-21T09:43:46.170Z",
+      "event": "slice done",
+      "detail": "Instant pause, Stop now, fresh resume"
     }
   ],
   "planHash": "77b962c0908b30bb"
