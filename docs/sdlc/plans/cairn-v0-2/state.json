@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T10:18:57.693Z",
+  "updated": "2026-10-21T10:20:14.129Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -410,13 +410,15 @@
             "plugins/cairn/cli/test/fix-procedure.test.ts"
           ],
           "complexity": "simple",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 1,
-          "substep": "fixing",
           "branch": "sdlc-slice/cairn-v0-2/fix-procedure",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--fix-procedure",
           "base": "e48fc76f80bc8652b131c154d3ee77feec5d3377",
-          "note": "review inputs for fix track; blocking-finding loop pending fix-cli"
+          "note": "review inputs for fix track; blocking-finding loop pending fix-cli",
+          "doneAt": "2026-10-21T10:20:14.128Z",
+          "tip": "e368d37",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
         }
       ]
     },
@@ -897,6 +899,16 @@
       "at": "2026-10-21T10:18:57.693Z",
       "event": "slice done",
       "detail": "Direction check procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:19:46.808Z",
+      "event": "slice merging",
+      "detail": "Fix procedure and command"
+    },
+    {
+      "at": "2026-10-21T10:20:14.129Z",
+      "event": "slice done",
+      "detail": "Fix procedure and command"
     }
   ],
   "planHash": "8c7f32988aef9d04"
