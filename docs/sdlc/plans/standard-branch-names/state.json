@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T13:56:09.170Z",
+  "updated": "2026-10-21T13:56:41.510Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -67,14 +67,17 @@
             "plugins/cairn/hooks/**"
           ],
           "complexity": "simple",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": false,
-          "substep": "implementing",
           "branch": "sdlc-task/standard-branch-names/pane-watch",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--pane-watch",
           "base": "8fe4c16177a99f697cd1a9ffc5268092eb4c5672",
-          "startedAt": "2026-10-21T13:51:47.418Z"
+          "startedAt": "2026-10-21T13:51:47.418Z",
+          "doneAt": "2026-10-21T13:56:41.505Z",
+          "tip": "a16cfff",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "0957b87fb82dd2006263410cfce69edf609c3ad3"
         },
         {
           "id": "docs-names",
@@ -235,6 +238,16 @@
       "at": "2026-10-21T13:56:09.169Z",
       "event": "task done",
       "detail": "Docs and procedures use the new names"
+    },
+    {
+      "at": "2026-10-21T13:56:13.200Z",
+      "event": "task merging",
+      "detail": "Pane notices plans on the new prefixes"
+    },
+    {
+      "at": "2026-10-21T13:56:41.510Z",
+      "event": "task done",
+      "detail": "Pane notices plans on the new prefixes"
     }
   ],
   "suggestions": [
@@ -269,6 +282,16 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T13:53:23.889Z"
+    },
+    {
+      "id": "s4",
+      "area": "tests",
+      "text": "Add a fix/ branch case to the pane poll test alongside the feature/ one.",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T13:56:13.119Z"
     }
   ],
   "planHash": "ac8f391969859259",
