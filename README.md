@@ -30,7 +30,7 @@ cairn fixes this in four ways:
 
 ## Requirements
 
-- Claude Code **v2.1.287 or later**, for the mod that powers the pane, menu approvals, and pause.
+- Claude Code v2.1.287 or later, for the mod that powers the pane, menu approvals, and pause.
 - Node.js **20+**. The CLI is a single bundled file with no dependencies.
 - Git. Plans live on branches and worktrees.
 - For the full-height side pane: Claude Code's fullscreen layout, `"tui": "fullscreen"` in `~/.claude/settings.json`, or run `/tui fullscreen` once. In the normal layout the pane sits above the prompt as a compact summary.
