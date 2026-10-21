@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:53:22.686Z",
+  "updated": "2026-10-21T14:56:19.337Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -146,9 +146,14 @@
             "plugins/cairn/references/**"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "substep": "implementing",
+          "branch": "task/cleaner-pane-and-records/followup-rules",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--followup-rules",
+          "base": "c7a19c21f30f1deaff25c9aa001c31f51a73c0d7",
+          "startedAt": "2026-10-21T14:53:28.672Z"
         },
         {
           "id": "findings",
@@ -186,9 +191,17 @@
             "plugins/cairn/types/**"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/cleaner-pane-and-records/pane-history",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--pane-history",
+          "base": "c7a19c21f30f1deaff25c9aa001c31f51a73c0d7",
+          "startedAt": "2026-10-21T14:53:29.175Z",
+          "doneAt": "2026-10-21T14:56:19.337Z",
+          "tip": "5d81038",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "a5c9c982bf6e73b31f28c8293a0b3e317c535165"
         }
       ]
     },
@@ -307,6 +320,12 @@
       "at": "2026-10-21T14:53:16.981Z",
       "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
       "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/hooks/mod/activity.ts",
+      "at": "2026-10-21T14:56:19.336Z",
+      "reason": "changed outside task \"History tab\" scope (found at task done)",
+      "task": "pane-history"
     }
   ],
   "log": [
@@ -473,6 +492,41 @@
       "at": "2026-10-21T14:53:22.686Z",
       "event": "phase finished",
       "detail": "Readable Now tab and dated folders (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T14:53:28.672Z",
+      "event": "task started",
+      "detail": "Follow-up cap, merge, decline and expiry"
+    },
+    {
+      "at": "2026-10-21T14:53:28.749Z",
+      "event": "task implementing",
+      "detail": "Follow-up cap, merge, decline and expiry"
+    },
+    {
+      "at": "2026-10-21T14:53:29.176Z",
+      "event": "task started",
+      "detail": "History tab"
+    },
+    {
+      "at": "2026-10-21T14:53:29.255Z",
+      "event": "task implementing",
+      "detail": "History tab"
+    },
+    {
+      "at": "2026-10-21T14:55:52.556Z",
+      "event": "task merging",
+      "detail": "History tab"
+    },
+    {
+      "at": "2026-10-21T14:56:19.337Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/mod/activity.ts"
+    },
+    {
+      "at": "2026-10-21T14:56:19.337Z",
+      "event": "task done",
+      "detail": "History tab"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
