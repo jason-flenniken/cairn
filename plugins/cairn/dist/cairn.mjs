@@ -7638,6 +7638,7 @@ function emptySections(md, required) {
 }
 var uncheckedItems = (body = "") => body.split("\n").filter((l) => /^\s*[-*]\s+\[ \]/.test(l)).map((l) => l.trim());
 var wordCount = (md) => md.replace(/<!--[\s\S]*?-->/g, "").split(/\s+/).filter(Boolean).length;
+var proseWordCount = (md) => wordCount(md.replace(/<!--[\s\S]*?-->/g, "").split("\n").filter((l) => !/^\s*#{1,6}\s/.test(l)).join("\n"));
 var PRD_SECTIONS = [
   "Problem",
   "Solution",
@@ -7654,6 +7655,8 @@ var PLAN_SECTIONS = ["Goal", "Architecture", "Global constraints", "Review focus
 var RECORD_SECTIONS = ["Links", "Why", "What was built", "How it works", "Evidence", "Deviations", "Follow-ups"];
 var HANDOFF_SECTIONS = ["In flight", "Open questions", "Next action"];
 var RECORD_WORD_BUDGET = 900;
+var FIX_RECORD_SECTIONS = ["Links", "Bug", "Cause", "Fix", "Evidence"];
+var FIX_RECORD_WORD_BUDGET = 300;
 var FR_ID = /\bFR-\d+\b/g;
 var ids = (text = "") => [...new Set(text.match(FR_ID) ?? [])];
 
@@ -7662,6 +7665,7 @@ import { join as join5 } from "node:path";
 
 // plugins/cairn/cli/src/render.ts
 var STAGE_LABEL = {
+  repro: "Repro",
   discover: "Discover",
   prd: "PRD",
   plan: "Plan",
@@ -7678,6 +7682,8 @@ function nextFor(s) {
   if (s.paused) return { procedure: "resume", text: `Paused ${day(s.paused.at)}. Resume to pick up where it stopped.` };
   const all = s.phases.flatMap((p) => p.slices);
   switch (s.stage) {
+    case "repro":
+      return s.repro ? { procedure: "fix", substep: "advance", text: "Repro recorded. Advance to the fix." } : { procedure: "fix", text: "Record a command that reproduces the bug (cairn repro)." };
     case "discover":
       return { procedure: "discover", text: "Interview: settle the open decisions, then move on to the PRD." };
     case "prd":
@@ -7686,6 +7692,7 @@ function nextFor(s) {
       return s.approvals.plan ? { procedure: "plan", substep: "advance", text: "Plan approved. Advance to execution." } : { procedure: "plan", text: "Write the phased plan, load it, and get it approved." };
     case "execute": {
       const phase = s.phases.find((p) => p.status !== "done");
+      if (!phase && s.track === "fix" && s.repro) return { procedure: "review", text: "The fix is built. Advance to review." };
       if (!phase) return { procedure: "verify", text: "All phases are done. Advance to verification." };
       if (phase.status === "awaiting_approval")
         return { procedure: "phase-end", text: `Phase "${phase.name}" is built. Review it and approve it to continue.` };
@@ -7947,7 +7954,9 @@ function cmdNew(ctx, slug, opts) {
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
-  saveState(dir, newState(slug, title, track, branch, base));
+  const state = newState(slug, title, track, branch, base);
+  if (track === "fix") state.stage = "repro";
+  saveState(dir, state);
   if (cfg.autoCommit) commitPath(wt, planRel(slug), `cairn(${slug}): start plan "${title}"`);
   const setup = opts["no-worktree"] ? "" : runSetup(cfg, wt, ctx.mainRoot);
   return {
@@ -7969,22 +7978,24 @@ function cmdProductInit(ctx) {
 }
 function cmdDecide(ctx, question, answer, opts) {
   if (!question || !answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "\u2026"]');
-  const pc = planCtx(ctx);
+  const n = appendDecision(planCtx(ctx), question, answer, typeof opts.why === "string" ? opts.why : void 0);
+  return { message: `Recorded decision ${n}: ${answer}`, data: { number: n } };
+}
+function appendDecision(pc, question, answer, why) {
   const file = planFile(pc, "decisions.md");
   const cur = readText(file) ?? "# Decisions\n";
   const n = (cur.match(/^### /gm)?.length ?? 0) + 1;
-  const why = typeof opts.why === "string" ? `
-**Why:** ${opts.why}` : "";
   writeText(file, `${cur.replace(/\n*$/, "\n")}
 ### ${n}. ${question}
-**Decision:** ${answer}${why}
+**Decision:** ${answer}${why ? `
+**Why:** ${why}` : ""}
 _${now().slice(0, 16).replace("T", " ")}_
 `);
-  return { message: `Recorded decision ${n}: ${answer}`, data: { number: n } };
+  return n;
 }
 
 // plugins/cairn/cli/src/commands/stages.ts
-import { join as join8 } from "node:path";
+import { join as join9 } from "node:path";
 
 // plugins/cairn/cli/src/glob.ts
 function globToRegex(glob) {
@@ -8050,12 +8061,122 @@ function readySet(s, maxParallel) {
 }
 
 // plugins/cairn/cli/src/types.ts
-var STAGES = ["discover", "prd", "plan", "execute", "verify", "review", "ship", "learn", "closed"];
+var STAGES = ["repro", "discover", "prd", "plan", "execute", "verify", "review", "ship", "learn", "closed"];
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 
+// plugins/cairn/cli/src/commands/fix.ts
+import { spawnSync as spawnSync3 } from "node:child_process";
+import { existsSync as existsSync4, mkdtempSync, rmSync as rmSync2 } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as join8 } from "node:path";
+var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
+var fastLane = (s) => s.track === "fix" && (s.stage === "repro" || !!s.repro);
+var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build }));
+function configGate(s, cfg, event, opts) {
+  gate(
+    !s.configHash || s.configHash === configHash(cfg),
+    s,
+    event,
+    opts,
+    "the setup, test, or build command in .sdlc/config.json changed since the user approved it",
+    ["the user re-approves the commands by running, in their own terminal: cairn approve plan --human", "or the user chooses Override in the menu"]
+  );
+}
+var changedFiles = (cwd, slug, base, head) => git(["diff", "--name-only", "-z", "-M", base, head, "--", ".", `:!${planRel(slug)}`], cwd).split("\0").filter(Boolean);
+var GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
+function runRepro(cmd, cwd, cfg) {
+  const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
+  const tmp = mkdtempSync(join8(tmpdir(), "cairn-repro-"));
+  const pidFile = join8(tmp, "pgid");
+  const r = spawnSync3("sh", ["-c", GROUP_WRAPPER, "sh", cmd, pidFile], { cwd, encoding: "utf8", env: childEnv(), timeout: minutes * 6e4, maxBuffer: 64 * 1024 * 1024 });
+  const timedOut = r.error?.code === "ETIMEDOUT";
+  const pgid = Number(readText(pidFile));
+  if (timedOut && pgid > 0) {
+    try {
+      process.kill(-pgid, "SIGKILL");
+    } catch {
+    }
+  }
+  rmSync2(tmp, { recursive: true, force: true });
+  const lines = `${r.stdout ?? ""}
+${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
+  const last = lines.slice(-1)[0] ?? `exit ${r.status}`;
+  if (timedOut) return { outcome: "timeout", detail: `timed out after ${Math.round(minutes * 60)}s` };
+  if (r.error) return { outcome: "nostart", detail: r.error.message };
+  if (r.status === 126 || r.status === 127) return { outcome: "nostart", detail: last };
+  return { outcome: r.status === 0 ? "passes" : "fails", detail: last };
+}
+function cmdRepro(ctx, cmd, opts) {
+  if (!cmd) throw new CliError('usage: cairn repro "<command>"');
+  const pc = planCtx(ctx);
+  const pre = loadState(pc.plan.dir);
+  if (pre.track !== "fix") throw new Refusal("cairn repro is for fix plans", ["start one with cairn new <slug> --track fix"]);
+  gate(pre.stage === "repro", pre, "repro", opts, `the plan is in ${pre.stage}, not repro`);
+  configGate(pre, pc.cfg, "repro", opts);
+  const ran = runRepro(cmd, pc.plan.worktree, pc.cfg);
+  return mutate(pc, "repro recorded", (s) => {
+    configGate(s, pc.cfg, "repro", opts);
+    gate(s.stage === "repro", s, "repro", opts, `the plan is in ${s.stage}, not repro`);
+    if (ran.outcome === "timeout" || ran.outcome === "nostart")
+      throw new Refusal(`the repro command ${ran.outcome === "timeout" ? "did not finish" : "could not start"}: ${ran.detail}`, ["write a repro command that runs and finishes"]);
+    if (ran.outcome === "passes") throw new Refusal("the command exits 0: this does not reproduce the bug", ["write a command that fails while the bug is present"]);
+    s.repro = { cmd, tail: ran.detail, at: now() };
+    s.configHash = configHash(pc.cfg);
+    log(s, "repro recorded", `${cmd} \u2192 ${ran.detail}`);
+    return { message: `Repro recorded: \`${cmd}\` fails (${ran.detail}). Next: \`cairn advance\` to the fix.`, data: { repro: s.repro } };
+  });
+}
+function cmdEscalate(ctx, opts) {
+  const pc = planCtx(ctx);
+  const pre = loadState(pc.plan.dir);
+  if (pre.track !== "fix") throw new Refusal("only a fix plan can be escalated; this is a feature plan");
+  if (pre.stage === "closed") throw new Refusal("the plan is closed");
+  const changed = /* @__PURE__ */ new Map();
+  const own = planRel(pre.slug) + "/";
+  for (const sl of allSlices(pre)) {
+    const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
+    if (!sl.base || !head) continue;
+    const files = changedFiles(pc.plan.worktree, pre.slug, sl.base, head);
+    if (sl.status === "in_progress" && sl.worktree && existsSync4(sl.worktree))
+      for (const args of [["diff", "--name-only", "-z", "HEAD"], ["ls-files", "--others", "--exclude-standard", "-z"]])
+        files.push(...git(args, sl.worktree).split("\0").filter((f) => f && !f.startsWith(own)));
+    changed.set(sl.id, [...new Set(files.map((f) => f.replace(/[*?]/g, "?")))].sort());
+  }
+  return mutate(pc, "escalated to a feature plan", (s) => {
+    for (const sl of allSlices(s)) sl.scope = changed.get(sl.id) ?? [];
+    const repro = s.repro ? `\`${s.repro.cmd}\` (failed with: ${s.repro.tail})` : "none recorded";
+    appendDecision(pc, "Escalate the fix to a feature plan", `The bug "${s.title}" is bigger than a fix. Repro: ${repro}. The fix slice and its work are kept; the plan must keep the slice id "fix".`, typeof opts.note === "string" ? opts.note : void 0);
+    s.track = "feature";
+    s.stage = "prd";
+    delete s.evidence.review;
+    delete s.approvals.ship;
+    log(s, "escalated", "fix \u2192 feature plan at prd");
+    return { message: `"${s.title}" is now a feature plan at the PRD stage. The fix slice keeps its work, with its scope narrowed to the files it changed. Next: write the PRD.` };
+  });
+}
+
 // plugins/cairn/cli/src/commands/stages.ts
-var STAGE_ORDER = [...STAGES];
-var nextStage = (s) => STAGE_ORDER[STAGE_ORDER.indexOf(s) + 1];
+var STAGE_ORDER = {
+  feature: STAGES.filter((x) => x !== "repro"),
+  fix: ["repro", "execute", "review", "ship", "closed"]
+};
+var nextStage = (s) => {
+  const order = STAGE_ORDER[fastLane(s) ? "fix" : "feature"];
+  return order[order.indexOf(s.stage) + 1];
+};
+function fixRecordProblems(pc) {
+  const md = readText(planFile(pc, "RECORD.md"));
+  const p = docProblems(md, "RECORD.md", FIX_RECORD_SECTIONS);
+  const n = md ? proseWordCount(md) : 0;
+  if (n > FIX_RECORD_WORD_BUDGET) p.push(`RECORD.md is ${n} words; the budget is ${FIX_RECORD_WORD_BUDGET}`);
+  return p;
+}
+var recordCheck = (pc, track) => track === "fix" ? { problems: fixRecordProblems(pc), fix: "write RECORD.md from templates/record-fix.md" } : { problems: recordProblems(pc), fix: "write RECORD.md from templates/record.md" };
+function closeGates(pc, s, opts, record, tests) {
+  configGate(s, pc.cfg, "close", opts);
+  gate(!record.problems.length, s, "close", opts, record.problems.join("; "), [record.fix]);
+  testsGate(tests, s, "close", opts);
+}
 var APPROVAL_KINDS = ["prd", "plan", "phase", "ship"];
 var APPROVE_USAGE = 'usage: cairn approve prd|plan|phase|ship [--human] [--note "\u2026"]';
 function cmdApprove(ctx, kind, opts, io) {
@@ -8080,10 +8201,16 @@ function cmdApprove(ctx, kind, opts, io) {
     case "plan": {
       const md = readText(planFile(pc, "plan.md"));
       return mutate(pc, "plan approved", (s) => {
+        if (s.stage !== "plan" && s.configHash && s.configHash !== configHash(pc.cfg)) {
+          s.configHash = configHash(pc.cfg);
+          log(s, "commands re-approved", source);
+          return { message: "The changed setup, test, and build commands are approved." };
+        }
         gate(s.stage === "plan", s, "approve plan", opts, `the plan is in ${s.stage}, not plan`);
         gate(s.phases.length > 0, s, "approve plan", opts, "no plan is loaded", ["cairn plan load"]);
         gate(!!md && s.planHash === hashText(md), s, "approve plan", opts, "plan.md changed since it was loaded", ["cairn plan load"]);
         s.approvals.plan = { ...approval(), hash: s.planHash };
+        s.configHash = configHash(pc.cfg);
         log(s, "plan approved", source);
         return { message: "Plan approved. Next: `cairn advance` to execution." };
       });
@@ -8117,8 +8244,8 @@ function cmdApprove(ctx, kind, opts, io) {
       return mutate(pc, "ship approved", (s) => {
         gate(s.stage === "ship", s, "approve ship", opts, `the plan is in ${s.stage}, not ship`);
         gate(s.evidence.review?.result === "pass", s, "approve ship", opts, "review has not passed", ["run the review procedure, then cairn evidence review pass"]);
-        const problems = recordProblems(pc);
-        gate(!problems.length, s, "approve ship", opts, problems.join("; "), ["write RECORD.md from templates/record.md"]);
+        const record = recordCheck(pc, fastLane(s) ? "fix" : "feature");
+        gate(!record.problems.length, s, "approve ship", opts, record.problems.join("; "), [record.fix]);
         s.approvals.ship = approval();
         log(s, "ship approved", source);
         return { message: "Ship approved. Next: open the PR, then `cairn advance`." };
@@ -8130,13 +8257,22 @@ function cmdApprove(ctx, kind, opts, io) {
 function cmdAdvance(ctx, opts) {
   const pc = planCtx(ctx);
   const decisions = readText(planFile(pc, "decisions.md")) ?? "";
+  const pre = loadState(pc.plan.dir);
+  const closing = fastLane(pre) && pre.stage === "ship";
+  if (closing) configGate(pre, pc.cfg, "close", opts);
+  const record = closing ? recordCheck(pc, "fix") : void 0;
+  const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : void 0;
   let to;
   const r = mutate(pc, void 0, (s) => {
-    to = nextStage(s.stage);
+    to = nextStage(s);
     if (!to || s.stage === "learn") throw new Refusal(s.stage === "learn" ? "use `cairn close` to finish the plan" : "the plan is closed");
     if (typeof opts.to === "string" && opts.to !== to) throw new Refusal(`the next stage after ${s.stage} is ${to}, not ${opts.to}`);
     if (s.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
     switch (s.stage) {
+      case "repro":
+        if (!s.repro) throw new Refusal("no repro is recorded", ['cairn repro "<command that fails while the bug is present>"']);
+        s.phases = [{ id: "fix", name: "Fix", status: "pending", slices: [{ id: "fix", name: "Fix", covers: [], blockedBy: [], scope: ["**"], complexity: "standard", status: "pending", fixRound: 0 }] }];
+        break;
       case "discover":
         gate(/^### /m.test(decisions), s, "advance", opts, "no decisions recorded yet", ['cairn decide "<question>" "<answer>"']);
         break;
@@ -8157,6 +8293,7 @@ function cmdAdvance(ctx, opts) {
         break;
       case "ship":
         gate(!!s.approvals.ship, s, "advance", opts, "shipping is not approved", ["cairn approve ship"]);
+        if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
     s.stage = to;
@@ -8165,6 +8302,7 @@ function cmdAdvance(ctx, opts) {
       if (p && p.status === "pending") p.status = "in_progress";
     }
     log(s, "advanced", to);
+    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join9(pc.plan.dir, "RECORD.md")}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRel(pc.plan.slug), `cairn(${pc.plan.slug}): advance to ${to}`);
@@ -8172,15 +8310,15 @@ function cmdAdvance(ctx, opts) {
 }
 function cmdClose(ctx, opts) {
   const pc = planCtx(ctx);
-  const problems = recordProblems(pc);
+  configGate(loadState(pc.plan.dir), pc.cfg, "close", opts);
+  const record = recordCheck(pc, "feature");
   const tests = runTests(pc.cfg, pc.plan.worktree);
   return mutate(pc, "closed", (s) => {
     gate(s.stage === "learn", s, "close", opts, `the plan is in ${s.stage}, not learn`);
-    gate(!problems.length, s, "close", opts, problems.join("; "), ["write RECORD.md from templates/record.md"]);
-    testsGate(tests, s, "close", opts);
+    closeGates(pc, s, opts, record, tests);
     s.stage = "closed";
     log(s, "closed");
-    return { message: `Closed "${s.title}". The record is ${join8(pc.plan.dir, "RECORD.md")}.` };
+    return { message: `Closed "${s.title}". The record is ${join9(pc.plan.dir, "RECORD.md")}.` };
   });
 }
 
@@ -8323,9 +8461,10 @@ function cmdPlanLoad(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/slices.ts
-import { existsSync as existsSync4 } from "node:fs";
-import { join as join9 } from "node:path";
+import { existsSync as existsSync5 } from "node:fs";
+import { join as join10 } from "node:path";
 var MAX_FIX_ROUNDS = 5;
+var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -8361,19 +8500,27 @@ function cmdSlice(ctx, action, id, rest, opts) {
 function sliceStart(pc, id, opts) {
   const { plan, ctx, cfg } = pc;
   const branch = sliceBranch(plan.slug, id);
-  const path = join9(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${plan.slug}--${id}`);
+  const path = join10(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${plan.slug}--${id}`);
   const r = mutate(pc, void 0, (s) => {
     const sl = findSlice(s, id);
     if (!sl) throw new Refusal(`no slice "${id}" in this plan`, ["cairn ready"]);
     if (sl.status === "in_progress") return { message: `Slice "${sl.name}" is already running (${sl.substep}) at ${sl.worktree}.`, data: { worktree: sl.worktree, branch: sl.branch, resumed: true } };
+    if (sl.status === "done" && fastLane(s) && s.stage === "review") {
+      sl.status = "pending";
+      s.phases.find((p) => p.slices.includes(sl)).status = "in_progress";
+      s.stage = "execute";
+      delete s.evidence.review;
+      log(s, "fix reopened", "from review");
+    }
     if (sl.status === "done") throw new Refusal(`slice "${sl.name}" is already done`);
     gate(s.stage === "execute" && !s.paused, s, "slice start", opts, s.paused ? "the plan is paused" : `the plan is in ${s.stage}, not execute`);
+    configGate(s, cfg, "slice start", opts);
     const ready = readySet(s, cfg.maxParallel);
     const waiting = ready.waiting.find((w) => w.slice.id === id);
     gate(ready.ready.some((x) => x.id === id), s, "slice start", opts, waiting ? `slice "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `slice "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base = git(["rev-parse", planBranch(plan.slug)], plan.worktree);
     let setup = "";
-    if (!existsSync4(path)) {
+    if (!existsSync5(path)) {
       if (branchExists(branch, plan.worktree)) git(["worktree", "add", "-q", path, branch], plan.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, planBranch(plan.slug)], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
@@ -8409,30 +8556,43 @@ function sliceDone(pc, id, opts) {
   if (!sl) throw new Refusal(`no slice "${id}" in this plan`);
   if (sl.status !== "in_progress" || !sl.branch) throw new Refusal(`slice "${sl.name}" is not running`);
   const pb = planBranch(plan.slug);
+  configGate(pre, pc.cfg, "slice done", opts);
   const merged = branchExists(sl.branch, plan.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan.worktree);
-  const dirty = sl.worktree && existsSync4(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync5(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan.worktree) ? git(["rev-parse", "--short", sl.branch], plan.worktree) : void 0;
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRel(plan.slug)}`], plan.worktree);
-  const tests = merged && !dirty && !planDirty ? runTests(pc.cfg, plan.worktree) : void 0;
+  const checkable = merged && !dirty && !planDirty;
+  const tests = checkable ? runTests(pc.cfg, plan.worktree) : void 0;
+  const fix = fastLane(pre);
+  const repro = fix && merged && pre.repro ? runRepro(pre.repro.cmd, plan.worktree, pc.cfg) : void 0;
+  const heads = [pb, ...tip ? [sl.branch] : []];
+  const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base, h))).size : 0;
+  const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `slice done: ${sl.name}`, (s) => {
     const cur = findSlice(s, id);
+    configGate(s, pc.cfg, "slice done", opts);
     gate(!dirty, s, "slice done", opts, `the slice worktree has uncommitted changes`, [`commit or discard them in ${cur.worktree}`]);
     gate(commits > 0, s, "slice done", opts, `${cur.branch} has no commits since the slice started`, ["the implementer commits its work on the slice branch, in the slice worktree"]);
     gate(!planDirty, s, "slice done", opts, `the plan worktree has uncommitted changes outside docs/sdlc: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on slice branches: move it into a slice, or discard it"]);
     gate(merged, s, "slice done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
-    testsGate(tests ?? (merged && !dirty && !planDirty ? void 0 : { ok: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "slice done", opts);
+    testsGate(tests ?? (checkable ? void 0 : { ok: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "slice done", opts);
+    if (fix) {
+      gate(repro?.outcome === "passes", s, "slice done", opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` \u2192 ${repro.detail})` : "the repro was not run: the slice is not merged", ["fix the bug so the repro command exits 0"]);
+      gate(changed <= maxFiles, s, "slice done", opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ["this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work"]);
+    }
     Object.assign(cur, { status: "done", substep: void 0, doneAt: now(), tip, tests: tests ? `${tests.cmd} \u2192 ${tests.tail}` : void 0 });
     const phase = s.phases.find((p) => p.slices.some((x) => x.id === id));
     phase.status = phaseStatus(phase, phase.status);
+    if (fastLane(s) && phase.status === "awaiting_approval") phase.status = "done";
     log(s, "slice done", cur.name);
     const left = phase.slices.filter((x) => x.status !== "done").length;
     return {
-      message: `Slice "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ""}. ${left ? `${left} slice(s) left in phase "${phase.name}".` : `Phase "${phase.name}" is built: run the phase-end review.`}`,
+      message: `Slice "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ""}. ${left ? `${left} slice(s) left in phase "${phase.name}".` : fastLane(s) ? "The fix is built: `cairn advance` to review." : `Phase "${phase.name}" is built: run the phase-end review.`}`,
       data: { phaseComplete: !left }
     };
   });
-  if (merged && sl.worktree && existsSync4(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan.worktree);
+  if (merged && sl.worktree && existsSync5(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan.worktree);
   if (merged) gitOk(["branch", "-d", sl.branch], plan.worktree);
   return r;
 }
@@ -8541,11 +8701,11 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join11 } from "node:path";
+import { join as join12 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync5, readFileSync as readFileSync3 } from "node:fs";
-import { join as join10 } from "node:path";
+import { existsSync as existsSync6, readFileSync as readFileSync3 } from "node:fs";
+import { join as join11 } from "node:path";
 function listPlans(ctx) {
   const refs = git(["for-each-ref", "--format=%(refname:short)", "refs/heads/sdlc/"], ctx.top).split("\n").filter(Boolean);
   const rows = [];
@@ -8553,7 +8713,7 @@ function listPlans(ctx) {
     const slug = b.slice("sdlc/".length);
     const ref = planRef(slug, ctx.worktrees);
     try {
-      const raw = ref.dir && existsSync5(join10(ref.dir, "state.json")) ? readFileSync3(join10(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
+      const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync3(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
       rows.push({ state: parseState(raw), live: !!ref.dir, worktree: ref.worktree });
     } catch {
     }
@@ -8589,7 +8749,7 @@ ${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.st
     data: { state: s, next, warnings: w, slice: ctx.slice ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
   };
 }
-var procedurePath = (name) => join10(pluginRoot(), "procedures", `${name}.md`);
+var procedurePath = (name) => join11(pluginRoot(), "procedures", `${name}.md`);
 function cmdNext(ctx) {
   if (!ctx.plan) {
     const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
@@ -8615,9 +8775,9 @@ function cmdRender(ctx) {
   if (ctx.plan) {
     const pc = planCtx(ctx);
     withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
-    return { message: `Rendered ${join10(pc.plan.dir, "STATUS.md")}.` };
+    return { message: `Rendered ${join11(pc.plan.dir, "STATUS.md")}.` };
   }
-  const out = join10(ctx.top, "docs/sdlc/INDEX.md");
+  const out = join11(ctx.top, "docs/sdlc/INDEX.md");
   writeText(out, renderIndex(listPlans(ctx)));
   return { message: `Rendered ${out}.` };
 }
@@ -8645,7 +8805,7 @@ function cmdResume(ctx, slug, opts) {
     if (!branchExists(planBranch(slug), ctx.top)) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join11(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
+      const wt = join12(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
       git(["worktree", "add", "-q", wt, planBranch(slug)], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -8678,12 +8838,12 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync6 } from "node:fs";
-import { dirname as dirname3, isAbsolute, join as join12, relative, resolve } from "node:path";
+import { existsSync as existsSync7 } from "node:fs";
+import { dirname as dirname3, isAbsolute, join as join13, relative, resolve } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync6(join12(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync7(join13(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return "";
@@ -8703,9 +8863,9 @@ function hookPostEdit(input) {
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve(input.cwd ?? process.cwd(), file);
   let dir = dirname3(abs);
-  while (!existsSync6(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
+  while (!existsSync7(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync6(join12(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync7(join13(ctx.plan.dir, "state.json"))) return "";
   const rel = relative(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (rel.startsWith("docs/sdlc/") || rel.startsWith(".sdlc/") || rel.startsWith(".claude/")) return "";
@@ -8765,6 +8925,7 @@ var USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cl
   approve prd|plan|phase|ship | advance [--to <stage>] | plan load [--replan] | ready
   slice start|step|done <id> | evidence verify|review pass|fail | drift ack <path>|--all
   pause [--now] | resume [<slug>] | close | render
+  repro "<command>" | escalate (fix plans)
 Flags: --json, --note "\u2026", --override "reason" (only when the user chose to skip a check)`;
 function run(argv, cwd = process.cwd()) {
   const { pos, opts } = parseArgs(argv);
@@ -8791,6 +8952,10 @@ function run(argv, cwd = process.cwd()) {
       return cmdPlanLoad(ctx(), opts);
     case "ready":
       return cmdReady(ctx());
+    case "repro":
+      return cmdRepro(ctx(), a, opts);
+    case "escalate":
+      return cmdEscalate(ctx(), opts);
     case "slice":
       return cmdSlice(ctx(), a, b, rest, opts);
     case "evidence":
