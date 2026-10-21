@@ -53,3 +53,16 @@ test('records lists the active plan first, then closed plans newest first, from 
   }
   assert.match(run(['records'], repo).message, /\[in progress: .*\]/);
 });
+
+test('a closed plan whose branch has the old folder takes its record and date from the dated folder on main', () => {
+  g(repo, 'switch', '-q', '-c', 'feature/renamed');
+  closed('renamed', 'renamed', '2026-12-31T00:00:00Z');
+  g(repo, 'add', '-A');
+  g(repo, 'commit', '-q', '-m', 'legacy plan folder');
+  g(repo, 'switch', '-q', 'main');
+  closed('2026-10-20-renamed', 'renamed', '2026-12-31T00:00:00Z', 'Because.');
+  const e = (run(['records', '--json'], repo).data!.records as any[]).find((r) => r.slug === 'renamed');
+  assert.equal(e.record, join(repo, 'docs/sdlc/plans/2026-10-20-renamed/RECORD.md'));
+  assert.equal(e.date, '2026-10-20');
+  assert.equal(e.why, 'Because.');
+});

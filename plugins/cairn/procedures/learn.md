@@ -12,7 +12,7 @@ Run `cairn status --json`. The stage must be `learn`. Any other stage: say which
 **Done when:** the stage is `learn`.
 
 ## 2. Follow-ups
-Ship's tidy step already grouped and dismissed this plan's follow-ups. Run `cairn suggest list --open --json` and count the open ones whose key starts with this plan's slug. At most 5 may stay open. If there are more, group or dismiss them now (`cairn suggest merge` or `cairn suggest resolve <key> --dismiss --note "<reason>"`) and list what was dropped in the record.
+Ship's tidy step already grouped and dismissed this plan's follow-ups. Run `cairn suggest list --open --json` and count the open ones whose key starts with `<slug>:`. At most 5 may stay open. If there are more, group or dismiss them now (`cairn suggest merge` or `cairn suggest resolve <key> --dismiss --note "<reason>"`) and list what was dropped in the record.
 
 **Done when:** at most 5 open follow-ups remain from this plan.
 

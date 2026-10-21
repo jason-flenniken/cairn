@@ -7468,7 +7468,11 @@ var planBranch = (slug, track) => `${track === "fix" ? "fix/" : "feature/"}${slu
 var taskBranch = (slug, task) => `task/${slug}/${task}`;
 var worktreeName = (branch) => branch.replace(/\//g, "-");
 var planRel = (slug) => `${PLANS_DIR}/${slug}`;
-var planDirName = (slug, created) => `${created.slice(0, 10)}-${slug}`;
+function planDirName(slug, created) {
+  if (typeof created === "string") return `${created.slice(0, 10)}-${slug}`;
+  const p = (n) => String(n).padStart(2, "0");
+  return `${created.getFullYear()}-${p(created.getMonth() + 1)}-${p(created.getDate())}-${slug}`;
+}
 var DATED = /^\d{4}-\d{2}-\d{2}-/;
 function pickPlanDir(slug, names, hasPlan) {
   const dated = names.filter((n) => DATED.test(n) && n.slice(11) === slug).sort().reverse();
@@ -8026,7 +8030,7 @@ function cmdNew(ctx, slug, opts) {
     wt = join7(root, worktreeName(branch));
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
-  const rel = `${PLANS_DIR}/${planDirName(slug, now())}`;
+  const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
   const dir = join7(wt, rel);
   writeText(join7(dir, "decisions.md"), `# Decisions: ${title}
 
@@ -8262,7 +8266,7 @@ function listPlans(ctx) {
       const raw = ref.dir && existsSync5(join9(ref.dir, "state.json")) ? readFileSync5(join9(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
       const state = parseState(raw);
       if (state.branch !== b) continue;
-      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join9(ctx.mainRoot, rel ?? planRelIn(slug, ctx.mainRoot)) });
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join9(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
     } catch {
     }
   }

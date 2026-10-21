@@ -16,8 +16,12 @@ export const taskBranch = (slug: string, task: string) => `task/${slug}/${task}`
 export const worktreeName = (branch: string) => branch.replace(/\//g, '-');
 /** The legacy (undated) plan folder, relative to the repo root. */
 export const planRel = (slug: string) => `${PLANS_DIR}/${slug}`;
-/** Folder name for a new plan: the start date, then the slug. `created` is an ISO timestamp. */
-export const planDirName = (slug: string, created: string) => `${created.slice(0, 10)}-${slug}`;
+/** Folder name for a new plan: the start date, then the slug. A Date gives its local calendar day; a string is an ISO timestamp. */
+export function planDirName(slug: string, created: string | Date): string {
+  if (typeof created === 'string') return `${created.slice(0, 10)}-${slug}`;
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${created.getFullYear()}-${p(created.getMonth() + 1)}-${p(created.getDate())}-${slug}`;
+}
 
 const DATED = /^\d{4}-\d{2}-\d{2}-/;
 /** Of the folder names found, the one holding this slug: exactly `<date>-<slug>` (newest first) or `<slug>`. */

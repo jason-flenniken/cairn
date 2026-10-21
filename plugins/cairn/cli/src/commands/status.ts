@@ -23,7 +23,7 @@ export function listPlans(ctx: Ctx): IndexRow[] {
       const raw = ref.dir && existsSync(join(ref.dir, 'state.json')) ? readFileSync(join(ref.dir, 'state.json'), 'utf8') : git(['show', `${b}:${rel}/state.json`], ctx.top);
       const state = parseState(raw);
       if (state.branch !== b) continue; // a hand-made branch sharing a plan's slug
-      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join(ctx.mainRoot, rel ?? planRelIn(slug, ctx.mainRoot)) });
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
     } catch {
       // A branch without plan state is not a cairn plan.
     }

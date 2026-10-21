@@ -488,8 +488,7 @@ export function install(on: On): void {
       return (
         <Box flexDirection="column">
           {tabs}
-          {all !== null && all.length === 0 && <Text dimColor>No finished plans yet.</Text>}
-          {(all ?? []).map(x => (
+                    {(all ?? []).map(x => (
             <Box key={`record:${x.slug}:row`} flexDirection="column">
               <Button key={`record:${x.slug}`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
                 <Text wrap="truncate-end">{`${x.stage === 'closed' ? dateText(x.date) : 'In progress'} · ${x.title}`}</Text>
@@ -499,6 +498,7 @@ export function install(on: On): void {
               </Button>
             </Box>
           ))}
+          {all !== null && !all.some(x => x.stage === 'closed') && <Text dimColor>No finished plans yet.</Text>}
         </Box>
       )
     }

@@ -29,7 +29,7 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
     wt = join(root, worktreeName(branch));
     git(['worktree', 'add', '-q', '-b', branch, wt, base], ctx.top);
   }
-  const rel = `${PLANS_DIR}/${planDirName(slug, now())}`;
+  const rel = `${PLANS_DIR}/${planDirName(slug, new Date())}`;
   const dir = join(wt, rel);
   writeText(join(dir, 'decisions.md'), `# Decisions: ${title}\n\nAppend-only. Written by \`cairn decide\` as each decision is made.\n`);
   const state = newState(slug, title, track, branch, base);

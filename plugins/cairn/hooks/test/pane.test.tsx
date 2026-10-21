@@ -979,6 +979,18 @@ describe('Records tab (FR-08, FR-09)', () => {
     await ui.unmount()
   })
 
+  test('with only in-progress plans it still says there are no finished plans, below the in-progress row', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('live', '2026-10-21', { stage: 'execute', record: undefined })]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    const text = await drawn(ui)
+    expect(text).toContain('In progress · Plan live')
+    expect(text.indexOf('In progress · Plan live')).toBeLessThan(text.indexOf('No finished plans yet.'))
+    await ui.unmount()
+  })
+
   test('opening a record shows its text and open follow-ups; Back returns to the list', async ($, on) => {
     const { w } = world(on, { rows: [row(EXECUTE, WT)] })
     w.records = [rec('a', '2026-10-20', { followUps: [{ text: 'tidy the cache', area: 'quality', status: 'open' }, { text: 'old thing', area: 'docs', status: 'done' }] }), rec('b', '2026-09-03')]

@@ -31,6 +31,11 @@ function renameFolder(wt: string, from: string, to: string) {
   g(wt, 'commit', '-q', '-m', `rename ${from}`);
 }
 
+test('planDirName uses the local calendar day for a Date', () => {
+  assert.equal(planDirName('demo', new Date(2026, 9, 21, 22, 30)), '2026-10-21-demo');
+  assert.equal(planDirName('demo', new Date(2026, 0, 5, 0, 5)), '2026-01-05-demo');
+});
+
 test('planDirName dates the folder by the plan start', () => {
   assert.equal(planDirName('demo', '2026-10-21T08:30:00.000Z'), '2026-10-21-demo');
 });

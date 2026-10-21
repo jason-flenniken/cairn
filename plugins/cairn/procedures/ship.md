@@ -10,7 +10,7 @@ Run `cairn status --json`. The stage must be `ship`. Any other stage: say which 
 **Done when:** the stage is `ship` and verify and review evidence are recorded.
 
 ## 2. Tidy the follow-ups
-A plan closes with at most 5 open recommended follow-ups from itself. Run `cairn suggest list --open --json` and look at the ones whose key starts with this plan's slug.
+A plan closes with at most 5 open recommended follow-ups from itself. Run `cairn suggest list --open --json` and look at the ones whose key starts with `<slug>:`.
 - Group related ones into a high-level item (for example many missing-test notes become "add more detailed tests for the pane"): `cairn suggest merge <key> <key>... --area <a> --text "<high-level item>"`. The merged ones show as merged; the new item is the one left open.
 - Duplicates: merge them too. Trivia: `cairn suggest resolve <key> --dismiss --note "<reason>"`.
 - Keep a list of what was dropped (merged away or dismissed) for the record.
