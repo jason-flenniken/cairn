@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T09:30:43.490Z",
+  "updated": "2026-10-21T09:30:43.601Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -27,7 +27,7 @@
     {
       "id": "proof",
       "name": "Proof of the user",
-      "status": "awaiting_approval",
+      "status": "done",
       "slices": [
         {
           "id": "cli-split",
@@ -196,7 +196,7 @@
     {
       "id": "visibility",
       "name": "Pane, pause, resume, verdict",
-      "status": "pending",
+      "status": "in_progress",
       "slices": [
         {
           "id": "pause-resume",
@@ -654,6 +654,11 @@
       "at": "2026-10-21T09:30:43.490Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T09:30:43.601Z",
+      "event": "phase approved",
+      "detail": "Proof of the user"
     }
   ],
   "planHash": "77b962c0908b30bb"
