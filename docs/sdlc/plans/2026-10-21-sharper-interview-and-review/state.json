@@ -6,8 +6,8 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T22:02:01.625Z",
-  "stage": "learn",
+  "updated": "2026-10-21T22:02:35.180Z",
+  "stage": "closed",
   "paused": null,
   "approvals": {
     "prd": {
@@ -535,6 +535,10 @@
       "at": "2026-10-21T22:02:01.624Z",
       "event": "advanced",
       "detail": "learn"
+    },
+    {
+      "at": "2026-10-21T22:02:35.180Z",
+      "event": "closed"
     }
   ],
   "suggestions": [
