@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:59:13.304Z",
+  "updated": "2026-10-21T23:00:53.096Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -151,14 +151,17 @@
             "plugins/cairn/cli/test/steps-doc.test.ts"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 1,
           "risky": false,
-          "substep": "fixing",
           "branch": "task/pane-status-bar-and-polish/accurate-header",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--accurate-header",
           "base": "b87d0f7c8fd7da0538f395f914fecc884500e25e",
-          "startedAt": "2026-10-21T22:50:55.825Z"
+          "startedAt": "2026-10-21T22:50:55.825Z",
+          "doneAt": "2026-10-21T23:00:53.096Z",
+          "tip": "d4f8454",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "1cdb392e8e9f289e31c998f11ef2b90cfe58704d"
         },
         {
           "id": "card-click-cost",
@@ -267,6 +270,24 @@
       "at": "2026-10-21T22:56:56.275Z",
       "reason": "changed outside task \"Spend and limits lines\" scope (found at task done)",
       "task": "usage-lines"
+    },
+    {
+      "path": "plugins/cairn/cli/src/types.ts",
+      "at": "2026-10-21T23:00:53.096Z",
+      "reason": "changed outside task \"Accurate header and status line\" scope (found at task done)",
+      "task": "accurate-header"
+    },
+    {
+      "path": "plugins/cairn/dist/cairn.mjs",
+      "at": "2026-10-21T23:00:53.096Z",
+      "reason": "changed outside task \"Accurate header and status line\" scope (found at task done)",
+      "task": "accurate-header"
+    },
+    {
+      "path": "plugins/cairn/references/cli.md",
+      "at": "2026-10-21T23:00:53.096Z",
+      "reason": "changed outside task \"Accurate header and status line\" scope (found at task done)",
+      "task": "accurate-header"
     }
   ],
   "log": [
@@ -468,6 +489,31 @@
       "at": "2026-10-21T22:59:13.304Z",
       "event": "task done",
       "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:59:17.752Z",
+      "event": "task merging",
+      "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T23:00:53.096Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/src/types.ts"
+    },
+    {
+      "at": "2026-10-21T23:00:53.096Z",
+      "event": "drift",
+      "detail": "plugins/cairn/dist/cairn.mjs"
+    },
+    {
+      "at": "2026-10-21T23:00:53.096Z",
+      "event": "drift",
+      "detail": "plugins/cairn/references/cli.md"
+    },
+    {
+      "at": "2026-10-21T23:00:53.096Z",
+      "event": "task done",
+      "detail": "Accurate header and status line"
     }
   ],
   "suggestions": [
@@ -650,6 +696,16 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T22:57:22.418Z"
+    },
+    {
+      "id": "s18",
+      "area": "tests",
+      "text": "npm run test:mod fails 1 test intermittently (seen twice in the accurate-header worktree, passes on rerun); find and fix the flaky test",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:59:17.675Z"
     }
   ],
   "planHash": "0eaa106a32c142a9",
