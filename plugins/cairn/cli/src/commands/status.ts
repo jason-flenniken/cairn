@@ -1,24 +1,28 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { commonDir, git } from '../git.ts';
-import { planRef, planRel, type Ctx } from '../locate.ts';
+import { PLAN_PREFIXES, parseBranch, planRef, planRel, type Ctx } from '../locate.ts';
 import { modActive } from '../proof.ts';
 import { nextFor, renderIndex, summary, type IndexRow } from '../render.ts';
 import { loadState, parseState, saveState } from '../state.ts';
 import type { State } from '../types.ts';
 import { hashText, pluginRoot, readText, withLock, writeText } from '../util.ts';
+import { readyFor } from './stages.ts';
 import { openSuggestionCount } from './suggest.ts';
 import { planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function listPlans(ctx: Ctx): IndexRow[] {
-  const refs = git(['for-each-ref', '--format=%(refname:short)', 'refs/heads/sdlc/'], ctx.top).split('\n').filter(Boolean);
+  const refs = git(['for-each-ref', '--format=%(refname:short)', ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split('\n').filter(Boolean);
   const rows: IndexRow[] = [];
   for (const b of refs) {
-    const slug = b.slice('sdlc/'.length);
-    const ref = planRef(slug, ctx.worktrees);
+    const slug = parseBranch(b).slug;
+    if (!slug) continue;
+    const ref = planRef(slug, ctx.worktrees, b);
     try {
       const raw = ref.dir && existsSync(join(ref.dir, 'state.json')) ? readFileSync(join(ref.dir, 'state.json'), 'utf8') : git(['show', `${b}:${planRel(slug)}/state.json`], ctx.top);
-      rows.push({ state: parseState(raw), live: !!ref.dir, worktree: ref.worktree });
+      const state = parseState(raw);
+      if (state.branch !== b) continue; // a hand-made branch sharing a plan's slug
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree });
     } catch {
       // A branch without plan state is not a cairn plan.
     }
@@ -48,7 +52,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ? rows.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: join(r.worktree, planRel(r.state.slug)) } }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -56,7 +60,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   const next = nextFor(s);
   return {
     message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
+    data: { state: s, next, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
   };
 }
 

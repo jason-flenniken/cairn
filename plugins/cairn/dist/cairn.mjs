@@ -7362,11 +7362,11 @@ var require_dist = __commonJS({
 });
 
 // plugins/cairn/cli/src/main.ts
-import { readFileSync as readFileSync5 } from "node:fs";
+import { readFileSync as readFileSync6 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 
 // plugins/cairn/cli/src/locate.ts
-import { existsSync as existsSync2 } from "node:fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
 import { basename, dirname as dirname2, join as join2 } from "node:path";
 
 // plugins/cairn/cli/src/git.ts
@@ -7461,22 +7461,32 @@ function commitPath(cwd, path, message) {
 }
 
 // plugins/cairn/cli/src/locate.ts
-var PLAN_PREFIX = "sdlc/";
-var TASK_PREFIX = "sdlc-task/";
 var PLANS_DIR = "docs/sdlc/plans";
-var planBranch = (slug) => `${PLAN_PREFIX}${slug}`;
-var taskBranch = (slug, task) => `${TASK_PREFIX}${slug}/${task}`;
+var PLAN_PREFIXES = ["feature/", "fix/", "sdlc/"];
+var TASK_PREFIXES = ["task/", "sdlc-task/"];
+var planBranch = (slug, track) => `${track === "fix" ? "fix/" : "feature/"}${slug}`;
+var taskBranch = (slug, task) => `task/${slug}/${task}`;
+var worktreeName = (branch) => branch.replace(/\//g, "-");
 var planRel = (slug) => `${PLANS_DIR}/${slug}`;
-function parseBranch(branch) {
-  if (branch.startsWith(PLAN_PREFIX)) return { slug: branch.slice(PLAN_PREFIX.length) };
-  if (branch.startsWith(TASK_PREFIX)) {
-    const [slug, task] = branch.slice(TASK_PREFIX.length).split("/");
-    return { slug, task };
+function recordedBranch(ref, slug, cwd) {
+  try {
+    return JSON.parse(git(["show", `${ref}:${planRel(slug)}/state.json`], cwd)).branch;
+  } catch {
+    return void 0;
   }
+}
+var planBranchesFor = (slug, cwd) => PLAN_PREFIXES.map((p) => `${p}${slug}`).filter((b) => branchExists(b, cwd) && recordedBranch(b, slug, cwd) === b);
+function parseBranch(branch) {
+  for (const p of PLAN_PREFIXES) if (branch.startsWith(p)) return { slug: branch.slice(p.length) };
+  for (const p of TASK_PREFIXES)
+    if (branch.startsWith(p)) {
+      const [slug, task] = branch.slice(p.length).split("/");
+      return { slug, task };
+    }
   return {};
 }
-function planRef(slug, wts) {
-  const wt = wts.find((w) => w.branch === planBranch(slug));
+function planRef(slug, wts, planBranch2) {
+  const wt = planBranch2 ? wts.find((w) => w.branch === planBranch2) : void 0;
   return wt ? { slug, worktree: wt.path, dir: join2(wt.path, planRel(slug)) } : { slug };
 }
 function context(cwd, slugOverride) {
@@ -7491,14 +7501,36 @@ function context(cwd, slugOverride) {
   const { slug, task } = parseBranch(branch);
   const ctx = { cwd, top, mainRoot: wts[0]?.path ?? top, branch, worktrees: wts, task };
   const s = slugOverride ?? slug;
-  if (s) ctx.plan = planRef(s, wts);
+  if (s) {
+    let planBr;
+    let accept = false;
+    if (slugOverride) {
+      planBr = planBranchesFor(s, top)[0];
+      accept = true;
+    } else {
+      let recorded;
+      try {
+        recorded = JSON.parse(readFileSync2(join2(top, planRel(s), "state.json"), "utf8")).branch;
+      } catch {
+      }
+      const legacy = branch.startsWith("sdlc/") || branch.startsWith("sdlc-task/");
+      if (task) {
+        planBr = recorded ?? (legacy ? `sdlc/${s}` : void 0);
+        accept = legacy || !!recorded && branchExists(recorded, top);
+      } else {
+        planBr = branch;
+        accept = legacy || recorded === branch;
+      }
+    }
+    if (accept) ctx.plan = planRef(s, wts, planBr);
+  }
   return ctx;
 }
 function requirePlan(ctx) {
   const p = ctx.plan;
   if (!p) throw new CliError(`not on a plan branch (current: ${ctx.branch}). Use \`cairn status --all\` to list plans, or \`cairn new <slug>\`.`);
   if (!p.worktree || !p.dir || !existsSync2(join2(p.dir, "state.json")))
-    throw new CliError(`plan "${p.slug}" has no checked-out worktree with state. Check out ${planBranch(p.slug)} first.`);
+    throw new CliError(`plan "${p.slug}" has no checked-out worktree with state. Run \`cairn resume ${p.slug}\` to check out its plan branch.`);
   return p;
 }
 
@@ -7528,7 +7560,7 @@ var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join3(mainRoot, cfg.wor
 
 // plugins/cairn/cli/src/proof.ts
 import { createHash as createHash2, randomBytes, timingSafeEqual } from "node:crypto";
-import { closeSync, constants, fstatSync, linkSync, openSync, readFileSync as readFileSync2, readSync, renameSync, rmSync } from "node:fs";
+import { closeSync, constants, fstatSync, linkSync, openSync, readFileSync as readFileSync3, readSync, renameSync, rmSync } from "node:fs";
 import { join as join4 } from "node:path";
 var HEARTBEAT_FRESH_MS = 1e4;
 var cairnDir = (common) => join4(common, "cairn");
@@ -7561,7 +7593,7 @@ function readRegularFile(path) {
     return void 0;
   }
   try {
-    return fstatSync(fd).isFile() ? readFileSync2(fd, "utf8") : void 0;
+    return fstatSync(fd).isFile() ? readFileSync3(fd, "utf8") : void 0;
   } finally {
     closeSync(fd);
   }
@@ -7945,17 +7977,18 @@ function template(name) {
 }
 
 // plugins/cairn/cli/src/commands/plans.ts
-import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync4 } from "node:fs";
 import { join as join7, resolve } from "node:path";
 function cmdNew(ctx, slug, opts) {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "\u2026"');
-  const branch = planBranch(slug);
-  if (branchExists(branch, ctx.top)) throw new Refusal(`a plan named "${slug}" already exists (${branch})`, [`cairn resume ${slug}`, "or pick another slug"]);
+  const track = opts.track === "fix" ? "fix" : "feature";
+  const branch = planBranch(slug, track);
+  const existing = planBranchesFor(slug, ctx.top)[0];
+  if (existing) throw new Refusal(`a plan named "${slug}" already exists (${existing})`, [`cairn resume ${slug}`, "or pick another slug"]);
   if (!gitOk(["rev-parse", "--verify", "HEAD"], ctx.top)) throw new Refusal("the repository has no commits yet", ["make an initial commit first"]);
   const mainBranch = ctx.worktrees[0]?.branch ?? ctx.branch;
   const base = typeof opts.from === "string" ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === "string" ? opts.title : slug;
-  const track = opts.track === "fix" ? "fix" : "feature";
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
   let wt;
   if (opts["no-worktree"]) {
@@ -7964,7 +7997,7 @@ function cmdNew(ctx, slug, opts) {
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-    wt = join7(root, `sdlc-${slug}`);
+    wt = join7(root, worktreeName(branch));
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
   const dir = join7(wt, planRel(slug));
@@ -8003,7 +8036,7 @@ function cmdDecide(ctx, question, answer, opts) {
 function readDecisionFile(cwd, file) {
   let data;
   try {
-    data = JSON.parse(readFileSync3(resolve(cwd, file), "utf8"));
+    data = JSON.parse(readFileSync4(resolve(cwd, file), "utf8"));
   } catch (e) {
     throw new CliError(`cannot read decision file ${file}: ${e.message}`);
   }
@@ -8205,6 +8238,43 @@ function closeGates(pc, s, opts, record, tests) {
   gate(!record.problems.length, s, "close", opts, record.problems.join("; "), [record.fix]);
   testsGate(tests, s, "close", opts);
 }
+function prdProblems(md) {
+  const problems = docProblems(md, "prd.md", PRD_SECTIONS);
+  const open = uncheckedItems(md ? sections(md).get("open questions") : "");
+  if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(" | ")}`);
+  return problems;
+}
+var firstSentence = (text = "") => text.replace(/\s+/g, " ").trim().match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text.trim();
+function prdSummary(md) {
+  const sec = sections(md);
+  const reqs = (sec.get("requirements") ?? "").split("\n").filter((l) => /\bFR-\d+\b/.test(l)).map((l) => `- ${l.replace(/^\s*[-*]\s+/, "").replace(/\*\*/g, "").split(/Check:/)[0].trim()}`);
+  return [firstSentence(sec.get("problem")), "", "**Requirements**", ...reqs, "", "**Non-goals**", sec.get("non-goals") ?? ""].join("\n").trim();
+}
+function planSummary(s) {
+  return s.phases.flatMap((ph, i) => [`${i + 1}. **${ph.name}**`, ...ph.tasks.map((t) => `   - ${t.name} (${t.complexity})${t.risky ? " risky" : ""}`)]).join("\n");
+}
+function readyFor(pc) {
+  try {
+    const s = loadState(pc.plan.dir);
+    const file = (name) => join9(pc.plan.dir, name);
+    const pcLike = pc;
+    if (s.stage === "prd" && !s.approvals.prd) {
+      const md = readText(file("prd.md"));
+      return md && !prdProblems(md).length ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0;
+    }
+    if (s.stage === "plan" && !s.approvals.plan) {
+      const md = readText(file("plan.md"));
+      return s.phases.length && md && s.planHash === hashText(md) ? { kind: "plan", file: file("plan.md"), summary: planSummary(s) } : void 0;
+    }
+    if (s.stage === "ship" && !s.approvals.ship && s.evidence.review?.result === "pass") {
+      if (recordCheck(pcLike, fastLane(s) ? "fix" : "feature").problems.length) return void 0;
+      const md = readText(file("RECORD.md")) ?? "";
+      return { kind: "ship", file: file("RECORD.md"), summary: (sections(md).get("what was built") ?? "").trim() };
+    }
+  } catch {
+  }
+  return void 0;
+}
 var APPROVAL_KINDS = ["prd", "plan", "ship"];
 var APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "\u2026"]';
 function cmdApprove(ctx, kind, opts, io) {
@@ -8217,9 +8287,7 @@ function cmdApprove(ctx, kind, opts, io) {
       const md = readText(planFile(pc, "prd.md"));
       return mutate(pc, "PRD approved", (s) => {
         gate(s.stage === "prd", s, "approve prd", opts, `the plan is in ${s.stage}, not prd`);
-        const problems = docProblems(md, "prd.md", PRD_SECTIONS);
-        const open = uncheckedItems(md ? sections(md).get("open questions") : "");
-        if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(" | ")}`);
+        const problems = prdProblems(md);
         gate(!problems.length, s, "approve prd", opts, problems.join("; "), ["finish prd.md, resolving open questions with the user"]);
         s.approvals.prd = { ...approval(), hash: md ? hashText(md) : void 0 };
         log(s, "PRD approved", source);
@@ -8484,7 +8552,7 @@ function cmdPlanLoad(ctx, opts) {
 
 // plugins/cairn/cli/src/commands/tasks.ts
 import { existsSync as existsSync5 } from "node:fs";
-import { join as join10 } from "node:path";
+import { basename as basename2, join as join10 } from "node:path";
 var MAX_FIX_ROUNDS = 2;
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
@@ -8521,9 +8589,10 @@ function cmdTask(ctx, action, id, rest, opts) {
 }
 function taskStart(pc, id, opts) {
   const { plan, ctx, cfg } = pc;
-  const branch = taskBranch(plan.slug, id);
-  const path = join10(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${plan.slug}--${id}`);
   const r = mutate(pc, void 0, (s) => {
+    const branch = taskBranch(plan.slug, id);
+    const path = join10(worktreeRoot(cfg, ctx.mainRoot), `${basename2(plan.worktree)}--${id}`);
+    const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
     if (sl.status === "in_progress") return { message: `Task "${sl.name}" is already running (${sl.substep}) at ${sl.worktree}.`, data: { worktree: sl.worktree, branch: sl.branch, resumed: true } };
@@ -8540,18 +8609,18 @@ function taskStart(pc, id, opts) {
     const ready = readySet(s, cfg.maxParallel);
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
-    const base = git(["rev-parse", planBranch(plan.slug)], plan.worktree);
+    const base = git(["rev-parse", pb], plan.worktree);
     let setup = "";
     if (!existsSync5(path)) {
       if (branchExists(branch, plan.worktree)) git(["worktree", "add", "-q", path, branch], plan.worktree);
-      else git(["worktree", "add", "-q", "-b", branch, path, planBranch(plan.slug)], plan.worktree);
+      else git(["worktree", "add", "-q", "-b", branch, path, pb], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
     }
     Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now() });
     const phase = s.phases.find((p) => p.tasks.includes(sl));
     if (phase.status === "pending") phase.status = "in_progress";
     log(s, "task started", sl.name);
-    return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: planBranch(plan.slug) } };
+    return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: pb } };
   });
   ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
   return r;
@@ -8577,7 +8646,7 @@ function taskDone(pc, id, opts) {
   const sl = findTask(pre, id);
   if (!sl) throw new Refusal(`no task "${id}" in this plan`);
   if (sl.status !== "in_progress" || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`);
-  const pb = planBranch(plan.slug);
+  const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
   const merged = branchExists(sl.branch, plan.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan.worktree);
   const dirty = sl.worktree && existsSync5(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
@@ -8685,17 +8754,20 @@ import { existsSync as existsSync7, readdirSync } from "node:fs";
 import { join as join12 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync6, readFileSync as readFileSync4 } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync5 } from "node:fs";
 import { join as join11 } from "node:path";
 function listPlans(ctx) {
-  const refs = git(["for-each-ref", "--format=%(refname:short)", "refs/heads/sdlc/"], ctx.top).split("\n").filter(Boolean);
+  const refs = git(["for-each-ref", "--format=%(refname:short)", ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split("\n").filter(Boolean);
   const rows = [];
   for (const b of refs) {
-    const slug = b.slice("sdlc/".length);
-    const ref = planRef(slug, ctx.worktrees);
+    const slug = parseBranch(b).slug;
+    if (!slug) continue;
+    const ref = planRef(slug, ctx.worktrees, b);
     try {
-      const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync4(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
-      rows.push({ state: parseState(raw), live: !!ref.dir, worktree: ref.worktree });
+      const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync5(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
+      const state = parseState(raw);
+      if (state.branch !== b) continue;
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree });
     } catch {
     }
   }
@@ -8720,7 +8792,7 @@ function cmdStatus(ctx, opts) {
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     const openSuggestions = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions })), modActive: modIsActive(ctx), openSuggestions } };
+${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: join11(r.worktree, planRel(r.state.slug)) } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -8728,7 +8800,7 @@ ${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.st
   const next = nextFor(s);
   return {
     message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []].join("\n"),
-    data: { state: s, next, warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
+    data: { state: s, next, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
   };
 }
 var procedurePath = (name) => join11(pluginRoot(), "procedures", `${name}.md`);
@@ -8975,12 +9047,13 @@ function cmdPause(ctx, opts) {
 }
 function cmdResume(ctx, slug, opts) {
   if (slug && ctx.plan?.slug !== slug) {
-    const ref = planRef(slug, ctx.worktrees);
-    if (!branchExists(planBranch(slug), ctx.top)) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
+    const branch = planBranchesFor(slug, ctx.top)[0];
+    if (!branch) throw new Refusal(`no plan named "${slug}"`, ["cairn status --all"]);
+    const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join13(worktreeRoot(cfg, ctx.mainRoot), `sdlc-${slug}`);
-      git(["worktree", "add", "-q", wt, planBranch(slug)], ctx.top);
+      const wt = join13(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
     }
@@ -9098,7 +9171,7 @@ ${v}` : v;
   const noteFile = opts["note-file"];
   if (typeof noteFile === "string") {
     try {
-      opts.note = readFileSync5(resolve3(cwd, noteFile), "utf8");
+      opts.note = readFileSync6(resolve3(cwd, noteFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --note-file ${noteFile}: ${e.message}`);
     }
@@ -9106,7 +9179,7 @@ ${v}` : v;
   const textFile = opts["text-file"];
   if (typeof textFile === "string") {
     try {
-      opts.text = readFileSync5(resolve3(cwd, textFile), "utf8");
+      opts.text = readFileSync6(resolve3(cwd, textFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --text-file ${textFile}: ${e.message}`);
     }
@@ -9180,7 +9253,7 @@ ${USAGE2}`);
 }
 function readStdin() {
   try {
-    return JSON.parse(readFileSync5(0, "utf8") || "{}");
+    return JSON.parse(readFileSync6(0, "utf8") || "{}");
   } catch {
     return {};
   }

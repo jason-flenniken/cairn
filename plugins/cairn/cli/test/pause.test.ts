@@ -18,7 +18,7 @@ const STATE = {
   slug: 'pausing',
   title: 'Pausing',
   track: 'feature',
-  branch: 'sdlc/pausing',
+  branch: 'feature/pausing',
   base: 'main',
   created: AT,
   updated: AT,

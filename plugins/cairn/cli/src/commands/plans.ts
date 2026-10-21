@@ -1,21 +1,22 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { loadConfig, worktreeRoot } from '../config.ts';
-import { branchExists, commitPath, git, gitOk } from '../git.ts';
-import { planBranch, planRel, type Ctx } from '../locate.ts';
+import { commitPath, git, gitOk } from '../git.ts';
+import { planBranch, planBranchesFor, planRel, worktreeName, type Ctx } from '../locate.ts';
 import { newState, saveState } from '../state.ts';
 import { CliError, now, readText, Refusal, SLUG, writeText } from '../util.ts';
 import { ensureExcluded, planCtx, planFile, runSetup, template, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "…"');
-  const branch = planBranch(slug);
-  if (branchExists(branch, ctx.top)) throw new Refusal(`a plan named "${slug}" already exists (${branch})`, [`cairn resume ${slug}`, 'or pick another slug']);
+  const track = opts.track === 'fix' ? 'fix' : 'feature';
+  const branch = planBranch(slug, track);
+  const existing = planBranchesFor(slug, ctx.top)[0];
+  if (existing) throw new Refusal(`a plan named "${slug}" already exists (${existing})`, [`cairn resume ${slug}`, 'or pick another slug']);
   if (!gitOk(['rev-parse', '--verify', 'HEAD'], ctx.top)) throw new Refusal('the repository has no commits yet', ['make an initial commit first']);
   const mainBranch = ctx.worktrees[0]?.branch ?? ctx.branch;
   const base = typeof opts.from === 'string' ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === 'string' ? opts.title : slug;
-  const track = opts.track === 'fix' ? 'fix' : 'feature';
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
 
   let wt: string;
@@ -25,7 +26,7 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, '.claude/worktrees/');
-    wt = join(root, `sdlc-${slug}`);
+    wt = join(root, worktreeName(branch));
     git(['worktree', 'add', '-q', '-b', branch, wt, base], ctx.top);
   }
   const dir = join(wt, planRel(slug));

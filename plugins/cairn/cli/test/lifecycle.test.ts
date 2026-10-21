@@ -92,12 +92,29 @@ test('full lifecycle with every checkpoint', () => {
   // new
   const r = ok(repo, 'new', 'billing', '--title', 'Billing');
   wt = r.data!.worktree as string;
-  assert.equal(wt, join(repo, '.claude/worktrees/sdlc-billing'));
-  assert.equal(g(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc/billing');
+  assert.equal(wt, join(repo, '.claude/worktrees/feature-billing'));
+  assert.equal(g(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'feature/billing');
   assert.match(readFileSync(join(repo, '.git/info/exclude'), 'utf8'), /\.claude\/worktrees\//);
   assert.ok(existsSync(join(wt, '.setup-ran')), 'setup ran in the plan worktree');
   assert.equal(state().stage, 'discover');
   refused(repo, /already exists/, 'new', 'billing');
+  refused(repo, /already exists \(feature\/billing\)/, 'new', 'billing', '--track', 'fix');
+
+  // a hand-made branch with no plan files is not a plan: left out of the list, and the CLI acts as on main
+  const otherWt = join(repo, '.claude/worktrees/feature-other');
+  g(repo, 'worktree', 'add', '-q', '-b', 'feature/other', otherWt, 'main');
+  const listed = ok(repo, 'status', '--all').data!.plans as { state: { slug: string } }[];
+  assert.deepEqual(listed.map((p) => p.state.slug), ['billing']);
+  assert.ok(Array.isArray(ok(otherWt, 'status').data!.plans), 'status on a hand-made branch shows the index');
+  g(repo, 'worktree', 'remove', '--force', otherWt);
+
+  // a fix plan lands on fix/<slug> in folder fix-<slug>
+  const fixed = ok(repo, 'new', 'crash', '--track', 'fix');
+  assert.equal(fixed.data!.worktree, join(repo, '.claude/worktrees/fix-crash'));
+  assert.equal(g(fixed.data!.worktree as string, 'rev-parse', '--abbrev-ref', 'HEAD'), 'fix/crash');
+  refused(repo, /already exists \(fix\/crash\)/, 'new', 'crash');
+  g(repo, 'worktree', 'remove', '--force', fixed.data!.worktree as string);
+  g(repo, 'branch', '-D', 'fix/crash');
 
   // discover -> prd
   refused(wt, /no decisions/, 'advance');
@@ -108,11 +125,19 @@ test('full lifecycle with every checkpoint', () => {
 
   // prd approval gates
   refusedByUser(wt, /prd\.md does not exist/, 'approve', 'prd');
+  assert.equal(ok(wt, 'status').data!.ready, undefined);
   write(join(planDir(), 'prd.md'), PRD);
+  assert.equal(ok(wt, 'status').data!.ready, undefined, 'open questions block ready');
   refusedByUser(wt, /open question/, 'approve', 'prd');
   refused(wt, /not approved/, 'advance');
   write(join(planDir(), 'prd.md'), PRD.replace('- [ ] which', '- [x] which'));
+  const prdReady = ok(wt, 'status').data!.ready as { kind: string; file: string; summary: string };
+  assert.equal(prdReady.kind, 'prd');
+  assert.equal(prdReady.file, join(planDir(), 'prd.md'));
+  assert.match(prdReady.summary, /- FR-01 charge\./);
+  assert.equal((ok(repo, 'status', '--all').data!.plans as { ready?: { kind: string } }[])[0].ready?.kind, 'prd');
   byUser(wt, 'approve', 'prd');
+  assert.equal(ok(wt, 'status').data!.ready, undefined, 'approved stops are not ready');
   ok(wt, 'advance');
   assert.equal(state().stage, 'plan');
 
@@ -124,6 +149,7 @@ test('full lifecycle with every checkpoint', () => {
   write(join(planDir(), 'plan.md'), PLAN + '\nedit\n');
   refusedByUser(wt, /changed since it was loaded/, 'approve', 'plan');
   ok(wt, 'plan', 'load');
+  assert.equal((ok(wt, 'status').data!.ready as { kind: string }).kind, 'plan');
   byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   assert.equal(state().stage, 'execute');
@@ -135,7 +161,8 @@ test('full lifecycle with every checkpoint', () => {
   const chargeWt = ok(wt, 'task', 'start', 'charge').data!.worktree as string;
   const refundWt = ok(wt, 'task', 'start', 'refund').data!.worktree as string;
   assert.ok(existsSync(join(chargeWt, '.setup-ran')), 'setup ran in the task worktree');
-  assert.equal(g(chargeWt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc-task/billing/charge');
+  assert.equal(g(chargeWt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'task/billing/charge');
+  assert.equal(chargeWt, join(repo, '.claude/worktrees/feature-billing--charge'));
 
   // drift from a task worktree is logged against the plan worktree's state
   const out = ctxOf(hookPostEdit({ cwd: wt, tool_input: { file_path: join(chargeWt, 'src/refund/oops.ts') } }));
@@ -145,7 +172,7 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'suggest', 'add', '--area', 'tests', '--where', 'src/charge/**', '--where', 'src/refund/**', '--text', 'cover the refund edge');
 
   // a task with no commits can't be marked done
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'noop', 'sdlc-task/billing/refund');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'noop', 'task/billing/refund');
   refused(wt, /no commits since the task started/, 'task', 'done', 'refund');
 
   // fix attempts circuit breaker
@@ -157,7 +184,7 @@ test('full lifecycle with every checkpoint', () => {
   g(chargeWt, 'add', '-A');
   g(chargeWt, 'commit', '-q', '-m', 'charge');
   refused(wt, /not merged/, 'task', 'done', 'charge');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'sdlc-task/billing/charge');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'task/billing/charge');
   write(join(wt, 'stray.ts'), 'x');
   refused(wt, /uncommitted changes outside docs\/sdlc/, 'task', 'done', 'charge');
   rmSync(join(wt, 'stray.ts'));
@@ -171,7 +198,7 @@ test('full lifecycle with every checkpoint', () => {
   write(join(refundWt, 'src/refund/index.ts'), 'export const refund = 1;\n');
   g(refundWt, 'add', '-A');
   g(refundWt, 'commit', '-q', '-m', 'refund');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge refund', 'sdlc-task/billing/refund');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge refund', 'task/billing/refund');
   ok(wt, 'task', 'done', 'refund');
   assert.equal(state().phases[0].status, 'awaiting_approval');
 
@@ -211,7 +238,7 @@ test('full lifecycle with every checkpoint', () => {
   write(join(receiptWt, 'src/receipt/index.ts'), 'export const r = 1;\n');
   g(receiptWt, 'add', '-A');
   g(receiptWt, 'commit', '-q', '-m', 'receipt');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'sdlc-task/billing/receipt');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'task/billing/receipt');
   ok(wt, 'task', 'done', 'receipt');
   ok(wt, 'phase', 'finish');
   assert.equal(state().stage, 'verify');
@@ -248,7 +275,7 @@ test('override lets a refused step through and logs the reason', () => {
 });
 
 test('edits before the plan is approved are drift', () => {
-  const swt = join(repo, '.claude/worktrees/sdlc-spike');
+  const swt = join(repo, '.claude/worktrees/feature-spike');
   assert.match(ctxOf(hookPostEdit({ cwd: swt, tool_input: { file_path: join(swt, 'src/app.ts') } })), /before the plan was approved/);
   assert.equal(hookPostEdit({ cwd: swt, tool_input: { file_path: join(swt, 'docs/notes.md') } }), '');
 });
@@ -271,7 +298,7 @@ test('re-plan from verify adds fix tasks, keeps progress, and re-runs verificati
   write(join(swt, 'src/charge/a.ts'), '1\n');
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', 'c');
-  g(fwt, 'merge', '-q', '--no-ff', '-m', 'm', 'sdlc-task/fixes/charge');
+  g(fwt, 'merge', '-q', '--no-ff', '-m', 'm', 'task/fixes/charge');
   ok(fwt, 'task', 'done', 'charge');
   ok(fwt, 'phase', 'finish');
   ok(fwt, 'evidence', 'verify', 'fail', '--note', 'double charge');
@@ -288,4 +315,62 @@ test('re-plan from verify adds fix tasks, keeps progress, and re-runs verificati
   byUser(fwt, 'approve', 'plan');
   ok(fwt, 'advance');
   assert.deepEqual((ok(fwt, 'ready').data!.ready as { id: string }[]).map((x) => x.id), ['idempotency']);
+});
+
+test('a hand-made branch that shares a plan slug is not that plan', () => {
+  const r = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-dup-')));
+  try {
+    g(r, 'init', '-q', '-b', 'main');
+    write(join(r, 'README.md'), 'hi\n');
+    g(r, 'add', '-A');
+    g(r, 'commit', '-q', '-m', 'init');
+    const slugs = (cwd: string) => (ok(cwd, 'status', '--all').data!.plans as { state: { slug: string } }[]).map((p) => p.state.slug);
+
+    // (a) a second branch with the plan's slug is not listed twice
+    const foo = ok(r, 'new', 'foo').data!.worktree as string;
+    g(r, 'branch', 'fix/foo');
+    assert.deepEqual(slugs(r), ['foo']);
+
+    // (b) a merged plan's files on main do not make a hand-made fix/foo cut from main a plan
+    g(r, 'merge', '-q', '--no-ff', '-m', 'merge foo', 'feature/foo');
+    g(r, 'branch', '-D', 'fix/foo');
+    g(r, 'worktree', 'remove', '--force', foo);
+    g(r, 'branch', '-D', 'feature/foo');
+    g(r, 'switch', '-q', '-c', 'fix/foo');
+    assert.equal(ok(r, 'status').data!.state, undefined, 'a hand-made branch shows the index, not the merged plan');
+    g(r, 'switch', '-q', 'main');
+    g(r, 'branch', '-D', 'fix/foo');
+
+    // (c) a legacy sdlc/ plan stays itself when a hand-made feature/ branch shares its slug
+    const orig = ok(r, 'new', 'leg').data!.worktree as string;
+    const file = join(orig, 'docs/sdlc/plans/leg/state.json');
+    write(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), branch: 'sdlc/leg' }));
+    g(orig, 'add', '-A');
+    g(orig, 'commit', '-q', '-m', 'legacy name');
+    g(r, 'worktree', 'remove', '--force', orig);
+    g(r, 'branch', '-m', 'feature/leg', 'sdlc/leg');
+    const leg = join(r, '.claude/worktrees/sdlc-leg');
+    g(r, 'worktree', 'add', '-q', leg, 'sdlc/leg');
+    const fake = join(r, '.claude/worktrees/feature-leg');
+    g(r, 'worktree', 'add', '-q', '-b', 'feature/leg', fake, 'main');
+    assert.deepEqual(slugs(r), ['leg']);
+    assert.equal((ok(r, 'status', '--all').data!.plans as { worktree: string }[])[0].worktree, leg);
+    assert.equal((ok(leg, 'status').data!.state as { slug: string }).slug, 'leg');
+    assert.ok(Array.isArray(ok(fake, 'status').data!.plans), 'the hand-made worktree acts as on main');
+    g(r, 'worktree', 'remove', '--force', fake);
+
+    // finding 2: resume checks out the recorded legacy branch, not the hand-made one
+    g(r, 'worktree', 'remove', '--force', leg);
+    g(r, 'branch', '-D', 'feature/leg');
+    g(r, 'branch', 'feature/leg', 'main');
+    assert.equal(ok(r, 'resume', 'leg').data!.worktree, leg);
+    assert.equal(g(leg, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc/leg');
+
+    // a hand-made feature/bar does not block `new bar --track fix`
+    g(r, 'branch', 'feature/bar', 'main');
+    assert.equal(g(ok(r, 'new', 'bar', '--track', 'fix').data!.worktree as string, 'rev-parse', '--abbrev-ref', 'HEAD'), 'fix/bar');
+    refused(r, /already exists \(sdlc\/leg\)/, 'new', 'leg');
+  } finally {
+    rmSync(r, { recursive: true, force: true });
+  }
 });

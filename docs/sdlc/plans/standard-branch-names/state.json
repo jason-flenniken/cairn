@@ -1,0 +1,589 @@
+{
+  "schema": 1,
+  "slug": "standard-branch-names",
+  "title": "Standard branch names",
+  "track": "feature",
+  "branch": "sdlc/standard-branch-names",
+  "base": "main",
+  "created": "2026-10-21T13:41:30.344Z",
+  "updated": "2026-10-21T14:18:33.482Z",
+  "stage": "closed",
+  "paused": null,
+  "approvals": {
+    "prd": {
+      "at": "2026-10-21T13:45:06.125Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "4ad36f067cf7742e"
+    },
+    "plan": {
+      "at": "2026-10-21T13:51:37.691Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "ac8f391969859259"
+    },
+    "ship": {
+      "at": "2026-10-21T14:17:21.673Z",
+      "via": "human",
+      "source": "mod"
+    }
+  },
+  "phases": [
+    {
+      "id": "rename-branches",
+      "name": "Standard branch names",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "cli-branches",
+          "name": "CLI branch names and plan discovery",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-05",
+            "FR-06",
+            "FR-07"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "sdlc-task/standard-branch-names/cli-branches",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--cli-branches",
+          "base": "8fe4c16177a99f697cd1a9ffc5268092eb4c5672",
+          "startedAt": "2026-10-21T13:51:46.859Z",
+          "doneAt": "2026-10-21T13:58:25.475Z",
+          "tip": "2442314",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "1e1c647ccfd43edc1908d94ca74ef7aa1cd107c6"
+        },
+        {
+          "id": "pane-watch",
+          "name": "Pane notices plans on the new prefixes",
+          "covers": [
+            "FR-08"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/**"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "sdlc-task/standard-branch-names/pane-watch",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--pane-watch",
+          "base": "8fe4c16177a99f697cd1a9ffc5268092eb4c5672",
+          "startedAt": "2026-10-21T13:51:47.418Z",
+          "doneAt": "2026-10-21T13:56:41.505Z",
+          "tip": "a16cfff",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "0957b87fb82dd2006263410cfce69edf609c3ad3"
+        },
+        {
+          "id": "docs-names",
+          "name": "Docs and procedures use the new names",
+          "covers": [
+            "FR-09"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "README.md",
+            "plugins/cairn/procedures/**",
+            "plugins/cairn/references/**",
+            "plugins/cairn/skills/**"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "sdlc-task/standard-branch-names/docs-names",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--docs-names",
+          "base": "8fe4c16177a99f697cd1a9ffc5268092eb4c5672",
+          "startedAt": "2026-10-21T13:51:47.941Z",
+          "doneAt": "2026-10-21T13:56:09.169Z",
+          "tip": "0e55221",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "6b145c2ebb5b18ebed20769416e947da41e843b2"
+        }
+      ]
+    },
+    {
+      "id": "visible-approvals",
+      "name": "Approvals you can see",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "approval-ready",
+          "name": "CLI says when an approval is ready",
+          "covers": [
+            "FR-10",
+            "FR-13"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/procedures/prd.md",
+            "plugins/cairn/procedures/plan.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/references/cli.md"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "sdlc-task/standard-branch-names/approval-ready",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--approval-ready",
+          "base": "d477d083b39af77118978e355cf608cf6ae82e21",
+          "startedAt": "2026-10-21T13:58:57.811Z",
+          "doneAt": "2026-10-21T14:02:14.803Z",
+          "tip": "4985b3b",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "858687b18055f7caf217f494c049d46d29660a90"
+        },
+        {
+          "id": "pane-approvals",
+          "name": "Pane approval card, clickable cards, one note",
+          "covers": [
+            "FR-11",
+            "FR-12",
+            "FR-13",
+            "FR-14",
+            "FR-15"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/**",
+            "plugins/cairn/types/**"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "decides when a human approval is recorded; must never approve on the model's say-so",
+          "branch": "sdlc-task/standard-branch-names/pane-approvals",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--pane-approvals",
+          "base": "d477d083b39af77118978e355cf608cf6ae82e21",
+          "startedAt": "2026-10-21T13:58:58.359Z",
+          "doneAt": "2026-10-21T14:04:54.958Z",
+          "tip": "26639da",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "8984dfbdd5f497556252faee7c0a028afb1228bc"
+        }
+      ]
+    }
+  ],
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-21T14:07:21.189Z",
+      "note": "tests: 146 CLI and 331 mod passing, build ok; 15 requirements met, 3 with test gaps logged as follow-ups (old sdlc plans end to end, doc wording, pane approval closing an already-open chat question)"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T14:16:11.296Z",
+      "note": "2 blocking findings fixed in place (plan lookup now keyed on the recorded branch); 6 follow-ups logged",
+      "blocking": 0
+    }
+  },
+  "drift": [],
+  "log": [
+    {
+      "at": "2026-10-21T13:41:30.344Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-10-21T13:44:26.408Z",
+      "event": "advanced",
+      "detail": "prd"
+    },
+    {
+      "at": "2026-10-21T13:45:06.126Z",
+      "event": "PRD approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T13:45:25.527Z",
+      "event": "advanced",
+      "detail": "plan"
+    },
+    {
+      "at": "2026-10-21T13:46:05.211Z",
+      "event": "plan loaded",
+      "detail": "1 phases, 3 tasks"
+    },
+    {
+      "at": "2026-10-21T13:49:57.068Z",
+      "event": "plan loaded",
+      "detail": "2 phases, 5 tasks"
+    },
+    {
+      "at": "2026-10-21T13:51:37.691Z",
+      "event": "plan approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T13:51:40.536Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T13:51:46.859Z",
+      "event": "task started",
+      "detail": "CLI branch names and plan discovery"
+    },
+    {
+      "at": "2026-10-21T13:51:46.946Z",
+      "event": "task implementing",
+      "detail": "CLI branch names and plan discovery"
+    },
+    {
+      "at": "2026-10-21T13:51:47.419Z",
+      "event": "task started",
+      "detail": "Pane notices plans on the new prefixes"
+    },
+    {
+      "at": "2026-10-21T13:51:47.506Z",
+      "event": "task implementing",
+      "detail": "Pane notices plans on the new prefixes"
+    },
+    {
+      "at": "2026-10-21T13:51:47.942Z",
+      "event": "task started",
+      "detail": "Docs and procedures use the new names"
+    },
+    {
+      "at": "2026-10-21T13:51:48.035Z",
+      "event": "task implementing",
+      "detail": "Docs and procedures use the new names"
+    },
+    {
+      "at": "2026-10-21T13:53:23.966Z",
+      "event": "task merging",
+      "detail": "Docs and procedures use the new names"
+    },
+    {
+      "at": "2026-10-21T13:56:09.169Z",
+      "event": "task done",
+      "detail": "Docs and procedures use the new names"
+    },
+    {
+      "at": "2026-10-21T13:56:13.200Z",
+      "event": "task merging",
+      "detail": "Pane notices plans on the new prefixes"
+    },
+    {
+      "at": "2026-10-21T13:56:41.510Z",
+      "event": "task done",
+      "detail": "Pane notices plans on the new prefixes"
+    },
+    {
+      "at": "2026-10-21T13:57:27.420Z",
+      "event": "task merging",
+      "detail": "CLI branch names and plan discovery"
+    },
+    {
+      "at": "2026-10-21T13:58:25.476Z",
+      "event": "task done",
+      "detail": "CLI branch names and plan discovery"
+    },
+    {
+      "at": "2026-10-21T13:58:53.206Z",
+      "event": "phase finished",
+      "detail": "Standard branch names (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T13:58:57.812Z",
+      "event": "task started",
+      "detail": "CLI says when an approval is ready"
+    },
+    {
+      "at": "2026-10-21T13:58:57.896Z",
+      "event": "task implementing",
+      "detail": "CLI says when an approval is ready"
+    },
+    {
+      "at": "2026-10-21T13:58:58.360Z",
+      "event": "task started",
+      "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T13:58:58.447Z",
+      "event": "task implementing",
+      "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T14:00:47.494Z",
+      "event": "task merging",
+      "detail": "CLI says when an approval is ready"
+    },
+    {
+      "at": "2026-10-21T14:02:14.804Z",
+      "event": "task done",
+      "detail": "CLI says when an approval is ready"
+    },
+    {
+      "at": "2026-10-21T14:03:38.510Z",
+      "event": "task reviewing",
+      "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T14:04:28.140Z",
+      "event": "task merging",
+      "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T14:04:54.959Z",
+      "event": "task done",
+      "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T14:04:58.352Z",
+      "event": "phase finished",
+      "detail": "Approvals you can see (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T14:04:58.353Z",
+      "event": "advanced",
+      "detail": "verify"
+    },
+    {
+      "at": "2026-10-21T14:07:21.190Z",
+      "event": "verify pass",
+      "detail": "tests: 146 CLI and 331 mod passing, build ok; 15 requirements met, 3 with test gaps logged as follow-ups (old sdlc plans end to end, doc wording, pane approval closing an already-open chat question)"
+    },
+    {
+      "at": "2026-10-21T14:07:21.308Z",
+      "event": "advanced",
+      "detail": "review"
+    },
+    {
+      "at": "2026-10-21T14:16:11.297Z",
+      "event": "review pass",
+      "detail": "2 blocking findings fixed in place (plan lookup now keyed on the recorded branch); 6 follow-ups logged"
+    },
+    {
+      "at": "2026-10-21T14:16:11.424Z",
+      "event": "advanced",
+      "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T14:17:21.674Z",
+      "event": "ship approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T14:17:25.928Z",
+      "event": "advanced",
+      "detail": "learn"
+    },
+    {
+      "at": "2026-10-21T14:18:33.481Z",
+      "event": "closed"
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "quality",
+      "text": "A menu approval that succeeds also shows a second note saying the plan is not waiting for approval; the approval hook appears to run twice (likely the mod loaded twice). Make the note appear once, or say it was already approved.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T13:45:25.662Z"
+    },
+    {
+      "id": "s2",
+      "area": "quality",
+      "text": "Resolved standard-branch-names:s1",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T13:49:57.205Z",
+      "resolves": "standard-branch-names:s1",
+      "note": "added as task pane-approvals"
+    },
+    {
+      "id": "s3",
+      "area": "docs",
+      "text": "fix.md describes the fix-track branch and folder in words; check it against fix/<slug> naming and use the same plan-branch wording as the other procedures.",
+      "where": [
+        "plugins/cairn/procedures/fix.md"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T13:53:23.889Z"
+    },
+    {
+      "id": "s4",
+      "area": "tests",
+      "text": "Add a fix/ branch case to the pane poll test alongside the feature/ one.",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T13:56:13.119Z"
+    },
+    {
+      "id": "s5",
+      "area": "tests",
+      "text": "Add a lifecycle test that runs a plan recorded on sdlc/ through task start and done, to cover old plans end to end.",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T13:57:27.274Z"
+    },
+    {
+      "id": "s6",
+      "area": "quality",
+      "text": "With cairn new --no-worktree, task folders are named after the repo folder (e.g. ai_workflow--cart) rather than the plan branch; name them from the plan branch instead.",
+      "where": [
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T13:57:27.348Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "Assert ready for the ship stop and check the plan summary text.",
+      "where": [
+        "plugins/cairn/cli/test/lifecycle.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:00:47.409Z"
+    },
+    {
+      "id": "s8",
+      "area": "tests",
+      "text": "The test run inside cairn task done fails intermittently (2 of 5 runs today) and passes on rerun with no change, likely when another task is running tests at the same time. Find the shared resource and make the test isolated.",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T14:02:18.482Z"
+    },
+    {
+      "id": "s9",
+      "area": "tests",
+      "text": "Run one pane test against real cairn status --all --json output so ready is not hand-built in fixtures.",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:03:38.429Z"
+    },
+    {
+      "id": "s10",
+      "area": "perf",
+      "text": "Read all re-reads the document on every pane draw while open; cache it by file and modification time if documents get large.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:04:28.064Z"
+    },
+    {
+      "id": "s11",
+      "area": "tests",
+      "text": "Add a doc check that README, procedures and references name feature/, fix/ and task/ branches, with sdlc/ only in the legacy note.",
+      "where": [
+        "plugins/cairn/cli/test/dogfood-docs.test.ts"
+      ],
+      "from": "check",
+      "at": "2026-10-21T14:07:20.958Z"
+    },
+    {
+      "id": "s12",
+      "area": "ux",
+      "text": "If the chat approval question is already open when you approve in the pane, it stays open (answering it is harmless). Close or answer the open dialog from the mod if the engine allows it.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "check",
+      "at": "2026-10-21T14:07:21.034Z"
+    },
+    {
+      "id": "s13",
+      "area": "docs",
+      "text": "fix.md ship stop does not skip its question when the approval is already recorded from the pane, unlike prd, plan and ship.",
+      "where": [
+        "plugins/cairn/procedures/fix.md"
+      ],
+      "from": "check",
+      "at": "2026-10-21T14:07:21.109Z"
+    },
+    {
+      "id": "s14",
+      "area": "ux",
+      "text": "A chat approval dialog already open when you approve in the pane stays open; no engine API to dismiss it was found.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.107Z"
+    },
+    {
+      "id": "s15",
+      "area": "quality",
+      "text": "Guard parseTags with Array.isArray(e.questions) before next(e) so the AskUserQuestion hook stays fail-open by construction.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.180Z"
+    },
+    {
+      "id": "s16",
+      "area": "quality",
+      "text": "The one-note dedup set is filled before the answer is checked; a stop tagged twice, answered Revise then Approve, drops the Approve. Add to the set only after an approval attempt.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.254Z"
+    },
+    {
+      "id": "s17",
+      "area": "docs",
+      "text": "Old sdlc/ plans get new task/ task branches rather than sdlc-task/; it works, but say so in the docs.",
+      "where": [
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.324Z"
+    },
+    {
+      "id": "s18",
+      "area": "quality",
+      "text": "The pane's waiting value now only feeds status text; use ready directly so the two cannot diverge.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.396Z"
+    },
+    {
+      "id": "s19",
+      "area": "tests",
+      "text": "A hand-made task/<slug>/x cut from a main that carries the plan files, with the plan branch still present, is treated as that plan's task; check the task is one the plan lists, and add a test.",
+      "where": [
+        "plugins/cairn/cli/src/locate.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:16:11.219Z"
+    }
+  ],
+  "planHash": "ac8f391969859259",
+  "configHash": "12129909968d47d2"
+}

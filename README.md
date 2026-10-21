@@ -30,7 +30,7 @@ cairn fixes this in four ways:
 
 ## Requirements
 
-- Claude Code **v2.1.287 or later**, for the mod that powers the pane, menu approvals, and pause.
+- Claude Code v2.1.287 or later, for the mod that powers the pane, menu approvals, and pause.
 - Node.js **20+**. The CLI is a single bundled file with no dependencies.
 - Git. Plans live on branches and worktrees.
 - For the full-height side pane: Claude Code's fullscreen layout, `"tui": "fullscreen"` in `~/.claude/settings.json`, or run `/tui fullscreen` once. In the normal layout the pane sits above the prompt as a compact summary.
@@ -63,7 +63,7 @@ In any repo where you use cairn, turn off Superpowers and Compound Engineering. 
    /cairn:new add a CSV export to the reports page
    ```
 
-   cairn creates a branch (`sdlc/<slug>`) and a worktree for the plan. If the repo has no `.sdlc/config.json`, cairn detects your test and build commands from `package.json`, a `Makefile`, `pyproject.toml` and the like, asks you to confirm them, and commits the file. Then the discovery interview starts.
+   cairn creates a branch (`feature/<slug>`) and a worktree for the plan. If the repo has no `.sdlc/config.json`, cairn detects your test and build commands from `package.json`, a `Makefile`, `pyproject.toml` and the like, asks you to confirm them, and commits the file. Then the discovery interview starts.
 2. **Answer the interview.** It asks one question at a time, each with a recommended answer. Every answer is written to the plan's `decisions.md`.
 3. **Approve the PRD**, then **approve the plan**, from the menu.
 4. **Let it build.** Phases run on their own. Tasks run in parallel, get merged, and are tested. A phase that finishes with passing tests rolls straight into the next one.
@@ -217,9 +217,10 @@ The `setup`, `test`, and `build` commands are locked when you approve the plan. 
 
 | What | Where |
 |---|---|
-| A plan's branch | `sdlc/<slug>`, in a worktree under `.claude/worktrees/` |
+| A feature plan's branch | `feature/<slug>`, in a worktree under `.claude/worktrees/` (folder `feature-<slug>`) |
+| A fix plan's branch | `fix/<slug>`, in a worktree under `.claude/worktrees/` (folder `fix-<slug>`) |
 | A plan's documents | `docs/sdlc/plans/<slug>/` on the plan branch: `decisions.md`, `prd.md`, `plan.md`, `STATUS.md`, `handoff.md`, `RECORD.md`, `state.json` |
-| A task's branch | `sdlc-task/<slug>/<task>`, in its own worktree |
+| A task's branch | `task/<slug>/<task>`, in its own worktree (folder: the plan folder plus `--<task>`, e.g. `feature-billing--cart-api`) |
 | The product PRD | `docs/sdlc/product/` on main |
 | Repo config | `.sdlc/config.json` |
 

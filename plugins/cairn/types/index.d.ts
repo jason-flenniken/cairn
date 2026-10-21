@@ -22,6 +22,9 @@ export type CairnPlanState = {
   log?: unknown
 }
 
+/** The stop a plan waits on a human for, when the CLI says it is ready: the file to read and a short markdown summary. */
+export type CairnReady = { kind: 'prd' | 'plan' | 'ship'; file: string; summary: string }
+
 /** One row of `cairn status --all --json`. */
 export type CairnPlanRow = {
   state: CairnPlanState
@@ -31,6 +34,8 @@ export type CairnPlanRow = {
   openSuggestions?: number
   /** The plan's config.maxParallel, when the CLI reports it. */
   maxParallel?: number
+  /** Set only while the plan's document is ready for the human; absent while it is still being drafted. */
+  ready?: CairnReady
 }
 
 /** The pane's last good read: every plan, and the slug of the one the session works on (isFallback: chosen from the repo root, not by location). */
@@ -64,6 +69,8 @@ declare module 'claude-code' {
       feed: { at: number; text: string }[]
       /** Ticked while anything is active, so the pane redraws its timers. */
       now: number
+      /** The file whose full text the approval card shows ("Read all"); null when closed. */
+      readAllOf: string | null
     }
   }
 }

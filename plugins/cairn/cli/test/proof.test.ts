@@ -161,8 +161,8 @@ let main: string;
 let wt: string;
 const PRD = '# P\n## Problem\np\n## Solution\ns\n## User stories\n1. u\n## Requirements\n- FR-01 a\n## Non-functional requirements\n- NFR-01 b\n## Non-goals\n- c\n## Acceptance criteria\n- FR-01 d\n## Unhappy paths\n- FR-01 e\n## Security considerations\n- f\n## Open questions\n- [x] g\n';
 const mainCairn = () => join(main, '.git', 'cairn');
-const planState = (slug: string) => JSON.parse(readFileSync(join(main, `.claude/worktrees/sdlc-${slug}/docs/sdlc/plans/${slug}/state.json`), 'utf8'));
-const planWt = (slug: string) => join(main, `.claude/worktrees/sdlc-${slug}`);
+const planState = (slug: string) => JSON.parse(readFileSync(join(main, `.claude/worktrees/feature-${slug}/docs/sdlc/plans/${slug}/state.json`), 'utf8'));
+const planWt = (slug: string) => join(main, `.claude/worktrees/feature-${slug}`);
 const hashFile = () => join(mainCairn(), 'mod-secret.sha256');
 const setSecret = (v: string) => {
   mkdirSync(mainCairn(), { recursive: true });

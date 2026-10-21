@@ -9,8 +9,8 @@ const NOW = Date.parse('2026-03-01T12:00:00.000Z')
 const minutesAgo = (m: number) => new Date(NOW - m * 60_000).toISOString()
 
 const TASKS = [
-  { id: 'cart', name: 'Secret Checkout Flow', status: 'in_progress', substep: 'reviewing', worktree: '/repo/.claude/worktrees/sdlc-task-cart' },
-  { id: 'pay', name: 'Payments', status: 'in_progress', substep: 'implementing', worktree: '/repo/.claude/worktrees/sdlc-task-pay' },
+  { id: 'cart', name: 'Secret Checkout Flow', status: 'in_progress', substep: 'reviewing', worktree: '/repo/.claude/worktrees/sdlc-shop--cart' },
+  { id: 'pay', name: 'Payments', status: 'in_progress', substep: 'implementing', worktree: '/repo/.claude/worktrees/sdlc-shop--pay' },
   { id: 'done1', name: 'Done one', status: 'done' },
   { id: 'later', name: 'Later', status: 'pending' },
 ]
@@ -111,8 +111,8 @@ test('the handoff lists running tasks with substep and worktree, and keeps earli
   const existing = '# Handoff: shop\n\n## In flight\n- old (implementing): gone\n\n## Open questions\n- Which tax table? (recommended: EU)\n\n## Next action\nold\n'
   const md = handoffFromState(planState(), existing)
   expect(md).toContain('## In flight')
-  expect(md).toContain('- cart (reviewing): /repo/.claude/worktrees/sdlc-task-cart')
-  expect(md).toContain('- pay (implementing): /repo/.claude/worktrees/sdlc-task-pay')
+  expect(md).toContain('- cart (reviewing): /repo/.claude/worktrees/sdlc-shop--cart')
+  expect(md).toContain('- pay (implementing): /repo/.claude/worktrees/sdlc-shop--pay')
   expect(md).not.toContain('done1')
   expect(md).not.toContain('old (implementing)')
   expect(md).toMatch(/## Open questions\n- Which tax table\? \(recommended: EU\)/)

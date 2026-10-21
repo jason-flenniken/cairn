@@ -107,7 +107,7 @@ function awaiting(): { wt: string; dir: string; state: () => any } {
     write(join(swt, `src/${id}/index.ts`), `export const ${id} = 1;\n`);
     g(swt, 'add', '-A');
     g(swt, 'commit', '-q', '-m', id);
-    g(wt, 'merge', '-q', '--no-ff', '-m', `merge ${id}`, `sdlc-task/${slug}/${id}`);
+    g(wt, 'merge', '-q', '--no-ff', '-m', `merge ${id}`, `task/${slug}/${id}`);
     ok(wt, 'task', 'done', id);
   }
   const state = () => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
@@ -264,7 +264,7 @@ test('a re-plan clears every recorded phase verdict, on more than one phase', ()
   write(join(swt, 'src/receipt/index.ts'), 'export const r = 1;\n');
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', 'receipt');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', `sdlc-task/${state().slug}/receipt`);
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', `task/${state().slug}/receipt`);
   ok(wt, 'task', 'done', 'receipt');
   write(join(dir, 'direction/extras.md'), card({ requirements: [aligned('FR-01')] }));
   ok(wt, 'evidence', 'phase');

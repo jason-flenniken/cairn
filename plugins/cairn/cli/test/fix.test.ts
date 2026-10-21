@@ -72,7 +72,7 @@ function fixInExecute(slug: string): { wt: string; swt: string } {
 function landOnTask(wt: string, swt: string, slug: string, files: Record<string, string>) {
   for (const [p, s] of Object.entries(files)) write(join(swt, p), s);
   commitAll(swt, 'fix');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge fix', `sdlc-task/${slug}/fix`);
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge fix', `task/${slug}/fix`);
 }
 
 const words = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join(' ');
@@ -255,7 +255,7 @@ test('editing the test command after plan approval refuses task done until the p
   const swt = ok(wt, 'task', 'start', 'one').data!.worktree as string;
   write(join(swt, 'src/one.ts'), '1\n');
   commitAll(swt, 'one');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge one', 'sdlc-task/locked/one');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge one', 'task/locked/one');
   write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../edited-ran' }));
   commitAll(wt, 'edit the test command');
   refused(wt, /changed since the user approved it[\s\S]*cairn approve plan --human[\s\S]*Override/, 'task', 'done', 'one');
@@ -390,7 +390,7 @@ test('an override without proof never runs a changed command', () => {
   const swt = ok(wt, 'task', 'start', 'one').data!.worktree as string;
   write(join(swt, 'src/one.ts'), '1\n');
   commitAll(swt, 'one');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge one', 'sdlc-task/pwned/one');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge one', 'task/pwned/one');
   write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../PWNED-done' }));
   commitAll(wt, 'edit the test command');
   refused(wt, /override needs proof/, 'task', 'done', 'one', '--override', 'x');
