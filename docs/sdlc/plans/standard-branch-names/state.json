@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "slug": "standard-branch-names",
+  "title": "Standard branch names",
+  "track": "feature",
+  "branch": "sdlc/standard-branch-names",
+  "base": "main",
+  "created": "2026-10-21T13:41:30.344Z",
+  "updated": "2026-10-21T13:41:30.345Z",
+  "stage": "discover",
+  "paused": null,
+  "approvals": {},
+  "phases": [],
+  "evidence": {},
+  "drift": [],
+  "log": [
+    {
+      "at": "2026-10-21T13:41:30.344Z",
+      "event": "created"
+    }
+  ]
+}
