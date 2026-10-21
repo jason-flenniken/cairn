@@ -312,6 +312,7 @@ test('a failed --human proof is asked once per command, and the override is refu
 
 test('one --human proof is asked once and covers every overridden check in a command', () => {
   const prompts: string[] = [];
+  execFileSync('git', ['merge', '-q', '--no-ff', '-m', 'merge PR', 'feature/fresh'], { cwd: main, stdio: 'ignore' });
   closeAtTerminal('fresh', prompts);
   askedOnce(prompts);
   const s = planState('fresh');
