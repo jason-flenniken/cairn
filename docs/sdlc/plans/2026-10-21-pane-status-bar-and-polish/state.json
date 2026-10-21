@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:25:41.821Z",
+  "updated": "2026-10-21T22:27:39.481Z",
   "stage": "plan",
   "paused": null,
   "approvals": {
@@ -17,7 +17,183 @@
       "hash": "d3e850d849e38d5a"
     }
   },
-  "phases": [],
+  "phases": [
+    {
+      "id": "frame",
+      "name": "Pinned bar and late-stage steps",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "pinned-bar",
+          "name": "Split the pane and pin the bar",
+          "covers": [
+            "FR-01",
+            "FR-02"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/header.tsx",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/approval.tsx",
+            "plugins/cairn/hooks/mod/bar.tsx",
+            "plugins/cairn/hooks/register.tsx",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/world.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/bar.test.tsx",
+            "plugins/cairn/hooks/NOTES.md"
+          ],
+          "complexity": "complex",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "late-steps",
+          "name": "Record check, review and ship steps",
+          "covers": [
+            "FR-07"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/**",
+            "plugins/cairn/cli/test/step.test.ts",
+            "plugins/cairn/cli/test/render.test.ts",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/references/cli.md"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "a new CLI command takes arguments from procedures and writes plan state"
+        }
+      ]
+    },
+    {
+      "id": "fill",
+      "name": "Fill the pane",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "usage-lines",
+          "name": "Spend and limits lines",
+          "covers": [
+            "FR-03",
+            "FR-04",
+            "FR-05",
+            "FR-06"
+          ],
+          "blockedBy": [
+            "pinned-bar"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/bar.tsx",
+            "plugins/cairn/hooks/mod/usage.ts",
+            "plugins/cairn/hooks/test/bar.test.tsx",
+            "plugins/cairn/hooks/test/usage.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "accurate-header",
+          "name": "Accurate header and status line",
+          "covers": [
+            "FR-08",
+            "FR-09",
+            "FR-10"
+          ],
+          "blockedBy": [
+            "pinned-bar",
+            "late-steps"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/header.tsx",
+            "plugins/cairn/hooks/test/header.test.tsx",
+            "plugins/cairn/procedures/verify.md",
+            "plugins/cairn/procedures/review.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/procedures/fix.md",
+            "plugins/cairn/cli/test/steps-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "card-click-cost",
+          "name": "Clickable cards with live tokens and cost",
+          "covers": [
+            "FR-11",
+            "FR-12"
+          ],
+          "blockedBy": [
+            "pinned-bar"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/prices.ts",
+            "plugins/cairn/hooks/test/cards.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "doc-viewer",
+          "name": "One scrolling doc viewer",
+          "covers": [
+            "FR-13",
+            "FR-14",
+            "FR-15"
+          ],
+          "blockedBy": [
+            "pinned-bar"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/approval.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/doc.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "renders agent-written documents next to the Approve button"
+        },
+        {
+          "id": "followup-tests",
+          "name": "Tighter pane, approval and close tests",
+          "covers": [
+            "FR-16",
+            "FR-17"
+          ],
+          "blockedBy": [
+            "pinned-bar",
+            "late-steps"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/approve.test.ts",
+            "plugins/cairn/cli/test/close-merged.test.ts",
+            "plugins/cairn/cli/test/fix.test.ts",
+            "plugins/cairn/cli/test/fix-procedure.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    }
+  ],
   "evidence": {},
   "drift": [],
   "log": [
@@ -39,6 +215,11 @@
       "at": "2026-10-21T22:25:41.820Z",
       "event": "advanced",
       "detail": "plan"
+    },
+    {
+      "at": "2026-10-21T22:27:39.480Z",
+      "event": "plan loaded",
+      "detail": "2 phases, 7 tasks"
     }
   ],
   "suggestions": [
@@ -82,5 +263,6 @@
       "at": "2026-10-21T22:13:01.854Z",
       "declines": "cleaner-pane-and-records:s20"
     }
-  ]
+  ],
+  "planHash": "0eaa106a32c142a9"
 }
