@@ -66,3 +66,8 @@ _2026-10-21 21:17_
 **Decision:** Still grey: remove the transparent backgroundColor and leave a comment that Claude Code paints the panel
 **Why:** The by-eye check after the PR #1 reinstall showed no change
 _2026-10-21 21:34_
+
+### 14. How does Closed relate to the merge?
+**Decision:** Close works as before (record, findings, close) and the merge comes last so every record lands on main; until the branch is in main, status, status --all and the pane show 'Closed · PR open', and ship/learn end by offering the merge. Merged is detected by gh PR state (merge, squash, rebase) or by local ancestry that ignores plan-folder-only commits
+**Why:** Merging before close left the closing records off main and made close refuse forever (branch review, reproduced)
+_2026-10-21 21:49_

@@ -6,7 +6,7 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:43:26.955Z",
+  "updated": "2026-10-21T22:00:01.126Z",
   "stage": "review",
   "paused": null,
   "approvals": {
@@ -253,6 +253,12 @@
       "result": "pass",
       "at": "2026-10-21T21:43:26.834Z",
       "note": "tests: 367 passing; 21 of 22 requirements met plus 1 fixed, 2 untested logged; secret scan clean, npm audit 0 vulnerabilities, no lockfile changes"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T22:00:01.126Z",
+      "note": "4 blocking fixed in one pass (close redesign, value-free secret scan, no-install pip audit, pane toast); 8 follow-ups logged",
+      "blocking": 0
     }
   },
   "drift": [
@@ -273,6 +279,11 @@
       "at": "2026-10-21T21:32:43.631Z",
       "reason": "changed outside task \"Close only when merged\" scope (found at task done)",
       "task": "close-when-merged"
+    },
+    {
+      "path": "plugins/cairn/types/index.d.ts",
+      "at": "2026-10-21T21:53:14.242Z",
+      "reason": "edited outside the plan's scope"
     }
   ],
   "log": [
@@ -494,6 +505,16 @@
       "at": "2026-10-21T21:43:26.954Z",
       "event": "advanced",
       "detail": "review"
+    },
+    {
+      "at": "2026-10-21T21:53:14.242Z",
+      "event": "drift",
+      "detail": "plugins/cairn/types/index.d.ts"
+    },
+    {
+      "at": "2026-10-21T22:00:01.126Z",
+      "event": "review pass",
+      "detail": "4 blocking fixed in one pass (close redesign, value-free secret scan, no-install pip audit, pane toast); 8 follow-ups logged"
     }
   ],
   "suggestions": [
@@ -604,6 +625,86 @@
       ],
       "from": "check",
       "at": "2026-10-21T21:42:29.994Z"
+    },
+    {
+      "id": "s11",
+      "area": "perf",
+      "text": "Keep cairn status free of network calls; it is called often by procedures and the pane",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:50.752Z"
+    },
+    {
+      "id": "s12",
+      "area": "docs",
+      "text": "Give the implementer brief the plugin root so its pointer to the security checklist can be followed",
+      "where": [
+        "plugins/cairn/agents/implementer.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:50.827Z"
+    },
+    {
+      "id": "s13",
+      "area": "ux",
+      "text": "Fold the merge offer into fewer questions after ship approval; stages.ts:162 next-step text should mention merging",
+      "where": [
+        "plugins/cairn/procedures/ship.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:50.919Z"
+    },
+    {
+      "id": "s14",
+      "area": "docs",
+      "text": "Say that a task covering a PRD misuse case is risky, so its Security test case is listed",
+      "where": [
+        "plugins/cairn/procedures/plan.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:50.997Z"
+    },
+    {
+      "id": "s15",
+      "area": "docs",
+      "text": "Move the predict-the-next-three-answers stop rule above the read-back card",
+      "where": [
+        "plugins/cairn/procedures/discover.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:51.075Z"
+    },
+    {
+      "id": "s16",
+      "area": "security",
+      "text": "Mark advisory, registry and diff text as data; pass suggest --text as one quoted argument; send only package name and advisory id to the implementer",
+      "where": [
+        "plugins/cairn/procedures/verify.md"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T21:49:51.183Z"
+    },
+    {
+      "id": "s17",
+      "area": "tests",
+      "text": "End-to-end test of the pane reading prOpen from a real status --all",
+      "where": [
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T22:00:00.969Z"
+    },
+    {
+      "id": "s18",
+      "area": "ux",
+      "text": "A closed plan that was never pushed shows PR open forever, and a gh failure also shows PR open; consider a refresh flag and a 'no PR' state",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T22:00:01.047Z"
     }
   ],
   "planHash": "f94805128506beb0",
