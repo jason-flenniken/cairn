@@ -127,9 +127,11 @@ test('a repro past its timeout refuses, quotes the error, and records nothing', 
   write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'true', reproTimeoutMinutes: 1 / 60 }));
   commitAll(wt, 'one-second repro timeout');
   const t = Date.now();
-  refused(wt, /timed out after 1s/, 'repro', 'sleep 20; exit 1');
+  refused(wt, /timed out after 1s/, 'repro', 'sh -c "sleep 2; touch ../orphan-ran"; exit 1');
   assert.ok(Date.now() - t < 10_000, 'the repro was stopped at the timeout');
   assert.equal(stateOf(wt, 'hangs').repro, undefined);
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2500);
+  assert.ok(!existsSync(join(wt, '../orphan-ran')), 'processes the repro started were stopped too');
 });
 
 test('a repro command that cannot start refuses and quotes the error', () => {
@@ -380,4 +382,72 @@ test('a v0.1 fix plan without a repro keeps the feature stages', () => {
   writeFileSync(file, JSON.stringify(next));
   ok(wt, 'advance');
   assert.equal(stateOf(wt, 'legacy').stage, 'learn');
+});
+
+test('an override without proof never runs a changed command', () => {
+  const wt = featureInExecute('pwned');
+  const swt = ok(wt, 'slice', 'start', 'one').data!.worktree as string;
+  write(join(swt, 'src/one.ts'), '1\n');
+  commitAll(swt, 'one');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge one', 'sdlc-slice/pwned/one');
+  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../PWNED-done' }));
+  commitAll(wt, 'edit the test command');
+  refused(wt, /override needs proof/, 'slice', 'done', 'one', '--override', 'x');
+  assert.ok(!existsSync(join(wt, '../PWNED-done')));
+  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../PWNED-close' }));
+  commitAll(wt, 'edit the test command again');
+  refused(wt, /override needs proof/, 'close', '--override', 'x');
+  assert.ok(!existsSync(join(wt, '../PWNED-close')));
+});
+
+test('an override without proof never runs a changed command when a fix plan closes from ship', () => {
+  const { wt, swt } = fixInExecute('pwnship');
+  landOnSlice(wt, swt, 'pwnship', { 'bug.txt': 'fixed\n' });
+  ok(wt, 'slice', 'done', 'fix');
+  ok(wt, 'advance');
+  ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
+  ok(wt, 'advance');
+  write(join(dirOf(wt, 'pwnship'), 'RECORD.md'), fixRecord(100));
+  byUser(wt, 'approve', 'ship');
+  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../PWNED-ship' }));
+  commitAll(wt, 'edit the test command');
+  refused(wt, /override needs proof/, 'advance', '--override', 'x');
+  assert.ok(!existsSync(join(wt, '../PWNED-ship')));
+  assert.equal(stateOf(wt, 'pwnship').stage, 'ship');
+});
+
+test('repro checks the stage before it runs anything', () => {
+  const { wt } = fixInExecute('late');
+  refused(wt, /not repro/, 'repro', 'touch ../late-ran; exit 1');
+  assert.ok(!existsSync(join(wt, '../late-ran')));
+});
+
+test('an override of the merge check still checks and logs the fix file limit', () => {
+  const { wt, swt } = fixInExecute('unmerged');
+  const files: Record<string, string> = { 'bug.txt': 'fixed\n' };
+  for (let i = 1; i <= 8; i++) files[`src/f${i}.ts`] = `${i}\n`;
+  for (const [p, c] of Object.entries(files)) write(join(swt, p), c);
+  commitAll(swt, 'not merged');
+  byUser(wt, 'slice', 'done', 'fix', '--override', 'user merges later');
+  const overrides = stateOf(wt, 'unmerged').log.filter((l: { override?: string }) => l.override).map((l: { detail: string }) => l.detail);
+  assert.ok(overrides.some((d: string) => /changed 9 files/.test(d)), overrides.join(' | '));
+  assert.ok(overrides.some((d: string) => /repro/.test(d)), 'the unchecked repro is logged, not skipped');
+});
+
+test('the fix file limit counts commits on the plan branch outside the plan folder', () => {
+  const { wt, swt } = fixInExecute('sidecommits');
+  for (let i = 1; i <= 7; i++) write(join(wt, `src/side${i}.ts`), `${i}\n`);
+  write(join(wt, 'docs/sdlc/notes.md'), 'notes\n');
+  commitAll(wt, 'work committed straight on the plan branch');
+  landOnSlice(wt, swt, 'sidecommits', { 'bug.txt': 'fixed\n' });
+  refused(wt, /changed 9 files/, 'slice', 'done', 'fix');
+});
+
+test('escalate narrows a running slice to its committed and uncommitted files, with glob characters escaped', () => {
+  const { wt, swt } = fixInExecute('wip');
+  landOnSlice(wt, swt, 'wip', { 'bug.txt': 'fixed\n', 'src/we*rd?.ts': 'w\n' });
+  write(join(swt, 'src/wip.ts'), 'not committed yet\n');
+  write(join(swt, 'notes.txt'), 'edited, not committed\n');
+  ok(wt, 'escalate');
+  assert.deepEqual(stateOf(wt, 'wip').phases[0].slices[0].scope, ['bug.txt', 'notes.txt', 'src/we?rd?.ts', 'src/wip.ts']);
 });

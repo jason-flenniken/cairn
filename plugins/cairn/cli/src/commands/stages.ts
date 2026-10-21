@@ -126,8 +126,8 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
   const pre = loadState(pc.plan.dir);
   // Advancing a fix plan from ship closes it, with the close checks. Tests run before the lock: they can be slow.
   const closing = fastLane(pre) && pre.stage === 'ship';
-  // A changed command never runs before the refusal; with --override the in-lock check logs it.
-  if (closing && !opts.override) configGate(pre, pc.cfg, 'close', opts);
+  // A changed command never runs before this check (an override needs the user's proof first).
+  if (closing) configGate(pre, pc.cfg, 'close', opts);
   const record = closing ? recordCheck(pc, 'fix') : undefined;
   const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : undefined;
   let to: Stage | undefined;
@@ -180,7 +180,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
 
 export function cmdClose(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
-  if (!opts.override) configGate(loadState(pc.plan.dir), pc.cfg, 'close', opts);
+  configGate(loadState(pc.plan.dir), pc.cfg, 'close', opts);
   const record = recordCheck(pc, 'feature');
   const tests = runTests(pc.cfg, pc.plan.worktree);
   return mutate(pc, 'closed', (s) => {

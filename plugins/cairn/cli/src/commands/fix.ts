@@ -1,8 +1,11 @@
 import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { branchExists, git } from '../git.ts';
-import type { Ctx } from '../locate.ts';
+import { planRel, type Ctx } from '../locate.ts';
 import type { Config, State } from '../types.ts';
-import { CliError, hashText, now, Refusal } from '../util.ts';
+import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import { childEnv, gate, mutate, planCtx, type Opts, type Result } from '../shared.ts';
 import { allSlices } from '../ready.ts';
 import { loadState, log } from '../state.ts';
@@ -28,19 +31,39 @@ export function configGate(s: State, cfg: Config, event: string, opts: Opts): vo
   );
 }
 
+/** Files changed from base to head, a rename counting once. The plan's own folder is cairn's state, not part of the change. */
+export const changedFiles = (cwd: string, slug: string, base: string, head: string): string[] =>
+  git(['diff', '--name-only', '-z', '-M', base, head, '--', '.', `:!${planRel(slug)}`], cwd).split('\0').filter(Boolean);
+
 /** How a repro run ended. `detail` is the last output line, or the error when it timed out or could not start. */
 export interface ReproRun {
   outcome: 'fails' | 'passes' | 'timeout' | 'nostart';
   detail: string;
 }
 
+/**
+ * Starts the command as a job in its own process group (set -m), writes the group id to $2, and waits for it.
+ * A timeout kills only the outer sh, so the group id lets cairn stop everything the command started.
+ */
+const GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
+
 /** Run a repro command in the plan worktree, without CAIRN_APPROVER, under the configured timeout. */
 export function runRepro(cmd: string, cwd: string, cfg: Config): ReproRun {
   const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
-  const r = spawnSync('sh', ['-c', cmd], { cwd, encoding: 'utf8', env: childEnv(), timeout: minutes * 60_000, maxBuffer: 64 * 1024 * 1024 });
+  const tmp = mkdtempSync(join(tmpdir(), 'cairn-repro-'));
+  const pidFile = join(tmp, 'pgid');
+  const r = spawnSync('sh', ['-c', GROUP_WRAPPER, 'sh', cmd, pidFile], { cwd, encoding: 'utf8', env: childEnv(), timeout: minutes * 60_000, maxBuffer: 64 * 1024 * 1024 });
+  const timedOut = (r.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT';
+  const pgid = Number(readText(pidFile));
+  if (timedOut && pgid > 0) {
+    try {
+      process.kill(-pgid, 'SIGKILL');
+    } catch {}
+  }
+  rmSync(tmp, { recursive: true, force: true });
   const lines = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.split('\n').map((l) => l.trim()).filter(Boolean);
   const last = lines.slice(-1)[0] ?? `exit ${r.status}`;
-  if ((r.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT') return { outcome: 'timeout', detail: `timed out after ${Math.round(minutes * 60)}s` };
+  if (timedOut) return { outcome: 'timeout', detail: `timed out after ${Math.round(minutes * 60)}s` };
   if (r.error) return { outcome: 'nostart', detail: r.error.message };
   // sh reports a command it cannot find or execute with 127 or 126.
   if (r.status === 126 || r.status === 127) return { outcome: 'nostart', detail: last };
@@ -53,7 +76,9 @@ export function cmdRepro(ctx: Ctx, cmd: string | undefined, opts: Opts): Result 
   const pre = loadState(pc.plan.dir);
   if (pre.track !== 'fix') throw new Refusal('cairn repro is for fix plans', ['start one with cairn new <slug> --track fix']);
   // A changed command never runs before the refusal; with --override the in-lock check logs it.
-  if (!opts.override) configGate(pre, pc.cfg, 'repro', opts);
+  // Nothing runs until the stage and the approved commands check out (an override needs the user's proof first).
+  gate(pre.stage === 'repro', pre, 'repro', opts, `the plan is in ${pre.stage}, not repro`);
+  configGate(pre, pc.cfg, 'repro', opts);
   const ran = runRepro(cmd, pc.plan.worktree, pc.cfg);
   return mutate(pc, 'repro recorded', (s) => {
     configGate(s, pc.cfg, 'repro', opts);
@@ -74,12 +99,19 @@ export function cmdEscalate(ctx: Ctx, opts: Opts): Result {
   const pre = loadState(pc.plan.dir);
   if (pre.track !== 'fix') throw new Refusal('only a fix plan can be escalated; this is a feature plan');
   if (pre.stage === 'closed') throw new Refusal('the plan is closed');
-  // The files each started slice changed, from its base to its branch (or its recorded tip once merged and removed).
+  // The files each started slice changed: committed from its base to its branch (or its recorded tip once merged
+  // and removed), plus uncommitted work in a running slice's worktree. Glob characters become `?` so the scope
+  // stays a set of literal paths.
   const changed = new Map<string, string[]>();
+  const own = planRel(pre.slug) + '/';
   for (const sl of allSlices(pre)) {
     const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
     if (!sl.base || !head) continue;
-    changed.set(sl.id, git(['diff', '--name-only', '-M', sl.base, head, '--', '.', ':!docs/sdlc'], pc.plan.worktree).split('\n').filter(Boolean).sort());
+    const files = changedFiles(pc.plan.worktree, pre.slug, sl.base, head);
+    if (sl.status === 'in_progress' && sl.worktree && existsSync(sl.worktree))
+      for (const args of [['diff', '--name-only', '-z', 'HEAD'], ['ls-files', '--others', '--exclude-standard', '-z']])
+        files.push(...git(args, sl.worktree).split('\0').filter((f) => f && !f.startsWith(own)));
+    changed.set(sl.id, [...new Set(files.map((f) => f.replace(/[*?]/g, '?')))].sort());
   }
   return mutate(pc, 'escalated to a feature plan', (s) => {
     for (const sl of allSlices(s)) sl.scope = changed.get(sl.id) ?? [];
