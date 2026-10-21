@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:56:56.275Z",
+  "updated": "2026-10-21T22:59:13.304Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -177,14 +177,17 @@
             "plugins/cairn/hooks/test/cards.test.tsx"
           ],
           "complexity": "standard",
-          "status": "in_progress",
-          "fixRound": 0,
+          "status": "done",
+          "fixRound": 1,
           "risky": false,
-          "substep": "reviewing",
           "branch": "task/pane-status-bar-and-polish/card-click-cost",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--card-click-cost",
           "base": "b87d0f7c8fd7da0538f395f914fecc884500e25e",
-          "startedAt": "2026-10-21T22:50:56.284Z"
+          "startedAt": "2026-10-21T22:50:56.284Z",
+          "doneAt": "2026-10-21T22:59:13.303Z",
+          "tip": "f2a6270",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "5df7fb6ce2dab24b31a79aab43cf2a770ac03c06"
         },
         {
           "id": "doc-viewer",
@@ -203,10 +206,15 @@
             "plugins/cairn/hooks/test/doc.test.tsx"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "renders agent-written documents next to the Approve button"
+          "riskReason": "renders agent-written documents next to the Approve button",
+          "substep": "implementing",
+          "branch": "task/pane-status-bar-and-polish/doc-viewer",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--doc-viewer",
+          "base": "518d8544e56d44b07c17ac406e282aa0eeea9d17",
+          "startedAt": "2026-10-21T22:57:00.816Z"
         },
         {
           "id": "followup-tests",
@@ -435,6 +443,31 @@
       "at": "2026-10-21T22:56:56.275Z",
       "event": "task done",
       "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:57:00.817Z",
+      "event": "task started",
+      "detail": "One scrolling doc viewer"
+    },
+    {
+      "at": "2026-10-21T22:57:00.942Z",
+      "event": "task implementing",
+      "detail": "One scrolling doc viewer"
+    },
+    {
+      "at": "2026-10-21T22:57:22.501Z",
+      "event": "task fixing",
+      "detail": "Clickable cards with live tokens and cost (attempt 1)"
+    },
+    {
+      "at": "2026-10-21T22:58:35.502Z",
+      "event": "task merging",
+      "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:59:13.304Z",
+      "event": "task done",
+      "detail": "Clickable cards with live tokens and cost"
     }
   ],
   "suggestions": [
@@ -607,6 +640,16 @@
       ],
       "from": "task-review",
       "at": "2026-10-21T22:56:25.807Z"
+    },
+    {
+      "id": "s17",
+      "area": "quality",
+      "text": "Card tokens: keep tokensLive when a turn ends with no usage (interrupt or error); give Haiku 3 its own price row instead of the Haiku 4.5 rate",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:57:22.418Z"
     }
   ],
   "planHash": "0eaa106a32c142a9",
