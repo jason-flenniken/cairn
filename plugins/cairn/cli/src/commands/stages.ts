@@ -36,9 +36,9 @@ const recordCheck = (pc: PlanCtx, track: Track) =>
 
 /** The checks for closing a plan: the record, green tests, and the approved commands. */
 function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: string[]; fix: string }, tests: TestRun | undefined): void {
+  configGate(s, pc.cfg, 'close', opts);
   gate(!record.problems.length, s, 'close', opts, record.problems.join('; '), [record.fix]);
   testsGate(tests, s, 'close', opts);
-  configGate(s, pc.cfg, 'close', opts);
 }
 const APPROVAL_KINDS = ['prd', 'plan', 'phase', 'ship'];
 const APPROVE_USAGE = 'usage: cairn approve prd|plan|phase|ship [--human] [--note "…"]';
@@ -126,6 +126,8 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
   const pre = loadState(pc.plan.dir);
   // Advancing a fix plan from ship closes it, with the close checks. Tests run before the lock: they can be slow.
   const closing = fastLane(pre) && pre.stage === 'ship';
+  // A changed command never runs before the refusal; with --override the in-lock check logs it.
+  if (closing && !opts.override) configGate(pre, pc.cfg, 'close', opts);
   const record = closing ? recordCheck(pc, 'fix') : undefined;
   const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : undefined;
   let to: Stage | undefined;
@@ -136,7 +138,8 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
     if (s.paused) throw new Refusal('the plan is paused', ['cairn resume']);
     switch (s.stage) {
       case 'repro':
-        gate(!!s.repro, s, 'advance', opts, 'no repro is recorded', ['cairn repro "<command that fails while the bug is present>"']);
+        // Not overridable: without a repro the plan would leave the fast lane.
+        if (!s.repro) throw new Refusal('no repro is recorded', ['cairn repro "<command that fails while the bug is present>"']);
         s.phases = [{ id: 'fix', name: 'Fix', status: 'pending', slices: [{ id: 'fix', name: 'Fix', covers: [], blockedBy: [], scope: ['**'], complexity: 'standard', status: 'pending', fixRound: 0 }] }];
         break;
       case 'discover':
@@ -177,6 +180,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
 
 export function cmdClose(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
+  if (!opts.override) configGate(loadState(pc.plan.dir), pc.cfg, 'close', opts);
   const record = recordCheck(pc, 'feature');
   const tests = runTests(pc.cfg, pc.plan.worktree);
   return mutate(pc, 'closed', (s) => {

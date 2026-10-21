@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -109,6 +109,7 @@ test('a repro that exits 0 refuses and records nothing', () => {
   refused(wt, /this does not reproduce the bug/, 'repro', 'true');
   assert.equal(stateOf(wt, 'passes').repro, undefined);
   refused(wt, /no repro is recorded/, 'advance');
+  refusedByUser(wt, /no repro is recorded/, 'advance', '--override', 'skip the repro');
 });
 
 test('a failing repro records the command, its last output line, and the config hash', () => {
@@ -252,9 +253,10 @@ test('editing the test command after plan approval refuses slice done until the 
   write(join(swt, 'src/one.ts'), '1\n');
   commitAll(swt, 'one');
   g(wt, 'merge', '-q', '--no-ff', '-m', 'merge one', 'sdlc-slice/locked/one');
-  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'true # edited after approval' }));
+  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../edited-ran' }));
   commitAll(wt, 'edit the test command');
   refused(wt, /changed since the user approved it[\s\S]*cairn approve plan --human[\s\S]*Override/, 'slice', 'done', 'one');
+  assert.ok(!existsSync(join(wt, '../edited-ran')), 'the changed test command did not run');
 
   // re-approval at execute re-records the hash without moving the stage
   byUser(wt, 'approve', 'plan');
@@ -274,7 +276,8 @@ test('slice start and repro refuse while the commands differ from the approved o
   ok(other, 'repro', REPRO);
   write(join(other, '.sdlc/config.json'), JSON.stringify({ test: 'true', build: 'make' }));
   commitAll(other, 'add a build command');
-  refused(other, /changed since the user approved it/, 'repro', REPRO);
+  refused(other, /changed since the user approved it/, 'repro', 'touch ../repro-ran; exit 1');
+  assert.ok(!existsSync(join(other, '../repro-ran')), 'the repro did not run');
   // put a started fix slice back to pending so it can be started again under the changed config
   const third = fixInExecute('drifted-start');
   g(third.wt, 'worktree', 'remove', '--force', third.swt);
@@ -333,7 +336,7 @@ test('escalate on a feature plan refuses', () => {
 
 test('slice start fix from review reopens the fix on a fresh worktree and returns to execute', () => {
   const { wt, swt } = fixInExecute('reopen');
-  landOnSlice(wt, swt, 'reopen', { 'bug.txt': 'fixed\n' });
+  landOnSlice(wt, swt, 'reopen', { 'bug.txt': 'fixed\n', 'src/r1.ts': '1\n', 'src/r2.ts': '2\n', 'src/r3.ts': '3\n' });
   ok(wt, 'slice', 'done', 'fix');
   ok(wt, 'advance');
   ok(wt, 'evidence', 'review', 'fail', '--blocking', '1', '--note', 'injection in the fix');
@@ -349,7 +352,8 @@ test('slice start fix from review reopens the fix on a fresh worktree and return
   assert.equal(s.phases[0].slices[0].base, before.phases[0].slices[0].base, 'the file limit still counts the whole fix');
   assert.equal(g(again, 'rev-parse', 'HEAD'), g(wt, 'rev-parse', 'HEAD'), 'the fresh worktree starts from the plan branch');
 
-  landOnSlice(wt, again, 'reopen', { 'src/safe.ts': 'safe\n' });
+  // 8 code files across both rounds: plan-state commits between them do not count toward the limit
+  landOnSlice(wt, again, 'reopen', { 'src/r4.ts': '4\n', 'src/r5.ts': '5\n', 'src/r6.ts': '6\n', 'src/safe.ts': 'safe\n' });
   ok(wt, 'slice', 'done', 'fix');
   ok(wt, 'advance');
   assert.equal(stateOf(wt, 'reopen').stage, 'review');

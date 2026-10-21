@@ -110,6 +110,8 @@ function sliceDone(pc: PlanCtx, id: string, opts: Opts): Result {
   if (!sl) throw new Refusal(`no slice "${id}" in this plan`);
   if (sl.status !== 'in_progress' || !sl.branch) throw new Refusal(`slice "${sl.name}" is not running`);
   const pb = planBranch(plan.slug);
+  // A changed command never runs before the refusal; with --override the in-lock check logs it.
+  if (!opts.override) configGate(pre, pc.cfg, 'slice done', opts);
   // Evidence is gathered before taking the lock: tests can be slow.
   const merged = branchExists(sl.branch, plan.worktree) && gitOk(['merge-base', '--is-ancestor', sl.branch, pb], plan.worktree);
   const dirty = sl.worktree && existsSync(sl.worktree) ? git(['status', '--porcelain'], sl.worktree) : '';
@@ -121,10 +123,11 @@ function sliceDone(pc: PlanCtx, id: string, opts: Opts): Result {
   // The fix track adds: the repro now passes, and the fix stays small (FR-25). Renames count once.
   const fix = fastLane(pre) && checkable;
   const repro = fix && pre.repro ? runRepro(pre.repro.cmd, plan.worktree, pc.cfg) : undefined;
-  const changed = fix && sl.base ? git(['diff', '--name-only', '-M', sl.base, sl.branch], plan.worktree).split('\n').filter(Boolean).length : 0;
+  const changed = fix && sl.base ? git(['diff', '--name-only', '-M', sl.base, sl.branch, '--', '.', ':!docs/sdlc'], plan.worktree).split('\n').filter(Boolean).length : 0;
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `slice done: ${sl.name}`, (s) => {
     const cur = findSlice(s, id)!;
+    configGate(s, pc.cfg, 'slice done', opts);
     gate(!dirty, s, 'slice done', opts, `the slice worktree has uncommitted changes`, [`commit or discard them in ${cur.worktree}`]);
     gate(commits > 0, s, 'slice done', opts, `${cur.branch} has no commits since the slice started`, ['the implementer commits its work on the slice branch, in the slice worktree']);
     gate(!planDirty, s, 'slice done', opts, `the plan worktree has uncommitted changes outside docs/sdlc: ${planDirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on slice branches: move it into a slice, or discard it']);
@@ -134,7 +137,6 @@ function sliceDone(pc: PlanCtx, id: string, opts: Opts): Result {
       gate(repro.outcome === 'passes', s, 'slice done', opts, `the repro still fails (\`${s.repro!.cmd}\` → ${repro.detail})`, ['fix the bug so the repro command exits 0']);
       gate(changed <= maxFiles, s, 'slice done', opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ['this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work']);
     }
-    configGate(s, pc.cfg, 'slice done', opts);
     Object.assign(cur, { status: 'done', substep: undefined, doneAt: now(), tip, tests: tests ? `${tests.cmd} → ${tests.tail}` : undefined });
     const phase = s.phases.find((p) => p.slices.some((x) => x.id === id))!;
     phase.status = phaseStatus(phase, phase.status);
