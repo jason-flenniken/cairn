@@ -6,8 +6,8 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T14:17:25.929Z",
-  "stage": "learn",
+  "updated": "2026-10-21T14:18:33.482Z",
+  "stage": "closed",
   "paused": null,
   "approvals": {
     "prd": {
@@ -384,6 +384,10 @@
       "at": "2026-10-21T14:17:25.928Z",
       "event": "advanced",
       "detail": "learn"
+    },
+    {
+      "at": "2026-10-21T14:18:33.481Z",
+      "event": "closed"
     }
   ],
   "suggestions": [
