@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T14:02:14.804Z",
+  "updated": "2026-10-21T14:04:54.959Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -113,7 +113,7 @@
     {
       "id": "visible-approvals",
       "name": "Approvals you can see",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "approval-ready",
@@ -160,15 +160,18 @@
             "plugins/cairn/types/**"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
           "riskReason": "decides when a human approval is recorded; must never approve on the model's say-so",
-          "substep": "implementing",
           "branch": "sdlc-task/standard-branch-names/pane-approvals",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--pane-approvals",
           "base": "d477d083b39af77118978e355cf608cf6ae82e21",
-          "startedAt": "2026-10-21T13:58:58.359Z"
+          "startedAt": "2026-10-21T13:58:58.359Z",
+          "doneAt": "2026-10-21T14:04:54.958Z",
+          "tip": "26639da",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "8984dfbdd5f497556252faee7c0a028afb1228bc"
         }
       ]
     }
@@ -309,6 +312,21 @@
       "at": "2026-10-21T14:02:14.804Z",
       "event": "task done",
       "detail": "CLI says when an approval is ready"
+    },
+    {
+      "at": "2026-10-21T14:03:38.510Z",
+      "event": "task reviewing",
+      "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T14:04:28.140Z",
+      "event": "task merging",
+      "detail": "Pane approval card, clickable cards, one note"
+    },
+    {
+      "at": "2026-10-21T14:04:54.959Z",
+      "event": "task done",
+      "detail": "Pane approval card, clickable cards, one note"
     }
   ],
   "suggestions": [
@@ -383,6 +401,36 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T14:00:47.409Z"
+    },
+    {
+      "id": "s8",
+      "area": "tests",
+      "text": "The test run inside cairn task done fails intermittently (2 of 5 runs today) and passes on rerun with no change, likely when another task is running tests at the same time. Find the shared resource and make the test isolated.",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T14:02:18.482Z"
+    },
+    {
+      "id": "s9",
+      "area": "tests",
+      "text": "Run one pane test against real cairn status --all --json output so ready is not hand-built in fixtures.",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:03:38.429Z"
+    },
+    {
+      "id": "s10",
+      "area": "perf",
+      "text": "Read all re-reads the document on every pane draw while open; cache it by file and modification time if documents get large.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:04:28.064Z"
     }
   ],
   "planHash": "ac8f391969859259",
