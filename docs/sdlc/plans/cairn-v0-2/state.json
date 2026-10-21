@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T11:49:54.431Z",
+  "updated": "2026-10-21T11:54:23.852Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -408,7 +408,7 @@
     {
       "id": "dogfood",
       "name": "Dogfood fixes",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "slices": [
         {
           "id": "test-flake",
@@ -556,12 +556,14 @@
             "plugins/cairn/cli/test/polish.test.ts"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
-          "substep": "implementing",
           "branch": "sdlc-slice/cairn-v0-2/cli-polish",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--cli-polish",
-          "base": "897267cc87b6ab2da83606aa381559de39d2f3ee"
+          "base": "897267cc87b6ab2da83606aa381559de39d2f3ee",
+          "doneAt": "2026-10-21T11:54:23.852Z",
+          "tip": "377f32f",
+          "tests": "npm run typecheck && npm test → 0 fail"
         }
       ]
     }
@@ -595,6 +597,12 @@
       "at": "2026-10-21T11:47:56.680Z",
       "reason": "edited outside slice \"Named pre-approved cairn commands\" scope",
       "slice": "skill-permissions"
+    },
+    {
+      "path": "plugins/cairn/cli/src/commands/fix.ts",
+      "at": "2026-10-21T11:54:23.852Z",
+      "reason": "changed outside slice \"Test summary, approval sources, strict ids, prefactor slices\" scope (found at slice done)",
+      "slice": "cli-polish"
     }
   ],
   "log": [
@@ -1153,6 +1161,26 @@
       "at": "2026-10-21T11:49:54.431Z",
       "event": "slice done",
       "detail": "Unlocked orchestrator and documented formats"
+    },
+    {
+      "at": "2026-10-21T11:52:41.370Z",
+      "event": "slice reviewing",
+      "detail": "Test summary, approval sources, strict ids, prefactor slices"
+    },
+    {
+      "at": "2026-10-21T11:53:55.464Z",
+      "event": "slice merging",
+      "detail": "Test summary, approval sources, strict ids, prefactor slices"
+    },
+    {
+      "at": "2026-10-21T11:54:23.852Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/src/commands/fix.ts"
+    },
+    {
+      "at": "2026-10-21T11:54:23.852Z",
+      "event": "slice done",
+      "detail": "Test summary, approval sources, strict ids, prefactor slices"
     }
   ],
   "planHash": "cc54213ff13f0bd3",
