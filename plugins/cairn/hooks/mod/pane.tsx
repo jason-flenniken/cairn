@@ -4,10 +4,11 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
 import { LINGER_MS, readAgents, readFeed, readMain, readTick } from './activity.ts'
-import { approvalCard, confirmAndApprove } from './approval.tsx'
+import { approvalCard, approvePress, confirmAndApprove } from './approval.tsx'
 import { activeStep, Bar, cells, stageSteps, type BarLine } from './bar.tsx'
 import { act, agentCard, agentLines, mainCard, message, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
+import { docViewer, openDoc, readDoc } from './doc.tsx'
 import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
@@ -398,33 +399,48 @@ export function install(on: On): void {
       </Box>
     )
 
+    // The viewer takes the tab's place; Approve is in it only while this very document waits on approval.
+    const doc = isInline ? null : await readDoc($)
+    if (doc !== null) {
+      const waiting = here?.ready?.file === doc.file ? here.ready : undefined
+      const followUps = doc.kind === 'record' ? (await read($, records))?.find(x => x.record === doc.file)?.followUps.filter(f => f.status === 'open') ?? [] : []
+      return frame(e, await docViewer(
+        $, ui, doc,
+        waiting === undefined || here === undefined ? undefined : () => act($, () => approvePress($, here.state.slug, waiting.kind)),
+        followUps.length > 0 ? `**Follow-ups**\n\n${followUps.map(f => `- ${f.text} (${f.area})`).join('\n')}` : undefined,
+      ), barLines)
+    }
+
     if (!isInline && shownTab === 'records') {
       const all = await read($, records)
       const shown = all?.find(x => x.slug === openedRecord)
       if (shown !== undefined) {
-        const text = shown.record === undefined ? '' : await $.fs.read(shown.record).catch((err: unknown) => `Could not read ${shown.record}: ${message(err)}`)
         const open = shown.followUps.filter(f => f.status === 'open')
         return frame(e, [
           tabs,
           <Button key="back" label="Back" onPress={() => act($, () => update($, openRecord, () => null))} />,
-          shown.record === undefined
-            ? <Text key="missing" dimColor>{shown.stage === 'closed' ? 'No record for this plan.' : 'Still in progress: no record yet.'}</Text>
-            : <Markdown key="record" text={text} />,
+          <Text key="missing" dimColor>{shown.stage === 'closed' ? 'No record for this plan.' : 'Still in progress: no record yet.'}</Text>,
           open.length > 0 && <Markdown key="followups" text={`**Follow-ups**\n\n${open.map(f => `- ${f.text} (${f.area})`).join('\n')}`} />,
         ], barLines)
       }
       return frame(e, [
         tabs,
-        ...(all ?? []).map(x => (
+        ...(all ?? []).map(x => {
+          // A record with a file opens in the doc viewer; one without shows its short note.
+          const press = () => act($, () => x.record === undefined
+            ? update($, openRecord, () => x.slug)
+            : openDoc($, PANE, { file: x.record, title: x.title, kind: 'record' }))
+          return (
           <Box key={`record:${x.slug}:row`} flexDirection="column">
-            <Button key={`record:${x.slug}`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
+            <Button key={`record:${x.slug}`} plain onPress={press}>
               <Text wrap="truncate-end">{`${x.stage === 'closed' ? dateText(x.date) : 'In progress'} · ${x.title}`}</Text>
             </Button>
-            <Button key={`record:${x.slug}:why`} plain onPress={() => act($, () => update($, openRecord, () => x.slug))}>
+            <Button key={`record:${x.slug}:why`} plain onPress={press}>
               <Text dimColor wrap="truncate-end">{x.why}</Text>
             </Button>
           </Box>
-        )),
+          )
+        }),
         all !== null && !all.some(x => x.stage === 'closed') && <Text dimColor>No finished plans yet.</Text>,
       ], barLines)
     }

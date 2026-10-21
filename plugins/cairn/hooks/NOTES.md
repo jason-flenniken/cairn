@@ -86,6 +86,12 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - The plan cost is the session cost less the baseline. The baseline is set when the shown plan is first seen active, when it changes, or when it is resumed after a pause (the pane's refresh and poll call `syncBaseline`). A paused plan seen first has no baseline, so the line shows the session total labelled "session", as it does with no plan.
 - Line 2 is the model, cost, context bar with percent and tokens; line 3 is the 5h and 7d bars (warning from 80% with the reset time, error from 95%), left out with no rate limits. Each shrinks (shorter bar, then fewer parts) to fit the bar's columns. Inline, one line: the active step, the plan cost and the limit percents.
 
+## Doc viewer (pane)
+
+- `doc.tsx` owns the `docOpen` atom (read through `readDoc`, since the engine only follows an atom read in the file that declares it). Read all on an approval card and a Records entry with a record file open it; docked only.
+- The viewer replaces the tab's content, drawn through `frame` so the bar stays pinned: title, Back, Approve (only while that very file is the one waiting on approval), then the whole text in one Markdown. Opening scrolls the pane to the start. The kit raises no `ui.scroll` for it, so that part is a live check.
+- Document text only reaches `Markdown`; Approve is the one path to `approvePress`, which asks the confirm first.
+
 ## Testing
 
 `claude plugin test <dir>` runs every `*.test.ts` under `<dir>`, skipping only `node_modules` and dot-folders. That includes `cli/test`, whose node:test files can't load in the mod environment.
