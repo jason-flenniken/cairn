@@ -10,6 +10,7 @@ import { configHash } from '../src/commands/fix.ts';
 import { loadConfig } from '../src/config.ts';
 import { run } from '../src/main.ts';
 import { Refusal } from '../src/util.ts';
+import { pd } from './plandir.ts';
 
 let repo: string;
 const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
@@ -43,7 +44,7 @@ function asUser<T>(fn: () => T): T {
 const byUser = (cwd: string, ...argv: string[]) => asUser(() => ok(cwd, ...argv));
 const refusedByUser = (cwd: string, pattern: RegExp, ...argv: string[]) => asUser(() => refused(cwd, pattern, ...argv));
 
-const dirOf = (wt: string, slug: string) => join(wt, 'docs/sdlc/plans', slug);
+const dirOf = (wt: string, slug: string) => pd(wt, slug);
 const stateOf = (wt: string, slug: string) => JSON.parse(readFileSync(join(dirOf(wt, slug), 'state.json'), 'utf8'));
 const commitAll = (cwd: string, msg: string) => {
   g(cwd, 'add', '-A');

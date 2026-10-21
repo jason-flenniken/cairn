@@ -145,6 +145,8 @@ export interface IndexRow {
   state: State;
   live: boolean;
   worktree?: string;
+  /** Absolute plan folder: in its worktree, else where it would sit in the main checkout. */
+  dir: string;
 }
 
 export function renderIndex(rows: IndexRow[]): string {

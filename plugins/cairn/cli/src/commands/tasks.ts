@@ -3,7 +3,7 @@ import { basename, join } from 'node:path';
 import { worktreeRoot } from '../config.ts';
 import { branchExists, git, gitOk } from '../git.ts';
 import { matchesAny } from '../glob.ts';
-import { planRel, taskBranch, type Ctx } from '../locate.ts';
+import { planRelOf, taskBranch, type Ctx } from '../locate.ts';
 import { phaseStatus } from '../plan-parse.ts';
 import { findTask, readySet } from '../ready.ts';
 import { loadState, log } from '../state.ts';
@@ -120,7 +120,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const dirty = sl.worktree && existsSync(sl.worktree) ? git(['status', '--porcelain'], sl.worktree) : '';
   const tip = branchExists(sl.branch, plan.worktree) ? git(['rev-parse', '--short', sl.branch], plan.worktree) : undefined;
   const commits = tip && sl.base ? Number(git(['rev-list', '--count', `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
-  const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRel(plan.slug)}`], plan.worktree);
+  const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   const checkable = merged && !dirty && !planDirty;
   const tests = checkable ? runTests(pc.cfg, plan.worktree) : undefined;
   const testedCommit = tests ? git(['rev-parse', 'HEAD'], plan.worktree) : undefined;

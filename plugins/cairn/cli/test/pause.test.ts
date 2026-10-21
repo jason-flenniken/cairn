@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { run } from '../src/main.ts';
+import { pd } from './plandir.ts';
 
 let repo: string;
 let wt: string;
@@ -50,7 +51,7 @@ before(() => {
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'init');
   wt = run(['new', 'pausing', '--title', 'Pausing'], repo).data!.worktree as string;
-  const dir = join(wt, 'docs/sdlc/plans/pausing');
+  const dir = pd(wt, 'pausing');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'state.json'), JSON.stringify(STATE, null, 2) + '\n');
   writeFileSync(join(dir, 'handoff.md'), '## In flight\nnothing\n## Open questions\nnone\n## Next action\nstart alpha\n');

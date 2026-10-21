@@ -39,7 +39,7 @@ The mod registers these commands. Their names have no ":" because the engine for
 
 ## Where things live
 - Plan branch (from `cairn status --json`, `state.branch`): `feature/<slug>` for a feature plan, `fix/<slug>` for a fix. It is usually checked out in its own worktree. The orchestrator session stays at the repo root and runs `cd <plan worktree> && cairn <command>`.
-- Plan dir, committed on the plan branch: `docs/sdlc/plans/<slug>/`, containing:
+- Plan dir, committed on the plan branch: `docs/sdlc/plans/<date>-<slug>/` (the date is the plan's start; `cairn status --json` gives the absolute path as `dir`; older plans keep the undated `<slug>` folder and are still found), containing:
   - `decisions.md`: append-only, written via `cairn decide`
   - `prd.md`, `plan.md`, `handoff.md`, `RECORD.md`: written by procedures from `templates/`
   - `direction/<phase-id>.md`: one direction report per phase, with its `cairn-direction` scorecard
@@ -53,7 +53,7 @@ The mod registers these commands. Their names have no ":" because the engine for
   - `fixMaxFiles`: how many files a fix may change before `task done fix` refuses and names `escalate` (default 8)
   - `reproTimeoutMinutes`: how long `cairn repro` may run (default 10)
 - Config lock (FR-32): plan approval records a hash of the `setup`, `test`, and `build` commands. On the fix track the hash is taken when the repro is recorded. `task start`, `task done`, `repro`, and `close` refuse while the hash differs, and name the fix: the user re-approves the plan, or chooses Override.
-- The active plan is decided by the current git branch. A branch counts as a plan only when it holds `docs/sdlc/plans/<slug>/state.json`; hand-made `feature/` branches are ignored. On any other branch the CLI works on the index of all plans. Plans created before the `feature/`, `fix/`, and `task/` names keep `sdlc/<slug>`, `sdlc-task/<slug>/<task>`, and `sdlc-<slug>` folders, finish under those names, and cairn still recognises them.
+- The active plan is decided by the current git branch. A branch counts as a plan only when it holds `docs/sdlc/plans/<date>-<slug>/state.json`; hand-made `feature/` branches are ignored. On any other branch the CLI works on the index of all plans. Plans created before the `feature/`, `fix/`, and `task/` names keep `sdlc/<slug>`, `sdlc-task/<slug>/<task>`, and `sdlc-<slug>` folders, finish under those names, and cairn still recognises them.
 
 ## Stages
 `discover → prd → plan → execute → verify → review → ship → learn → closed`
@@ -75,7 +75,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 | (last phase finished) | stage moves to verify automatically |
 | `cairn advance` (to review) | `cairn evidence verify pass` recorded |
 | `cairn advance` (to ship) | `cairn evidence review pass` recorded with no blocking findings |
-| `cairn approve ship` | `RECORD.md` has its five sections and is within 500 words |
+| `cairn approve ship` | `RECORD.md` has its six sections (Links, Why, What was built, How it works, Findings, Follow-ups) and is within 600 words |
 | `cairn advance` (to learn) | ship approved |
 | `cairn close` | stage is learn, `RECORD.md` is valid, tests pass, and the config lock holds |
 
@@ -104,6 +104,10 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn suggest add --area tests|security|perf|quality|ux|docs [--where <glob>]... (--text "…" | --text-file <f>) [--from task-review|branch-review|check|implementer|plan|user]`: appends to the current plan and prints `<slug>:<id>`.
   - `cairn suggest list [--open] [--for <glob>]... [--json]`: all plans (worktrees, plan branches, closed plans in this checkout), grouped by area. `--for` keeps suggestions whose `where` overlaps the globs.
   - `cairn suggest resolve <slug>:<id> [--dismiss] [--note "…"]`: closes a suggestion from the current plan.
+  - `cairn suggest merge <key> <key>... --area <a> [--where <glob>]... --text "…"`: groups open follow-ups into one new item in the current plan (its `where` defaults to theirs combined). The grouped ones become `merged`.
+  - `cairn suggest decline <key>...`: records one decline of each open follow-up. The second decline expires it.
+  - Each listed follow-up has a derived `status` in `suggest list --json`: `open`, `closed` (resolved or dismissed), `merged`, or `expired` (declined twice, or older than 60 days). `open` is true only for `open`.
+  - `cairn close` refuses when more than 5 open follow-ups come from the plan, and names them.
 - **Evidence and out-of-scope edits**
   - `cairn evidence verify|review pass|fail [--note "…"] [--blocking N]`
   - `cairn evidence phase [--note "…"]`: reads the phase's direction report and its one ` ```yaml cairn-direction ` block, the direction scorecard. The scorecard has three lists: `requirements`, `nfr`, and `unplanned`.
@@ -120,6 +124,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn close`
 - **Generated docs and hooks**
   - `cairn render`: regenerates `STATUS.md`, plus `docs/sdlc/INDEX.md` when on main.
+  - `cairn records [--json]`: lists every plan, in-progress first then closed newest first, with date, title, why line, record path and follow-ups. Works from any worktree.
   - `cairn hook session-start|post-edit`: used by `hooks/hooks.json`. Reads hook JSON on stdin.
 
 The CLI commits the plan dir on the plan branch only at transitions: approve, advance, plan load, task done, phase finish, pause, resume, and close.
@@ -139,6 +144,7 @@ A blocking review finding has two exits. `cairn task start fix` reopens the task
   - `ready` is present only when approving the current stop would pass its checks: `{kind: "prd"|"plan"|"ship", file, summary}`. `file` is the absolute path of the document; `summary` is a short markdown excerpt.
   - `state` is the full state.json: `phases[].tasks[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals`, `evidence`, `drift[]`, `suggestions[]`, and `log[]`. A task also has `risky`, `riskReason`, and `startedAt`.
   - `status --all`: `{plans: [{state, live, worktree, next, ready?}], modActive, openSuggestions}`.
+- `records`: `{records: [{slug, title, date, stage, why, record?, followUps: [{text, area, status}]}]}`. In-progress plans first, then closed plans newest first. Reads the main checkout from any worktree.
 - `ready`: `{paused, phase, phaseStatus, ready: [task + model], inProgress: [task], waiting: [{id, on[]}]}`.
 - `task start`: `{worktree, branch, planBranch}`.
 - `new`: `{slug, branch, base, worktree, dir}`.

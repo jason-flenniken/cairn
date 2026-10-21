@@ -1,5 +1,5 @@
 import { git, gitOk } from '../git.ts';
-import { planRel, type Ctx } from '../locate.ts';
+import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { loadState, log } from '../state.ts';
 import type { State, Suggestion } from '../types.ts';
@@ -9,7 +9,7 @@ import { gate, mutate, planCtx, runTests, testsGate, type Opts, type Result, typ
 /** "3 new suggestions (2 tests, 1 security)" for suggestions logged since the last phase boundary. */
 export function newSuggestionsText(s: State): string {
   const since = [...s.log].reverse().find((l) => l.event === 'phase finished' || (l.event === 'advanced' && l.detail === 'execute'))?.at ?? s.created;
-  const fresh = (s.suggestions ?? []).filter((x: Suggestion) => !x.resolves && x.at > since);
+  const fresh = (s.suggestions ?? []).filter((x: Suggestion) => !x.resolves && !x.declines && x.at > since);
   if (!fresh.length) return '0 new suggestions';
   const by = new Map<string, number>();
   for (const x of fresh) by.set(x.area, (by.get(x.area) ?? 0) + 1);
@@ -29,7 +29,7 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
   if (unfinished.length) throw new Refusal(`phase "${phase.name}" still has unfinished tasks: ${unfinished.map((x) => x.name).join(', ')}`, ['cairn ready']);
   const blocked = phase.tasks.filter((x) => x.substep === 'blocked');
   if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(', ')}`);
-  const dirty = git(['status', '--porcelain', '--', '.', `:!${planRel(plan.slug)}`], plan.worktree);
+  const dirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside docs/sdlc: ${dirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
 
   // Reuse the last task's green test run when no code changed since; otherwise run the tests once.

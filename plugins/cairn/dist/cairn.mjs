@@ -7366,8 +7366,8 @@ import { readFileSync as readFileSync6 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 
 // plugins/cairn/cli/src/locate.ts
-import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
-import { basename, dirname as dirname2, join as join2 } from "node:path";
+import { existsSync as existsSync2, readdirSync, readFileSync as readFileSync2 } from "node:fs";
+import { basename, dirname as dirname2, join as join2, relative } from "node:path";
 
 // plugins/cairn/cli/src/git.ts
 import { execFileSync, spawnSync } from "node:child_process";
@@ -7468,9 +7468,39 @@ var planBranch = (slug, track) => `${track === "fix" ? "fix/" : "feature/"}${slu
 var taskBranch = (slug, task) => `task/${slug}/${task}`;
 var worktreeName = (branch) => branch.replace(/\//g, "-");
 var planRel = (slug) => `${PLANS_DIR}/${slug}`;
+function planDirName(slug, created) {
+  if (typeof created === "string") return `${created.slice(0, 10)}-${slug}`;
+  const p = (n) => String(n).padStart(2, "0");
+  return `${created.getFullYear()}-${p(created.getMonth() + 1)}-${p(created.getDate())}-${slug}`;
+}
+var DATED = /^\d{4}-\d{2}-\d{2}-/;
+function pickPlanDir(slug, names, hasPlan) {
+  const dated = names.filter((n) => DATED.test(n) && n.slice(11) === slug).sort().reverse();
+  return [...dated, slug].find((n) => names.includes(n) && hasPlan(n));
+}
+function resolvePlanDir(slug, where) {
+  let name;
+  if ("root" in where) {
+    const base = join2(where.root, PLANS_DIR);
+    if (!existsSync2(base)) return void 0;
+    name = pickPlanDir(slug, readdirSync(base), (n) => existsSync2(join2(base, n, "state.json")));
+  } else {
+    let names;
+    try {
+      names = git(["ls-tree", "--name-only", where.ref, `${PLANS_DIR}/`], where.cwd).split("\n").filter(Boolean).map((p) => p.slice(PLANS_DIR.length + 1));
+    } catch {
+      return void 0;
+    }
+    name = pickPlanDir(slug, names, (n) => gitOk(["cat-file", "-e", `${where.ref}:${PLANS_DIR}/${n}/state.json`], where.cwd));
+  }
+  return name && `${PLANS_DIR}/${name}`;
+}
+var planRelIn = (slug, root) => resolvePlanDir(slug, { root }) ?? planRel(slug);
+var planRelOf = (plan) => relative(plan.worktree, plan.dir);
 function recordedBranch(ref, slug, cwd) {
   try {
-    return JSON.parse(git(["show", `${ref}:${planRel(slug)}/state.json`], cwd)).branch;
+    const rel = resolvePlanDir(slug, { ref, cwd });
+    return rel ? JSON.parse(git(["show", `${ref}:${rel}/state.json`], cwd)).branch : void 0;
   } catch {
     return void 0;
   }
@@ -7487,7 +7517,7 @@ function parseBranch(branch) {
 }
 function planRef(slug, wts, planBranch2) {
   const wt = planBranch2 ? wts.find((w) => w.branch === planBranch2) : void 0;
-  return wt ? { slug, worktree: wt.path, dir: join2(wt.path, planRel(slug)) } : { slug };
+  return wt ? { slug, worktree: wt.path, dir: join2(wt.path, planRelIn(slug, wt.path)) } : { slug };
 }
 function context(cwd, slugOverride) {
   let top;
@@ -7510,7 +7540,7 @@ function context(cwd, slugOverride) {
     } else {
       let recorded;
       try {
-        recorded = JSON.parse(readFileSync2(join2(top, planRel(s), "state.json"), "utf8")).branch;
+        recorded = JSON.parse(readFileSync2(join2(top, planRelIn(s, top), "state.json"), "utf8")).branch;
       } catch {
       }
       const legacy = branch.startsWith("sdlc/") || branch.startsWith("sdlc-task/");
@@ -7677,9 +7707,9 @@ var wordCount = (md) => md.replace(/<!--[\s\S]*?-->/g, "").split(/\s+/).filter(B
 var proseWordCount = (md) => wordCount(md.replace(/<!--[\s\S]*?-->/g, "").split("\n").filter((l) => !/^\s*#{1,6}\s/.test(l)).join("\n"));
 var PRD_SECTIONS = ["Problem", "Solution", "Requirements", "Non-goals", "Open questions"];
 var PLAN_SECTIONS = ["Goal", "Architecture", "Phases"];
-var RECORD_SECTIONS = ["Links", "Why", "What was built", "How it works", "Follow-ups"];
+var RECORD_SECTIONS = ["Links", "Why", "What was built", "How it works", "Findings", "Follow-ups"];
 var HANDOFF_SECTIONS = ["In flight", "Open questions", "Next action"];
-var RECORD_WORD_BUDGET = 500;
+var RECORD_WORD_BUDGET = 600;
 var FIX_RECORD_SECTIONS = ["Links", "Bug", "Cause", "Fix", "Evidence"];
 var FIX_RECORD_WORD_BUDGET = 200;
 var FR_ID = /\bFR-\d+\b/g;
@@ -7912,7 +7942,7 @@ function mutate(pc, commitMsg, fn) {
     saveState(pc.plan.dir, s);
     return out;
   });
-  if (commitMsg && pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRel(pc.plan.slug), `cairn(${pc.plan.slug}): ${commitMsg}`);
+  if (commitMsg && pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): ${commitMsg}`);
   return r;
 }
 var planFile = (pc, name) => join6(pc.plan.dir, name);
@@ -8000,7 +8030,8 @@ function cmdNew(ctx, slug, opts) {
     wt = join7(root, worktreeName(branch));
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
-  const dir = join7(wt, planRel(slug));
+  const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
+  const dir = join7(wt, rel);
   writeText(join7(dir, "decisions.md"), `# Decisions: ${title}
 
 Append-only. Written by \`cairn decide\` as each decision is made.
@@ -8008,7 +8039,7 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   const state = newState(slug, title, track, branch, base);
   if (track === "fix") state.stage = "repro";
   saveState(dir, state);
-  if (cfg.autoCommit) commitPath(wt, planRel(slug), `cairn(${slug}): start plan "${title}"`);
+  if (cfg.autoCommit) commitPath(wt, rel, `cairn(${slug}): start plan "${title}"`);
   const setup = opts["no-worktree"] ? "" : runSetup(cfg, wt, ctx.mainRoot);
   return {
     message: [
@@ -8059,7 +8090,7 @@ _${now().slice(0, 16).replace("T", " ")}_
 }
 
 // plugins/cairn/cli/src/commands/stages.ts
-import { join as join9 } from "node:path";
+import { join as join11 } from "node:path";
 
 // plugins/cairn/cli/src/glob.ts
 function globToRegex(glob) {
@@ -8142,7 +8173,7 @@ function configGate(s, cfg, event, opts) {
     ["the user re-approves the commands by running, in their own terminal: cairn approve plan --human", "or the user chooses Override in the menu"]
   );
 }
-var changedFiles = (cwd, slug, base, head) => git(["diff", "--name-only", "-z", "-M", base, head, "--", ".", `:!${planRel(slug)}`], cwd).split("\0").filter(Boolean);
+var changedFiles = (cwd, slug, base, head) => git(["diff", "--name-only", "-z", "-M", base, head, "--", ".", `:!${planRelIn(slug, cwd)}`], cwd).split("\0").filter(Boolean);
 var GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
 var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
 function runRepro(cmd, cwd, cfg) {
@@ -8193,7 +8224,7 @@ function cmdEscalate(ctx, opts) {
   if (pre.track !== "fix") throw new Refusal("only a fix plan can be escalated; this is a feature plan");
   if (pre.stage === "closed") throw new Refusal("the plan is closed");
   const changed = /* @__PURE__ */ new Map();
-  const own = planRel(pre.slug) + "/";
+  const own = planRelOf(pc.plan) + "/";
   for (const sl of allTasks(pre)) {
     const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
     if (!sl.base || !head) continue;
@@ -8216,6 +8247,235 @@ function cmdEscalate(ctx, opts) {
   });
 }
 
+// plugins/cairn/cli/src/commands/suggest.ts
+import { existsSync as existsSync6, readdirSync as readdirSync2 } from "node:fs";
+import { join as join10 } from "node:path";
+
+// plugins/cairn/cli/src/commands/status.ts
+import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
+import { join as join9 } from "node:path";
+function listPlans(ctx) {
+  const refs = git(["for-each-ref", "--format=%(refname:short)", ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split("\n").filter(Boolean);
+  const rows = [];
+  for (const b of refs) {
+    const slug = parseBranch(b).slug;
+    if (!slug) continue;
+    const ref = planRef(slug, ctx.worktrees, b);
+    try {
+      const rel = resolvePlanDir(slug, { ref: b, cwd: ctx.top });
+      const raw = ref.dir && existsSync5(join9(ref.dir, "state.json")) ? readFileSync5(join9(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
+      const state = parseState(raw);
+      if (state.branch !== b) continue;
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join9(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
+    } catch {
+    }
+  }
+  return rows;
+}
+var modIsActive = (ctx) => modActive(commonDir(ctx.mainRoot));
+function warnings(pc, s) {
+  const w = [];
+  const prd = readText(planFile(pc, "prd.md"));
+  if (s.approvals.prd?.hash && prd && hashText(prd) !== s.approvals.prd.hash) w.push("prd.md changed after it was approved");
+  const plan = readText(planFile(pc, "plan.md"));
+  if (s.planHash && plan && hashText(plan) !== s.planHash) w.push("plan.md changed after it was loaded: run `cairn plan load --replan` or revert it");
+  const open = s.drift.filter((d) => !d.acked);
+  if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
+  return w;
+}
+function cmdStatus(ctx, opts) {
+  if (opts.all || !ctx.plan) {
+    const rows = listPlans(ctx);
+    const active = rows.filter((r) => r.state.stage !== "closed");
+    const lines = rows.length ? rows.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state)}
+    next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
+    const openSuggestions = openSuggestionCount(ctx);
+    return { message: `${active.length} active plan(s).
+${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
+  }
+  const pc = planCtx(ctx);
+  const s = loadState(pc.plan.dir);
+  const w = warnings(pc, s);
+  const next = nextFor(s);
+  return {
+    message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []].join("\n"),
+    data: { state: s, next, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
+  };
+}
+var procedurePath = (name) => join9(pluginRoot(), "procedures", `${name}.md`);
+function cmdNext(ctx) {
+  if (!ctx.plan) {
+    const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
+    if (!active.length) return { message: "No active plans. Start one.", data: { plan: null, stage: null, procedure: procedurePath("new"), summary: "No active plans.", modActive: modIsActive(ctx) } };
+    return {
+      message: `Active plans:
+${active.map((r) => `  ${summary(r.state)}`).join("\n")}
+Ask the user which plan to resume (/cairn:resume <slug>) or whether to start a new one (/cairn:new).`,
+      data: { plan: null, stage: null, procedure: procedurePath("status"), plans: active.map((r) => r.state.slug), modActive: modIsActive(ctx) }
+    };
+  }
+  const pc = planCtx(ctx);
+  const s = loadState(pc.plan.dir);
+  const n = nextFor(s);
+  return {
+    message: `${summary(s)}
+Next: ${n.text}
+Follow: ${procedurePath(n.procedure)}`,
+    data: { plan: s.slug, stage: s.stage, substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
+  };
+}
+function cmdRender(ctx) {
+  if (ctx.plan) {
+    const pc = planCtx(ctx);
+    withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
+    return { message: `Rendered ${join9(pc.plan.dir, "STATUS.md")}.` };
+  }
+  const out = join9(ctx.top, "docs/sdlc/INDEX.md");
+  writeText(out, renderIndex(listPlans(ctx)));
+  return { message: `Rendered ${out}.` };
+}
+
+// plugins/cairn/cli/src/commands/suggest.ts
+var list = (v) => typeof v === "string" ? v.split("\n").filter(Boolean) : [];
+var MAX_DECLINES = 2;
+var MAX_AGE_DAYS = 60;
+var MAX_OPEN_PER_PLAN = 5;
+var isMarker = (x) => !!x.resolves || !!x.declines;
+function allStates(ctx) {
+  const out = /* @__PURE__ */ new Map();
+  for (const r of listPlans(ctx)) out.set(r.state.slug, r.state);
+  const dir = join10(ctx.top, PLANS_DIR);
+  if (existsSync6(dir))
+    for (const name of readdirSync2(dir)) {
+      const raw = readText(join10(dir, name, "state.json"));
+      if (raw === void 0) continue;
+      try {
+        const s = parseState(raw);
+        if (!out.has(s.slug)) out.set(s.slug, s);
+      } catch {
+      }
+    }
+  return [...out.values()];
+}
+function collectSuggestions(ctx, at = Date.now()) {
+  const states = allStates(ctx);
+  const all = states.flatMap((s) => s.suggestions ?? []);
+  const closed = new Set(all.map((x) => x.resolves).filter((r) => !!r));
+  const merged = new Set(all.flatMap((x) => x.merges ?? []));
+  const declines = /* @__PURE__ */ new Map();
+  for (const x of all) if (x.declines) declines.set(x.declines, (declines.get(x.declines) ?? 0) + 1);
+  return states.flatMap(
+    (s) => (s.suggestions ?? []).filter((x) => !isMarker(x)).map((x) => {
+      const key = `${s.slug}:${x.id}`;
+      const declined = declines.get(key) ?? 0;
+      const old = at - Date.parse(x.at) > MAX_AGE_DAYS * 864e5;
+      const status = closed.has(key) ? "closed" : merged.has(key) ? "merged" : declined >= MAX_DECLINES || old ? "expired" : "open";
+      return { ...x, slug: s.slug, key, open: status === "open", status, declined };
+    })
+  );
+}
+function openSuggestionCount(ctx) {
+  try {
+    return collectSuggestions(ctx).filter((x) => x.open).length;
+  } catch {
+    return 0;
+  }
+}
+var USAGE = "usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...";
+function cmdSuggest(ctx, action, arg, opts, more = []) {
+  if (action === "add") return suggestAdd(ctx, opts);
+  if (action === "list") return suggestList(ctx, opts);
+  if (action === "resolve") return suggestResolve(ctx, arg, opts);
+  if (action === "merge") return suggestMerge(ctx, [arg, ...more].filter((k) => !!k), opts);
+  if (action === "decline") return suggestDecline(ctx, [arg, ...more].filter((k) => !!k));
+  throw new CliError(USAGE);
+}
+function suggestAdd(ctx, opts) {
+  const area = String(opts.area ?? "");
+  if (!SUGGESTION_AREAS.includes(area)) throw new CliError(`--area must be one of ${SUGGESTION_AREAS.join(", ")}`);
+  const from = String(opts.from ?? "implementer");
+  if (!SUGGESTION_SOURCES.includes(from)) throw new CliError(`--from must be one of ${SUGGESTION_SOURCES.join(", ")}`);
+  const text = typeof opts.text === "string" ? opts.text.trim() : "";
+  if (!text) throw new CliError("--text or --text-file is required");
+  const pc = planCtx(ctx);
+  return mutate(pc, void 0, (s) => {
+    const all = s.suggestions ??= [];
+    const id = `s${all.length + 1}`;
+    all.push({ id, area, text, where: list(opts.where), from, at: now() });
+    return { message: `${s.slug}:${id}`, data: { id, key: `${s.slug}:${id}` } };
+  });
+}
+function suggestList(ctx, opts) {
+  const forGlobs = list(opts.for);
+  const rows = collectSuggestions(ctx).filter((x) => (!opts.open || x.open) && (!forGlobs.length || x.where.length > 0 && scopesOverlap(forGlobs, x.where)));
+  const lines = [];
+  for (const area of SUGGESTION_AREAS)
+    for (const x of rows.filter((r) => r.area === area))
+      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` \u2014 ${x.where.join(", ")}` : ""}${x.open ? "" : ` [${x.status}]`}`);
+  return {
+    message: lines.length ? lines.join("\n") : opts.open ? "No open suggestions." : "No suggestions.",
+    data: { suggestions: rows, open: rows.filter((x) => x.open).length }
+  };
+}
+function suggestResolve(ctx, key, opts) {
+  if (!key || !/^[a-z0-9-]+:s\d+$/.test(key)) throw new CliError(USAGE);
+  const target = collectSuggestions(ctx).find((x) => x.key === key);
+  if (!target) throw new Refusal(`no suggestion ${key}`, ["cairn suggest list"]);
+  const pc = planCtx(ctx);
+  return mutate(pc, void 0, (s) => {
+    const all = s.suggestions ??= [];
+    all.push({
+      id: `s${all.length + 1}`,
+      area: target.area,
+      text: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}`,
+      where: target.where,
+      from: "user",
+      at: now(),
+      resolves: key,
+      ...opts.dismiss ? { dismissed: true } : {},
+      ...opts.note ? { note: String(opts.note) } : {}
+    });
+    return { message: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}.` };
+  });
+}
+var KEY = /^[a-z0-9-]+:s\d+$/;
+function openTargets(ctx, keys) {
+  if (!keys.length || keys.some((k) => !KEY.test(k))) throw new CliError(USAGE);
+  const all = collectSuggestions(ctx);
+  return keys.map((k) => {
+    const t = all.find((x) => x.key === k);
+    if (!t) throw new Refusal(`no suggestion ${k}`, ["cairn suggest list"]);
+    if (!t.open) throw new Refusal(`${k} is already ${t.status}`);
+    return t;
+  });
+}
+function suggestMerge(ctx, keys, opts) {
+  if (new Set(keys).size < 2) throw new CliError("merge needs at least two different follow-ups");
+  const area = String(opts.area ?? "");
+  if (!SUGGESTION_AREAS.includes(area)) throw new CliError(`--area must be one of ${SUGGESTION_AREAS.join(", ")}`);
+  const text = typeof opts.text === "string" ? opts.text.trim() : "";
+  if (!text) throw new CliError("--text or --text-file is required");
+  const targets = openTargets(ctx, [...new Set(keys)]);
+  const where = list(opts.where).length ? list(opts.where) : [...new Set(targets.flatMap((t) => t.where))];
+  const pc = planCtx(ctx);
+  return mutate(pc, void 0, (s) => {
+    const all = s.suggestions ??= [];
+    const id = `s${all.length + 1}`;
+    all.push({ id, area, text, where, from: "plan", at: now(), merges: targets.map((t) => t.key) });
+    return { message: `Merged ${targets.length} into ${s.slug}:${id}.`, data: { id, key: `${s.slug}:${id}` } };
+  });
+}
+function suggestDecline(ctx, keys) {
+  const targets = openTargets(ctx, [...new Set(keys)]);
+  const pc = planCtx(ctx);
+  return mutate(pc, void 0, (s) => {
+    const all = s.suggestions ??= [];
+    for (const t of targets) all.push({ id: `s${all.length + 1}`, area: t.area, text: `Declined ${t.key}`, where: t.where, from: "user", at: now(), declines: t.key });
+    const expired = targets.filter((t) => t.declined + 1 >= MAX_DECLINES);
+    return { message: `Declined ${targets.length}.${expired.length ? ` Now expired: ${expired.map((t) => t.key).join(", ")}.` : ""}` };
+  });
+}
+
 // plugins/cairn/cli/src/commands/stages.ts
 var STAGE_ORDER = {
   feature: STAGES.filter((x) => x !== "repro"),
@@ -8235,6 +8495,15 @@ function fixRecordProblems(pc) {
 var recordCheck = (pc, track) => track === "fix" ? { problems: fixRecordProblems(pc), fix: "write RECORD.md from templates/record-fix.md" } : { problems: recordProblems(pc), fix: "write RECORD.md from templates/record.md" };
 function closeGates(pc, s, opts, record, tests) {
   configGate(s, pc.cfg, "close", opts);
+  const open = collectSuggestions(pc.ctx).filter((x) => x.open && x.slug === s.slug);
+  gate(
+    open.length <= MAX_OPEN_PER_PLAN,
+    s,
+    "close",
+    opts,
+    `${open.length} open follow-ups from this plan; at most ${MAX_OPEN_PER_PLAN} may stay open: ${open.map((x) => `${x.key} (${x.text})`).join("; ")}`,
+    ['group related ones: cairn suggest merge <key>... --area <a> --text "<high-level item>"', 'drop trivia: cairn suggest resolve <key> --dismiss --note "<reason>"', "then list what was dropped in the record"]
+  );
   gate(!record.problems.length, s, "close", opts, record.problems.join("; "), [record.fix]);
   testsGate(tests, s, "close", opts);
 }
@@ -8256,7 +8525,7 @@ function planSummary(s) {
 function readyFor(pc) {
   try {
     const s = loadState(pc.plan.dir);
-    const file = (name) => join9(pc.plan.dir, name);
+    const file = (name) => join11(pc.plan.dir, name);
     const pcLike = pc;
     if (s.stage === "prd" && !s.approvals.prd) {
       const md = readText(file("prd.md"));
@@ -8373,10 +8642,10 @@ function cmdAdvance(ctx, opts) {
       if (p && p.status === "pending") p.status = "in_progress";
     }
     log(s, "advanced", to);
-    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join9(pc.plan.dir, "RECORD.md")}.` };
+    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join11(pc.plan.dir, "RECORD.md")}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
-  if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRel(pc.plan.slug), `cairn(${pc.plan.slug}): advance to ${to}`);
+  if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
   return r;
 }
 function cmdClose(ctx, opts) {
@@ -8389,7 +8658,7 @@ function cmdClose(ctx, opts) {
     closeGates(pc, s, opts, record, tests);
     s.stage = "closed";
     log(s, "closed");
-    return { message: `Closed "${s.title}". The record is ${join9(pc.plan.dir, "RECORD.md")}.` };
+    return { message: `Closed "${s.title}". The record is ${join11(pc.plan.dir, "RECORD.md")}.` };
   });
 }
 
@@ -8551,8 +8820,8 @@ function cmdPlanLoad(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/tasks.ts
-import { existsSync as existsSync5 } from "node:fs";
-import { basename as basename2, join as join10 } from "node:path";
+import { existsSync as existsSync7 } from "node:fs";
+import { basename as basename2, join as join12 } from "node:path";
 var MAX_FIX_ROUNDS = 2;
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
@@ -8591,7 +8860,7 @@ function taskStart(pc, id, opts) {
   const { plan, ctx, cfg } = pc;
   const r = mutate(pc, void 0, (s) => {
     const branch = taskBranch(plan.slug, id);
-    const path = join10(worktreeRoot(cfg, ctx.mainRoot), `${basename2(plan.worktree)}--${id}`);
+    const path = join12(worktreeRoot(cfg, ctx.mainRoot), `${basename2(plan.worktree)}--${id}`);
     const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
@@ -8611,7 +8880,7 @@ function taskStart(pc, id, opts) {
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base = git(["rev-parse", pb], plan.worktree);
     let setup = "";
-    if (!existsSync5(path)) {
+    if (!existsSync7(path)) {
       if (branchExists(branch, plan.worktree)) git(["worktree", "add", "-q", path, branch], plan.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
@@ -8649,10 +8918,10 @@ function taskDone(pc, id, opts) {
   const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
   const merged = branchExists(sl.branch, plan.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan.worktree);
-  const dirty = sl.worktree && existsSync5(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync7(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan.worktree) ? git(["rev-parse", "--short", sl.branch], plan.worktree) : void 0;
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
-  const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRel(plan.slug)}`], plan.worktree);
+  const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan)}`], plan.worktree);
   const checkable = merged && !dirty && !planDirty;
   const tests = checkable ? runTests(pc.cfg, plan.worktree) : void 0;
   const testedCommit = tests ? git(["rev-parse", "HEAD"], plan.worktree) : void 0;
@@ -8690,7 +8959,7 @@ function taskDone(pc, id, opts) {
       data: { phaseComplete: !left }
     };
   });
-  if (merged && sl.worktree && existsSync5(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan.worktree);
+  if (merged && sl.worktree && existsSync7(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan.worktree);
   if (merged) gitOk(["branch", "-d", sl.branch], plan.worktree);
   return r;
 }
@@ -8698,7 +8967,7 @@ function taskDone(pc, id, opts) {
 // plugins/cairn/cli/src/commands/phase.ts
 function newSuggestionsText(s) {
   const since = [...s.log].reverse().find((l) => l.event === "phase finished" || l.event === "advanced" && l.detail === "execute")?.at ?? s.created;
-  const fresh = (s.suggestions ?? []).filter((x) => !x.resolves && x.at > since);
+  const fresh = (s.suggestions ?? []).filter((x) => !x.resolves && !x.declines && x.at > since);
   if (!fresh.length) return "0 new suggestions";
   const by = /* @__PURE__ */ new Map();
   for (const x of fresh) by.set(x.area, (by.get(x.area) ?? 0) + 1);
@@ -8716,7 +8985,7 @@ function cmdPhase(ctx, action, opts) {
   if (unfinished.length) throw new Refusal(`phase "${phase.name}" still has unfinished tasks: ${unfinished.map((x) => x.name).join(", ")}`, ["cairn ready"]);
   const blocked = phase.tasks.filter((x) => x.substep === "blocked");
   if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(", ")}`);
-  const dirty = git(["status", "--porcelain", "--", ".", `:!${planRel(plan.slug)}`], plan.worktree);
+  const dirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan)}`], plan.worktree);
   if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside docs/sdlc: ${dirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
   const head = git(["rev-parse", "HEAD"], plan.worktree);
   const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? "").localeCompare(b.doneAt ?? "")).pop();
@@ -8749,179 +9018,62 @@ function cmdPhase(ctx, action, opts) {
   });
 }
 
-// plugins/cairn/cli/src/commands/suggest.ts
-import { existsSync as existsSync7, readdirSync } from "node:fs";
-import { join as join12 } from "node:path";
-
-// plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync6, readFileSync as readFileSync5 } from "node:fs";
-import { join as join11 } from "node:path";
-function listPlans(ctx) {
-  const refs = git(["for-each-ref", "--format=%(refname:short)", ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split("\n").filter(Boolean);
-  const rows = [];
-  for (const b of refs) {
-    const slug = parseBranch(b).slug;
-    if (!slug) continue;
-    const ref = planRef(slug, ctx.worktrees, b);
-    try {
-      const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync5(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${planRel(slug)}/state.json`], ctx.top);
-      const state = parseState(raw);
-      if (state.branch !== b) continue;
-      rows.push({ state, live: !!ref.dir, worktree: ref.worktree });
-    } catch {
-    }
-  }
-  return rows;
+// plugins/cairn/cli/src/commands/records.ts
+import { existsSync as existsSync8, readdirSync as readdirSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname3, join as join13 } from "node:path";
+var DATE_PREFIX = /^(\d{4}-\d{2}-\d{2})-/;
+function whyLine(md) {
+  const body = (md ? sections(md).get("why") ?? "" : "").replace(/<!--[\s\S]*?-->/g, "").trim();
+  const para = body.split(/\n\s*\n/)[0]?.replace(/\s+/g, " ").trim() ?? "";
+  return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
 }
-var modIsActive = (ctx) => modActive(commonDir(ctx.mainRoot));
-function warnings(pc, s) {
-  const w = [];
-  const prd = readText(planFile(pc, "prd.md"));
-  if (s.approvals.prd?.hash && prd && hashText(prd) !== s.approvals.prd.hash) w.push("prd.md changed after it was approved");
-  const plan = readText(planFile(pc, "plan.md"));
-  if (s.planHash && plan && hashText(plan) !== s.planHash) w.push("plan.md changed after it was loaded: run `cairn plan load --replan` or revert it");
-  const open = s.drift.filter((d) => !d.acked);
-  if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
-  return w;
-}
-function cmdStatus(ctx, opts) {
-  if (opts.all || !ctx.plan) {
-    const rows = listPlans(ctx);
-    const active = rows.filter((r) => r.state.stage !== "closed");
-    const lines = rows.length ? rows.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state)}
-    next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
-    const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: rows.map((r) => ({ ...r, next: nextFor(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: join11(r.worktree, planRel(r.state.slug)) } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
-  }
-  const pc = planCtx(ctx);
-  const s = loadState(pc.plan.dir);
-  const w = warnings(pc, s);
-  const next = nextFor(s);
-  return {
-    message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []].join("\n"),
-    data: { state: s, next, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
-  };
-}
-var procedurePath = (name) => join11(pluginRoot(), "procedures", `${name}.md`);
-function cmdNext(ctx) {
-  if (!ctx.plan) {
-    const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
-    if (!active.length) return { message: "No active plans. Start one.", data: { plan: null, stage: null, procedure: procedurePath("new"), summary: "No active plans.", modActive: modIsActive(ctx) } };
-    return {
-      message: `Active plans:
-${active.map((r) => `  ${summary(r.state)}`).join("\n")}
-Ask the user which plan to resume (/cairn:resume <slug>) or whether to start a new one (/cairn:new).`,
-      data: { plan: null, stage: null, procedure: procedurePath("status"), plans: active.map((r) => r.state.slug), modActive: modIsActive(ctx) }
-    };
-  }
-  const pc = planCtx(ctx);
-  const s = loadState(pc.plan.dir);
-  const n = nextFor(s);
-  return {
-    message: `${summary(s)}
-Next: ${n.text}
-Follow: ${procedurePath(n.procedure)}`,
-    data: { plan: s.slug, stage: s.stage, substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
-  };
-}
-function cmdRender(ctx) {
-  if (ctx.plan) {
-    const pc = planCtx(ctx);
-    withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
-    return { message: `Rendered ${join11(pc.plan.dir, "STATUS.md")}.` };
-  }
-  const out = join11(ctx.top, "docs/sdlc/INDEX.md");
-  writeText(out, renderIndex(listPlans(ctx)));
-  return { message: `Rendered ${out}.` };
-}
-
-// plugins/cairn/cli/src/commands/suggest.ts
-var list = (v) => typeof v === "string" ? v.split("\n").filter(Boolean) : [];
-function allStates(ctx) {
-  const out = /* @__PURE__ */ new Map();
-  for (const r of listPlans(ctx)) out.set(r.state.slug, r.state);
-  const dir = join12(ctx.top, PLANS_DIR);
-  if (existsSync7(dir))
-    for (const name of readdirSync(dir)) {
-      const raw = readText(join12(dir, name, "state.json"));
+function listRecords(ctx) {
+  const main2 = dirname3(commonDir(ctx.top));
+  const byMain = { ...ctx, top: main2 };
+  const found = /* @__PURE__ */ new Map();
+  for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
+  const base = join13(main2, PLANS_DIR);
+  if (existsSync8(base))
+    for (const name of readdirSync3(base)) {
+      const raw = readText(join13(base, name, "state.json"));
       if (raw === void 0) continue;
       try {
-        const s = parseState(raw);
-        if (!out.has(s.slug)) out.set(s.slug, s);
+        const state = parseState(raw);
+        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join13(base, name) });
       } catch {
       }
     }
-  return [...out.values()];
-}
-function collectSuggestions(ctx) {
-  const states = allStates(ctx);
-  const closed = new Set(states.flatMap((s) => (s.suggestions ?? []).map((x) => x.resolves).filter((r) => !!r)));
-  return states.flatMap(
-    (s) => (s.suggestions ?? []).filter((x) => !x.resolves).map((x) => ({ ...x, slug: s.slug, key: `${s.slug}:${x.id}`, open: !closed.has(`${s.slug}:${x.id}`) }))
-  );
-}
-function openSuggestionCount(ctx) {
-  try {
-    return collectSuggestions(ctx).filter((x) => x.open).length;
-  } catch {
-    return 0;
-  }
-}
-var USAGE = "usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>]";
-function cmdSuggest(ctx, action, arg, opts) {
-  if (action === "add") return suggestAdd(ctx, opts);
-  if (action === "list") return suggestList(ctx, opts);
-  if (action === "resolve") return suggestResolve(ctx, arg, opts);
-  throw new CliError(USAGE);
-}
-function suggestAdd(ctx, opts) {
-  const area = String(opts.area ?? "");
-  if (!SUGGESTION_AREAS.includes(area)) throw new CliError(`--area must be one of ${SUGGESTION_AREAS.join(", ")}`);
-  const from = String(opts.from ?? "implementer");
-  if (!SUGGESTION_SOURCES.includes(from)) throw new CliError(`--from must be one of ${SUGGESTION_SOURCES.join(", ")}`);
-  const text = typeof opts.text === "string" ? opts.text.trim() : "";
-  if (!text) throw new CliError("--text or --text-file is required");
-  const pc = planCtx(ctx);
-  return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    const id = `s${all.length + 1}`;
-    all.push({ id, area, text, where: list(opts.where), from, at: now() });
-    return { message: `${s.slug}:${id}`, data: { id, key: `${s.slug}:${id}` } };
+  const followUps = /* @__PURE__ */ new Map();
+  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status }]);
+  const entries = [...found.values()].map(({ state, dir }) => {
+    let recordPath = join13(dir, "RECORD.md");
+    if (!existsSync8(recordPath)) recordPath = join13(base, basename3(dir), "RECORD.md");
+    const text = readText(recordPath);
+    return {
+      slug: state.slug,
+      title: state.title,
+      date: basename3(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
+      stage: state.stage,
+      why: whyLine(text),
+      ...text !== void 0 ? { record: recordPath } : {},
+      followUps: followUps.get(state.slug) ?? []
+    };
   });
+  const open = (e) => e.stage === "closed" ? 1 : 0;
+  return entries.sort((a, b) => open(a) - open(b) || b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
 }
-function suggestList(ctx, opts) {
-  const forGlobs = list(opts.for);
-  const rows = collectSuggestions(ctx).filter((x) => (!opts.open || x.open) && (!forGlobs.length || x.where.length > 0 && scopesOverlap(forGlobs, x.where)));
-  const lines = [];
-  for (const area of SUGGESTION_AREAS)
-    for (const x of rows.filter((r) => r.area === area))
-      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` \u2014 ${x.where.join(", ")}` : ""}${x.open ? "" : " [closed]"}`);
-  return {
-    message: lines.length ? lines.join("\n") : opts.open ? "No open suggestions." : "No suggestions.",
-    data: { suggestions: rows, open: rows.filter((x) => x.open).length }
-  };
-}
-function suggestResolve(ctx, key, opts) {
-  if (!key || !/^[a-z0-9-]+:s\d+$/.test(key)) throw new CliError(USAGE);
-  const target = collectSuggestions(ctx).find((x) => x.key === key);
-  if (!target) throw new Refusal(`no suggestion ${key}`, ["cairn suggest list"]);
-  const pc = planCtx(ctx);
-  return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    all.push({
-      id: `s${all.length + 1}`,
-      area: target.area,
-      text: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}`,
-      where: target.where,
-      from: "user",
-      at: now(),
-      resolves: key,
-      ...opts.dismiss ? { dismissed: true } : {},
-      ...opts.note ? { note: String(opts.note) } : {}
-    });
-    return { message: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}.` };
+function cmdRecords(ctx) {
+  const records = listRecords(ctx);
+  const lines = records.map((r) => {
+    const open = r.followUps.filter((f) => f.status === "open").length;
+    return [
+      `${r.date}  ${r.title} (${r.slug})${r.stage === "closed" ? "" : `  [in progress: ${r.stage}]`}`,
+      ...r.why ? [`    ${r.why}`] : [],
+      ...r.record ? [`    ${r.record}`] : [],
+      ...r.followUps.length ? [`    ${r.followUps.length} follow-up(s), ${open} open`] : []
+    ].join("\n");
   });
+  return { message: lines.length ? lines.join("\n") : "No plans yet.", data: { records } };
 }
 
 // plugins/cairn/cli/src/direction.ts
@@ -9028,7 +9180,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -9052,7 +9204,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join13(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join14(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -9085,12 +9237,12 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync8 } from "node:fs";
-import { dirname as dirname3, isAbsolute, join as join14, relative, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync9 } from "node:fs";
+import { dirname as dirname4, isAbsolute, join as join15, relative as relative2, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync8(join14(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync9(join15(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return "";
@@ -9109,11 +9261,11 @@ function hookPostEdit(input) {
   const file = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
-  let dir = dirname3(abs);
-  while (!existsSync8(dir) && dirname3(dir) !== dir) dir = dirname3(dir);
+  let dir = dirname4(abs);
+  while (!existsSync9(dir) && dirname4(dir) !== dir) dir = dirname4(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync8(join14(ctx.plan.dir, "state.json"))) return "";
-  const rel = relative(ctx.top, abs);
+  if (!ctx.plan?.dir || !existsSync9(join15(ctx.plan.dir, "state.json"))) return "";
+  const rel = relative2(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (rel.startsWith("docs/sdlc/") || rel.startsWith(".sdlc/") || rel.startsWith(".claude/")) return "";
   const pc = planCtx(ctx);
@@ -9190,8 +9342,8 @@ var USAGE2 = `cairn: plan state for the agent-driven lifecycle. See references/c
   next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
-  suggest add|list|resolve \u2026
-  pause [--now] | resume [<slug>] | close | render
+  suggest add|list|resolve|merge|decline \u2026
+  pause [--now] | resume [<slug>] | close | render | records
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 function run(argv, cwd = process.cwd()) {
@@ -9230,7 +9382,7 @@ function run(argv, cwd = process.cwd()) {
     case "phase":
       return cmdPhase(ctx(), a, opts);
     case "suggest":
-      return cmdSuggest(ctx(), a, b, opts);
+      return cmdSuggest(ctx(), a, b, opts, rest);
     case "drift":
       if (a !== "ack") throw new CliError("usage: cairn drift ack <path>|--all");
       return cmdDriftAck(ctx(), b, opts);
@@ -9240,6 +9392,8 @@ function run(argv, cwd = process.cwd()) {
       return cmdResume(ctx(), a, opts);
     case "close":
       return cmdClose(ctx(), opts);
+    case "records":
+      return cmdRecords(ctx());
     case "render":
       return cmdRender(ctx());
     case void 0:

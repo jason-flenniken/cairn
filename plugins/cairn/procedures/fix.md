@@ -65,7 +65,7 @@ Run `cairn advance` only when there were no blocking findings. It is refused unt
 **Done when:** `cairn status --json` shows a review pass with `--blocking 0` and the stage is ship.
 
 ## 7. Draft the record
-Write `docs/sdlc/plans/<slug>/RECORD.md` from `templates/record-fix.md`. Keep the five sections, in that order. Fill Links with the plan path and the PR URL once it exists.
+Write `docs/sdlc/plans/<date>-<slug>/RECORD.md` from `templates/record-fix.md`. Keep the five sections, in that order. Fill Links with the plan path and the PR URL once it exists.
 
 The record is at most 200 words. Count the words with headings and HTML comments left out. Trim until it fits.
 

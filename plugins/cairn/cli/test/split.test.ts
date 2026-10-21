@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { run } from '../src/main.ts';
 import { childEnv, runSetup, runTests } from '../src/shared.ts';
+import { pd } from './plandir.ts';
 
 let repo: string;
 const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
@@ -55,7 +56,7 @@ after(() => rmSync(repo, { recursive: true, force: true }));
 
 test('a v0.1 state.json without the v0.2 fields loads and status renders it byte-for-byte as before the split', () => {
   const wt = run(['new', 'legacy', '--title', 'Legacy'], repo).data!.worktree as string;
-  const dir = join(wt, 'docs/sdlc/plans/legacy');
+  const dir = pd(wt, 'legacy');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'state.json'), JSON.stringify(V01_STATE, null, 2) + '\n');
   assert.equal(run(['status'], wt).message, GOLDEN_STATUS);

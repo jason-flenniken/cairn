@@ -46,9 +46,9 @@ export const proseWordCount = (md: string): number =>
 
 export const PRD_SECTIONS = ['Problem', 'Solution', 'Requirements', 'Non-goals', 'Open questions'] as const;
 export const PLAN_SECTIONS = ['Goal', 'Architecture', 'Phases'] as const;
-export const RECORD_SECTIONS = ['Links', 'Why', 'What was built', 'How it works', 'Follow-ups'] as const;
+export const RECORD_SECTIONS = ['Links', 'Why', 'What was built', 'How it works', 'Findings', 'Follow-ups'] as const;
 export const HANDOFF_SECTIONS = ['In flight', 'Open questions', 'Next action'] as const;
-export const RECORD_WORD_BUDGET = 500;
+export const RECORD_WORD_BUDGET = 600;
 export const FIX_RECORD_SECTIONS = ['Links', 'Bug', 'Cause', 'Fix', 'Evidence'] as const;
 export const FIX_RECORD_WORD_BUDGET = 200;
 

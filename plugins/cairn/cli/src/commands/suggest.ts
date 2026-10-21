@@ -10,11 +10,22 @@ import { listPlans } from './status.ts';
 
 const list = (v: unknown): string[] => (typeof v === 'string' ? v.split('\n').filter(Boolean) : []);
 
+/** A follow-up is open until it is resolved or dismissed (closed), grouped into another (merged), declined twice, or older than 60 days (expired). */
+export type FollowupStatus = 'open' | 'closed' | 'merged' | 'expired';
+export const MAX_DECLINES = 2;
+export const MAX_AGE_DAYS = 60;
+/** The most open follow-ups a plan may leave behind when it closes. */
+export const MAX_OPEN_PER_PLAN = 5;
+
 export interface ListedSuggestion extends Suggestion {
   slug: string;
   key: string;
   open: boolean;
+  status: FollowupStatus;
+  declined: number;
 }
+
+const isMarker = (x: Suggestion): boolean => !!x.resolves || !!x.declines;
 
 /** Every plan's state: branches and worktrees first, then closed plans in this checkout. Deduped by slug. */
 function allStates(ctx: Ctx): State[] {
@@ -35,12 +46,22 @@ function allStates(ctx: Ctx): State[] {
   return [...out.values()];
 }
 
-/** All suggestions across plans, each marked open or closed. */
-export function collectSuggestions(ctx: Ctx): ListedSuggestion[] {
+/** All suggestions across plans, each with its derived status. */
+export function collectSuggestions(ctx: Ctx, at: number = Date.now()): ListedSuggestion[] {
   const states = allStates(ctx);
-  const closed = new Set(states.flatMap((s) => (s.suggestions ?? []).map((x) => x.resolves).filter((r): r is string => !!r)));
+  const all = states.flatMap((s) => s.suggestions ?? []);
+  const closed = new Set(all.map((x) => x.resolves).filter((r): r is string => !!r));
+  const merged = new Set(all.flatMap((x) => x.merges ?? []));
+  const declines = new Map<string, number>();
+  for (const x of all) if (x.declines) declines.set(x.declines, (declines.get(x.declines) ?? 0) + 1);
   return states.flatMap((s) =>
-    (s.suggestions ?? []).filter((x) => !x.resolves).map((x) => ({ ...x, slug: s.slug, key: `${s.slug}:${x.id}`, open: !closed.has(`${s.slug}:${x.id}`) })),
+    (s.suggestions ?? []).filter((x) => !isMarker(x)).map((x) => {
+      const key = `${s.slug}:${x.id}`;
+      const declined = declines.get(key) ?? 0;
+      const old = at - Date.parse(x.at) > MAX_AGE_DAYS * 86_400_000;
+      const status: FollowupStatus = closed.has(key) ? 'closed' : merged.has(key) ? 'merged' : declined >= MAX_DECLINES || old ? 'expired' : 'open';
+      return { ...x, slug: s.slug, key, open: status === 'open', status, declined };
+    }),
   );
 }
 
@@ -53,12 +74,14 @@ export function openSuggestionCount(ctx: Ctx): number {
 }
 
 const USAGE =
-  'usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>]';
+  'usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...';
 
-export function cmdSuggest(ctx: Ctx, action: string | undefined, arg: string | undefined, opts: Opts): Result {
+export function cmdSuggest(ctx: Ctx, action: string | undefined, arg: string | undefined, opts: Opts, more: string[] = []): Result {
   if (action === 'add') return suggestAdd(ctx, opts);
   if (action === 'list') return suggestList(ctx, opts);
   if (action === 'resolve') return suggestResolve(ctx, arg, opts);
+  if (action === 'merge') return suggestMerge(ctx, [arg, ...more].filter((k): k is string => !!k), opts);
+  if (action === 'decline') return suggestDecline(ctx, [arg, ...more].filter((k): k is string => !!k));
   throw new CliError(USAGE);
 }
 
@@ -84,7 +107,7 @@ function suggestList(ctx: Ctx, opts: Opts): Result {
   const lines: string[] = [];
   for (const area of SUGGESTION_AREAS)
     for (const x of rows.filter((r) => r.area === area))
-      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` — ${x.where.join(', ')}` : ''}${x.open ? '' : ' [closed]'}`);
+      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` — ${x.where.join(', ')}` : ''}${x.open ? '' : ` [${x.status}]`}`);
   return {
     message: lines.length ? lines.join('\n') : opts.open ? 'No open suggestions.' : 'No suggestions.',
     data: { suggestions: rows, open: rows.filter((x) => x.open).length },
@@ -110,5 +133,47 @@ function suggestResolve(ctx: Ctx, key: string | undefined, opts: Opts): Result {
       ...(opts.note ? { note: String(opts.note) } : {}),
     });
     return { message: `${opts.dismiss ? 'Dismissed' : 'Resolved'} ${key}.` };
+  });
+}
+
+const KEY = /^[a-z0-9-]+:s\d+$/;
+
+/** The listed follow-ups for these keys, all of which must exist and still be open. */
+function openTargets(ctx: Ctx, keys: string[]): ListedSuggestion[] {
+  if (!keys.length || keys.some((k) => !KEY.test(k))) throw new CliError(USAGE);
+  const all = collectSuggestions(ctx);
+  return keys.map((k) => {
+    const t = all.find((x) => x.key === k);
+    if (!t) throw new Refusal(`no suggestion ${k}`, ['cairn suggest list']);
+    if (!t.open) throw new Refusal(`${k} is already ${t.status}`);
+    return t;
+  });
+}
+
+function suggestMerge(ctx: Ctx, keys: string[], opts: Opts): Result {
+  if (new Set(keys).size < 2) throw new CliError('merge needs at least two different follow-ups');
+  const area = String(opts.area ?? '');
+  if (!(SUGGESTION_AREAS as readonly string[]).includes(area)) throw new CliError(`--area must be one of ${SUGGESTION_AREAS.join(', ')}`);
+  const text = typeof opts.text === 'string' ? opts.text.trim() : '';
+  if (!text) throw new CliError('--text or --text-file is required');
+  const targets = openTargets(ctx, [...new Set(keys)]);
+  const where = list(opts.where).length ? list(opts.where) : [...new Set(targets.flatMap((t) => t.where))];
+  const pc = planCtx(ctx);
+  return mutate(pc, undefined, (s) => {
+    const all = (s.suggestions ??= []);
+    const id = `s${all.length + 1}`;
+    all.push({ id, area: area as Suggestion['area'], text, where, from: 'plan', at: now(), merges: targets.map((t) => t.key) });
+    return { message: `Merged ${targets.length} into ${s.slug}:${id}.`, data: { id, key: `${s.slug}:${id}` } };
+  });
+}
+
+function suggestDecline(ctx: Ctx, keys: string[]): Result {
+  const targets = openTargets(ctx, [...new Set(keys)]);
+  const pc = planCtx(ctx);
+  return mutate(pc, undefined, (s) => {
+    const all = (s.suggestions ??= []);
+    for (const t of targets) all.push({ id: `s${all.length + 1}`, area: t.area, text: `Declined ${t.key}`, where: t.where, from: 'user', at: now(), declines: t.key });
+    const expired = targets.filter((t) => t.declined + 1 >= MAX_DECLINES);
+    return { message: `Declined ${targets.length}.${expired.length ? ` Now expired: ${expired.map((t) => t.key).join(', ')}.` : ''}` };
   });
 }

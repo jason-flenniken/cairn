@@ -1,0 +1,999 @@
+{
+  "schema": 1,
+  "slug": "cleaner-pane-and-records",
+  "title": "Cleaner pane and records",
+  "track": "feature",
+  "branch": "feature/cleaner-pane-and-records",
+  "base": "main",
+  "created": "2026-10-21T14:27:19.719Z",
+  "updated": "2026-10-21T16:32:00.559Z",
+  "stage": "closed",
+  "paused": null,
+  "approvals": {
+    "prd": {
+      "at": "2026-10-21T14:41:34.810Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "7d9f4955ae8003a5"
+    },
+    "plan": {
+      "at": "2026-10-21T14:45:13.601Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "2de7ba0ac296b6b8"
+    },
+    "ship": {
+      "at": "2026-10-21T16:31:16.209Z",
+      "via": "human",
+      "source": "mod"
+    }
+  },
+  "phases": [
+    {
+      "id": "readable-now",
+      "name": "Readable Now tab and dated folders",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "dated-folders",
+          "name": "Dated plan folders",
+          "covers": [
+            "FR-15",
+            "FR-16"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/test/pause.test.ts",
+            "plugins/cairn/references/cli.md",
+            "README.md",
+            "docs/design.md"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "moves tracked plan files; old folders and old branches must keep resolving",
+          "branch": "task/cleaner-pane-and-records/dated-folders",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--dated-folders",
+          "base": "af6423edeaf209994b6c4688cb37d75e4cc28ffe",
+          "startedAt": "2026-10-21T14:45:19.929Z",
+          "doneAt": "2026-10-21T14:53:16.981Z",
+          "tip": "9d531ef",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "61dc45d755cecc2a6e699003d953e5d0ccdc07ed"
+        },
+        {
+          "id": "pane-now",
+          "name": "Tabs and the Now view",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-05",
+            "FR-06",
+            "FR-19"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/types/**"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/cleaner-pane-and-records/pane-now",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--pane-now",
+          "base": "af6423edeaf209994b6c4688cb37d75e4cc28ffe",
+          "startedAt": "2026-10-21T14:45:20.510Z",
+          "doneAt": "2026-10-21T14:50:06.574Z",
+          "tip": "3f93559",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "4b2de1b7f5ae3e3411dffde85791ef9bca4c1450"
+        },
+        {
+          "id": "approval-hardening",
+          "name": "Approval hook fixes",
+          "covers": [
+            "FR-17",
+            "FR-18"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/approve.ts",
+            "plugins/cairn/hooks/test/approve.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "the approval hook is the human-proof path",
+          "branch": "task/cleaner-pane-and-records/approval-hardening",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--approval-hardening",
+          "base": "af6423edeaf209994b6c4688cb37d75e4cc28ffe",
+          "startedAt": "2026-10-21T14:45:21.026Z",
+          "doneAt": "2026-10-21T14:49:32.834Z",
+          "tip": "c7308a4",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "9700b8321b27b010d56a566eeab1b10d3089eade"
+        }
+      ]
+    },
+    {
+      "id": "few-follow-ups",
+      "name": "Few follow-ups and automatic findings",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "followup-rules",
+          "name": "Follow-up cap, merge, decline and expiry",
+          "covers": [
+            "FR-10",
+            "FR-11",
+            "FR-12"
+          ],
+          "blockedBy": [
+            "dated-folders"
+          ],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/procedures/discover.md",
+            "plugins/cairn/procedures/plan.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/procedures/suggestions.md",
+            "plugins/cairn/references/**"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/cleaner-pane-and-records/followup-rules",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--followup-rules",
+          "base": "c7a19c21f30f1deaff25c9aa001c31f51a73c0d7",
+          "startedAt": "2026-10-21T14:53:28.672Z",
+          "doneAt": "2026-10-21T14:57:39.784Z",
+          "tip": "95b4da6",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "d8f8f13e69d2585a15014892c1a1bd93d5d5753f"
+        },
+        {
+          "id": "findings",
+          "name": "Findings written automatically",
+          "covers": [
+            "FR-14"
+          ],
+          "blockedBy": [
+            "followup-rules"
+          ],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/procedures/learn.md",
+            "plugins/cairn/templates/record.md",
+            "plugins/cairn/agents/recorder.md"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/cleaner-pane-and-records/findings",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--findings",
+          "base": "03273bdc50ed2c02ef479b1ac251714a849cc273",
+          "startedAt": "2026-10-21T14:57:43.145Z",
+          "doneAt": "2026-10-21T15:01:24.878Z",
+          "tip": "4903af2",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "27936b543e0d2609b361f1093d34f7725ae2b5cf"
+        },
+        {
+          "id": "pane-history",
+          "name": "History tab",
+          "covers": [
+            "FR-07"
+          ],
+          "blockedBy": [
+            "pane-now"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/types/**"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/cleaner-pane-and-records/pane-history",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--pane-history",
+          "base": "c7a19c21f30f1deaff25c9aa001c31f51a73c0d7",
+          "startedAt": "2026-10-21T14:53:29.175Z",
+          "doneAt": "2026-10-21T14:56:19.337Z",
+          "tip": "5d81038",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "a5c9c982bf6e73b31f28c8293a0b3e317c535165"
+        }
+      ]
+    },
+    {
+      "id": "records",
+      "name": "Records tab",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "records-command",
+          "name": "List records from the CLI",
+          "covers": [
+            "FR-08"
+          ],
+          "blockedBy": [
+            "findings"
+          ],
+          "scope": [
+            "plugins/cairn/cli/**",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/references/cli.md"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/cleaner-pane-and-records/records-command",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--records-command",
+          "base": "558fdd5a56b220373fd9cdd0452d27d96d158c3f",
+          "startedAt": "2026-10-21T15:01:28.732Z",
+          "doneAt": "2026-10-21T15:03:44.332Z",
+          "tip": "e47781a",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "893399d501bb45eec1d68c348303346c4ca99797"
+        },
+        {
+          "id": "pane-records",
+          "name": "Records tab in the pane",
+          "covers": [
+            "FR-08",
+            "FR-09"
+          ],
+          "blockedBy": [
+            "records-command",
+            "pane-history"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/types/**"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/cleaner-pane-and-records/pane-records",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-cleaner-pane-and-records--pane-records",
+          "base": "037344dec779e500b7ee572a550e3eb83a41ba74",
+          "startedAt": "2026-10-21T15:03:45.249Z",
+          "doneAt": "2026-10-21T15:06:28.862Z",
+          "tip": "572d42d",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "89d4bb427d78cc525aa6e7011ef558143792ae14"
+        }
+      ]
+    }
+  ],
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-21T15:08:26.446Z",
+      "note": "tests: 161 CLI and 353 mod passing, typecheck clean; 18 requirements met, 1 untested; FR-13 deferred"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T15:15:54.797Z",
+      "note": "2 blocking fixed in place (record folders after rename now resolve through main; old follow-up grouping made an explicit learn step); 4 follow-ups logged",
+      "blocking": 0
+    }
+  },
+  "drift": [
+    {
+      "path": "plugins/cairn/agents/recorder.md",
+      "at": "2026-10-21T14:53:16.980Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/direction.md",
+      "at": "2026-10-21T14:53:16.980Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/execute.md",
+      "at": "2026-10-21T14:53:16.980Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/fix.md",
+      "at": "2026-10-21T14:53:16.980Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/learn.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/new.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/pause.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/plan.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/prd.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/resume.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/procedures/ship.md",
+      "at": "2026-10-21T14:53:16.981Z",
+      "reason": "changed outside task \"Dated plan folders\" scope (found at task done)",
+      "task": "dated-folders"
+    },
+    {
+      "path": "plugins/cairn/hooks/mod/activity.ts",
+      "at": "2026-10-21T14:56:19.336Z",
+      "reason": "changed outside task \"History tab\" scope (found at task done)",
+      "task": "pane-history"
+    },
+    {
+      "path": "plugins/cairn/templates/record.md",
+      "at": "2026-10-21T14:57:39.783Z",
+      "reason": "changed outside task \"Follow-up cap, merge, decline and expiry\" scope (found at task done)",
+      "task": "followup-rules"
+    },
+    {
+      "path": "plugins/cairn/references/cli.md",
+      "at": "2026-10-21T14:59:10.723Z",
+      "reason": "edited outside task \"Findings written automatically\" scope",
+      "task": "findings"
+    }
+  ],
+  "log": [
+    {
+      "at": "2026-10-21T14:27:19.719Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-10-21T14:40:37.753Z",
+      "event": "advanced",
+      "detail": "prd"
+    },
+    {
+      "at": "2026-10-21T14:41:34.810Z",
+      "event": "PRD approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T14:41:37.302Z",
+      "event": "advanced",
+      "detail": "plan"
+    },
+    {
+      "at": "2026-10-21T14:44:43.617Z",
+      "event": "plan loaded",
+      "detail": "3 phases, 8 tasks"
+    },
+    {
+      "at": "2026-10-21T14:45:13.602Z",
+      "event": "plan approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T14:45:16.458Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T14:45:19.930Z",
+      "event": "task started",
+      "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:45:20.511Z",
+      "event": "task started",
+      "detail": "Tabs and the Now view"
+    },
+    {
+      "at": "2026-10-21T14:45:21.027Z",
+      "event": "task started",
+      "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:45:48.599Z",
+      "event": "task implementing",
+      "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:45:48.676Z",
+      "event": "task implementing",
+      "detail": "Tabs and the Now view"
+    },
+    {
+      "at": "2026-10-21T14:45:48.752Z",
+      "event": "task implementing",
+      "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:47:41.637Z",
+      "event": "task reviewing",
+      "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:48:27.536Z",
+      "event": "task merging",
+      "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:49:32.835Z",
+      "event": "task done",
+      "detail": "Approval hook fixes"
+    },
+    {
+      "at": "2026-10-21T14:49:36.735Z",
+      "event": "task merging",
+      "detail": "Tabs and the Now view"
+    },
+    {
+      "at": "2026-10-21T14:50:06.575Z",
+      "event": "task done",
+      "detail": "Tabs and the Now view"
+    },
+    {
+      "at": "2026-10-21T14:51:23.542Z",
+      "event": "task reviewing",
+      "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:52:45.206Z",
+      "event": "task merging",
+      "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:53:16.980Z",
+      "event": "drift",
+      "detail": "plugins/cairn/agents/recorder.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.980Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/direction.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.980Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/execute.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.980Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/fix.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/learn.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/new.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/pause.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/plan.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/prd.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/resume.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "drift",
+      "detail": "plugins/cairn/procedures/ship.md"
+    },
+    {
+      "at": "2026-10-21T14:53:16.981Z",
+      "event": "task done",
+      "detail": "Dated plan folders"
+    },
+    {
+      "at": "2026-10-21T14:53:22.686Z",
+      "event": "phase finished",
+      "detail": "Readable Now tab and dated folders (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T14:53:28.672Z",
+      "event": "task started",
+      "detail": "Follow-up cap, merge, decline and expiry"
+    },
+    {
+      "at": "2026-10-21T14:53:28.749Z",
+      "event": "task implementing",
+      "detail": "Follow-up cap, merge, decline and expiry"
+    },
+    {
+      "at": "2026-10-21T14:53:29.176Z",
+      "event": "task started",
+      "detail": "History tab"
+    },
+    {
+      "at": "2026-10-21T14:53:29.255Z",
+      "event": "task implementing",
+      "detail": "History tab"
+    },
+    {
+      "at": "2026-10-21T14:55:52.556Z",
+      "event": "task merging",
+      "detail": "History tab"
+    },
+    {
+      "at": "2026-10-21T14:56:19.337Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/mod/activity.ts"
+    },
+    {
+      "at": "2026-10-21T14:56:19.337Z",
+      "event": "task done",
+      "detail": "History tab"
+    },
+    {
+      "at": "2026-10-21T14:57:12.591Z",
+      "event": "task merging",
+      "detail": "Follow-up cap, merge, decline and expiry"
+    },
+    {
+      "at": "2026-10-21T14:57:39.784Z",
+      "event": "drift",
+      "detail": "plugins/cairn/templates/record.md"
+    },
+    {
+      "at": "2026-10-21T14:57:39.784Z",
+      "event": "task done",
+      "detail": "Follow-up cap, merge, decline and expiry"
+    },
+    {
+      "at": "2026-10-21T14:57:43.146Z",
+      "event": "task started",
+      "detail": "Findings written automatically"
+    },
+    {
+      "at": "2026-10-21T14:57:43.229Z",
+      "event": "task implementing",
+      "detail": "Findings written automatically"
+    },
+    {
+      "at": "2026-10-21T14:59:10.723Z",
+      "event": "drift",
+      "detail": "plugins/cairn/references/cli.md"
+    },
+    {
+      "at": "2026-10-21T15:00:58.270Z",
+      "event": "task merging",
+      "detail": "Findings written automatically"
+    },
+    {
+      "at": "2026-10-21T15:01:24.879Z",
+      "event": "task done",
+      "detail": "Findings written automatically"
+    },
+    {
+      "at": "2026-10-21T15:01:28.124Z",
+      "event": "phase finished",
+      "detail": "Few follow-ups and automatic findings (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T15:01:28.733Z",
+      "event": "task started",
+      "detail": "List records from the CLI"
+    },
+    {
+      "at": "2026-10-21T15:01:28.816Z",
+      "event": "task implementing",
+      "detail": "List records from the CLI"
+    },
+    {
+      "at": "2026-10-21T15:03:18.453Z",
+      "event": "task merging",
+      "detail": "List records from the CLI"
+    },
+    {
+      "at": "2026-10-21T15:03:44.332Z",
+      "event": "task done",
+      "detail": "List records from the CLI"
+    },
+    {
+      "at": "2026-10-21T15:03:45.249Z",
+      "event": "task started",
+      "detail": "Records tab in the pane"
+    },
+    {
+      "at": "2026-10-21T15:03:45.331Z",
+      "event": "task implementing",
+      "detail": "Records tab in the pane"
+    },
+    {
+      "at": "2026-10-21T15:06:03.009Z",
+      "event": "task merging",
+      "detail": "Records tab in the pane"
+    },
+    {
+      "at": "2026-10-21T15:06:28.863Z",
+      "event": "task done",
+      "detail": "Records tab in the pane"
+    },
+    {
+      "at": "2026-10-21T15:06:29.079Z",
+      "event": "phase finished",
+      "detail": "Records tab (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T15:06:29.079Z",
+      "event": "advanced",
+      "detail": "verify"
+    },
+    {
+      "at": "2026-10-21T15:08:26.446Z",
+      "event": "verify pass",
+      "detail": "tests: 161 CLI and 353 mod passing, typecheck clean; 18 requirements met, 1 untested; FR-13 deferred"
+    },
+    {
+      "at": "2026-10-21T15:08:26.556Z",
+      "event": "advanced",
+      "detail": "review"
+    },
+    {
+      "at": "2026-10-21T15:15:54.797Z",
+      "event": "review pass",
+      "detail": "2 blocking fixed in place (record folders after rename now resolve through main; old follow-up grouping made an explicit learn step); 4 follow-ups logged"
+    },
+    {
+      "at": "2026-10-21T15:15:54.927Z",
+      "event": "advanced",
+      "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T16:31:16.210Z",
+      "event": "ship approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T16:31:30.817Z",
+      "event": "advanced",
+      "detail": "learn"
+    },
+    {
+      "at": "2026-10-21T16:32:00.559Z",
+      "event": "closed"
+    }
+  ],
+  "planHash": "2de7ba0ac296b6b8",
+  "configHash": "12129909968d47d2",
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "ux",
+      "text": "A stop tagged twice and answered Revise on both now shows two 'not approved' notes; note once per stop.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:48:27.398Z"
+    },
+    {
+      "id": "s2",
+      "area": "tests",
+      "text": "Pin one record and one note for Approve then Approve on a stop tagged twice.",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:48:27.467Z"
+    },
+    {
+      "id": "s3",
+      "area": "tests",
+      "text": "Cover the card activity line while a tool call is held open.",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:49:36.654Z"
+    },
+    {
+      "id": "s4",
+      "area": "tests",
+      "text": "Run status or decide from a task worktree on a dated or renamed folder, and a full task start and merge on a renamed plan.",
+      "where": [
+        "plugins/cairn/cli/test/dated-folders.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:52:49.796Z"
+    },
+    {
+      "id": "s5",
+      "area": "quality",
+      "text": "allStates scans plan folders by name; key it through resolvePlanDir.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:52:49.866Z"
+    },
+    {
+      "id": "s6",
+      "area": "quality",
+      "text": "listPlans runs git show on an undefined path and relies on the catch; skip explicitly.",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T14:52:49.937Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "Set plan stage and follow-up age through a test helper instead of editing the saved plan record.",
+      "where": [
+        "plugins/cairn/cli/test/followups.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:57:12.518Z"
+    },
+    {
+      "id": "s8",
+      "area": "tests",
+      "text": "Check that ship.md and learn.md state the same follow-up limit and record budget.",
+      "where": [
+        "plugins/cairn/cli/test/dogfood-docs.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T15:00:58.195Z"
+    },
+    {
+      "id": "s9",
+      "area": "tests",
+      "text": "Assert learn.md and the recorder tell the recorder to list dropped follow-ups in the record.",
+      "where": [
+        "plugins/cairn/cli/test/dogfood-docs.test.ts"
+      ],
+      "from": "check",
+      "at": "2026-10-21T15:08:26.305Z"
+    },
+    {
+      "id": "s10",
+      "area": "ux",
+      "text": "Try a transparent pane background (root Box backgroundColor) and check by eye whether Claude Code honors it; the API has no documented transparency setting.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "check",
+      "at": "2026-10-21T15:08:26.375Z"
+    },
+    {
+      "id": "s11",
+      "area": "quality",
+      "text": "allStates reads plan folders from the current checkout only; also read main's plans folder so markers survive a deleted branch.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T15:13:23.228Z"
+    },
+    {
+      "id": "s12",
+      "area": "quality",
+      "text": "Count a decline once per plan, so running discovery twice cannot expire a follow-up.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T15:13:23.299Z"
+    },
+    {
+      "id": "s13",
+      "area": "quality",
+      "text": "suggest resolve accepts an already merged or expired follow-up, unlike merge and decline.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T15:13:23.369Z"
+    },
+    {
+      "id": "s14",
+      "area": "docs",
+      "text": "A merged follow-up restarts the 60-day clock; state whether that is intended.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T15:13:23.451Z"
+    },
+    {
+      "id": "s15",
+      "area": "quality",
+      "text": "Resolved standard-branch-names:s15",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:27.950Z",
+      "resolves": "standard-branch-names:s15",
+      "note": "done in Cleaner pane and records (approval hook fixes)"
+    },
+    {
+      "id": "s16",
+      "area": "quality",
+      "text": "Resolved standard-branch-names:s16",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:28.104Z",
+      "resolves": "standard-branch-names:s16",
+      "note": "done in Cleaner pane and records (approval hook fixes)"
+    },
+    {
+      "id": "s17",
+      "area": "quality",
+      "text": "Resolved standard-branch-names:s18",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:28.250Z",
+      "resolves": "standard-branch-names:s18",
+      "note": "done in Cleaner pane and records (approval hook fixes)"
+    },
+    {
+      "id": "s18",
+      "area": "perf",
+      "text": "Dismissed standard-branch-names:s10",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:28.388Z",
+      "resolves": "standard-branch-names:s10",
+      "dismissed": true,
+      "note": "trivial: documents are small"
+    },
+    {
+      "id": "s19",
+      "area": "quality",
+      "text": "Dismissed cleaner-pane-and-records:s6",
+      "where": [
+        "plugins/cairn/cli/src/commands/status.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T15:16:28.527Z",
+      "resolves": "cleaner-pane-and-records:s6",
+      "dismissed": true,
+      "note": "code clarity only"
+    },
+    {
+      "id": "s20",
+      "area": "tests",
+      "text": "Broaden tests where they are thin: old and renamed plans run end to end (task start, merge, task worktrees), pane tests on real status output and fix/ branches, and doc checks that procedures agree on names and limits.",
+      "where": [
+        "plugins/cairn/cli/test/**",
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T15:16:28.666Z",
+      "merges": [
+        "cleaner-pane-and-records:s2",
+        "cleaner-pane-and-records:s3",
+        "cleaner-pane-and-records:s4",
+        "cleaner-pane-and-records:s7",
+        "cleaner-pane-and-records:s8",
+        "cleaner-pane-and-records:s9",
+        "standard-branch-names:s4",
+        "standard-branch-names:s5",
+        "standard-branch-names:s7",
+        "standard-branch-names:s9",
+        "standard-branch-names:s11",
+        "standard-branch-names:s19"
+      ]
+    },
+    {
+      "id": "s21",
+      "area": "quality",
+      "text": "Harden follow-up bookkeeping: read markers from main as well as the current checkout, count a decline once per plan, refuse resolving merged or expired items, and document whether merging restarts the 60-day clock.",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T15:16:28.806Z",
+      "merges": [
+        "cleaner-pane-and-records:s5",
+        "cleaner-pane-and-records:s11",
+        "cleaner-pane-and-records:s12",
+        "cleaner-pane-and-records:s13",
+        "cleaner-pane-and-records:s14"
+      ]
+    },
+    {
+      "id": "s22",
+      "area": "ux",
+      "text": "Pane and approval polish: one note per stop, try a transparent pane background, and close an open chat approval when approved in the pane if Claude Code ever allows it.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T15:16:28.953Z",
+      "merges": [
+        "cleaner-pane-and-records:s1",
+        "cleaner-pane-and-records:s10",
+        "standard-branch-names:s12",
+        "standard-branch-names:s14"
+      ]
+    },
+    {
+      "id": "s23",
+      "area": "docs",
+      "text": "Bring the fix track and old-plan behavior in line: fix.md wording and skipping an already-approved ship question, document that old plans get task/ branches, and name --no-worktree task folders from the plan branch.",
+      "where": [
+        "plugins/cairn/procedures/fix.md",
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T15:16:29.095Z",
+      "merges": [
+        "standard-branch-names:s3",
+        "standard-branch-names:s13",
+        "standard-branch-names:s17",
+        "standard-branch-names:s6"
+      ]
+    }
+  ]
+}

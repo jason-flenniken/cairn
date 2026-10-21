@@ -9,7 +9,7 @@ Inputs, from the caller:
 - `all` (every requirement in the plan), `changed` (requirements whose code changed since the last commit), or a list of requirement ids (called from `/cairn:direction`). Empty means `all`.
 
 ## 1. Scope
-Run `cairn status --json` for the plan slug, worktree, and current phase. Read `prd.md` and `plan.md` in `docs/sdlc/plans/<slug>/`.
+Run `cairn status --json` for the plan slug, worktree, and current phase. Read `prd.md` and `plan.md` in `docs/sdlc/plans/<date>-<slug>/`.
 - Phase id: the requirements are the union of `covers` across the phase's tasks.
 - `all`: every requirement in the PRD.
 - Ids: those requirements, checked against the files in the scopes of the tasks that cover them.
@@ -27,7 +27,7 @@ Relay each agent's rows without changing a verdict. A row without `path:line` ev
 **Done when:** every requirement in scope has a verdict row with evidence, or a Not verified entry saying why, and unplanned code is listed or stated as none.
 
 ## 3. Write the report
-Called with a phase id: write `docs/sdlc/plans/<slug>/direction/<phase-id>.md`. Called with `all`, `changed`, or ids: show the report in the reply and write no file.
+Called with a phase id: write `docs/sdlc/plans/<date>-<slug>/direction/<phase-id>.md`. Called with `all`, `changed`, or ids: show the report in the reply and write no file.
 
 Sections, in order:
 - **Scorecard:** a table, one row per requirement: id, title, verdict, evidence, note.

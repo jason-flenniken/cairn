@@ -13,6 +13,7 @@ import { context } from '../src/locate.ts';
 import { parseArgs, run } from '../src/main.ts';
 import { humanProof, modActive, secretMatches } from '../src/proof.ts';
 import { Refusal } from '../src/util.ts';
+import { pd } from './plandir.ts';
 
 let repo: string;
 let common: string;
@@ -161,7 +162,7 @@ let main: string;
 let wt: string;
 const PRD = '# P\n## Problem\np\n## Solution\ns\n## User stories\n1. u\n## Requirements\n- FR-01 a\n## Non-functional requirements\n- NFR-01 b\n## Non-goals\n- c\n## Acceptance criteria\n- FR-01 d\n## Unhappy paths\n- FR-01 e\n## Security considerations\n- f\n## Open questions\n- [x] g\n';
 const mainCairn = () => join(main, '.git', 'cairn');
-const planState = (slug: string) => JSON.parse(readFileSync(join(main, `.claude/worktrees/feature-${slug}/docs/sdlc/plans/${slug}/state.json`), 'utf8'));
+const planState = (slug: string) => JSON.parse(readFileSync(join(pd(join(main, `.claude/worktrees/feature-${slug}`), slug), "state.json"), 'utf8'));
 const planWt = (slug: string) => join(main, `.claude/worktrees/feature-${slug}`);
 const hashFile = () => join(mainCairn(), 'mod-secret.sha256');
 const setSecret = (v: string) => {
@@ -183,7 +184,7 @@ before(() => {
   wt = run(['new', 'billing', '--title', 'Billing'], main).data!.worktree as string;
   run(['decide', 'q', 'a'], wt);
   run(['advance'], wt);
-  writeFileSync(join(wt, 'docs/sdlc/plans/billing/prd.md'), PRD);
+  writeFileSync(join(pd(wt, 'billing'), 'prd.md'), PRD);
 });
 after(() => rmSync(main, { recursive: true, force: true }));
 afterEach(() => rmSync(mainCairn(), { recursive: true, force: true }));
@@ -268,7 +269,7 @@ test('a wrong slug on a plan with no prior approval records nothing', () => {
   const fwt = run(['new', 'fresh', '--title', 'Fresh'], main).data!.worktree as string;
   run(['decide', 'q', 'a'], fwt);
   run(['advance'], fwt);
-  writeFileSync(join(fwt, 'docs/sdlc/plans/fresh/prd.md'), PRD);
+  writeFileSync(join(pd(fwt, 'fresh'), 'prd.md'), PRD);
   refusedWith(() => cmdApprove(context(fwt), 'prd', { human: true }, tty('billing')), /cairn approve fresh --human|cairn approve prd --human/);
   assert.equal(planState('fresh').approvals.prd, undefined);
 });

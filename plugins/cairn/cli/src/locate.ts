@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
-import { branchExists, currentBranch, git, topLevel, worktrees, type Worktree } from './git.ts';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, dirname, join, relative } from 'node:path';
+import { branchExists, currentBranch, git, gitOk, topLevel, worktrees, type Worktree } from './git.ts';
 import type { Track } from './types.ts';
 import { CliError } from './util.ts';
 
@@ -14,11 +14,56 @@ export const planBranch = (slug: string, track: Track) => `${track === 'fix' ? '
 export const taskBranch = (slug: string, task: string) => `task/${slug}/${task}`;
 /** Worktree folder for a branch: `/` becomes `-`. */
 export const worktreeName = (branch: string) => branch.replace(/\//g, '-');
+/** The legacy (undated) plan folder, relative to the repo root. */
 export const planRel = (slug: string) => `${PLANS_DIR}/${slug}`;
+/** Folder name for a new plan: the start date, then the slug. A Date gives its local calendar day; a string is an ISO timestamp. */
+export function planDirName(slug: string, created: string | Date): string {
+  if (typeof created === 'string') return `${created.slice(0, 10)}-${slug}`;
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${created.getFullYear()}-${p(created.getMonth() + 1)}-${p(created.getDate())}-${slug}`;
+}
+
+const DATED = /^\d{4}-\d{2}-\d{2}-/;
+/** Of the folder names found, the one holding this slug: exactly `<date>-<slug>` (newest first) or `<slug>`. */
+function pickPlanDir(slug: string, names: string[], hasPlan: (name: string) => boolean): string | undefined {
+  const dated = names.filter((n) => DATED.test(n) && n.slice(11) === slug).sort().reverse();
+  return [...dated, slug].find((n) => names.includes(n) && hasPlan(n));
+}
+
+/**
+ * The plan's folder relative to the repo root, under either name (`<date>-<slug>` or the old `<slug>`),
+ * read from a checkout (`root`) or from a branch's committed tree (`ref`). Undefined when neither holds the plan.
+ */
+export function resolvePlanDir(slug: string, where: { root: string } | { ref: string; cwd: string }): string | undefined {
+  let name: string | undefined;
+  if ('root' in where) {
+    const base = join(where.root, PLANS_DIR);
+    if (!existsSync(base)) return undefined;
+    name = pickPlanDir(slug, readdirSync(base), (n) => existsSync(join(base, n, 'state.json')));
+  } else {
+    let names: string[];
+    try {
+      names = git(['ls-tree', '--name-only', where.ref, `${PLANS_DIR}/`], where.cwd)
+        .split('\n')
+        .filter(Boolean)
+        .map((p) => p.slice(PLANS_DIR.length + 1));
+    } catch {
+      return undefined;
+    }
+    name = pickPlanDir(slug, names, (n) => gitOk(['cat-file', '-e', `${where.ref}:${PLANS_DIR}/${n}/state.json`], where.cwd));
+  }
+  return name && `${PLANS_DIR}/${name}`;
+}
+/** Plan folder in a checkout, falling back to the old undated name when nothing is there yet. */
+export const planRelIn = (slug: string, root: string) => resolvePlanDir(slug, { root }) ?? planRel(slug);
+/** The plan's folder relative to its worktree. */
+export const planRelOf = (plan: { worktree: string; dir: string }) => relative(plan.worktree, plan.dir);
+
 /** The branch a ref's committed plan state records for the plan, if it holds one. */
 export function recordedBranch(ref: string, slug: string, cwd: string): string | undefined {
   try {
-    return JSON.parse(git(['show', `${ref}:${planRel(slug)}/state.json`], cwd)).branch;
+    const rel = resolvePlanDir(slug, { ref, cwd });
+    return rel ? JSON.parse(git(['show', `${ref}:${rel}/state.json`], cwd)).branch : undefined;
   } catch {
     return undefined;
   }
@@ -59,7 +104,7 @@ export function parseBranch(branch: string): { slug?: string; task?: string } {
 /** The plan's worktree: the one with the plan's own branch checked out. */
 export function planRef(slug: string, wts: Worktree[], planBranch?: string): PlanRef {
   const wt = planBranch ? wts.find((w) => w.branch === planBranch) : undefined;
-  return wt ? { slug, worktree: wt.path, dir: join(wt.path, planRel(slug)) } : { slug };
+  return wt ? { slug, worktree: wt.path, dir: join(wt.path, planRelIn(slug, wt.path)) } : { slug };
 }
 
 export function context(cwd: string, slugOverride?: string): Ctx {
@@ -84,7 +129,7 @@ export function context(cwd: string, slugOverride?: string): Ctx {
     } else {
       let recorded: string | undefined;
       try {
-        recorded = JSON.parse(readFileSync(join(top, planRel(s), 'state.json'), 'utf8')).branch;
+        recorded = JSON.parse(readFileSync(join(top, planRelIn(s, top), 'state.json'), 'utf8')).branch;
       } catch {
         // no readable state here
       }

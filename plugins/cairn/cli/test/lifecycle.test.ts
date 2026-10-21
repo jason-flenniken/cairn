@@ -9,6 +9,7 @@ import { after, before, test } from 'node:test';
 import { hookPostEdit, hookSessionStart } from '../src/commands.ts';
 import { run } from '../src/main.ts';
 import { Refusal } from '../src/util.ts';
+import { pd } from './plandir.ts';
 
 let repo: string;
 let wt: string;
@@ -35,9 +36,9 @@ function asUser<T>(fn: () => T): T {
 }
 const byUser = (cwd: string, ...argv: string[]) => asUser(() => ok(cwd, ...argv));
 const refusedByUser = (cwd: string, pattern: RegExp, ...argv: string[]) => asUser(() => refused(cwd, pattern, ...argv));
-const state = () => JSON.parse(readFileSync(join(wt, 'docs/sdlc/plans/billing/state.json'), 'utf8'));
+const state = () => JSON.parse(readFileSync(join(pd(wt, 'billing'), 'state.json'), 'utf8'));
 const ctxOf = (out: string) => (out ? JSON.parse(out).hookSpecificOutput.additionalContext : '');
-const planDir = () => join(wt, 'docs/sdlc/plans/billing');
+const planDir = () => pd(wt, 'billing');
 
 const PRD = `# Billing PRD
 ## Problem
@@ -251,7 +252,7 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
   ok(wt, 'advance');
   refusedByUser(wt, /RECORD\.md does not exist/, 'approve', 'ship');
-  write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Follow-ups\nnone\n');
+  write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
   byUser(wt, 'approve', 'ship');
   ok(wt, 'advance');
   ok(wt, 'close');
@@ -268,10 +269,10 @@ test('override lets a refused step through and logs the reason', () => {
   const r = ok(repo, 'new', 'spike', '--title', 'Spike');
   const swt = r.data!.worktree as string;
   byUser(swt, 'advance', '--override', 'user wants to skip the interview');
-  const s = JSON.parse(readFileSync(join(swt, 'docs/sdlc/plans/spike/state.json'), 'utf8'));
+  const s = JSON.parse(readFileSync(join(pd(swt, 'spike'), 'state.json'), 'utf8'));
   assert.equal(s.stage, 'prd');
   assert.ok(s.log.some((l: { override?: string }) => l.override === 'user wants to skip the interview'));
-  assert.match(readFileSync(join(swt, 'docs/sdlc/plans/spike/STATUS.md'), 'utf8'), /## Overrides/);
+  assert.match(readFileSync(join(pd(swt, 'spike'), 'STATUS.md'), 'utf8'), /## Overrides/);
 });
 
 test('edits before the plan is approved are drift', () => {
@@ -283,7 +284,7 @@ test('edits before the plan is approved are drift', () => {
 test('re-plan from verify adds fix tasks, keeps progress, and re-runs verification', () => {
   const r = ok(repo, 'new', 'fixes', '--title', 'Fixes');
   const fwt = r.data!.worktree as string;
-  const dir = join(fwt, 'docs/sdlc/plans/fixes');
+  const dir = pd(fwt, 'fixes');
   ok(fwt, 'decide', 'q', 'a');
   ok(fwt, 'advance');
   write(join(dir, 'prd.md'), PRD.replace('- [ ] which', '- [x] which').replace(/- \*\*FR-0[23]\*\*.*\n/g, ''));
@@ -343,7 +344,7 @@ test('a hand-made branch that shares a plan slug is not that plan', () => {
 
     // (c) a legacy sdlc/ plan stays itself when a hand-made feature/ branch shares its slug
     const orig = ok(r, 'new', 'leg').data!.worktree as string;
-    const file = join(orig, 'docs/sdlc/plans/leg/state.json');
+    const file = join(pd(orig, 'leg'), 'state.json');
     write(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), branch: 'sdlc/leg' }));
     g(orig, 'add', '-A');
     g(orig, 'commit', '-q', '-m', 'legacy name');

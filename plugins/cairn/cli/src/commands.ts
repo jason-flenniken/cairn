@@ -9,6 +9,7 @@ export { cmdPlanLoad } from './commands/planload.ts';
 export { cmdReady, cmdTask } from './commands/tasks.ts';
 export { cmdEscalate, cmdRepro } from './commands/fix.ts';
 export { cmdPhase } from './commands/phase.ts';
+export { cmdRecords } from './commands/records.ts';
 export { cmdSuggest } from './commands/suggest.ts';
 export { cmdEvidence, cmdDriftAck } from './commands/evidence.ts';
 export { cmdPause, cmdResume } from './commands/pause.ts';

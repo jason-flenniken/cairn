@@ -9,6 +9,7 @@ import { after, afterEach, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { CliError } from '../src/util.ts';
 import { parseArgs, run } from '../src/main.ts';
+import { pd } from './plandir.ts';
 
 const MAIN = fileURLToPath(new URL('../src/main.ts', import.meta.url));
 const env = { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' };
@@ -23,8 +24,8 @@ let wt: string;
 let inputs: string;
 const mainCairn = () => join(main, '.git', 'cairn');
 const hashFile = () => join(mainCairn(), 'mod-secret.sha256');
-const planState = () => JSON.parse(readFileSync(join(wt, 'docs/sdlc/plans/billing/state.json'), 'utf8'));
-const decisions = () => readFileSync(join(wt, 'docs/sdlc/plans/billing/decisions.md'), 'utf8');
+const planState = () => JSON.parse(readFileSync(join(pd(wt, 'billing'), 'state.json'), 'utf8'));
+const decisions = () => readFileSync(join(pd(wt, 'billing'), 'decisions.md'), 'utf8');
 
 /** Store the hash of a known secret, as the mod does, and expose the secret to this process. */
 const setSecret = (v: string) => {
@@ -51,7 +52,7 @@ before(() => {
   wt = run(['new', 'billing', '--title', 'Billing'], main).data!.worktree as string;
   run(['decide', 'q', 'a'], wt);
   run(['advance'], wt);
-  writeFileSync(join(wt, 'docs/sdlc/plans/billing/prd.md'), PRD);
+  writeFileSync(join(pd(wt, 'billing'), 'prd.md'), PRD);
 });
 after(() => {
   rmSync(main, { recursive: true, force: true });

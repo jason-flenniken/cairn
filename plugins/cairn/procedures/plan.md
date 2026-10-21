@@ -15,7 +15,7 @@ Dispatch Explore agents (`model: sonnet`, `description` per `references/reportin
 **Done when:** you can name, for each FR, the files and seams it lands in.
 
 ## 3. Write plan.md
-Write `docs/sdlc/plans/<slug>/plan.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. Required headings: Goal, Architecture, Phases. Keep the plan short. Slicing rules:
+Write `docs/sdlc/plans/<date>-<slug>/plan.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. Required headings: Goal, Architecture, Phases. Keep the plan short. Slicing rules:
 
 - **Vertical:** each task is a narrow, complete path through every layer. A horizontal layer alone is never a task.
 - **Right-sized:** each task fits one fresh context window. Split further when it would not.
@@ -36,14 +36,6 @@ When you consciously skip tests on a non-risky task (an area worth covering late
 Run `cairn plan load`. On refusal, read what it names (a cycle, an unknown FR id, a missing scope, an uncovered requirement), fix `plan.md`, and rerun.
 
 **Done when:** `cairn plan load` exits 0.
-
-## 4b. Past suggestions
-Run `cairn suggest list --open --for <glob>`, with one `--for` per task scope glob. When it lists matches, offer up to 3, one AskUserQuestion each: "I recommend <text> (noted during <plan>)". Options: Add as task (Recommended) / Later / Dismiss.
-- Add as task: add a task to `plan.md` (own scope, a Check line), rerun `cairn plan load`, then `cairn suggest resolve <slug>:<id> --note "added as task <task id>"`.
-- Dismiss: `cairn suggest resolve <slug>:<id> --dismiss --note "<reason>"`.
-- Later: do nothing.
-
-Skip this step when the list is empty.
 
 ## 5. Stop for approval
 Show a tree preview and about three lines of summary:

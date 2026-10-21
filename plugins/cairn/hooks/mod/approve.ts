@@ -216,6 +216,8 @@ export function install(on: On): void {
 
   // No deny catch (NFR-02): a hook that fails is skipped, and the user's answer goes on as it was.
   on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
+    // A malformed payload is not ours to read: it goes through untouched (FR-18).
+    if (!Array.isArray(e.questions)) return next(e)
     // A question made only of approval tags whose stops the CLI already shows approved is answered here, not shown.
     // This reports an approval that exists; it records none. A subagent's, an untagged or a mixed dialog is left alone.
     if (e.agentId === undefined) {
@@ -249,7 +251,6 @@ export function install(on: On): void {
       if (tag.kind === undefined) continue
       // One stop is approved once per dialog, however many questions carry its tag (FR-15).
       if (judged.has(`${tag.kind} ${tag.slug}`)) continue
-      judged.add(`${tag.kind} ${tag.slug}`)
       const skipped = (why: string) => notes.push(`cairn: ${tag.slug} ${tag.kind} not approved: ${why}.`)
       if (tag.question in prefilled) skipped('the answer came from the model\'s call, not from you')
       else if (result?.afkTimeoutMs !== undefined) skipped('the dialog answered itself while you were away')
@@ -257,6 +258,8 @@ export function install(on: On): void {
         skipped('the answer was not "Approve"')
       }
       else {
+        // Judged only once an approval is attempted, so a Revise on one tag does not block an Approve on another.
+        judged.add(`${tag.kind} ${tag.slug}`)
         const outcome = await approveAs($, tag.slug, tag.kind)
         if (outcome === undefined) continue
         $.ui.toast(outcome)

@@ -53,6 +53,7 @@ function world(on: On, init: WorldInit = {}) {
     answer: 'answer' in init ? init.answer : 'Approve',
     branchGone: init.branchGone ?? false,
     raw: undefined as string | undefined,
+    records: undefined as unknown[] | undefined,
     mtimes: new Map<string, number>([[STATE, 1]]),
     runs: [] as string[][],
     toasts: [] as string[],
@@ -78,6 +79,7 @@ function world(on: On, init: WorldInit = {}) {
     if (args.join(' ') === 'status --all --json') {
       return answer(0, w.raw ?? JSON.stringify({ ok: true, message: '', plans: w.rows, modActive: true }))
     }
+    if (args.join(' ') === 'records --json') return answer(0, JSON.stringify({ ok: true, records: w.records ?? [] }))
     if (args.join(' ') === 'status --json') {
       const here = w.rows.find(r => r.worktree === w.cwd)
       return here === undefined
@@ -181,15 +183,16 @@ async function drawn(ui: any): Promise<string> {
   return (await ui.findAll({ type: 'Text' })).map((t: { text: string }) => t.text).join('\n')
 }
 
-const isCardPress = (key: string) => key === 'main' || key === 'approval' || key.startsWith('agent:')
+const isCardPress = (key: string) => key === 'approval' || key.startsWith('main') || key.startsWith('agent:')
+const isTab = (key: string) => key.startsWith('tab:')
 
 /** The controls drawn; the presses on the cards themselves are listed apart by cardKeys. */
 async function buttonKeys(ui: any): Promise<string[]> {
-  return (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter((k: string) => !isCardPress(k))
+  return (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter((k: string) => !isCardPress(k) && !isTab(k))
 }
 
 async function cardKeys(ui: any): Promise<string[]> {
-  return (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter(isCardPress)
+  return (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter((k: string) => isCardPress(k) && !k.includes(':status') && !k.includes(':activity'))
 }
 
 // The fixtures of FR-09 and FR-12: what each draws and exactly which buttons it shows.
@@ -231,7 +234,7 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await ui.unmount()
     })
 
-    test(`execute: phase 1 of 2, progress, the running task, what is up next, the phases (${surface})`, async ($, on) => {
+    test(`execute: phase 1 of 2, progress, what is up next, no timeline (${surface})`, async ($, on) => {
       world(on, { rows: [row(EXECUTE, WT)] })
       await start($, WT)
       const ui = await mount($, surface)
@@ -239,15 +242,9 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       expect(text).toContain('Build')
       expect(text).toContain('phase 1 of 2')
       expect(text).toContain('1/4 tasks · ~18m left')
-      expect(text).toContain('NOW')
       expect(text).toContain('Main session')
       expect(text).toMatch(/UP NEXT .*Payments \(waits\)/)
-      expect(text).toContain('◐ 1 Core')
-      expect(text).toContain('● Cart')
-      expect(text).toContain('✓ Auth')
-      expect(text).toContain('○ 2 Polish')
-      expect(text).toContain('0 of 1')
-      expect(text).not.toContain('fix attempt')
+      for (const gone of ['◐ 1 Core', '○ 2 Polish', '✓ Auth', 'suggestion', 'fix attempt']) expect(text).not.toContain(gone)
       expect(await buttonKeys(ui)).toEqual(['pause', 'stop', 'status'])
       await ui.unmount()
     })
@@ -272,7 +269,7 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       const ui = await mount($, surface)
       const text = await drawn(ui)
       expect(text).toMatch(/Waiting on you: prd approval/)
-      expect(text.indexOf('Waiting on you')).toBeLessThan(text.indexOf('NOW'))
+      expect(text.indexOf('Waiting on you')).toBeLessThan(text.indexOf('Main session'))
       expect(await buttonKeys(ui)).toEqual(['readall', 'approve', 'pause', 'status'])
       expect((await ui.findAll({ type: 'Markdown' }))[0]?.text).toContain('FR-01')
       await ui.unmount()
@@ -285,23 +282,6 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       expect(await drawn(ui)).not.toContain('Waiting on you')
       expect(await buttonKeys(ui)).toEqual(['pause', 'status'])
       expect(await cardKeys(ui)).not.toContain('approval')
-      await ui.unmount()
-    })
-
-    test(`a phase that is built and done folds to one line with its task count (${surface})`, async ($, on) => {
-      const done = plan({
-        phases: [
-          { id: 'p1', name: 'Core', status: 'done', tasks: [task('a', 'A', { status: 'done', startedAt: '2026-03-01T10:00:00.000Z', doneAt: '2026-03-01T10:30:00.000Z' })] },
-          { id: 'p2', name: 'Polish', status: 'pending', tasks: [task('b', 'B')] },
-        ],
-      })
-      world(on, { rows: [row(done, WT)] })
-      await start($, WT)
-      const ui = await mount($, surface)
-      const text = await drawn(ui)
-      expect(text).toContain('✓ 1 Core')
-      expect(text).toContain('1 tasks · 30m')
-      expect(text).toContain('◐ 2 Polish')
       await ui.unmount()
     })
 
@@ -730,7 +710,7 @@ describe('approval card and pressable cards (FR-11..FR-14)', () => {
     const ui = await mount($, 'terminal')
     await $.agent.spawn({ prompt: 'p', description: 'Draft the PRD', subagentType: 'cairn:implementer' })
     await clock.advance(1_000)
-    expect(await cardKeys(ui)).toEqual(['approval', 'agent:agent-1', 'main'])
+    expect(await cardKeys(ui)).toEqual(['approval', 'main', 'agent:agent-1'])
     await ui.press({ key: 'agent:agent-1' })
     await ui.press({ key: 'main' })
     await ui.press({ key: 'approval' })
@@ -745,6 +725,37 @@ describe('approval card and pressable cards (FR-11..FR-14)', () => {
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'main' })
     expect(w.toasts.join()).toContain('no agent holds that id')
+    await ui.unmount()
+  })
+})
+
+describe('History tab (FR-07)', () => {
+  test('shows every plan log entry, newest first, in the stage color', async ($, on) => {
+    const log = Array.from({ length: 12 }, (_, i) => ({ at: `2026-03-01T12:${String(i).padStart(2, '0')}:00.000Z`, event: 'task done', detail: `t-${String(i + 1).padStart(2, '0')}` }))
+    world(on, { rows: [row(plan({ ...EXECUTE, log }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:history' })
+    const text = await drawn(ui)
+    for (let i = 1; i <= 12; i++) expect(text).toContain(`Task done: t-${String(i).padStart(2, '0')}`)
+    expect(text.indexOf('Task done: t-12')).toBeLessThan(text.indexOf('Task done: t-01'))
+    expect(text.indexOf('Task done: t-12')).toBeLessThan(text.indexOf('Task done: t-11'))
+    const inStage = (await ui.findAll({ type: 'Text' })).filter((n: { props: { color?: string } }) => n.props.color === 'yellowBright').map((t: { text: string }) => t.text)
+    expect(inStage.some((t: string) => t.endsWith('Task done: t-12'))).toBe(true)
+    expect(inStage.length).toBe(12)
+    await ui.unmount()
+  })
+
+  test('an agent finish appears in the timeline with its time', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Pane cards', subagentType: 'cairn:implementer' })
+    await $.turn.start({ text: 'p', turnId: 't1', agentId: 'agent-1' })
+    await $.turn.complete({ turnId: 't1', agentId: 'agent-1', reason: 'answer', answer: 'done', durationMs: 372_000, usage: { input_tokens: 40_000, output_tokens: 2_000 } } as never)
+    await ui.press({ key: 'tab:history' })
+    expect(await drawn(ui)).toMatch(/\d{2}:\d{2} Finished /)
     await ui.unmount()
   })
 })
@@ -768,7 +779,6 @@ describe('agent cards', () => {
     await $.turn.complete({ turnId: 't1', agentId: 'agent-1', reason: 'answer', answer: 'done', durationMs: 372_000, usage: { input_tokens: 40_000, output_tokens: 2_000 } } as never)
     text = await drawn(ui)
     expect(text).toContain('✓ finished · 6m 12s · 42k tokens')
-    expect(text).toMatch(/Finished Build · Pane cards · 6m · 42k tokens/)
     await clock.advance(11_000)
     expect(await drawn(ui)).not.toContain('✓ finished')
     await ui.unmount()
@@ -838,4 +848,182 @@ test('a throwing pane render leaves tool calls unaffected (NFR-07)', async ($, o
   const got = await $.tool.call({ tool: 'Bash', command: 'ls' })
   expect(got.deny).toBeUndefined()
   expect(got.result).toEqual({ stdout: 'shell ran it', stderr: '', interrupted: false })
+})
+
+describe('tabs and the Now view (FR-01..FR-06, FR-19)', () => {
+  /** Registers the spawn answer; call before the first use of $. */
+  const ids = (on: On, list: string[]) => {
+    let n = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: list[n++] ?? 'x' }))
+  }
+  const spawn = async ($: any, ids: string[]) => {
+    for (const id of ids) await $.agent.spawn({ prompt: 'p', description: `Build · ${id}`, subagentType: 'cairn:implementer' })
+  }
+
+  test('the pane opens on Now with a tab row; each tab shows its content', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect((await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter(isTab)).toEqual(['tab:now', 'tab:history', 'tab:records'])
+    expect(await drawn(ui)).toContain('Main session')
+    await ui.press({ key: 'tab:history' })
+    expect(await drawn(ui)).not.toContain('History is coming')
+    expect(await drawn(ui)).not.toContain('Main session')
+    await ui.press({ key: 'tab:records' })
+    expect(await drawn(ui)).toContain('No finished plans yet.')
+    await ui.press({ key: 'tab:now' })
+    expect(await drawn(ui)).toContain('Main session')
+    await ui.unmount()
+  })
+
+  test('Main session is the first card, above both working agents', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    ids(on, ['agent-1', 'agent-2'])
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await spawn($, ['agent-1', 'agent-2'])
+    await clock.advance(1_000)
+    expect(await cardKeys(ui)).toEqual(['main', 'agent:agent-1', 'agent:agent-2'])
+    await ui.unmount()
+  })
+
+  test('an agent card is 3 lines before, during and after a tool call, and every line views that agent', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    ids(on, ['agent-1'])
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await spawn($, ['agent-1'])
+    await clock.advance(1_000)
+    const cardLines = async () => (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter((k: string) => k.startsWith('agent:agent-1'))
+    const expected = ['agent:agent-1', 'agent:agent-1:status', 'agent:agent-1:activity']
+    expect(await cardLines()).toEqual(expected)
+    await $.turn.start({ text: 'p', turnId: 't1', agentId: 'agent-1' })
+    await $.tool.call({ tool: 'Bash', command: 'npm test', agentId: 'agent-1' } as never)
+    await clock.advance(1_000)
+    expect(await cardLines()).toEqual(expected)
+    for (const key of expected) await ui.press({ key })
+    expect(w.views).toEqual([{ agentId: 'agent-1' }, { agentId: 'agent-1' }, { agentId: 'agent-1' }])
+    await ui.unmount()
+  })
+
+  const COLORS: [string, string][] = [
+    ['discover', 'cyan'], ['repro', 'red'], ['prd', 'magenta'], ['plan', 'blue'], ['execute', 'yellowBright'],
+    ['verify', 'greenBright'], ['review', 'magentaBright'], ['ship', 'cyanBright'], ['learn', 'blueBright'],
+  ]
+  for (const [stage, color] of COLORS) {
+    test(`${stage}: the header, bar and a working card's border use ${color}`, async ($, on) => {
+      const done = task('a', 'A', { status: 'done' })
+      const { clock } = world(on, { rows: [row(plan({ stage, phases: [{ id: 'p1', name: 'Core', status: 'in_progress', tasks: [done] }] }), WT)] })
+    ids(on, ['agent-1'])
+      await start($, WT)
+      const ui = await mount($, 'terminal')
+      await spawn($, ['agent-1'])
+      await clock.advance(1_000)
+      const inColor = (await ui.findAll({ type: 'Text' })).filter((n: { props: { color?: string } }) => n.props.color === color).map((t: { text: string }) => t.text)
+      expect(inColor.some((t: string) => t.includes('Acme Storefront'))).toBe(true)
+      expect(inColor.some((t: string) => t.includes('1/1 tasks'))).toBe(true)
+      expect((await ui.findAll({ type: 'Box' })).filter((n: { props: { borderColor?: string } }) => n.props.borderColor === color)).toHaveLength(1)
+      await ui.unmount()
+    })
+  }
+
+  test('Now shows neither the timeline nor a follow-up count', async ($, on) => {
+    const { clock } = world(on, { rows: [{ ...row(EXECUTE, WT), openSuggestions: 3 } as Row] })
+    ids(on, ['agent-1'])
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await spawn($, ['agent-1'])
+    await clock.advance(1_000)
+    expect(await drawn(ui)).not.toMatch(/suggestion|follow-up|Core|Polish/)
+    await ui.unmount()
+  })
+
+  test('with no ready value there is no stop card and no waiting text', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'prd' }), WT, 'Draft the PRD.')] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect(await drawn(ui)).not.toMatch(/Waiting on you/i)
+    expect(await cardKeys(ui)).not.toContain('approval')
+    await ui.unmount()
+  })
+})
+
+describe('Records tab (FR-08, FR-09)', () => {
+  const rec = (slug: string, date: string, over: Record<string, unknown> = {}) => ({
+    slug, title: `Plan ${slug}`, date, stage: 'closed', why: `why ${slug}`, record: `/repo/docs/sdlc/plans/${slug}/RECORD.md`, followUps: [], ...over,
+  })
+
+  test('lists the plans as given, in progress first, each with date, name and why; none before a press', async ($, on) => {
+    const { w, statusReads, ran } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('live', '2026-10-21', { stage: 'execute', record: undefined }), rec('newer', '2026-10-20'), rec('older', '2026-09-03')]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect(ran('records')).toEqual([])
+    await ui.press({ key: 'tab:records' })
+    expect(ran('records')).toHaveLength(1)
+    const text = await drawn(ui)
+    expect(text.indexOf('In progress · Plan live')).toBeGreaterThanOrEqual(0)
+    expect(text.indexOf('In progress · Plan live')).toBeLessThan(text.indexOf('Oct 20 · Plan newer'))
+    expect(text.indexOf('Oct 20 · Plan newer')).toBeLessThan(text.indexOf('Sep 3 · Plan older'))
+    expect(text).toContain('why older')
+    expect(statusReads()).toBeGreaterThan(0)
+    await ui.unmount()
+  })
+
+  test('with no records it says so', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    expect(await drawn(ui)).toContain('No finished plans yet.')
+    await ui.unmount()
+  })
+
+  test('with only in-progress plans it still says there are no finished plans, below the in-progress row', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('live', '2026-10-21', { stage: 'execute', record: undefined })]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    const text = await drawn(ui)
+    expect(text).toContain('In progress · Plan live')
+    expect(text.indexOf('In progress · Plan live')).toBeLessThan(text.indexOf('No finished plans yet.'))
+    await ui.unmount()
+  })
+
+  test('opening a record shows its text and open follow-ups; Back returns to the list', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20', { followUps: [{ text: 'tidy the cache', area: 'quality', status: 'open' }, { text: 'old thing', area: 'docs', status: 'done' }] }), rec('b', '2026-09-03')]
+    w.files.set('/repo/docs/sdlc/plans/a/RECORD.md', '# Record A\n\nit shipped')
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    await ui.press({ key: 'record:a' })
+    const md = (await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text)
+    expect(md[0]).toBe('# Record A\n\nit shipped')
+    expect(md[1]).toContain('tidy the cache')
+    expect(md[1]).not.toContain('old thing')
+    await ui.press({ key: 'back' })
+    expect(await drawn(ui)).toContain('Plan b')
+    expect(await ui.findAll({ type: 'Markdown' })).toHaveLength(0)
+    await ui.unmount()
+  })
+
+  test('a closed plan without a record says so', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('gone', '2026-10-20', { record: undefined })]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    await ui.press({ key: 'record:gone' })
+    expect(await drawn(ui)).toContain('No record for this plan.')
+    await ui.unmount()
+  })
+
+  test('a dated plan folder is watched through dir', async ($, on) => {
+    const { w } = world(on, { rows: [{ ...row(EXECUTE, WT), dir: `${WT}/docs/sdlc/plans/2026-10-21-shop` } as Row] })
+    w.mtimes.set(`${WT}/docs/sdlc/plans/2026-10-21-shop/state.json`, 1)
+    await start($, WT)
+    expect(w.runs.filter(a => a[0] === 'status')).toHaveLength(1)
+  })
 })

@@ -6,7 +6,7 @@ Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLU
 
 ## 1. Check
 Run `cairn status --json`.
-- On a plan branch (one that holds `docs/sdlc/plans/<slug>/state.json`, such as `feature/<slug>`, `fix/<slug>`, or `task/<slug>/<task>`), tell the user a plan is already active, name it, and stop. Offer `/cairn:next` to continue it.
+- On a plan branch (one that holds `docs/sdlc/plans/<date>-<slug>/state.json`, such as `feature/<slug>`, `fix/<slug>`, or `task/<slug>/<task>`), tell the user a plan is already active, name it, and stop. Offer `/cairn:next` to continue it.
 - On any other branch, continue.
 
 **Done when:** you know the session is on a non-plan branch (main or similar).

@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { commitPath } from '../git.ts';
-import { planRel, type Ctx } from '../locate.ts';
+import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
 import { FIX_RECORD_SECTIONS, FIX_RECORD_WORD_BUDGET, PRD_SECTIONS, proseWordCount, sections, uncheckedItems } from '../sections.ts';
@@ -10,6 +10,7 @@ import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
 import { docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { configGate, configHash, fastLane } from './fix.ts';
+import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
 
 const STAGE_ORDER: Record<Track, Stage[]> = {
   feature: STAGES.filter((x) => x !== 'repro'),
@@ -37,6 +38,15 @@ const recordCheck = (pc: PlanCtx, track: Track) =>
 /** The checks for closing a plan: the record, green tests, and the approved commands. */
 function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: string[]; fix: string }, tests: TestRun | undefined): void {
   configGate(s, pc.cfg, 'close', opts);
+  const open = collectSuggestions(pc.ctx).filter((x) => x.open && x.slug === s.slug);
+  gate(
+    open.length <= MAX_OPEN_PER_PLAN,
+    s,
+    'close',
+    opts,
+    `${open.length} open follow-ups from this plan; at most ${MAX_OPEN_PER_PLAN} may stay open: ${open.map((x) => `${x.key} (${x.text})`).join('; ')}`,
+    ['group related ones: cairn suggest merge <key>... --area <a> --text "<high-level item>"', 'drop trivia: cairn suggest resolve <key> --dismiss --note "<reason>"', 'then list what was dropped in the record'],
+  );
   gate(!record.problems.length, s, 'close', opts, record.problems.join('; '), [record.fix]);
   testsGate(tests, s, 'close', opts);
 }
@@ -200,7 +210,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
     if (to === 'closed') return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
-  if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRel(pc.plan.slug), `cairn(${pc.plan.slug}): advance to ${to}`);
+  if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
   return r;
 }
 
