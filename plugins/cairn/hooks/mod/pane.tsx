@@ -264,9 +264,13 @@ function act($: EngineInterface, work: () => Promise<unknown>): void {
 
 const steps = (n: number) => `${n} step${n === 1 ? '' : 's'}`
 
-const hourMinute = (ms: number) => {
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "14:05" for an event today, "Oct 20 14:05" for one from any earlier day. */
+const stampOf = (ms: number, nowMs: number) => {
   const d = new Date(ms)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return d.toDateString() === new Date(nowMs).toDateString() ? hm : `${MONTHS[d.getMonth()]} ${d.getDate()} ${hm}`
 }
 
 const isReady = (x: Task, byId: Map<string, Task>) =>
@@ -282,13 +286,13 @@ function logText(entry: { event?: string; detail?: string }): string | undefined
 }
 
 /** Every event of the plan's log and the agents that finished, oldest first. */
-function recentLines(s: CairnPlanState, feed: { at: number; text: string }[]): string[] {
+function recentLines(s: CairnPlanState, feed: { at: number; text: string }[], nowMs: number): string[] {
   const fromLog = list<{ at?: string; event?: string; detail?: string }>(s.log).flatMap(entry => {
     const text = logText(entry)
     const at = Date.parse(entry.at ?? '')
     return text === undefined || Number.isNaN(at) ? [] : [{ at, text }]
   })
-  return [...fromLog, ...feed].sort((a, b) => a.at - b.at).map(l => `${hourMinute(l.at)} ${l.text}`)
+  return [...fromLog, ...feed].sort((a, b) => a.at - b.at).map(l => `${stampOf(l.at, nowMs)} ${l.text}`)
 }
 
 export function install(on: On): void {
@@ -450,7 +454,7 @@ export function install(on: On): void {
     }
 
     if (!isInline && shownTab === 'history') {
-      const lines = here === undefined ? [] : recentLines(here.state, await readFeed($)).reverse()
+      const lines = here === undefined ? [] : recentLines(here.state, await readFeed($), t).reverse()
       return (
         <Box flexDirection="column">
           {tabs}

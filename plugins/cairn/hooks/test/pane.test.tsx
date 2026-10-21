@@ -743,6 +743,19 @@ describe('History tab (FR-07)', () => {
     expect(inStage.length).toBe(12)
     await ui.unmount()
   })
+
+  test('an agent finish appears in the timeline with its time', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Pane cards', subagentType: 'cairn:implementer' })
+    await $.turn.start({ text: 'p', turnId: 't1', agentId: 'agent-1' })
+    await $.turn.complete({ turnId: 't1', agentId: 'agent-1', reason: 'answer', answer: 'done', durationMs: 372_000, usage: { input_tokens: 40_000, output_tokens: 2_000 } } as never)
+    await ui.press({ key: 'tab:history' })
+    expect(await drawn(ui)).toMatch(/\d{2}:\d{2} Finished /)
+    await ui.unmount()
+  })
 })
 
 describe('agent cards', () => {
