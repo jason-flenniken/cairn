@@ -1,4 +1,4 @@
-export const STAGES = ['discover', 'prd', 'plan', 'execute', 'verify', 'review', 'ship', 'learn', 'closed'] as const;
+export const STAGES = ['repro', 'discover', 'prd', 'plan', 'execute', 'verify', 'review', 'ship', 'learn', 'closed'] as const;
 export type Stage = (typeof STAGES)[number];
 export type Track = 'feature' | 'fix';
 export type Complexity = 'simple' | 'standard' | 'complex';

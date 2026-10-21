@@ -9,8 +9,10 @@ import { loadState, log } from '../state.ts';
 import { SUBSTEPS, type Substep } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
 import { ensureExcluded, gate, mutate, planCtx, runSetup, runTests, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
+import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
 
 const MAX_FIX_ROUNDS = 5;
+const DEFAULT_FIX_MAX_FILES = 8;
 
 export function cmdReady(ctx: Ctx): Result {
   const pc = planCtx(ctx);
@@ -54,8 +56,17 @@ function sliceStart(pc: PlanCtx, id: string, opts: Opts): Result {
     const sl = findSlice(s, id);
     if (!sl) throw new Refusal(`no slice "${id}" in this plan`, ['cairn ready']);
     if (sl.status === 'in_progress') return { message: `Slice "${sl.name}" is already running (${sl.substep}) at ${sl.worktree}.`, data: { worktree: sl.worktree, branch: sl.branch, resumed: true } };
+    if (sl.status === 'done' && fastLane(s) && s.stage === 'review') {
+      // A review finding reopens the fix: back to execute, keeping the repro and the slice base.
+      sl.status = 'pending';
+      s.phases.find((p) => p.slices.includes(sl))!.status = 'in_progress';
+      s.stage = 'execute';
+      delete s.evidence.review;
+      log(s, 'fix reopened', 'from review');
+    }
     if (sl.status === 'done') throw new Refusal(`slice "${sl.name}" is already done`);
     gate(s.stage === 'execute' && !s.paused, s, 'slice start', opts, s.paused ? 'the plan is paused' : `the plan is in ${s.stage}, not execute`);
+    configGate(s, cfg, 'slice start', opts);
     const ready = readySet(s, cfg.maxParallel);
     const waiting = ready.waiting.find((w) => w.slice.id === id);
     gate(ready.ready.some((x) => x.id === id), s, 'slice start', opts, waiting ? `slice "${sl.name}" is waiting on ${waiting.on.join(', ')}` : `slice "${sl.name}" is not in the current phase`, ['cairn ready']);
@@ -99,27 +110,45 @@ function sliceDone(pc: PlanCtx, id: string, opts: Opts): Result {
   if (!sl) throw new Refusal(`no slice "${id}" in this plan`);
   if (sl.status !== 'in_progress' || !sl.branch) throw new Refusal(`slice "${sl.name}" is not running`);
   const pb = planBranch(plan.slug);
+  // A changed command never runs before this check (an override needs the user's proof first).
+  configGate(pre, pc.cfg, 'slice done', opts);
   // Evidence is gathered before taking the lock: tests can be slow.
   const merged = branchExists(sl.branch, plan.worktree) && gitOk(['merge-base', '--is-ancestor', sl.branch, pb], plan.worktree);
   const dirty = sl.worktree && existsSync(sl.worktree) ? git(['status', '--porcelain'], sl.worktree) : '';
   const tip = branchExists(sl.branch, plan.worktree) ? git(['rev-parse', '--short', sl.branch], plan.worktree) : undefined;
   const commits = tip && sl.base ? Number(git(['rev-list', '--count', `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
   const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRel(plan.slug)}`], plan.worktree);
-  const tests = merged && !dirty && !planDirty ? runTests(pc.cfg, plan.worktree) : undefined;
+  const checkable = merged && !dirty && !planDirty;
+  const tests = checkable ? runTests(pc.cfg, plan.worktree) : undefined;
+  // The fix track adds: the repro now passes, and the fix stays small (FR-25). Both are checked even when an
+  // override waives the checks above: the repro whenever the slice is merged, the size whenever there is a base.
+  // The size counts the slice branch and the plan branch from the slice base, so commits made beside the slice count.
+  const fix = fastLane(pre);
+  const repro = fix && merged && pre.repro ? runRepro(pre.repro.cmd, plan.worktree, pc.cfg) : undefined;
+  const heads = [pb, ...(tip ? [sl.branch] : [])];
+  const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base!, h))).size : 0;
+  const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `slice done: ${sl.name}`, (s) => {
     const cur = findSlice(s, id)!;
+    configGate(s, pc.cfg, 'slice done', opts);
     gate(!dirty, s, 'slice done', opts, `the slice worktree has uncommitted changes`, [`commit or discard them in ${cur.worktree}`]);
     gate(commits > 0, s, 'slice done', opts, `${cur.branch} has no commits since the slice started`, ['the implementer commits its work on the slice branch, in the slice worktree']);
     gate(!planDirty, s, 'slice done', opts, `the plan worktree has uncommitted changes outside docs/sdlc: ${planDirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on slice branches: move it into a slice, or discard it']);
     gate(merged, s, 'slice done', opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
-    testsGate(tests ?? (merged && !dirty && !planDirty ? undefined : { ok: false, cmd: pc.cfg.test ?? '(none)', tail: 'not run' }), s, 'slice done', opts);
+    testsGate(tests ?? (checkable ? undefined : { ok: false, cmd: pc.cfg.test ?? '(none)', tail: 'not run' }), s, 'slice done', opts);
+    if (fix) {
+      gate(repro?.outcome === 'passes', s, 'slice done', opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` → ${repro.detail})` : 'the repro was not run: the slice is not merged', ['fix the bug so the repro command exits 0']);
+      gate(changed <= maxFiles, s, 'slice done', opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ['this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work']);
+    }
     Object.assign(cur, { status: 'done', substep: undefined, doneAt: now(), tip, tests: tests ? `${tests.cmd} → ${tests.tail}` : undefined });
     const phase = s.phases.find((p) => p.slices.some((x) => x.id === id))!;
     phase.status = phaseStatus(phase, phase.status);
+    // The fix track has no phase stop: the single phase is done with its slice.
+    if (fastLane(s) && phase.status === 'awaiting_approval') phase.status = 'done';
     log(s, 'slice done', cur.name);
     const left = phase.slices.filter((x) => x.status !== 'done').length;
     return {
-      message: `Slice "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ''}. ${left ? `${left} slice(s) left in phase "${phase.name}".` : `Phase "${phase.name}" is built: run the phase-end review.`}`,
+      message: `Slice "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ''}. ${left ? `${left} slice(s) left in phase "${phase.name}".` : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : `Phase "${phase.name}" is built: run the phase-end review.`}`,
       data: { phaseComplete: !left },
     };
   });

@@ -3,15 +3,43 @@ import { commitPath, gitOk } from '../git.ts';
 import { planRel, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
-import { PRD_SECTIONS, sections, uncheckedItems } from '../sections.ts';
-import { log } from '../state.ts';
-import { STAGES, type Stage } from '../types.ts';
+import { FIX_RECORD_SECTIONS, FIX_RECORD_WORD_BUDGET, PRD_SECTIONS, proseWordCount, sections, uncheckedItems } from '../sections.ts';
+import { loadState, log } from '../state.ts';
+import { STAGES, type Stage, type State, type Track } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
-import { docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type Result } from '../shared.ts';
+import { docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
+import { configGate, configHash, fastLane } from './fix.ts';
 
-const STAGE_ORDER: Stage[] = [...STAGES];
-const nextStage = (s: Stage): Stage | undefined => STAGE_ORDER[STAGE_ORDER.indexOf(s) + 1];
+const STAGE_ORDER: Record<Track, Stage[]> = {
+  feature: STAGES.filter((x) => x !== 'repro'),
+  fix: ['repro', 'execute', 'review', 'ship', 'closed'],
+};
+const nextStage = (s: State): Stage | undefined => {
+  const order = STAGE_ORDER[fastLane(s) ? 'fix' : 'feature'];
+  return order[order.indexOf(s.stage) + 1];
+};
+
+/** The fix-track record: five sections and a 300-word budget for the prose (FR-27). */
+function fixRecordProblems(pc: PlanCtx): string[] {
+  const md = readText(planFile(pc, 'RECORD.md'));
+  const p = docProblems(md, 'RECORD.md', FIX_RECORD_SECTIONS);
+  const n = md ? proseWordCount(md) : 0;
+  if (n > FIX_RECORD_WORD_BUDGET) p.push(`RECORD.md is ${n} words; the budget is ${FIX_RECORD_WORD_BUDGET}`);
+  return p;
+}
+
+const recordCheck = (pc: PlanCtx, track: Track) =>
+  track === 'fix'
+    ? { problems: fixRecordProblems(pc), fix: 'write RECORD.md from templates/record-fix.md' }
+    : { problems: recordProblems(pc), fix: 'write RECORD.md from templates/record.md' };
+
+/** The checks for closing a plan: the record, green tests, and the approved commands. */
+function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: string[]; fix: string }, tests: TestRun | undefined): void {
+  configGate(s, pc.cfg, 'close', opts);
+  gate(!record.problems.length, s, 'close', opts, record.problems.join('; '), [record.fix]);
+  testsGate(tests, s, 'close', opts);
+}
 const APPROVAL_KINDS = ['prd', 'plan', 'phase', 'ship'];
 const APPROVE_USAGE = 'usage: cairn approve prd|plan|phase|ship [--human] [--note "…"]';
 
@@ -37,10 +65,17 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
     case 'plan': {
       const md = readText(planFile(pc, 'plan.md'));
       return mutate(pc, 'plan approved', (s) => {
+        // Outside the plan stage, approving the plan re-approves changed commands (FR-32) and moves nothing.
+        if (s.stage !== 'plan' && s.configHash && s.configHash !== configHash(pc.cfg)) {
+          s.configHash = configHash(pc.cfg);
+          log(s, 'commands re-approved', source);
+          return { message: 'The changed setup, test, and build commands are approved.' };
+        }
         gate(s.stage === 'plan', s, 'approve plan', opts, `the plan is in ${s.stage}, not plan`);
         gate(s.phases.length > 0, s, 'approve plan', opts, 'no plan is loaded', ['cairn plan load']);
         gate(!!md && s.planHash === hashText(md), s, 'approve plan', opts, 'plan.md changed since it was loaded', ['cairn plan load']);
         s.approvals.plan = { ...approval(), hash: s.planHash };
+        s.configHash = configHash(pc.cfg);
         log(s, 'plan approved', source);
         return { message: 'Plan approved. Next: `cairn advance` to execution.' };
       });
@@ -74,8 +109,8 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
       return mutate(pc, 'ship approved', (s) => {
         gate(s.stage === 'ship', s, 'approve ship', opts, `the plan is in ${s.stage}, not ship`);
         gate(s.evidence.review?.result === 'pass', s, 'approve ship', opts, 'review has not passed', ['run the review procedure, then cairn evidence review pass']);
-        const problems = recordProblems(pc);
-        gate(!problems.length, s, 'approve ship', opts, problems.join('; '), ['write RECORD.md from templates/record.md']);
+        const record = recordCheck(pc, fastLane(s) ? 'fix' : 'feature');
+        gate(!record.problems.length, s, 'approve ship', opts, record.problems.join('; '), [record.fix]);
         s.approvals.ship = approval();
         log(s, 'ship approved', source);
         return { message: 'Ship approved. Next: open the PR, then `cairn advance`.' };
@@ -88,13 +123,25 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
 export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
   const decisions = readText(planFile(pc, 'decisions.md')) ?? '';
+  const pre = loadState(pc.plan.dir);
+  // Advancing a fix plan from ship closes it, with the close checks. Tests run before the lock: they can be slow.
+  const closing = fastLane(pre) && pre.stage === 'ship';
+  // A changed command never runs before this check (an override needs the user's proof first).
+  if (closing) configGate(pre, pc.cfg, 'close', opts);
+  const record = closing ? recordCheck(pc, 'fix') : undefined;
+  const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : undefined;
   let to: Stage | undefined;
   const r = mutate(pc, undefined, (s) => {
-    to = nextStage(s.stage);
+    to = nextStage(s);
     if (!to || s.stage === 'learn') throw new Refusal(s.stage === 'learn' ? 'use `cairn close` to finish the plan' : 'the plan is closed');
     if (typeof opts.to === 'string' && opts.to !== to) throw new Refusal(`the next stage after ${s.stage} is ${to}, not ${opts.to}`);
     if (s.paused) throw new Refusal('the plan is paused', ['cairn resume']);
     switch (s.stage) {
+      case 'repro':
+        // Not overridable: without a repro the plan would leave the fast lane.
+        if (!s.repro) throw new Refusal('no repro is recorded', ['cairn repro "<command that fails while the bug is present>"']);
+        s.phases = [{ id: 'fix', name: 'Fix', status: 'pending', slices: [{ id: 'fix', name: 'Fix', covers: [], blockedBy: [], scope: ['**'], complexity: 'standard', status: 'pending', fixRound: 0 }] }];
+        break;
       case 'discover':
         gate(/^### /m.test(decisions), s, 'advance', opts, 'no decisions recorded yet', ['cairn decide "<question>" "<answer>"']);
         break;
@@ -115,6 +162,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         break;
       case 'ship':
         gate(!!s.approvals.ship, s, 'advance', opts, 'shipping is not approved', ['cairn approve ship']);
+        if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
     s.stage = to;
@@ -123,6 +171,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
       if (p && p.status === 'pending') p.status = 'in_progress';
     }
     log(s, 'advanced', to);
+    if (to === 'closed') return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRel(pc.plan.slug), `cairn(${pc.plan.slug}): advance to ${to}`);
@@ -131,12 +180,12 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
 
 export function cmdClose(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
-  const problems = recordProblems(pc);
+  configGate(loadState(pc.plan.dir), pc.cfg, 'close', opts);
+  const record = recordCheck(pc, 'feature');
   const tests = runTests(pc.cfg, pc.plan.worktree);
   return mutate(pc, 'closed', (s) => {
     gate(s.stage === 'learn', s, 'close', opts, `the plan is in ${s.stage}, not learn`);
-    gate(!problems.length, s, 'close', opts, problems.join('; '), ['write RECORD.md from templates/record.md']);
-    testsGate(tests, s, 'close', opts);
+    closeGates(pc, s, opts, record, tests);
     s.stage = 'closed';
     log(s, 'closed');
     return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };
