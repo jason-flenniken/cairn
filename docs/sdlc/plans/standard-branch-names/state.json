@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T14:07:21.309Z",
+  "updated": "2026-10-21T14:16:11.297Z",
   "stage": "review",
   "paused": null,
   "approvals": {
@@ -181,6 +181,12 @@
       "result": "pass",
       "at": "2026-10-21T14:07:21.189Z",
       "note": "tests: 146 CLI and 331 mod passing, build ok; 15 requirements met, 3 with test gaps logged as follow-ups (old sdlc plans end to end, doc wording, pane approval closing an already-open chat question)"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T14:16:11.296Z",
+      "note": "2 blocking findings fixed in place (plan lookup now keyed on the recorded branch); 6 follow-ups logged",
+      "blocking": 0
     }
   },
   "drift": [],
@@ -353,6 +359,11 @@
       "at": "2026-10-21T14:07:21.308Z",
       "event": "advanced",
       "detail": "review"
+    },
+    {
+      "at": "2026-10-21T14:16:11.297Z",
+      "event": "review pass",
+      "detail": "2 blocking findings fixed in place (plan lookup now keyed on the recorded branch); 6 follow-ups logged"
     }
   ],
   "suggestions": [
@@ -487,6 +498,66 @@
       ],
       "from": "check",
       "at": "2026-10-21T14:07:21.109Z"
+    },
+    {
+      "id": "s14",
+      "area": "ux",
+      "text": "A chat approval dialog already open when you approve in the pane stays open; no engine API to dismiss it was found.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.107Z"
+    },
+    {
+      "id": "s15",
+      "area": "quality",
+      "text": "Guard parseTags with Array.isArray(e.questions) before next(e) so the AskUserQuestion hook stays fail-open by construction.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.180Z"
+    },
+    {
+      "id": "s16",
+      "area": "quality",
+      "text": "The one-note dedup set is filled before the answer is checked; a stop tagged twice, answered Revise then Approve, drops the Approve. Add to the set only after an approval attempt.",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.254Z"
+    },
+    {
+      "id": "s17",
+      "area": "docs",
+      "text": "Old sdlc/ plans get new task/ task branches rather than sdlc-task/; it works, but say so in the docs.",
+      "where": [
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.324Z"
+    },
+    {
+      "id": "s18",
+      "area": "quality",
+      "text": "The pane's waiting value now only feeds status text; use ready directly so the two cannot diverge.",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T14:12:10.396Z"
+    },
+    {
+      "id": "s19",
+      "area": "tests",
+      "text": "A hand-made task/<slug>/x cut from a main that carries the plan files, with the plan branch still present, is treated as that plan's task; check the task is one the plan lists, and add a test.",
+      "where": [
+        "plugins/cairn/cli/src/locate.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T14:16:11.219Z"
     }
   ],
   "planHash": "ac8f391969859259",

@@ -20,8 +20,10 @@ Branch `sdlc/standard-branch-names` from `main` · started 2026-10-21 · updated
 - PRD approved 2026-10-21 (you, in the menu)
 - Plan approved 2026-10-21 (you, in the menu)
 - Verify: pass (tests: 146 CLI and 331 mod passing, build ok; 15 requirements met, 3 with test gaps logged as follow-ups (old sdlc plans end to end, doc wording, pane approval closing an already-open chat question))
+- Review: pass (2 blocking findings fixed in place (plan lookup now keyed on the recorded branch); 6 follow-ups logged)
 
 ## Recent activity
+- 2026-10-21 14:16 review pass: 2 blocking findings fixed in place (plan lookup now keyed on the recorded branch); 6 follow-ups logged
 - 2026-10-21 14:07 advanced: review
 - 2026-10-21 14:07 verify pass: tests: 146 CLI and 331 mod passing, build ok; 15 requirements met, 3 with test gaps logged as follow-ups (old sdlc plans end to end, doc wording, pane approval closing an already-open chat question)
 - 2026-10-21 14:04 advanced: verify
@@ -29,4 +31,3 @@ Branch `sdlc/standard-branch-names` from `main` · started 2026-10-21 · updated
 - 2026-10-21 14:04 task done: Pane approval card, clickable cards, one note
 - 2026-10-21 14:04 task merging: Pane approval card, clickable cards, one note
 - 2026-10-21 14:03 task reviewing: Pane approval card, clickable cards, one note
-- 2026-10-21 14:02 task done: CLI says when an approval is ready
