@@ -71,6 +71,8 @@ declare module 'claude-code' {
       now: number
       /** The file whose full text the approval card shows ("Read all"); null when closed. */
       readAllOf: string | null
+      /** The pane's tab. */
+      tab: 'now' | 'history' | 'records'
     }
   }
 }
