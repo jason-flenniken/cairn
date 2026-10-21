@@ -23,6 +23,8 @@ const STOP_NOW_MESSAGE =
 
 // The main loop's running turn, from turn.start to turn.complete; a subagent's turns are not tracked.
 let mainTurn: string | undefined
+/** True while the main loop's turn runs; the pane shows Stop now then (FR-12). */
+export const turnRunning = (): boolean => mainTurn !== undefined
 // The id of the turn Stop now cut, until its message is sent. The engine refuses a prompt.submit made from the command's own
 // hook (it would wait on the turn the hook holds), so the message goes out when that turn completes.
 let stopMessageFor: string | undefined
@@ -147,7 +149,7 @@ export async function resume($: EngineInterface, slug?: string): Promise<Outcome
 }
 
 /** Cuts the running turn and tells the model to wind down; with no turn, or a refused abort, just pauses. */
-async function stopNow($: EngineInterface): Promise<Outcome> {
+export async function stopNow($: EngineInterface): Promise<Outcome> {
   if (stopMessageFor !== undefined) {
     $.ui.toast('cairn: already stopping; waiting for the cut turn to finish')
     return { ok: false, message: 'Already stopping.' }
