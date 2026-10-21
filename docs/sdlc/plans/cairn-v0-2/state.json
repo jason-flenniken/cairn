@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T11:56:56.356Z",
-  "stage": "execute",
+  "updated": "2026-10-21T11:58:27.969Z",
+  "stage": "verify",
   "paused": null,
   "approvals": {
     "prd": {
@@ -408,7 +408,7 @@
     {
       "id": "dogfood",
       "name": "Dogfood fixes",
-      "status": "awaiting_approval",
+      "status": "done",
       "slices": [
         {
           "id": "test-flake",
@@ -590,25 +590,41 @@
       "path": "plugins/cairn/hooks/NOTES.md",
       "at": "2026-10-21T11:26:18.762Z",
       "reason": "edited outside slice \"Pause placeholder, pane repro label, guard false positives\" scope",
-      "slice": "mod-polish"
+      "slice": "mod-polish",
+      "acked": {
+        "at": "2026-10-21T11:57:13.314Z",
+        "note": "user accepted: approved out-of-scope edits during phase 4"
+      }
     },
     {
       "path": "plugins/cairn/cli/test/templates.test.ts",
       "at": "2026-10-21T11:46:16.940Z",
       "reason": "edited outside slice \"Named pre-approved cairn commands\" scope",
-      "slice": "skill-permissions"
+      "slice": "skill-permissions",
+      "acked": {
+        "at": "2026-10-21T11:57:13.314Z",
+        "note": "user accepted: approved out-of-scope edits during phase 4"
+      }
     },
     {
       "path": "plugins/cairn/cli/test/fix-procedure.test.ts",
       "at": "2026-10-21T11:47:56.680Z",
       "reason": "edited outside slice \"Named pre-approved cairn commands\" scope",
-      "slice": "skill-permissions"
+      "slice": "skill-permissions",
+      "acked": {
+        "at": "2026-10-21T11:57:13.314Z",
+        "note": "user accepted: approved out-of-scope edits during phase 4"
+      }
     },
     {
       "path": "plugins/cairn/cli/src/commands/fix.ts",
       "at": "2026-10-21T11:54:23.852Z",
       "reason": "changed outside slice \"Test summary, approval sources, strict ids, prefactor slices\" scope (found at slice done)",
-      "slice": "cli-polish"
+      "slice": "cli-polish",
+      "acked": {
+        "at": "2026-10-21T11:57:13.314Z",
+        "note": "user accepted: approved out-of-scope edits during phase 4"
+      }
     }
   ],
   "log": [
@@ -1192,6 +1208,21 @@
       "at": "2026-10-21T11:56:56.356Z",
       "event": "direction yellow",
       "detail": "Dogfood fixes"
+    },
+    {
+      "at": "2026-10-21T11:57:13.314Z",
+      "event": "drift reviewed",
+      "detail": "plugins/cairn/hooks/NOTES.md, plugins/cairn/cli/test/templates.test.ts, plugins/cairn/cli/test/fix-procedure.test.ts, plugins/cairn/cli/src/commands/fix.ts"
+    },
+    {
+      "at": "2026-10-21T11:58:27.968Z",
+      "event": "phase approved",
+      "detail": "Dogfood fixes (source: mod)"
+    },
+    {
+      "at": "2026-10-21T11:58:27.969Z",
+      "event": "advanced",
+      "detail": "verify"
     }
   ],
   "planHash": "cc54213ff13f0bd3",
