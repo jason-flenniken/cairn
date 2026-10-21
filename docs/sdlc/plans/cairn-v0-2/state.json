@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T10:12:11.879Z",
+  "updated": "2026-10-21T10:12:12.073Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -196,7 +196,7 @@
     {
       "id": "visibility",
       "name": "Pane, pause, resume, verdict",
-      "status": "awaiting_approval",
+      "status": "done",
       "slices": [
         {
           "id": "pause-resume",
@@ -296,7 +296,7 @@
     {
       "id": "drift-and-fix",
       "name": "Drift check and fast lane",
-      "status": "pending",
+      "status": "in_progress",
       "slices": [
         {
           "id": "direction-procedure",
@@ -488,7 +488,11 @@
       "path": "plugins/cairn/hooks/mod/pause.ts",
       "at": "2026-10-21T09:55:31.927Z",
       "reason": "edited outside slice \"Live pane and status line\" scope",
-      "slice": "pane"
+      "slice": "pane",
+      "acked": {
+        "at": "2026-10-21T10:12:12.001Z",
+        "note": "approved exports for the pane, no behavior change"
+      }
     }
   ],
   "log": [
@@ -806,6 +810,16 @@
       "at": "2026-10-21T10:12:11.879Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T10:12:12.001Z",
+      "event": "drift reviewed",
+      "detail": "plugins/cairn/hooks/mod/pause.ts"
+    },
+    {
+      "at": "2026-10-21T10:12:12.073Z",
+      "event": "phase approved",
+      "detail": "Pane, pause, resume, verdict"
     }
   ],
   "planHash": "8c7f32988aef9d04"
