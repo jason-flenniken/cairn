@@ -6,8 +6,8 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T14:27:19.720Z",
-  "stage": "discover",
+  "updated": "2026-10-21T14:40:37.753Z",
+  "stage": "prd",
   "paused": null,
   "approvals": {},
   "phases": [],
@@ -17,6 +17,11 @@
     {
       "at": "2026-10-21T14:27:19.719Z",
       "event": "created"
+    },
+    {
+      "at": "2026-10-21T14:40:37.753Z",
+      "event": "advanced",
+      "detail": "prd"
     }
   ]
 }
