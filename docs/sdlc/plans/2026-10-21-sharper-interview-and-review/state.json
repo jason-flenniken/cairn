@@ -6,7 +6,7 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:24:13.357Z",
+  "updated": "2026-10-21T21:24:55.374Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -99,14 +99,17 @@
             "plugins/cairn/cli/test/security-doc.test.ts"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": false,
-          "substep": "implementing",
           "branch": "task/sharper-interview-and-review/security-checklist",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--security-checklist",
           "base": "0d0470bab883ef9c08c80678bf900c6031037951",
-          "startedAt": "2026-10-21T21:22:30.219Z"
+          "startedAt": "2026-10-21T21:22:30.219Z",
+          "doneAt": "2026-10-21T21:24:55.373Z",
+          "tip": "0ee2ce1",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "7e050efd5e9aa279ecd2862f79bd500c78263334"
         },
         {
           "id": "close-when-merged",
@@ -286,6 +289,16 @@
       "at": "2026-10-21T21:24:13.357Z",
       "event": "task done",
       "detail": "Goal-first interview"
+    },
+    {
+      "at": "2026-10-21T21:24:24.110Z",
+      "event": "task merging",
+      "detail": "Security checklist, reviewer and credit"
+    },
+    {
+      "at": "2026-10-21T21:24:55.374Z",
+      "event": "task done",
+      "detail": "Security checklist, reviewer and credit"
     }
   ],
   "suggestions": [
@@ -326,6 +339,16 @@
       "at": "2026-10-21T21:10:06.456Z",
       "resolves": "cleaner-pane-and-records:s23",
       "note": "brought into sharper-interview-and-review"
+    },
+    {
+      "id": "s4",
+      "area": "tests",
+      "text": "Add a doc check that the review procedures dispatch the security reviewer once the wiring task lands",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T21:24:24.018Z"
     }
   ],
   "planHash": "f94805128506beb0",
