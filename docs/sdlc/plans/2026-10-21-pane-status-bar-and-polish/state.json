@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T23:15:13.800Z",
+  "updated": "2026-10-21T23:17:34.419Z",
   "stage": "verify",
   "paused": null,
   "approvals": {
@@ -256,7 +256,13 @@
       ]
     }
   ],
-  "evidence": {},
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-21T23:17:34.418Z",
+      "note": "tests: 209 CLI + 419 mod passing, build clean; 19 requirements met, 3 untested (NFR-02, step exit code, live checks pending for bar scroll, card click, viewer scroll); secret scan: clean; audit: npm 0 vulnerabilities, no lockfile changes"
+    }
+  },
   "drift": [
     {
       "path": "plugins/cairn/hooks/test/late-header.test.tsx",
@@ -613,6 +619,21 @@
       "at": "2026-10-21T23:15:13.800Z",
       "event": "advanced",
       "detail": "verify"
+    },
+    {
+      "at": "2026-10-21T23:15:27.574Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-10-21T23:15:58.941Z",
+      "event": "step",
+      "detail": "scanning"
+    },
+    {
+      "at": "2026-10-21T23:17:34.419Z",
+      "event": "verify pass",
+      "detail": "tests: 209 CLI + 419 mod passing, build clean; 19 requirements met, 3 untested (NFR-02, step exit code, live checks pending for bar scroll, card click, viewer scroll); secret scan: clean; audit: npm 0 vulnerabilities, no lockfile changes"
     }
   ],
   "suggestions": [
@@ -845,8 +866,23 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T23:13:47.108Z"
+    },
+    {
+      "id": "s23",
+      "area": "tests",
+      "text": "Pin NFR-02 and the step refusal: a test that the approve kinds are exactly prd, plan, ship and that only the poll and heartbeat timers start; a run() test that a bad cairn step exits 2",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "check",
+      "at": "2026-10-21T23:17:34.351Z"
     }
   ],
   "planHash": "0eaa106a32c142a9",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "step": {
+    "stage": "verify",
+    "name": "scanning",
+    "at": "2026-10-21T23:15:58.940Z"
+  }
 }

@@ -21,6 +21,7 @@ Branch `feature/pane-status-bar-and-polish` from `main` · started 2026-10-21 ·
 ## Checkpoints
 - PRD approved 2026-10-21 (you, in the menu)
 - Plan approved 2026-10-21 (you, in the menu)
+- Verify: pass (tests: 209 CLI + 419 mod passing, build clean; 19 requirements met, 3 untested (NFR-02, step exit code, live checks pending for bar scroll, card click, viewer scroll); secret scan: clean; audit: npm 0 vulnerabilities, no lockfile changes)
 
 ## Out-of-scope edits to review
 - `plugins/cairn/hooks/test/late-header.test.tsx`: edited outside task "Accurate header and status line" scope
@@ -35,11 +36,11 @@ Branch `feature/pane-status-bar-and-polish` from `main` · started 2026-10-21 ·
 - `plugins/cairn/types/index.d.ts`: changed outside task "One scrolling doc viewer" scope (found at task done)
 
 ## Recent activity
+- 2026-10-21 23:17 verify pass: tests: 209 CLI + 419 mod passing, build clean; 19 requirements met, 3 untested (NFR-02, step exit code, live checks pending for bar scroll, card click, viewer scroll); secret scan: clean; audit: npm 0 vulnerabilities, no lockfile changes
+- 2026-10-21 23:15 step: scanning
+- 2026-10-21 23:15 step: testing
 - 2026-10-21 23:15 advanced: verify
 - 2026-10-21 23:15 phase finished: Fill the pane (tests green (0 fail))
 - 2026-10-21 23:15 task done: Tighter pane, approval and close tests
 - 2026-10-21 23:14 task merging: Tighter pane, approval and close tests
 - 2026-10-21 23:08 task fixing: Tighter pane, approval and close tests (attempt 1)
-- 2026-10-21 23:06 task reviewing: Tighter pane, approval and close tests
-- 2026-10-21 23:02 task done: One scrolling doc viewer
-- 2026-10-21 23:02 drift: plugins/cairn/types/index.d.ts
