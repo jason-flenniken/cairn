@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T11:59:25.044Z",
-  "stage": "verify",
+  "updated": "2026-10-21T11:59:25.192Z",
+  "stage": "review",
   "paused": null,
   "approvals": {
     "prd": {
@@ -1234,6 +1234,11 @@
       "at": "2026-10-21T11:59:25.044Z",
       "event": "verify pass",
       "detail": "typecheck clean, 151 CLI tests and mod tests pass, validate passes; live: mod approvals, mod-run override, and pane all exercised during the build"
+    },
+    {
+      "at": "2026-10-21T11:59:25.191Z",
+      "event": "advanced",
+      "detail": "review"
     }
   ],
   "planHash": "cc54213ff13f0bd3",
