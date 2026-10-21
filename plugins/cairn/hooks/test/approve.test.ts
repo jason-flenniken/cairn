@@ -1,6 +1,6 @@
 import { describe, expect, mock, test, type Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { isApproveLabel, parseTags } from '../mod/approve.ts'
+import { isApproveLabel, parseTags, waitingStop } from '../mod/approve.ts'
 
 const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const HASH_FILE = '/repo/.git/cairn/mod-secret.sha256'
@@ -118,6 +118,17 @@ describe('isApproveLabel', () => {
     for (const label of ['approve', 'Approve ', 'Approve the revised wording', 'Revise', 'Approve,Revise', '', undefined]) {
       expect(isApproveLabel(label)).toBe(false)
     }
+  })
+})
+
+describe('waitingStop', () => {
+  test('names the unapproved prd, plan or ship stop, or a phase awaiting approval, and nothing else', () => {
+    expect(waitingStop({ stage: 'prd' })).toBe('prd')
+    expect(waitingStop({ stage: 'prd', approvals: { prd: { at: 'x' } } })).toBeUndefined()
+    expect(waitingStop({ stage: 'ship', approvals: {} })).toBe('ship')
+    expect(waitingStop({ stage: 'execute', phases: [{ status: 'done' }, { status: 'awaiting_approval' }] })).toBe('phase')
+    expect(waitingStop({ stage: 'execute', phases: [{ status: 'in_progress' }, { status: 'awaiting_approval' }] })).toBeUndefined()
+    expect(waitingStop({ stage: 'discover' })).toBeUndefined()
   })
 })
 

@@ -24,7 +24,10 @@ test('the heartbeat writes epoch ms to <git common dir>/cairn/mod-heartbeat ever
   const { writes, runs } = engine(on, { exitCode: 0, stdout: '/repo/.git\n' })
   await $.session.start({ cwd: '/repo', surface: null, isInteractive: false })
   await clock.settle()
-  expect(runs).toEqual([['git', 'rev-parse', '--path-format=absolute', '--git-common-dir']])
+  // The pane's start runs its own processes too; every git call made is the common-dir lookup.
+  const git = runs.filter(r => r[0] === 'git')
+  expect(git.length).toBeGreaterThan(0)
+  for (const r of git) expect(r).toEqual(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'])
   expect(writes).toEqual([{ path: '/repo/.git/cairn/mod-heartbeat', text: '1000' }])
 
   await clock.advance(2_000)

@@ -3,7 +3,7 @@ import type { Register } from 'claude-code'
 import { install as installApprove } from './mod/approve.ts'
 import { install as installGuards } from './mod/guards.ts'
 import { onSessionStart as heartbeatStart } from './mod/heartbeat.ts'
-import { install as installPane } from './mod/pane.tsx'
+import { install as installPane, onSessionStart as paneStart } from './mod/pane.tsx'
 import { install as installPause, onSessionStart as pauseStart } from './mod/pause.ts'
 
 export const register: Register = on => {
@@ -20,6 +20,11 @@ export const register: Register = on => {
       await pauseStart($, e)
     } catch {
       // Without the commands the pane buttons still work (NFR-07).
+    }
+    try {
+      await paneStart($, e)
+    } catch {
+      // Without the pane the commands and the session go on (NFR-07).
     }
     return next(e)
   })

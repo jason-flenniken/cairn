@@ -79,7 +79,7 @@ function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promi
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
-type PlanState = { slug?: string; stage?: string; approvals?: Record<string, unknown>; phases?: { status?: string }[] }
+export type PlanState = { slug?: string; stage?: string; approvals?: Record<string, unknown>; phases?: { status?: string }[] }
 type PlanRow = { state?: PlanState; worktree?: string }
 
 /** Every plan, from `cairn status --all --json` run where the session is. */
@@ -88,7 +88,7 @@ async function planRows($: EngineInterface): Promise<PlanRow[]> {
 }
 
 /** The stop a plan's state is waiting on, if any. */
-function waitingStop(state: PlanState): Kind | undefined {
+export function waitingStop(state: PlanState): Kind | undefined {
   const approvals = state.approvals ?? {}
   switch (state.stage) {
     case 'prd':
@@ -101,8 +101,11 @@ function waitingStop(state: PlanState): Kind | undefined {
   return undefined
 }
 
-/** Approves the tagged stop, or says why not. The tag's slug names the plan, never the session's. */
-async function approve($: EngineInterface, kind: Kind, slug: string): Promise<string> {
+/**
+ * Approves `kind` on plan `slug` with the secret, or says why not: the one approval path, shared by
+ * the menu answer, the pane's Approve button and /cairn-approve, so every use takes its turn with one secret.
+ */
+export async function approveAs($: EngineInterface, slug: string, kind: Kind): Promise<string> {
   const row = (await planRows($)).find(p => p.state?.slug === slug)
   if (row?.state === undefined) return `cairn: no plan "${slug}", so nothing was approved.`
   if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so nothing was approved.`
@@ -229,7 +232,7 @@ export function install(on: On): void {
       else if (result?.afkTimeoutMs !== undefined) skipped('the dialog answered itself while you were away')
       else if (!isApproveLabel(answers[tag.question])) skipped('the answer was not "Approve"')
       else {
-        const outcome = await approve($, tag.kind, tag.slug)
+        const outcome = await approveAs($, tag.slug, tag.kind)
         $.ui.toast(outcome)
         notes.push(outcome)
       }

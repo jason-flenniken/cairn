@@ -103,6 +103,7 @@ function world(on: On, w: World = {}) {
   return { beats, cli, writes, toasts, asked, aborts, submits, registered, order, ran }
 }
 
+const PAUSE_COMMANDS = ['cairn-pause-now', 'cairn-pause-mod', 'cairn-resume-mod']
 const start = ($: any) => $.session.start({ cwd: '/repo', surface: null, isInteractive: false })
 
 test('the handoff lists running slices with substep and worktree, and keeps earlier open questions', () => {
@@ -197,7 +198,7 @@ test('Stop now message names TaskStop and substep recording but no slice or plan
   for (const leak of ['Secret Checkout Flow', 'Payments', 'Acme Storefront Rewrite', 'shop', 'cart', 'sdlc-slice']) {
     expect(text).not.toContain(leak)
   }
-  expect(w.cli).toEqual([])
+  expect(w.cli.filter(a => a[0] !== 'status')).toEqual([])
 })
 
 test('a turn that completes without Stop now submits nothing', async ($, on) => {
@@ -285,7 +286,7 @@ test('session start registers both commands; one failing registration does not s
   const w = world(on, { failRegister: true })
   expect(await start($)).toEqual({ cwd: '/repo' })
   expect(w.beats).toEqual([String(NOW)])
-  expect(w.registered).toEqual(['cairn-pause-now', 'cairn-pause-mod', 'cairn-resume-mod'])
+  expect(w.registered.filter(n => PAUSE_COMMANDS.includes(n))).toEqual(PAUSE_COMMANDS)
 })
 
 const aborted = ($: any, turnId: string) => $.turn.complete({ turnId, reason: 'aborted', answer: '' } as never)
@@ -359,5 +360,5 @@ test('a module whose start throws does not stop the other module or the session'
   const w = world(on, { failTimer: true })
   expect(await start($)).toEqual({ cwd: '/repo' })
   expect(w.beats).toEqual([])
-  expect(w.registered).toEqual(['cairn-pause-now', 'cairn-pause-mod', 'cairn-resume-mod'])
+  expect(w.registered.filter(n => PAUSE_COMMANDS.includes(n))).toEqual(PAUSE_COMMANDS)
 })

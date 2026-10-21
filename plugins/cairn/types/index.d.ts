@@ -8,3 +8,26 @@ export type CairnRun = {
   /** stdout parsed as JSON, when it parses. */
   json?: any
 }
+
+/** A plan's state.json as the pane reads it: the fields it draws, each possibly absent in an old plan. */
+export type CairnPlanState = {
+  slug: string
+  title?: string
+  stage?: string
+  paused?: { at?: string } | null
+  approvals?: Record<string, unknown>
+  phases?: unknown
+  drift?: unknown
+}
+
+/** One row of `cairn status --all --json`. */
+export type CairnPlanRow = { state: CairnPlanState; worktree?: string; next?: { text?: string } }
+
+/** The pane's last good read: every plan, and the slug of the one the session is in. */
+export type CairnView = { plans: CairnPlanRow[]; here?: string }
+
+declare module 'claude-code' {
+  interface PluginState {
+    cairn: { view: CairnView | null; isTurnRunning: boolean }
+  }
+}
