@@ -6,7 +6,7 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:32:43.631Z",
+  "updated": "2026-10-21T21:32:48.697Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -27,7 +27,7 @@
     {
       "id": "material",
       "name": "Interview, checklists and close rule",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "goal-interview",
@@ -148,7 +148,7 @@
     {
       "id": "wiring",
       "name": "Wire into the flow",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "review-routing",
@@ -379,6 +379,11 @@
       "at": "2026-10-21T21:32:43.631Z",
       "event": "task done",
       "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:32:48.697Z",
+      "event": "phase finished",
+      "detail": "Interview, checklists and close rule (tests green (0 fail))"
     }
   ],
   "suggestions": [
