@@ -6,7 +6,7 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T13:56:41.510Z",
+  "updated": "2026-10-21T13:58:25.476Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -27,7 +27,7 @@
     {
       "id": "rename-branches",
       "name": "Standard branch names",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "cli-branches",
@@ -47,14 +47,17 @@
             "plugins/cairn/dist/**"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": false,
-          "substep": "implementing",
           "branch": "sdlc-task/standard-branch-names/cli-branches",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-standard-branch-names--cli-branches",
           "base": "8fe4c16177a99f697cd1a9ffc5268092eb4c5672",
-          "startedAt": "2026-10-21T13:51:46.859Z"
+          "startedAt": "2026-10-21T13:51:46.859Z",
+          "doneAt": "2026-10-21T13:58:25.475Z",
+          "tip": "2442314",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "1e1c647ccfd43edc1908d94ca74ef7aa1cd107c6"
         },
         {
           "id": "pane-watch",
@@ -248,6 +251,16 @@
       "at": "2026-10-21T13:56:41.510Z",
       "event": "task done",
       "detail": "Pane notices plans on the new prefixes"
+    },
+    {
+      "at": "2026-10-21T13:57:27.420Z",
+      "event": "task merging",
+      "detail": "CLI branch names and plan discovery"
+    },
+    {
+      "at": "2026-10-21T13:58:25.476Z",
+      "event": "task done",
+      "detail": "CLI branch names and plan discovery"
     }
   ],
   "suggestions": [
@@ -292,6 +305,26 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T13:56:13.119Z"
+    },
+    {
+      "id": "s5",
+      "area": "tests",
+      "text": "Add a lifecycle test that runs a plan recorded on sdlc/ through task start and done, to cover old plans end to end.",
+      "where": [
+        "plugins/cairn/cli/test/**"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T13:57:27.274Z"
+    },
+    {
+      "id": "s6",
+      "area": "quality",
+      "text": "With cairn new --no-worktree, task folders are named after the repo folder (e.g. ai_workflow--cart) rather than the plan branch; name them from the plan branch instead.",
+      "where": [
+        "plugins/cairn/cli/src/commands/tasks.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T13:57:27.348Z"
     }
   ],
   "planHash": "ac8f391969859259",
