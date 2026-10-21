@@ -6,7 +6,7 @@
   "branch": "feature/sharper-interview-and-review",
   "base": "main",
   "created": "2026-10-21T21:02:06.482Z",
-  "updated": "2026-10-21T21:25:33.005Z",
+  "updated": "2026-10-21T21:32:43.631Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -27,7 +27,7 @@
     {
       "id": "material",
       "name": "Interview, checklists and close rule",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "goal-interview",
@@ -130,15 +130,18 @@
             "plugins/cairn/dist/**"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
           "riskReason": "changes when the CLI refuses to close a plan; a wrong check blocks every close",
-          "substep": "implementing",
           "branch": "task/sharper-interview-and-review/close-when-merged",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-sharper-interview-and-review--close-when-merged",
           "base": "10a2ae48e9ab05108dc15dc632a0c0e07a324e81",
-          "startedAt": "2026-10-21T21:24:56.209Z"
+          "startedAt": "2026-10-21T21:24:56.209Z",
+          "doneAt": "2026-10-21T21:32:43.631Z",
+          "tip": "4f7af1e",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2a43bbebfbdb5e43f69f932bb67863a02aaa2745"
         }
       ]
     },
@@ -222,7 +225,26 @@
     }
   ],
   "evidence": {},
-  "drift": [],
+  "drift": [
+    {
+      "path": "plugins/cairn/cli/test/fix.test.ts",
+      "at": "2026-10-21T21:32:43.631Z",
+      "reason": "changed outside task \"Close only when merged\" scope (found at task done)",
+      "task": "close-when-merged"
+    },
+    {
+      "path": "plugins/cairn/cli/test/followups.test.ts",
+      "at": "2026-10-21T21:32:43.631Z",
+      "reason": "changed outside task \"Close only when merged\" scope (found at task done)",
+      "task": "close-when-merged"
+    },
+    {
+      "path": "plugins/cairn/cli/test/proof.test.ts",
+      "at": "2026-10-21T21:32:43.631Z",
+      "reason": "changed outside task \"Close only when merged\" scope (found at task done)",
+      "task": "close-when-merged"
+    }
+  ],
   "log": [
     {
       "at": "2026-10-21T21:02:06.482Z",
@@ -327,6 +349,36 @@
       "at": "2026-10-21T21:25:33.005Z",
       "event": "task done",
       "detail": "Review checklist and reviewers"
+    },
+    {
+      "at": "2026-10-21T21:31:36.513Z",
+      "event": "task reviewing",
+      "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:32:15.165Z",
+      "event": "task merging",
+      "detail": "Close only when merged"
+    },
+    {
+      "at": "2026-10-21T21:32:43.631Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/fix.test.ts"
+    },
+    {
+      "at": "2026-10-21T21:32:43.631Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/followups.test.ts"
+    },
+    {
+      "at": "2026-10-21T21:32:43.631Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/proof.test.ts"
+    },
+    {
+      "at": "2026-10-21T21:32:43.631Z",
+      "event": "task done",
+      "detail": "Close only when merged"
     }
   ],
   "suggestions": [
@@ -377,6 +429,36 @@
       ],
       "from": "implementer",
       "at": "2026-10-21T21:24:24.018Z"
+    },
+    {
+      "id": "s5",
+      "area": "quality",
+      "text": "Treat squash and rebase merges as merged when deciding whether a plan can close (compare with git cherry or the PR state), so they don't need an override",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T21:30:11.198Z"
+    },
+    {
+      "id": "s6",
+      "area": "security",
+      "text": "Reject a base branch name starting with a dash, or pass '--', before git fetch origin <base>",
+      "where": [
+        "plugins/cairn/cli/src/git.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T21:32:15.010Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "Add a close case where origin is ahead of the local base and the branch is merged only on origin",
+      "where": [
+        "plugins/cairn/cli/test/close-merged.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T21:32:15.088Z"
     }
   ],
   "planHash": "f94805128506beb0",
