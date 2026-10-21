@@ -81,3 +81,8 @@ _2026-10-20 23:05_
 **Decision:** Added FR-41 (slice done checks the git diff against scope and logs drift, catching Bash edits) and FR-42 (re-plans keep slice progress including the start commit) to cli-polish. Pause-resume builds the single session.start fan-out in register.tsx. Pane reuses the approve.ts secret path. Dogfood-docs rewrites cli.md for the hash design and tells review.md to run overrides alone with plain-text reasons.
 **Why:** Findings from the phase 1 alignment check, the drift probe, and slice reports.
 _2026-10-21 09:29_
+
+### 17. When is the live menu-approval test run?
+**Decision:** At the Verify stage, after v0.2 is merged and installed: a real menu approval, an Override, and the 0600 check in one sitting. Until then approvals use the v0.1 relayed path.
+**Why:** Avoids a second terminal mid-plan; the installed plugin only becomes v0.2 after merge.
+_2026-10-21 09:30_

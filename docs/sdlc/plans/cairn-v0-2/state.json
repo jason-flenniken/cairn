@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T09:30:43.601Z",
+  "updated": "2026-10-21T09:40:05.665Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -224,8 +224,12 @@
             "plugins/cairn/templates/config.json"
           ],
           "complexity": "standard",
-          "status": "pending",
-          "fixRound": 0
+          "status": "in_progress",
+          "fixRound": 0,
+          "substep": "implementing",
+          "branch": "sdlc-slice/cairn-v0-2/pause-resume",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--pause-resume",
+          "base": "f5bbaa5ddf075eb24e29beebc9ef1ca8a70dd5c7"
         },
         {
           "id": "direction-cli",
@@ -246,8 +250,15 @@
             "plugins/cairn/cli/test/direction.test.ts"
           ],
           "complexity": "standard",
-          "status": "pending",
-          "fixRound": 0
+          "status": "done",
+          "fixRound": 1,
+          "branch": "sdlc-slice/cairn-v0-2/direction-cli",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--direction-cli",
+          "base": "f5bbaa5ddf075eb24e29beebc9ef1ca8a70dd5c7",
+          "note": "CRLF block match and hunt-case tests",
+          "doneAt": "2026-10-21T09:40:05.665Z",
+          "tip": "eba5574",
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
         },
         {
           "id": "pane",
@@ -659,6 +670,36 @@
       "at": "2026-10-21T09:30:43.601Z",
       "event": "phase approved",
       "detail": "Proof of the user"
+    },
+    {
+      "at": "2026-10-21T09:30:48.946Z",
+      "event": "slice started",
+      "detail": "Instant pause, Stop now, fresh resume"
+    },
+    {
+      "at": "2026-10-21T09:30:49.374Z",
+      "event": "slice started",
+      "detail": "Computed drift verdict in the CLI"
+    },
+    {
+      "at": "2026-10-21T09:34:35.651Z",
+      "event": "slice reviewing",
+      "detail": "Computed drift verdict in the CLI"
+    },
+    {
+      "at": "2026-10-21T09:35:53.240Z",
+      "event": "slice fixing",
+      "detail": "Computed drift verdict in the CLI (round 1): CRLF block match and hunt-case tests"
+    },
+    {
+      "at": "2026-10-21T09:39:39.820Z",
+      "event": "slice merging",
+      "detail": "Computed drift verdict in the CLI"
+    },
+    {
+      "at": "2026-10-21T09:40:05.665Z",
+      "event": "slice done",
+      "detail": "Computed drift verdict in the CLI"
     }
   ],
   "planHash": "77b962c0908b30bb"
