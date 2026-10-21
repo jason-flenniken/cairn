@@ -89,6 +89,7 @@ function world(on: On, w: World = {}) {
   on('turn.complete', () => ({ text: '' }))
   on('turn.abort', (_$, e) => {
     aborts.push(e.turnId)
+    order.push(`abort ${e.turnId}`)
     return w.failAbort ? { deny: `turn ${e.turnId} is not running` } : { value: undefined }
   })
   on('prompt.submit', (_$, e) => {
@@ -174,16 +175,54 @@ test('Stop now with no tracked turn pauses with mode now and calls no abort (Rev
   expect(w.ran('pause')).toEqual([['pause', '--now']])
 })
 
-test('Stop now with a running turn aborts it, submits the fixed message when that turn completes, and pauses nothing itself', async ($, on) => {
+const TIP = '/clear is safe now; the handoff has everything'
+
+test('Stop now with a running turn pauses with mode now, then aborts it, and submits the fixed message once that turn completes', async ($, on) => {
   const w = world(on)
   await start($)
   await $.turn.start({ text: 'go', turnId: 'turn-7' })
   await $.command.run({ command: 'cairn-pause-now' })
+  expect(w.order.slice(-3)).toEqual([`write ${HANDOFF}`, 'cairn pause --now', `abort turn-7`])
+  expect(w.ran('pause')).toEqual([['pause', '--now']])
   expect(w.aborts).toEqual(['turn-7'])
   expect(w.submits).toEqual([])
   await $.turn.complete({ turnId: 'turn-7', reason: 'aborted', answer: '' } as never)
   expect(w.submits).toHaveLength(1)
-  expect(w.ran('pause')).toEqual([])
+  expect(w.ran('pause')).toEqual([['pause', '--now']])
+})
+
+test('Stop now with a running turn shows the /clear tip after the pause', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await $.turn.start({ text: 'go', turnId: 'turn-7' })
+  await $.command.run({ command: 'cairn-pause-now' })
+  expect(w.toasts.filter(t => t.includes(TIP))).toHaveLength(1)
+})
+
+test('Stop now still aborts and sends the message when cairn pause --now refuses, and toasts the refusal without the tip', async ($, on) => {
+  const w = world(on, { refusePause: 'a slice is mid-merge' })
+  await start($)
+  await $.turn.start({ text: 'go', turnId: 'turn-7' })
+  await $.command.run({ command: 'cairn-pause-now' })
+  expect(w.aborts).toEqual(['turn-7'])
+  expect(w.toasts.join('\n')).toContain('a slice is mid-merge')
+  expect(w.toasts.join('\n')).not.toContain(TIP)
+  await $.turn.complete({ turnId: 'turn-7', reason: 'aborted', answer: '' } as never)
+  expect(w.submits).toHaveLength(1)
+})
+
+test('a successful drain pause shows the /clear tip', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await $.command.run({ command: 'cairn-pause-mod' })
+  expect(w.toasts.filter(t => t.includes(TIP))).toHaveLength(1)
+})
+
+test('a refused drain pause shows no /clear tip', async ($, on) => {
+  const w = world(on, { refusePause: 'nope' })
+  await start($)
+  await $.command.run({ command: 'cairn-pause-mod' })
+  expect(w.toasts.join('\n')).not.toContain(TIP)
 })
 
 test('Stop now message names TaskStop and substep recording but no slice or plan text (security)', async ($, on) => {
@@ -198,7 +237,7 @@ test('Stop now message names TaskStop and substep recording but no slice or plan
   for (const leak of ['Secret Checkout Flow', 'Payments', 'Acme Storefront Rewrite', 'shop', 'cart', 'sdlc-slice']) {
     expect(text).not.toContain(leak)
   }
-  expect(w.cli.filter(a => a[0] !== 'status')).toEqual([])
+  expect(w.cli.filter(a => a[0] !== 'status' && a[0] !== 'pause')).toEqual([])
 })
 
 test('a turn that completes without Stop now submits nothing', async ($, on) => {
@@ -328,7 +367,7 @@ test('Stop now while a stop message is pending does nothing but toast', async ($
   await $.command.run({ command: 'cairn-pause-now' })
   await $.command.run({ command: 'cairn-pause-now' })
   expect(w.aborts).toEqual(['turn-1'])
-  expect(w.ran('pause')).toEqual([])
+  expect(w.ran('pause')).toEqual([['pause', '--now']])
   expect(w.toasts.join('\n')).toMatch(/already stopping/)
 })
 

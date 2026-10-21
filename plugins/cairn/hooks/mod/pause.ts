@@ -14,6 +14,7 @@ export type Outcome = { ok: boolean; message: string }
 const quick: ProcessRunInit = { timeoutMs: 60_000 }
 const FRESH_MINUTES = 60
 const RESUME_HERE = 'Resume here anyway'
+const CLEAR_TIP = '/clear is safe now; the handoff has everything'
 
 // What Stop now tells the model after the turn is cut. Fixed text: no plan or slice names.
 const STOP_NOW_MESSAGE =
@@ -114,6 +115,7 @@ export async function pause($: EngineInterface, mode: 'drain' | 'now'): Promise<
   const r = await cairn($, mode === 'now' ? ['pause', '--now'] : ['pause'], quick)
   if (r.exitCode !== 0) return fail($, `pause refused: ${said(r)}`)
   $.ui.toast(`cairn: ${r.stdout.trim()}`)
+  $.ui.toast(`cairn: ${CLEAR_TIP}`)
   return { ok: true, message: r.stdout.trim() }
 }
 
@@ -148,24 +150,25 @@ export async function resume($: EngineInterface, slug?: string): Promise<Outcome
   return runResume($, ['resume'])
 }
 
-/** Cuts the running turn and tells the model to wind down; with no turn, or a refused abort, just pauses. */
+/** Pauses with mode now, then cuts the running turn and tells the model to wind down; with no turn, just pauses. */
 export async function stopNow($: EngineInterface): Promise<Outcome> {
   if (stopMessageFor !== undefined) {
     $.ui.toast('cairn: already stopping; waiting for the cut turn to finish')
     return { ok: false, message: 'Already stopping.' }
   }
   const turnId = mainTurn
-  if (turnId !== undefined) {
-    try {
-      await $.turn.abort({ turnId })
-      mainTurn = undefined
-      stopMessageFor = turnId
-      return { ok: true, message: 'Stopped the running turn; Claude will wind down the agents.' }
-    } catch {
-      // The turn was already over; fall through to pausing without it.
-    }
+  if (turnId === undefined) return pause($, 'now')
+  // Paused first so the state is right even if the model never winds down; a refusal is toasted and the turn is still cut.
+  const paused = await pause($, 'now')
+  try {
+    await $.turn.abort({ turnId })
+  } catch {
+    // The turn was already over; nothing to cut.
+    return paused
   }
-  return pause($, 'now')
+  mainTurn = undefined
+  stopMessageFor = turnId
+  return { ok: true, message: `${paused.ok ? 'Paused. ' : `${paused.message}. `}Stopped the running turn; Claude will wind down the agents.` }
 }
 
 const COMMANDS = [
