@@ -6,10 +6,17 @@
   "branch": "sdlc/standard-branch-names",
   "base": "main",
   "created": "2026-10-21T13:41:30.344Z",
-  "updated": "2026-10-21T13:44:26.409Z",
+  "updated": "2026-10-21T13:45:06.126Z",
   "stage": "prd",
   "paused": null,
-  "approvals": {},
+  "approvals": {
+    "prd": {
+      "at": "2026-10-21T13:45:06.125Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "4ad36f067cf7742e"
+    }
+  },
   "phases": [],
   "evidence": {},
   "drift": [],
@@ -22,6 +29,11 @@
       "at": "2026-10-21T13:44:26.408Z",
       "event": "advanced",
       "detail": "prd"
+    },
+    {
+      "at": "2026-10-21T13:45:06.126Z",
+      "event": "PRD approved",
+      "detail": "mod"
     }
   ]
 }

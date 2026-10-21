@@ -21,3 +21,8 @@ _2026-10-21 13:44_
 **Decision:** Users: Jason, one developer, local repos. Non-goals: configurable prefixes, renaming existing branches, changing remote push or PR conventions beyond the branch name. Risky areas: none (no auth, money, data deletion or migrations; task branch deletion after merge is unchanged).
 **Why:** Keep it the simplest move to standard names.
 _2026-10-21 13:44_
+
+### 5. What are worktree folders named?
+**Decision:** After the branch, with the slash as a dash: .claude/worktrees/feature-<slug> or fix-<slug>; a task folder is the plan folder plus --<task>.
+**Why:** Folder names that match the branch are easier to find; old plans keep their sdlc- folders.
+_2026-10-21 13:44_
