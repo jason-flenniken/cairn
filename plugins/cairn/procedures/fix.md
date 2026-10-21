@@ -49,13 +49,13 @@ The question names the reason and offers two options: "Escalate to a feature pla
 **Done when:** the user has chosen, and either the plan is escalated or the fix slice is back in the loop.
 
 ## 6. Review
-Dispatch the `branch-reviewer` agent (`model: opus`) with a security focus on the diff. Give it the paths to `prd.md` and `plan.md`, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`. It returns findings as blocking or advisory, each with `path:line`.
+Dispatch the `branch-reviewer` agent (`model: opus`) with a security focus on the diff. Give it only the bug title, the repro command from `state.repro` in `cairn status --json`, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`. It returns findings as blocking or advisory, each with `path:line`.
 
 Record the result with the existing evidence command:
 - No blocking findings: `cairn evidence review pass --blocking 0 --note "<N advisory>"`.
-- Blocking findings, N of them: `cairn evidence review fail --blocking N --note "<N blocking; A advisory>"`. Then fix each blocking finding in a fix slice, and rerun this step on the new diff.
+- Blocking findings, N of them: `cairn evidence review fail --blocking N --note "<N blocking; A advisory>"`. Tell the user the blocking findings, each with its `path:line`. Then ask with AskUserQuestion, with the options "Escalate to a feature plan (Recommended)" and "Hold". On "Escalate to a feature plan", run `cairn escalate` and stop this procedure. On "Hold", stop here; the plan stays at review.
 
-Then run `cairn advance`. It is refused until a pass with zero blocking findings is recorded. Report advisory findings in a few lines with their `path:line`, for the record's Follow-ups.
+Then run `cairn advance` (only when there were no blocking findings). It is refused until a pass with zero blocking findings is recorded. Report advisory findings in a few lines with their `path:line`, for the record's Follow-ups.
 
 **Done when:** `cairn status --json` shows a review pass with `--blocking 0` and the stage is ship.
 

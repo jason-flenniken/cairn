@@ -63,3 +63,23 @@ test('fix.md never pre-approves the repro command', () => {
     assert.doesNotMatch(line, /\ballow/i, `repro line mentions an allow list: "${line.trim()}"`);
   }
 });
+
+test('fix.md step 6 hands the reviewer the bug and repro, not prd.md or plan.md', () => {
+  const src = read('procedures/fix.md');
+  const start = src.indexOf('## 6. Review');
+  const end = src.indexOf('## 7.');
+  assert.ok(start >= 0 && end > start, 'step 6 is present');
+  const step = src.slice(start, end);
+  assert.doesNotMatch(step, /prd\.md|plan\.md/);
+  assert.match(step, /state\.repro/);
+  assert.match(step, /bug title/);
+});
+
+test('fix.md step 6 offers escalate or hold for blocking findings, and does not reopen a slice', () => {
+  const src = read('procedures/fix.md');
+  const step = src.slice(src.indexOf('## 6. Review'), src.indexOf('## 7.'));
+  assert.match(step, /AskUserQuestion/);
+  assert.match(step, /Escalate to a feature plan \(Recommended\)/);
+  assert.match(step, /"Hold"|Hold/);
+  assert.doesNotMatch(step, /fix each blocking finding in a fix slice/i);
+});
