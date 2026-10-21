@@ -47,7 +47,7 @@ test('fix.md runs cairn approve only as the --human text it shows the user', () 
 test('fix.md offers escalate with AskUserQuestion for a fix past the file limit', () => {
   const src = read('procedures/fix.md');
   assert.match(src, /cairn escalate/);
-  assert.match(src, /slice done/);
+  assert.match(src, /task done/);
   assert.match(src, /AskUserQuestion/);
 });
 
@@ -84,5 +84,5 @@ test('fix.md step 6 offers a fix in place, escalate, or hold for blocking findin
   assert.match(step, /Fix in place \(Recommended when small\)/);
   assert.match(step, /Escalate to a feature plan/);
   assert.match(step, /"Hold"|Hold/);
-  assert.doesNotMatch(step, /fix each blocking finding in a fix slice/i);
+  assert.doesNotMatch(step, /fix each blocking finding in a fix task/i);
 });

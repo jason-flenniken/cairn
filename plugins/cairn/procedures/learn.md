@@ -12,7 +12,7 @@ Run `cairn status --json`. The stage must be `learn`. Any other stage: say which
 **Done when:** the stage is `learn`.
 
 ## 2. Ask
-Ask with AskUserQuestion: "Anything worth remembering for next time?" Offer: Nothing to add (Recommended) / Add a note. Suggest candidates from the run when you saw them: a slice that needed escalation, a repeated review finding, a surprising constraint.
+Ask with AskUserQuestion: "Anything worth remembering for next time?" Offer: Nothing to add (Recommended) / Add a note. Suggest candidates from the run when you saw them: a task that needed escalation, a repeated review finding, a surprising constraint.
 
 **Done when:** the user answered.
 

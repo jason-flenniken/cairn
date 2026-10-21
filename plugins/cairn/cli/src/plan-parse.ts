@@ -1,9 +1,9 @@
 import { parse } from 'yaml';
 import { ids, missingSections, PLAN_SECTIONS, sections } from './sections.ts';
-import type { Complexity, Phase, Slice } from './types.ts';
+import type { Complexity, Phase, Task } from './types.ts';
 import { SLUG } from './util.ts';
 
-const BLOCK = /```ya?ml\s+cairn-slices\s*\n([\s\S]*?)```/;
+const BLOCK = /```ya?ml\s+cairn-tasks\s*\n([\s\S]*?)```/;
 const COMPLEXITY: Complexity[] = ['simple', 'standard', 'complex'];
 const KINDS = ['prefactor'];
 
@@ -22,17 +22,17 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
   if (missing.length) problems.push(`plan.md is missing sections: ${missing.join(', ')}`);
 
   const block = planMd.match(BLOCK)?.[1];
-  if (!block) return { phases: [], problems: [...problems, 'plan.md has no ```yaml cairn-slices block under ## Phases'] };
+  if (!block) return { phases: [], problems: [...problems, 'plan.md has no ```yaml cairn-tasks block under ## Phases'] };
 
   let doc: unknown;
   try {
     doc = parse(block);
   } catch (e) {
-    return { phases: [], problems: [...problems, `cairn-slices YAML does not parse: ${(e as Error).message}`] };
+    return { phases: [], problems: [...problems, `cairn-tasks YAML does not parse: ${(e as Error).message}`] };
   }
   const rawPhases = (doc as { phases?: unknown })?.phases;
   if (!Array.isArray(rawPhases) || rawPhases.length === 0)
-    return { phases: [], problems: [...problems, 'cairn-slices needs a non-empty `phases:` list'] };
+    return { phases: [], problems: [...problems, 'cairn-tasks needs a non-empty `phases:` list'] };
 
   const requirements = sections(prdMd).get('functional requirements');
   const prdIds = new Set(ids(requirements));
@@ -46,11 +46,11 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
     if (!SLUG.test(pid)) problems.push(`phase #${pi + 1}: id "${pid}" must be kebab-case`);
     if (seenPhase.has(pid)) problems.push(`phase id "${pid}" is used twice`);
     seenPhase.add(pid);
-    const slices: Slice[] = [];
-    if (!Array.isArray(rp?.slices) || rp.slices.length === 0) problems.push(`phase "${pid}" has no slices`);
-    for (const rs of rp?.slices ?? []) {
+    const tasks: Task[] = [];
+    if (!Array.isArray(rp?.tasks) || rp.tasks.length === 0) problems.push(`phase "${pid}" has no tasks`);
+    for (const rs of rp?.tasks ?? []) {
       const sid = String(rs?.id ?? '');
-      const where = `slice "${sid}"`;
+      const where = `task "${sid}"`;
       if (!SLUG.test(sid)) problems.push(`${where}: id must be kebab-case`);
       if (phaseOf.has(sid)) problems.push(`${where}: id is used twice`);
       phaseOf.set(sid, pi);
@@ -64,18 +64,18 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
       for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Functional requirements`);
       if (!scope.length) problems.push(`${where}: \`scope\` must list the file globs it may touch`);
       if (!COMPLEXITY.includes(complexity)) problems.push(`${where}: complexity must be simple, standard, or complex`);
-      slices.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, blockedBy, scope, complexity, status: 'pending', fixRound: 0 });
+      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, blockedBy, scope, complexity, status: 'pending', fixRound: 0 });
     }
-    phases.push({ id: pid, name: String(rp?.name ?? pid), status: 'pending', slices });
+    phases.push({ id: pid, name: String(rp?.name ?? pid), status: 'pending', tasks });
   });
 
   // blocked_by: known ids, same or earlier phase, no cycles.
-  const all = phases.flatMap((p) => p.slices);
+  const all = phases.flatMap((p) => p.tasks);
   for (const [pi, p] of phases.entries())
-    for (const s of p.slices)
+    for (const s of p.tasks)
       for (const b of s.blockedBy) {
-        if (!phaseOf.has(b)) problems.push(`slice "${s.id}": blocked_by "${b}" is not a slice in this plan`);
-        else if (phaseOf.get(b)! > pi) problems.push(`slice "${s.id}": blocked_by "${b}" is in a later phase`);
+        if (!phaseOf.has(b)) problems.push(`task "${s.id}": blocked_by "${b}" is not a task in this plan`);
+        else if (phaseOf.get(b)! > pi) problems.push(`task "${s.id}": blocked_by "${b}" is in a later phase`);
       }
   const cycle = findCycle(all);
   if (cycle) problems.push(`blocked_by has a cycle: ${cycle.join(' → ')}`);
@@ -85,7 +85,7 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
   const deferred = new Set(ids(sections(planMd).get('deferred requirements')));
   const uncovered = [...prdIds].filter((id) => !covered.has(id) && !deferred.has(id));
   if (uncovered.length)
-    problems.push(`PRD requirements not covered by any slice: ${uncovered.join(', ')}. Cover them or list them under ## Deferred requirements`);
+    problems.push(`PRD requirements not covered by any task: ${uncovered.join(', ')}. Cover them or list them under ## Deferred requirements`);
 
   return { phases, problems };
 }
@@ -100,8 +100,8 @@ function badRequirementIds(requirements = ''): string[] {
   return [...bad].map((id) => `PRD requirement id "${id}" must have the form FR-<digits>`);
 }
 
-function findCycle(slices: Slice[]): string[] | undefined {
-  const deps = new Map(slices.map((s) => [s.id, s.blockedBy]));
+function findCycle(tasks: Task[]): string[] | undefined {
+  const deps = new Map(tasks.map((s) => [s.id, s.blockedBy]));
   const state = new Map<string, 1 | 2>();
   const stack: string[] = [];
   const visit = (id: string): string[] | undefined => {
@@ -116,22 +116,22 @@ function findCycle(slices: Slice[]): string[] | undefined {
     stack.pop();
     state.set(id, 2);
   };
-  for (const s of slices) {
+  for (const s of tasks) {
     const c = visit(s.id);
     if (c) return c;
   }
 }
 
-/** Keep progress of slices that survive a re-plan. */
+/** Keep progress of tasks that survive a re-plan. */
 export function mergeProgress(next: Phase[], prev: Phase[]): { phases: Phase[]; lostDone: string[] } {
-  const old = new Map(prev.flatMap((p) => p.slices).map((s) => [s.id, s]));
+  const old = new Map(prev.flatMap((p) => p.tasks).map((s) => [s.id, s]));
   const kept = new Set<string>();
   for (const p of next)
-    for (const [i, s] of p.slices.entries()) {
+    for (const [i, s] of p.tasks.entries()) {
       const o = old.get(s.id);
       if (!o) continue;
       kept.add(s.id);
-      p.slices[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
+      p.tasks[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, doneAt: o.doneAt, note: o.note };
     }
   const lostDone = [...old.values()].filter((s) => s.status !== 'pending' && !kept.has(s.id)).map((s) => s.id);
   for (const p of next) p.status = phaseStatus(p, prev.find((q) => q.id === p.id)?.status);
@@ -139,7 +139,7 @@ export function mergeProgress(next: Phase[], prev: Phase[]): { phases: Phase[]; 
 }
 
 export function phaseStatus(p: Phase, prior?: Phase['status']): Phase['status'] {
-  if (p.slices.every((s) => s.status === 'done')) return prior === 'done' ? 'done' : 'awaiting_approval';
-  if (p.slices.some((s) => s.status !== 'pending') || prior === 'in_progress') return 'in_progress';
+  if (p.tasks.every((s) => s.status === 'done')) return prior === 'done' ? 'done' : 'awaiting_approval';
+  if (p.tasks.some((s) => s.status !== 'pending') || prior === 'in_progress') return 'in_progress';
   return 'pending';
 }

@@ -78,7 +78,7 @@ test('fix.md offers the in-place reopen first, then escalate, then hold, and has
   const esc = src.indexOf('Escalate to a feature plan', fixIn);
   const hold = src.indexOf('Hold', esc);
   assert.ok(fixIn >= 0 && esc > fixIn && hold > esc, 'options in order');
-  assert.match(src, /cairn slice start fix/);
+  assert.match(src, /cairn task start fix/);
   assert.doesNotMatch(src, /Follow-ups/);
 });
 

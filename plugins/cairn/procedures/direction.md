@@ -10,12 +10,12 @@ Inputs, from the caller:
 
 ## 1. Scope
 Run `cairn status --json` for the plan slug, worktree, and current phase. Read `prd.md` and `plan.md` in `docs/sdlc/plans/<slug>/`.
-- Phase id: the requirements are the union of `covers` across the phase's slices.
+- Phase id: the requirements are the union of `covers` across the phase's tasks.
 - `all`: every requirement in the PRD.
-- Ids: those requirements, checked against the files in the scopes of the slices that cover them.
-- `changed`: run `git status` and `git diff HEAD` in the worktree, and map each changed file to the requirements whose slices own it.
+- Ids: those requirements, checked against the files in the scopes of the tasks that cover them.
+- `changed`: run `git status` and `git diff HEAD` in the worktree, and map each changed file to the requirements whose tasks own it.
 
-For each requirement, collect its text, acceptance criteria, unhappy paths, and the code areas (the owning slices' scope globs). When `docs/sdlc/product/PRD.md` exists, also collect its non-goals, NFRs, and must-not-trade-off items.
+For each requirement, collect its text, acceptance criteria, unhappy paths, and the code areas (the owning tasks' scope globs). When `docs/sdlc/product/PRD.md` exists, also collect its non-goals, NFRs, and must-not-trade-off items.
 
 **Done when:** you hold a requirement list with criteria and code areas, and the product PRD items or know there are none.
 
@@ -66,7 +66,7 @@ nfr:
 Run `cairn evidence phase`. The CLI parses the block, checks every covered requirement has a row with evidence, computes the color, and records it with the current commit.
 
 When it refuses (exit code 2), read the reason and fix the report, never override:
-- "no phase is waiting for approval": the phase is not at its approval point. Go back to execute or phase end and finish the phase's slices first.
+- "no phase is waiting for approval": the phase is not at its approval point. Go back to execute or phase end and finish the phase's tasks first.
 - "direction/<id>.md does not exist": write the report (step 3), then rerun.
 - A missing row: find the requirement, have a `direction-checker` agent check it, add the row.
 - Missing or malformed evidence: read the code, put a real `path:line` on the row.

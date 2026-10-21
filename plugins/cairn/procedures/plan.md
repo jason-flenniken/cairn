@@ -1,6 +1,6 @@
 # Plan
 
-Turn the approved PRD into phases of vertical slices, load it, then stop for approval.
+Turn the approved PRD into phases of vertical tasks, load it, then stop for approval.
 
 Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLUGIN_ROOT}/templates/plan.md`). Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -17,21 +17,21 @@ Dispatch Explore agents (`model: sonnet`) in parallel, split by area the PRD tou
 ## 3. Write plan.md
 Write `docs/sdlc/plans/<slug>/plan.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`, keeping every `## ` heading. Apply these slicing rules:
 
-- **Vertical:** each slice is a narrow, complete path through every layer (schema, API, UI, tests). A horizontal layer alone is never a slice.
-- **Demoable:** each slice can be shown or verified by itself.
-- **Right-sized:** each slice fits one fresh context window. Split further when it would not.
-- **Prefactor first:** refactors that ease the work come as the earliest slices.
-- **Wide-refactor exception:** one mechanical change with a codebase-wide blast radius (a rename, a retyped shared symbol) runs as expand, migrate in batches by directory or package, then contract. Each batch is its own slice, blocked by the expand; the contract slice is blocked by every batch.
+- **Vertical:** each task is a narrow, complete path through every layer (schema, API, UI, tests). A horizontal layer alone is never a task.
+- **Demoable:** each task can be shown or verified by itself.
+- **Right-sized:** each task fits one fresh context window. Split further when it would not.
+- **Prefactor first:** refactors that ease the work come as the earliest tasks.
+- **Wide-refactor exception:** one mechanical change with a codebase-wide blast radius (a rename, a retyped shared symbol) runs as expand, migrate in batches by directory or package, then contract. Each batch is its own task, blocked by the expand; the contract task is blocked by every batch.
 - **Phases** are demoable milestones; the first phase proves the thinnest end-to-end path.
-- **Parallel by default:** disjoint `scope` globs, minimal `blocked_by`. A slice depends only on slices that genuinely gate it. Two slices touching the same files get an edge between them.
+- **Parallel by default:** disjoint `scope` globs, minimal `blocked_by`. A task depends only on tasks that genuinely gate it. Two tasks touching the same files get an edge between them.
 - **Complexity:** `simple` (mechanical, 1-2 files), `standard` (default), `complex` (architecture judgment, unclear root cause, broad integration).
-- **Coverage:** every FR is in some slice's `covers`, or listed under `## Deferred requirements` with a reason.
+- **Coverage:** every FR is in some task's `covers`, or listed under `## Deferred requirements` with a reason.
 
-Under `## Phases` put exactly one `yaml cairn-slices` block, then one `### Slice: <id>` section per slice with **Interfaces** (consumes / produces exact signatures), **Test cases** (Happy / Unhappy / Security bullets, each a concrete test with input and expected result), and **Done when**. Unhappy and security cases come from the PRD's unhappy paths and security considerations.
+Under `## Phases` put exactly one `yaml cairn-tasks` block, then one `### Task: <id>` section per task with **Interfaces** (consumes / produces exact signatures), **Test cases** (Happy / Unhappy / Security bullets, each a concrete test with input and expected result), and **Done when**. Unhappy and security cases come from the PRD's unhappy paths and security considerations.
 
-Fill **Global constraints** with PRD values verbatim and **Review focus** with the five likeliest failure modes the slices do not test directly; add a test for each to the owning slice.
+Fill **Global constraints** with PRD values verbatim and **Review focus** with the five likeliest failure modes the tasks do not test directly; add a test for each to the owning task.
 
-**Done when:** every slice has all three subsections with concrete tests, every FR is covered or deferred, and the slice list passes your own check for scope overlap between slices that could run together.
+**Done when:** every task has all three subsections with concrete tests, every FR is covered or deferred, and the task list passes your own check for scope overlap between tasks that could run together.
 
 ## 4. Load
 Run `cairn plan load`. On refusal, read what it names (a cycle, an unknown FR id, a missing scope, an uncovered requirement), fix `plan.md`, and rerun.

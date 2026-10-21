@@ -52,7 +52,7 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 
 - Mod command names have no ":" because the engine forbids it: `cairn-pane`, `cairn-approve`, `cairn-pause-now`, `cairn-pause-mod`, `cairn-resume-mod`.
 - A plugin's own `$.command.run` skips its own hooks. The mod can't run its own commands through it.
-- Stop now cuts the running turn, and the engine refuses a `prompt.submit` made from the command's own hook (it would wait on the turn the hook holds). The mod remembers the id of the cut turn and sends the message to the model when that turn completes. The message tells it to stop its subagents, record each slice's substep, commit work in progress, and finish with `cairn pause --now`.
+- Stop now cuts the running turn, and the engine refuses a `prompt.submit` made from the command's own hook (it would wait on the turn the hook holds). The mod remembers the id of the cut turn and sends the message to the model when that turn completes. The message tells it to stop its subagents, record each task's substep, commit work in progress, and finish with `cairn pause --now`.
 - Pause (`cairn-pause-mod`) waits for in-flight work to reach a safe point instead of cutting the turn.
 
 ## Testing

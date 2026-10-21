@@ -30,19 +30,19 @@ const V01_STATE = {
       id: 'core',
       name: 'Core',
       status: 'in_progress',
-      slices: [
+      tasks: [
         { id: 'a', name: 'Alpha', covers: ['FR-01'], blockedBy: [], scope: ['src/a/**'], complexity: 'standard', status: 'done', fixRound: 0 },
         { id: 'b', name: 'Beta', covers: ['FR-02'], blockedBy: ['a'], scope: ['src/b/**'], complexity: 'simple', status: 'pending', fixRound: 0 },
       ],
     },
   ],
   evidence: {},
-  drift: [{ path: 'src/x.ts', at: '2026-01-01T00:00:00.000Z', reason: 'edited outside slice "Alpha" scope' }],
+  drift: [{ path: 'src/x.ts', at: '2026-01-01T00:00:00.000Z', reason: 'edited outside task "Alpha" scope' }],
   log: [{ at: '2026-01-01T00:00:00.000Z', event: 'created' }],
 };
 
 // Captured from `cairn status` on the unsplit commands.ts.
-const GOLDEN_STATUS = 'Legacy (legacy): Execute · phase 1/1 "Core" · 1/2 slices done · 1 unreviewed drift\nNext: Start the next ready slices in phase "Core".\n! 1 file(s) changed outside the plan\'s scope';
+const GOLDEN_STATUS = 'Legacy (legacy): Build · phase 1/1 "Core" · 1/2 tasks done · 1 out-of-scope edit(s)\nNext: Start the next ready tasks in phase "Core".\n! 1 file(s) changed outside the plan\'s scope';
 
 before(() => {
   repo = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-split-')));

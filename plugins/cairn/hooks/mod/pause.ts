@@ -2,11 +2,11 @@
 import type { EngineInterface, On, ProcessRunInit, SessionStartInput } from 'claude-code'
 import { cairn } from './cli.ts'
 
-type Slice = { id: string; status?: string; substep?: string; worktree?: string }
+type Task = { id: string; status?: string; substep?: string; worktree?: string }
 export type PlanState = {
   slug: string
   paused?: { at?: string; mode?: string } | null
-  phases?: { slices?: Slice[] }[]
+  phases?: { tasks?: Task[] }[]
   stage?: string
   updated?: string
 }
@@ -18,10 +18,10 @@ const FRESH_MINUTES = 60
 const RESUME_HERE = 'Resume here anyway'
 const CLEAR_TIP = '/clear is safe now; the handoff has everything'
 
-// What Stop now tells the model after the turn is cut. Fixed text: no plan or slice names.
+// What Stop now tells the model after the turn is cut. Fixed text: no plan or task names.
 const STOP_NOW_MESSAGE =
   'Stop now was requested and your last turn was cut off. Stop every running subagent with TaskStop. ' +
-  "Then record each in-progress slice's current substep with `cairn slice step`, commit work in progress in each slice worktree, " +
+  "Then record each in-progress task's current substep with `cairn task step`, commit work in progress in each task worktree, " +
   'and follow procedures/pause.md, finishing with `cairn pause --now`.'
 
 // The main loop's running turn, from turn.start to turn.complete; a subagent's turns are not tracked.
@@ -46,23 +46,23 @@ const sectionBody = (md: string, title: string): string => {
   return (end < 0 ? rest : rest.slice(0, end)).join('\n')
 }
 
-const running = (state: PlanState): Slice[] => {
+const running = (state: PlanState): Task[] => {
   const phases = Array.isArray(state.phases) ? state.phases : []
-  const slices = phases.flatMap(p => (Array.isArray(p?.slices) ? p.slices : []))
-  return slices.filter(s => s?.status === 'in_progress')
+  const tasks = phases.flatMap(p => (Array.isArray(p?.tasks) ? p.tasks : []))
+  return tasks.filter(s => s?.status === 'in_progress')
 }
 
-/** handoff.md for a plan now: running slices, the earlier file's open questions, the next action. */
+/** handoff.md for a plan now: running tasks, the earlier file's open questions, the next action. */
 export function handoffFromState(state: PlanState, existing = ''): string {
-  const slices = running(state)
-  const flight = slices.map(s => `- ${s.id} (${s.substep ?? 'no substep recorded'}): ${s.worktree ?? 'no worktree recorded'}`)
+  const tasks = running(state)
+  const flight = tasks.map(s => `- ${s.id} (${s.substep ?? 'no substep recorded'}): ${s.worktree ?? 'no worktree recorded'}`)
   const kept = sectionBody(existing, 'open questions')
     .split('\n')
     .map(l => l.trim())
     .filter(l => l !== '' && l !== TEMPLATE_QUESTION && l !== NO_QUESTIONS_YET && !/^-?\s*none\.?$/i.test(l))
   const next =
-    slices.length > 0
-      ? `Continue ${slices.map(s => s.id).join(', ')} from the recorded substeps: run \`cairn status --json\`, then \`cairn next --json\` and follow the procedure it names.`
+    tasks.length > 0
+      ? `Continue ${tasks.map(s => s.id).join(', ')} from the recorded substeps: run \`cairn status --json\`, then \`cairn next --json\` and follow the procedure it names.`
       : 'cairn next --json, then follow the procedure it names.'
   return [
     `# Handoff: ${state.slug}`,

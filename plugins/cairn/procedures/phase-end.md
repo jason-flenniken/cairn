@@ -5,18 +5,18 @@ Check the finished phase against the PRD, record the CLI's direction verdict, th
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
 ## 1. Check
-Run `cairn status --json`. The stage must be `execute` and every slice in the current phase done. Otherwise say what remains and run `cairn next --json`. Stop this procedure.
+Run `cairn status --json`. The stage must be `execute` and every task in the current phase done. Otherwise say what remains and run `cairn next --json`. Stop this procedure.
 
-**Done when:** the stage is `execute`, the phase's slices are all done, and you know the phase name, plan branch, and base branch.
+**Done when:** the stage is `execute`, the phase's tasks are all done, and you know the phase name, plan branch, and base branch.
 
 ## 2. Gather
 Collect:
-- The phase's slices and what each delivers.
+- The phase's tasks and what each delivers.
 - The test result: run the repo's test command in the plan worktree and record the pass count.
 - `git diff --stat <phase-start>...HEAD` for the phase (phase start is the plan branch tip before the phase's first merge, found in `git log`).
-- The drift entries from `cairn status --json` (edits outside a slice's scope).
+- The drift entries from `cairn status --json` (edits outside a task's scope).
 
-**Done when:** you hold a slice list, a test result from a run in this step, a diff stat, and the drift list.
+**Done when:** you hold a task list, a test result from a run in this step, a diff stat, and the drift list.
 
 ## 3. Direction check
 Follow `procedures/direction.md` with this phase's id. It fans out `direction-checker` agents, writes `docs/sdlc/plans/<slug>/direction/<phase-id>.md` with its `cairn-direction` scorecard, and runs `cairn evidence phase`. The CLI computes the color; do not state or record one yourself. If `cairn evidence phase` refuses, fix the report as the direction procedure says and rerun. Never override it.
@@ -24,7 +24,7 @@ Follow `procedures/direction.md` with this phase's id. It fans out `direction-ch
 **Done when:** `cairn evidence phase` recorded a verdict for this phase.
 
 ## 4. Report and ask
-Show the report: slices done, test result, diff size, the color the CLI recorded, the verdict counts, and each partial, missing, or contradicted item and each drift entry in one line, about 8 lines. Name the report path. Then ask with AskUserQuestion:
+Show the report: tasks done, test result, diff size, the color the CLI recorded, the verdict counts, and each partial, missing, or contradicted item and each drift entry in one line, about 8 lines. Name the report path. Then ask with AskUserQuestion:
 - Continue to phase approval (Recommended when nothing is missing, partial, or contradicted)
 - Fix first: user describes the problem
 - Re-plan: changes to later phases
@@ -33,7 +33,7 @@ Show the report: slices done, test result, diff size, the color the CLI recorded
 **Done when:** the user chose an option.
 
 ## 5. Act on the choice
-- **Fix first:** ask what to fix, add a fix slice to the current phase in `plan.md` (own scope, `covers` the affected requirements, concrete tests), run `cairn plan load --replan`, then get the user's approval of the changed plan. Run `cairn status --json` and read `modActive`. When true, ask with AskUserQuestion, with the question text including `[cairn:approve plan <slug>]`: Approve (Recommended) / Revise. When false, tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve plan --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed) and wait for them to say it's done. Then run `cairn status --json` to confirm, and `cairn next --json` to return to execute.
+- **Fix first:** ask what to fix, add a fix task to the current phase in `plan.md` (own scope, `covers` the affected requirements, concrete tests), run `cairn plan load --replan`, then get the user's approval of the changed plan. Run `cairn status --json` and read `modActive`. When true, ask with AskUserQuestion, with the question text including `[cairn:approve plan <slug>]`: Approve (Recommended) / Revise. When false, tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve plan --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed) and wait for them to say it's done. Then run `cairn status --json` to confirm, and `cairn next --json` to return to execute.
 - **Re-plan:** edit the later phases in `plan.md` with the user, then the same replan approval.
 - **Pause:** follow the pause procedure.
 - **Continue to phase approval:** go to step 6.
@@ -41,7 +41,7 @@ Show the report: slices done, test result, diff size, the color the CLI recorded
 **Done when:** Continue to phase approval was chosen, or the plan was changed and execute resumed, or the plan is paused.
 
 ## 6. Drift
-For each drift entry, ask with AskUserQuestion (grouped by file when several): Accept (record why) / Revert the edit / Cover it with a slice. For each accepted entry run `cairn drift ack <path> --note "<reason>"`. For all accepted: `cairn drift ack --all`.
+For each drift entry, ask with AskUserQuestion (grouped by file when several): Accept (record why) / Revert the edit / Cover it with a task. For each accepted entry run `cairn drift ack <path> --note "<reason>"`. For all accepted: `cairn drift ack --all`.
 
 **Done when:** every drift entry is acknowledged or resolved.
 
@@ -54,7 +54,7 @@ Run `cairn status --json` and read `modActive`.
   The mod records an approval only for the labels "Approve" and "Approve (Recommended)", so the approval option keeps that exact label.
 - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve phase --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
-Then run `cairn status --json` to confirm the phase approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names an unfinished slice or unacknowledged drift, resolve it and return to this step. When it names a red direction verdict or code changed since the check, return to step 3; never override. The last approved phase moves the plan to verify automatically.
+Then run `cairn status --json` to confirm the phase approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names an unfinished task or unacknowledged drift, resolve it and return to this step. When it names a red direction verdict or code changed since the check, return to step 3; never override. The last approved phase moves the plan to verify automatically.
 
 **Done when:** `cairn status --json` shows the phase approved.
 

@@ -21,7 +21,7 @@ Keep every `## ` heading from the template: Links, Why, What was built, How it w
 - **Follow-ups:** advisory findings and deferred requirements.
 - **Links:** PRD, plan, PR (leave `<pending>` if there is no PR yet), tracker.
 
-Plain words. A slice name is fine; bare requirement ids and plan-internal terms are left out. State outcomes and let the reader judge them.
+Plain words. A task name is fine; bare requirement ids and plan-internal terms are left out. State outcomes and let the reader judge them.
 
 ## Finish
 Run `wc -w` on the file. Over 900: cut. Report the path and the word count.

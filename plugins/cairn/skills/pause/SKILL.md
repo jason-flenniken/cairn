@@ -12,7 +12,7 @@ allowed-tools:
   - "Bash(cairn advance:*)"
   - "Bash(cairn plan:*)"
   - "Bash(cairn ready:*)"
-  - "Bash(cairn slice:*)"
+  - "Bash(cairn task:*)"
   - "Bash(cairn evidence:*)"
   - "Bash(cairn drift:*)"
   - "Bash(cairn pause:*)"

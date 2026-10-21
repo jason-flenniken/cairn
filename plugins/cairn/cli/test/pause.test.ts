@@ -30,7 +30,7 @@ const STATE = {
       id: 'core',
       name: 'Core',
       status: 'in_progress',
-      slices: [
+      tasks: [
         { id: 'a', name: 'Alpha', covers: ['FR-01'], blockedBy: [], scope: ['src/a/**'], complexity: 'standard', status: 'pending', fixRound: 0 },
         { id: 'b', name: 'Beta', covers: ['FR-02'], blockedBy: [], scope: ['src/b/**'], complexity: 'simple', status: 'pending', fixRound: 0 },
       ],
@@ -57,7 +57,7 @@ before(() => {
 });
 after(() => rmSync(repo, { recursive: true, force: true }));
 
-test('while paused, cairn ready gives no ready slices and cairn next names the resume procedure (FR-15)', () => {
+test('while paused, cairn ready gives no ready tasks and cairn next names the resume procedure (FR-15)', () => {
   assert.deepEqual(ids(run(['ready', '--json'], wt)), ['a', 'b']);
   run(['pause'], wt);
   assert.deepEqual(ids(run(['ready', '--json'], wt)), []);

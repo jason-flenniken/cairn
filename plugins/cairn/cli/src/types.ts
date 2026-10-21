@@ -1,8 +1,20 @@
 export const STAGES = ['repro', 'discover', 'prd', 'plan', 'execute', 'verify', 'review', 'ship', 'learn', 'closed'] as const;
 export type Stage = (typeof STAGES)[number];
+export const STAGE_LABEL: Record<Stage, string> = {
+  repro: 'Repro',
+  discover: 'Discover',
+  prd: 'PRD',
+  plan: 'Plan',
+  execute: 'Build',
+  verify: 'Check',
+  review: 'Review',
+  ship: 'Ship',
+  learn: 'Learn',
+  closed: 'Closed',
+};
 export type Track = 'feature' | 'fix';
 export type Complexity = 'simple' | 'standard' | 'complex';
-export type SliceStatus = 'pending' | 'in_progress' | 'done';
+export type TaskStatus = 'pending' | 'in_progress' | 'done';
 export const SUBSTEPS = ['implementing', 'reviewing', 'fixing', 'merging', 'blocked'] as const;
 export type Substep = (typeof SUBSTEPS)[number];
 export type PhaseStatus = 'pending' | 'in_progress' | 'awaiting_approval' | 'done';
@@ -15,22 +27,22 @@ export interface Approval {
   source?: 'mod' | 'terminal' | 'agent';
 }
 
-export interface Slice {
+export interface Task {
   id: string;
   name: string;
-  /** `prefactor` slices prepare the code and may cover no requirement. */
+  /** `prefactor` tasks prepare the code and may cover no requirement. */
   kind?: 'prefactor';
   covers: string[];
   blockedBy: string[];
   scope: string[];
   complexity: Complexity;
-  status: SliceStatus;
+  status: TaskStatus;
   substep?: Substep;
   fixRound: number;
   note?: string;
   branch?: string;
   worktree?: string;
-  /** Plan-branch commit the slice started from. */
+  /** Plan-branch commit the task started from. */
   base?: string;
   tip?: string;
   tests?: string;
@@ -41,7 +53,7 @@ export interface Phase {
   id: string;
   name: string;
   status: PhaseStatus;
-  slices: Slice[];
+  tasks: Task[];
   verdict?: { result: 'green' | 'yellow' | 'red'; at: string; commit: string; note?: string };
 }
 
@@ -56,7 +68,7 @@ export interface DriftEntry {
   path: string;
   at: string;
   reason: string;
-  slice?: string;
+  task?: string;
   acked?: { at: string; note?: string };
 }
 
@@ -89,7 +101,7 @@ export interface State {
 }
 
 export interface Config {
-  /** Run in every new plan and slice worktree (e.g. install dependencies). CAIRN_MAIN_ROOT is set. */
+  /** Run in every new plan and task worktree (e.g. install dependencies). CAIRN_MAIN_ROOT is set. */
   setup?: string;
   test?: string;
   build?: string;

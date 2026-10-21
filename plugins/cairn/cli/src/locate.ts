@@ -4,11 +4,11 @@ import { currentBranch, topLevel, worktrees, type Worktree } from './git.ts';
 import { CliError } from './util.ts';
 
 export const PLAN_PREFIX = 'sdlc/';
-export const SLICE_PREFIX = 'sdlc-slice/';
+export const TASK_PREFIX = 'sdlc-task/';
 export const PLANS_DIR = 'docs/sdlc/plans';
 
 export const planBranch = (slug: string) => `${PLAN_PREFIX}${slug}`;
-export const sliceBranch = (slug: string, slice: string) => `${SLICE_PREFIX}${slug}/${slice}`;
+export const taskBranch = (slug: string, task: string) => `${TASK_PREFIX}${slug}/${task}`;
 export const planRel = (slug: string) => `${PLANS_DIR}/${slug}`;
 
 export interface PlanRef {
@@ -27,14 +27,14 @@ export interface Ctx {
   branch: string;
   worktrees: Worktree[];
   plan?: PlanRef;
-  slice?: string;
+  task?: string;
 }
 
-export function parseBranch(branch: string): { slug?: string; slice?: string } {
+export function parseBranch(branch: string): { slug?: string; task?: string } {
   if (branch.startsWith(PLAN_PREFIX)) return { slug: branch.slice(PLAN_PREFIX.length) };
-  if (branch.startsWith(SLICE_PREFIX)) {
-    const [slug, slice] = branch.slice(SLICE_PREFIX.length).split('/');
-    return { slug, slice };
+  if (branch.startsWith(TASK_PREFIX)) {
+    const [slug, task] = branch.slice(TASK_PREFIX.length).split('/');
+    return { slug, task };
   }
   return {};
 }
@@ -53,8 +53,8 @@ export function context(cwd: string, slugOverride?: string): Ctx {
   }
   const wts = worktrees(top);
   const branch = currentBranch(top);
-  const { slug, slice } = parseBranch(branch);
-  const ctx: Ctx = { cwd, top, mainRoot: wts[0]?.path ?? top, branch, worktrees: wts, slice };
+  const { slug, task } = parseBranch(branch);
+  const ctx: Ctx = { cwd, top, mainRoot: wts[0]?.path ?? top, branch, worktrees: wts, task };
   const s = slugOverride ?? slug;
   if (s) ctx.plan = planRef(s, wts);
   return ctx;

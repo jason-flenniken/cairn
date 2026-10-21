@@ -1,6 +1,6 @@
 ---
 name: plan
-description: "Slice the approved PRD into phases and parallel slices, then approve the plan."
+description: "Task the approved PRD into phases and parallel tasks, then approve the plan."
 disable-model-invocation: true
 allowed-tools:
   - "Bash(cairn next:*)"
@@ -12,7 +12,7 @@ allowed-tools:
   - "Bash(cairn advance:*)"
   - "Bash(cairn plan:*)"
   - "Bash(cairn ready:*)"
-  - "Bash(cairn slice:*)"
+  - "Bash(cairn task:*)"
   - "Bash(cairn evidence:*)"
   - "Bash(cairn drift:*)"
   - "Bash(cairn pause:*)"

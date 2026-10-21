@@ -17,7 +17,7 @@ import {
   cmdRepro,
   cmdRender,
   cmdResume,
-  cmdSlice,
+  cmdTask,
   cmdStatus,
   context,
   hookPostEdit,
@@ -60,7 +60,7 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] | new <slug> --title "…" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|phase|ship | advance [--to <stage>] | plan load [--replan] | ready
-  slice start|step|done <id> | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  task start|step|done <id> | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   pause [--now] | resume [<slug>] | close | render
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
@@ -94,8 +94,8 @@ export function run(argv: string[], cwd = process.cwd()): Result {
       return cmdRepro(ctx(), a, opts);
     case 'escalate':
       return cmdEscalate(ctx(), opts);
-    case 'slice':
-      return cmdSlice(ctx(), a, b, rest, opts);
+    case 'task':
+      return cmdTask(ctx(), a, b, rest, opts);
     case 'evidence':
       return cmdEvidence(ctx(), a, b, opts);
     case 'drift':

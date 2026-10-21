@@ -8,8 +8,8 @@ import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
 
-type Slice = { id?: string; name?: string; status?: string; substep?: string; fixRound?: number; blockedBy?: unknown; worktree?: string }
-type Phase = { name?: string; status?: string; slices?: unknown; verdict?: { result?: string } }
+type Task = { id?: string; name?: string; status?: string; substep?: string; fixRound?: number; blockedBy?: unknown; worktree?: string }
+type Phase = { name?: string; status?: string; tasks?: unknown; verdict?: { result?: string } }
 type Drift = { path?: string; acked?: unknown }
 
 // What the drawing reads lives in $.state, so a hot reload keeps the view.
@@ -25,7 +25,7 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const quick: ProcessRunInit = { timeoutMs: 60_000 }
 
 const STAGE_LABEL: Record<string, string> = {
-  discover: 'Discover', repro: 'Repro', prd: 'PRD', plan: 'Plan', execute: 'Execute', verify: 'Verify',
+  discover: 'Discover', repro: 'Repro', prd: 'PRD', plan: 'Plan', execute: 'Build', verify: 'Check',
   review: 'Review', ship: 'Ship', learn: 'Learn', closed: 'Closed',
 }
 
@@ -40,7 +40,7 @@ const COMMANDS = [
 
 const list = <T,>(x: unknown): T[] => (Array.isArray(x) ? (x.filter(v => v !== null && typeof v === 'object') as T[]) : [])
 const phasesOf = (s: CairnPlanState) => list<Phase>(s.phases)
-const slicesOf = (s: CairnPlanState) => phasesOf(s).flatMap(p => list<Slice>(p.slices))
+const tasksOf = (s: CairnPlanState) => phasesOf(s).flatMap(p => list<Task>(p.tasks))
 const openDrift = (s: CairnPlanState) => list<Drift>(s.drift).filter(d => !d.acked)
 const stageOf = (s: CairnPlanState) => STAGE_LABEL[s.stage ?? ''] ?? String(s.stage ?? '?')
 const isActive = (r: CairnPlanRow) => r.state.stage !== 'closed'
@@ -50,12 +50,12 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 function progress(s: CairnPlanState): string {
   const phases = phasesOf(s)
   if (phases.length === 0) return stageOf(s)
-  const slices = slicesOf(s)
-  const done = slices.filter(x => x.status === 'done').length
-  const running = slices.filter(x => x.status === 'in_progress').length
+  const tasks = tasksOf(s)
+  const done = tasks.filter(x => x.status === 'done').length
+  const running = tasks.filter(x => x.status === 'in_progress').length
   const at = phases.findIndex(p => p.status !== 'done')
   const phase = at < 0 ? 'all phases done' : `phase ${at + 1} of ${phases.length} "${phases[at]?.name ?? ''}"`
-  return `${stageOf(s)} · ${phase} · ${done}/${slices.length} slices done${running ? ` · ${running} running` : ''}`
+  return `${stageOf(s)} · ${phase} · ${done}/${tasks.length} tasks done${running ? ` · ${running} running` : ''}`
 }
 
 /** The plan's one-line summary, as the CLI's summary() puts it. */
@@ -67,13 +67,13 @@ function summary(s: CairnPlanState): string {
 const isUnder = (cwd: string, dir: string | undefined) => !!dir && (cwd === dir || cwd.startsWith(`${dir}/`))
 
 /**
- * The plan whose worktree, or one of whose slice worktrees, holds the session: the deepest match, since a
+ * The plan whose worktree, or one of whose task worktrees, holds the session: the deepest match, since a
  * plan kept in the main checkout holds every other plan's worktree under it.
  */
 function hereSlug(plans: CairnPlanRow[], cwd: string): string | undefined {
   let best: { slug: string; depth: number } | undefined
   for (const r of plans) {
-    for (const dir of [r.worktree, ...slicesOf(r.state).map(x => x.worktree)]) {
+    for (const dir of [r.worktree, ...tasksOf(r.state).map(x => x.worktree)]) {
       if (isUnder(cwd, dir) && (best === undefined || dir!.length > best.depth)) best = { slug: r.state.slug, depth: dir!.length }
     }
   }
@@ -213,11 +213,11 @@ function phaseLine(p: Phase): string {
   return `${PHASE_ICON[p.status ?? ''] ?? '○'} ${p.name ?? '?'}${p.status === 'awaiting_approval' ? ' (built, waiting for approval)' : ''}`
 }
 
-/** A slice under its phase: a running one with its substep and fix round, a waiting one with what it waits on. */
-function sliceLine(x: Slice, byId: Map<string, Slice>): string {
+/** A task under its phase: a running one with its substep and fix round, a waiting one with what it waits on. */
+function taskLine(x: Task, byId: Map<string, Task>): string {
   const icon = x.status === 'done' ? '✓' : x.status === 'in_progress' ? '◐' : '○'
   let tail = ''
-  if (x.status === 'in_progress') tail = ` (${x.substep ?? 'implementing'}${x.fixRound ? `, fix round ${x.fixRound}` : ''})`
+  if (x.status === 'in_progress') tail = ` (${x.substep ?? 'implementing'}${x.fixRound ? `, fix attempt ${x.fixRound}` : ''})`
   else if (x.status === 'pending') {
     const on = (Array.isArray(x.blockedBy) ? x.blockedBy : [])
       .filter((b): b is string => typeof b === 'string' && byId.get(b)?.status !== 'done')
@@ -244,31 +244,31 @@ export function install(on: On): void {
     /** The session's plan: header, tree, drift, the stop, the verdict, and its buttons (FR-09, FR-12). */
     const planLines = (s: CairnPlanState) => {
       const phases = phasesOf(s)
-      const slices = slicesOf(s)
-      const byId = new Map(slices.filter(x => typeof x.id === 'string').map(x => [x.id as string, x]))
+      const tasks = tasksOf(s)
+      const byId = new Map(tasks.filter(x => typeof x.id === 'string').map(x => [x.id as string, x]))
       const at = phases.findIndex(p => p.status !== 'done')
       const where = phases.length === 0 ? '' : at < 0 ? ' · all phases done' : ` · phase ${at + 1} of ${phases.length}`
       const drift = openDrift(s)
       const waiting = waitingStop(s as StopState)
       const verdict = [...phases].reverse().find(p => p.verdict?.result !== undefined)
       const isPaused = !!s.paused
-      const isSliceRunning = slices.some(x => x.status === 'in_progress')
+      const isTaskRunning = tasks.some(x => x.status === 'in_progress')
       return [
         <Text bold>{s.title ?? s.slug}</Text>,
         v?.isFallback && <Text dimColor>{`Showing ${s.slug}, ${v.plans.filter(isActive).length > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>,
         <Text>{`${stageOf(s)}${where}`}</Text>,
         isPaused && <Text color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>,
-        ...phases.flatMap(p => [<Text>{phaseLine(p)}</Text>, ...list<Slice>(p.slices).map(x => <Text>{sliceLine(x, byId)}</Text>)]),
+        ...phases.flatMap(p => [<Text>{phaseLine(p)}</Text>, ...list<Task>(p.tasks).map(x => <Text>{taskLine(x, byId)}</Text>)]),
         drift.length > 0 && <Text color="yellow">{`${drift.length} unreviewed drift:`}</Text>,
         ...drift.slice(0, DRIFT_SHOWN).map(d => <Text dimColor>{`  ${d.path ?? '?'}`}</Text>),
         <Text bold>{`Waiting on you: ${waiting === undefined ? 'nothing' : `${waiting} approval`}`}</Text>,
-        <Text>{verdict === undefined ? 'Last verdict: none yet' : `Last verdict: ${verdict.name ?? '?'}: ${verdict.verdict?.result}`}</Text>,
+        <Text>{verdict === undefined ? 'Last on-track check: none yet' : `Last on-track check: ${verdict.name ?? '?'}: ${verdict.verdict?.result}`}</Text>,
         <Box flexDirection="row" gap={1}>
           {waiting !== undefined && (
             <Button key="approve" label="Approve" variant="primary" onPress={() => act($, () => approvePress($, s.slug, waiting))} />
           )}
           {!isPaused && s.stage !== 'closed' && <Button key="pause" label="Pause" onPress={() => act($, () => pause($, 'drain'))} />}
-          {(isSliceRunning || isRunning) && <Button key="stop" label="Stop now" onPress={() => act($, () => stopNow($))} />}
+          {(isTaskRunning || isRunning) && <Button key="stop" label="Stop now" onPress={() => act($, () => stopNow($))} />}
           {isPaused && <Button key="resume" label="Resume" onPress={() => act($, () => resume($))} />}
           {status}
         </Box>,

@@ -1,20 +1,30 @@
 import { join } from 'node:path';
 import { renderStatus } from './render.ts';
-import type { State } from './types.ts';
+import type { Phase, State } from './types.ts';
 import { CliError, now, readText, writeText } from './util.ts';
 
 export const statePath = (dir: string) => join(dir, 'state.json');
 
+// Legacy plans stored `phase.slices`; read them as `phase.tasks`.
+function normalize(s: State): State {
+  for (const p of s.phases ?? []) {
+    const legacy = p as unknown as { slices?: Phase['tasks'] };
+    p.tasks ??= legacy.slices as Phase['tasks'];
+    delete legacy.slices;
+  }
+  return s;
+}
+
 export function loadState(dir: string): State {
   const raw = readText(statePath(dir));
   if (raw === undefined) throw new CliError(`no state.json in ${dir}`);
-  const s = JSON.parse(raw) as State;
+  const s = normalize(JSON.parse(raw) as State);
   if (s.schema !== 1) throw new CliError(`unsupported state schema ${s.schema}`);
   return s;
 }
 
 export function parseState(raw: string): State {
-  return JSON.parse(raw) as State;
+  return normalize(JSON.parse(raw) as State);
 }
 
 export function saveState(dir: string, s: State): void {

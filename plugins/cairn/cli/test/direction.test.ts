@@ -68,16 +68,16 @@ c
 ## Review focus
 r
 ## Phases
-\`\`\`yaml cairn-slices
+\`\`\`yaml cairn-tasks
 phases:
   - id: core
     name: Core
-    slices:
+    tasks:
       - { id: charge, name: Charge, covers: [FR-01], scope: ["src/charge/**"] }
       - { id: refund, name: Refund, covers: [FR-02], scope: ["src/refund/**"] }
   - id: extras
     name: Extras
-    slices:
+    tasks:
       - { id: receipt, name: Receipt, covers: [FR-01], scope: ["src/receipt/**"] }
 \`\`\`
 `;
@@ -103,12 +103,12 @@ function awaiting(): { wt: string; dir: string; state: () => any } {
   byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   for (const id of ['charge', 'refund']) {
-    const swt = ok(wt, 'slice', 'start', id).data!.worktree as string;
+    const swt = ok(wt, 'task', 'start', id).data!.worktree as string;
     write(join(swt, `src/${id}/index.ts`), `export const ${id} = 1;\n`);
     g(swt, 'add', '-A');
     g(swt, 'commit', '-q', '-m', id);
-    g(wt, 'merge', '-q', '--no-ff', '-m', `merge ${id}`, `sdlc-slice/${slug}/${id}`);
-    ok(wt, 'slice', 'done', id);
+    g(wt, 'merge', '-q', '--no-ff', '-m', `merge ${id}`, `sdlc-task/${slug}/${id}`);
+    ok(wt, 'task', 'done', id);
   }
   const state = () => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
   assert.equal(state().phases[0].status, 'awaiting_approval');
@@ -301,12 +301,12 @@ test('a re-plan clears every recorded phase verdict, on more than one phase', ()
   report(dir, card({}));
   ok(wt, 'evidence', 'phase');
   byUser(wt, 'approve', 'phase');
-  const swt = ok(wt, 'slice', 'start', 'receipt').data!.worktree as string;
+  const swt = ok(wt, 'task', 'start', 'receipt').data!.worktree as string;
   write(join(swt, 'src/receipt/index.ts'), 'export const r = 1;\n');
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', 'receipt');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', `sdlc-slice/${state().slug}/receipt`);
-  ok(wt, 'slice', 'done', 'receipt');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', `sdlc-task/${state().slug}/receipt`);
+  ok(wt, 'task', 'done', 'receipt');
   write(join(dir, 'direction/extras.md'), card({ requirements: [aligned('FR-01')] }));
   ok(wt, 'evidence', 'phase');
   assert.ok(state().phases[0].verdict);

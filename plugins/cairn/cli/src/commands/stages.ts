@@ -85,7 +85,7 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         const phase = currentPhase(s);
         if (!phase) throw new Refusal('every phase is already approved');
         gate(s.stage === 'execute', s, 'approve phase', opts, `the plan is in ${s.stage}, not execute`);
-        gate(phase.status === 'awaiting_approval', s, 'approve phase', opts, `phase "${phase.name}" still has unfinished slices`, ['finish them (cairn ready / cairn slice done)']);
+        gate(phase.status === 'awaiting_approval', s, 'approve phase', opts, `phase "${phase.name}" still has unfinished tasks`, ['finish them (cairn ready / cairn task done)']);
         const drift = s.drift.filter((d) => !d.acked);
         gate(!drift.length, s, 'approve phase', opts, `drift not reviewed: ${drift.map((d) => d.path).join(', ')}`, ['review each with the user, then cairn drift ack <path> --note "…" (or --all)']);
         const v = phase.verdict;
@@ -140,7 +140,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
       case 'repro':
         // Not overridable: without a repro the plan would leave the fast lane.
         if (!s.repro) throw new Refusal('no repro is recorded', ['cairn repro "<command that fails while the bug is present>"']);
-        s.phases = [{ id: 'fix', name: 'Fix', status: 'pending', slices: [{ id: 'fix', name: 'Fix', covers: [], blockedBy: [], scope: ['**'], complexity: 'standard', status: 'pending', fixRound: 0 }] }];
+        s.phases = [{ id: 'fix', name: 'Fix', status: 'pending', tasks: [{ id: 'fix', name: 'Fix', covers: [], blockedBy: [], scope: ['**'], complexity: 'standard', status: 'pending', fixRound: 0 }] }];
         break;
       case 'discover':
         gate(/^### /m.test(decisions), s, 'advance', opts, 'no decisions recorded yet', ['cairn decide "<question>" "<answer>"']);

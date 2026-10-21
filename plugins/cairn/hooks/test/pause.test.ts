@@ -8,20 +8,20 @@ const HANDOFF = `${WT}/docs/sdlc/plans/shop/handoff.md`
 const NOW = Date.parse('2026-03-01T12:00:00.000Z')
 const minutesAgo = (m: number) => new Date(NOW - m * 60_000).toISOString()
 
-const SLICES = [
-  { id: 'cart', name: 'Secret Checkout Flow', status: 'in_progress', substep: 'reviewing', worktree: '/repo/.claude/worktrees/sdlc-slice-cart' },
-  { id: 'pay', name: 'Payments', status: 'in_progress', substep: 'implementing', worktree: '/repo/.claude/worktrees/sdlc-slice-pay' },
+const TASKS = [
+  { id: 'cart', name: 'Secret Checkout Flow', status: 'in_progress', substep: 'reviewing', worktree: '/repo/.claude/worktrees/sdlc-task-cart' },
+  { id: 'pay', name: 'Payments', status: 'in_progress', substep: 'implementing', worktree: '/repo/.claude/worktrees/sdlc-task-pay' },
   { id: 'done1', name: 'Done one', status: 'done' },
   { id: 'later', name: 'Later', status: 'pending' },
 ]
 
-function planState(paused: unknown = null, slices: unknown[] = SLICES) {
-  return { slug: 'shop', title: 'Acme Storefront Rewrite', stage: 'execute', paused, phases: [{ id: 'p1', name: 'Core', slices }] }
+function planState(paused: unknown = null, tasks: unknown[] = TASKS) {
+  return { slug: 'shop', title: 'Acme Storefront Rewrite', stage: 'execute', paused, phases: [{ id: 'p1', name: 'Core', tasks }] }
 }
 
 type World = {
   paused?: unknown
-  slices?: unknown[]
+  tasks?: unknown[]
   handoff?: string
   config?: string
   refusePause?: string
@@ -56,7 +56,7 @@ function world(on: On, w: World = {}) {
     cli.push(args)
     order.push(`cairn ${args.join(' ')}`)
     if (args.join(' ') === 'status --json') {
-      return answer(0, JSON.stringify({ ok: true, state: planState(w.paused, w.slices), planWorktree: WT }))
+      return answer(0, JSON.stringify({ ok: true, state: planState(w.paused, w.tasks), planWorktree: WT }))
     }
     if (args[0] === 'pause') return w.refusePause === undefined ? answer(0, 'Paused "Shop".\n') : answer(2, '', `✗ Refused: ${w.refusePause}\n`)
     if (args[0] === 'resume') return answer(0, 'Resumed "Shop".\nNext: start cart\n')
@@ -107,12 +107,12 @@ function world(on: On, w: World = {}) {
 const PAUSE_COMMANDS = ['cairn-pause-now', 'cairn-pause-mod', 'cairn-resume-mod']
 const start = ($: any) => $.session.start({ cwd: '/repo', surface: null, isInteractive: false })
 
-test('the handoff lists running slices with substep and worktree, and keeps earlier open questions', () => {
+test('the handoff lists running tasks with substep and worktree, and keeps earlier open questions', () => {
   const existing = '# Handoff: shop\n\n## In flight\n- old (implementing): gone\n\n## Open questions\n- Which tax table? (recommended: EU)\n\n## Next action\nold\n'
   const md = handoffFromState(planState(), existing)
   expect(md).toContain('## In flight')
-  expect(md).toContain('- cart (reviewing): /repo/.claude/worktrees/sdlc-slice-cart')
-  expect(md).toContain('- pay (implementing): /repo/.claude/worktrees/sdlc-slice-pay')
+  expect(md).toContain('- cart (reviewing): /repo/.claude/worktrees/sdlc-task-cart')
+  expect(md).toContain('- pay (implementing): /repo/.claude/worktrees/sdlc-task-pay')
   expect(md).not.toContain('done1')
   expect(md).not.toContain('old (implementing)')
   expect(md).toMatch(/## Open questions\n- Which tax table\? \(recommended: EU\)/)
@@ -207,12 +207,12 @@ test('Stop now with a running turn shows the /clear tip after the pause', async 
 })
 
 test('Stop now still aborts and sends the message when cairn pause --now refuses, and toasts the refusal without the tip', async ($, on) => {
-  const w = world(on, { refusePause: 'a slice is mid-merge' })
+  const w = world(on, { refusePause: 'a task is mid-merge' })
   await start($)
   await $.turn.start({ text: 'go', turnId: 'turn-7' })
   await $.command.run({ command: 'cairn-pause-now' })
   expect(w.aborts).toEqual(['turn-7'])
-  expect(w.toasts.join('\n')).toContain('a slice is mid-merge')
+  expect(w.toasts.join('\n')).toContain('a task is mid-merge')
   expect(w.toasts.join('\n')).not.toContain(TIP)
   await $.turn.complete({ turnId: 'turn-7', reason: 'aborted', answer: '' } as never)
   expect(w.submits).toHaveLength(1)
@@ -232,7 +232,7 @@ test('a refused drain pause shows no /clear tip', async ($, on) => {
   expect(w.toasts.join('\n')).not.toContain(TIP)
 })
 
-test('Stop now message names TaskStop and substep recording but no slice or plan text (security)', async ($, on) => {
+test('Stop now message names TaskStop and substep recording but no task or plan text (security)', async ($, on) => {
   const w = world(on)
   await start($)
   await $.turn.start({ text: 'go', turnId: 'turn-7' })
@@ -241,7 +241,7 @@ test('Stop now message names TaskStop and substep recording but no slice or plan
   const text = w.submits[0] ?? ''
   expect(text).toMatch(/TaskStop/)
   expect(text).toMatch(/substep/)
-  for (const leak of ['Secret Checkout Flow', 'Payments', 'Acme Storefront Rewrite', 'shop', 'cart', 'sdlc-slice']) {
+  for (const leak of ['Secret Checkout Flow', 'Payments', 'Acme Storefront Rewrite', 'shop', 'cart', 'sdlc-task']) {
     expect(text).not.toContain(leak)
   }
   expect(w.cli.filter(a => a[0] !== 'status' && a[0] !== 'pause')).toEqual([])
@@ -378,8 +378,8 @@ test('Stop now while a stop message is pending does nothing but toast', async ($
   expect(w.toasts.join('\n')).toMatch(/already stopping/)
 })
 
-test('the handoff survives null slices and non-array phases or slices', () => {
-  const messy = { slug: 'shop', phases: [null, { slices: 'oops' }, { slices: [null, { id: 'ok', status: 'in_progress' }] }] }
+test('the handoff survives null tasks and non-array phases or tasks', () => {
+  const messy = { slug: 'shop', phases: [null, { tasks: 'oops' }, { tasks: [null, { id: 'ok', status: 'in_progress' }] }] }
   expect(handoffFromState(messy as never)).toContain('- ok (no substep recorded)')
   expect(handoffFromState({ slug: 'shop', phases: 'nope' } as never)).toContain('Nothing in flight')
 })

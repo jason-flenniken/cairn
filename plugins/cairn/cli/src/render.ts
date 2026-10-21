@@ -1,17 +1,5 @@
-import type { Approval, Phase, Slice, Stage, State } from './types.ts';
-
-export const STAGE_LABEL: Record<Stage, string> = {
-  repro: 'Repro',
-  discover: 'Discover',
-  prd: 'PRD',
-  plan: 'Plan',
-  execute: 'Execute',
-  verify: 'Verify',
-  review: 'Review',
-  ship: 'Ship',
-  learn: 'Learn',
-  closed: 'Closed',
-};
+import { STAGE_LABEL } from './types.ts';
+import type { Approval, Phase, Task, State } from './types.ts';
 
 const day = (iso?: string) => (iso ? iso.slice(0, 10) : '');
 
@@ -21,13 +9,13 @@ export interface Next {
   text: string;
 }
 
-const names = (xs: Slice[]) => xs.map((x) => x.name).join(', ');
+const names = (xs: Task[]) => xs.map((x) => x.name).join(', ');
 
 /** The single correct next step for a plan. */
 export function nextFor(s: State): Next {
   if (s.stage === 'closed') return { procedure: 'status', text: 'This plan is closed. Its record is in RECORD.md.' };
   if (s.paused) return { procedure: 'resume', text: `Paused ${day(s.paused.at)}. Resume to pick up where it stopped.` };
-  const all = s.phases.flatMap((p) => p.slices);
+  const all = s.phases.flatMap((p) => p.tasks);
   switch (s.stage) {
     case 'repro':
       return s.repro
@@ -51,8 +39,8 @@ export function nextFor(s: State): Next {
         return { procedure: 'phase-end', text: `Phase "${phase.name}" is built. Review it and approve it to continue.` };
       const running = all.filter((x) => x.status === 'in_progress');
       if (running.length)
-        return { procedure: 'execute', substep: 'continue', text: `Continue running slices: ${running.map((x) => `${x.name} (${x.substep ?? 'implementing'})`).join(', ')}.` };
-      return { procedure: 'execute', text: `Start the next ready slices in phase "${phase.name}".` };
+        return { procedure: 'execute', substep: 'continue', text: `Continue running tasks: ${running.map((x) => `${x.name} (${x.substep ?? 'implementing'})`).join(', ')}.` };
+      return { procedure: 'execute', text: `Start the next ready tasks in phase "${phase.name}".` };
     }
     case 'verify':
       return { procedure: 'verify', text: 'Verify the build against the PRD and record the result.' };
@@ -68,13 +56,13 @@ export function nextFor(s: State): Next {
 }
 
 export function progress(s: State): string {
-  const all = s.phases.flatMap((p) => p.slices);
+  const all = s.phases.flatMap((p) => p.tasks);
   if (!s.phases.length) return STAGE_LABEL[s.stage];
   const done = all.filter((x) => x.status === 'done').length;
   const running = all.filter((x) => x.status === 'in_progress').length;
   const pi = s.phases.findIndex((p) => p.status !== 'done');
   const phase = pi === -1 ? 'all phases done' : `phase ${pi + 1}/${s.phases.length} "${s.phases[pi].name}"`;
-  return `${STAGE_LABEL[s.stage]} · ${phase} · ${done}/${all.length} slices done${running ? ` · ${running} running` : ''}`;
+  return `${STAGE_LABEL[s.stage]} · ${phase} · ${done}/${all.length} tasks done${running ? ` · ${running} running` : ''}`;
 }
 
 const SOURCE_LABEL = { mod: 'you, in the menu', terminal: 'you, in the terminal' } as const;
@@ -95,16 +83,16 @@ const openDrift = (s: State) => s.drift.filter((d) => !d.acked);
 
 export function summary(s: State): string {
   const drift = openDrift(s).length;
-  return `${s.title} (${s.slug}): ${progress(s)}${s.paused ? ' · PAUSED' : ''}${drift ? ` · ${drift} unreviewed drift` : ''}`;
+  return `${s.title} (${s.slug}): ${progress(s)}${s.paused ? ' · PAUSED' : ''}${drift ? ` · ${drift} out-of-scope edit(s)` : ''}`;
 }
 
-const sliceIcon = (x: Slice, done: Set<string>) =>
+const taskIcon = (x: Task, done: Set<string>) =>
   x.status === 'done' ? '✓' : x.status === 'in_progress' ? '◐' : x.blockedBy.some((b) => !done.has(b)) ? '⊘' : '○';
 const phaseIcon = (p: Phase) => ({ done: '✓', awaiting_approval: '◆', in_progress: '◐', pending: '○' })[p.status];
 
 export function renderStatus(s: State): string {
   const next = nextFor(s);
-  const all = s.phases.flatMap((p) => p.slices);
+  const all = s.phases.flatMap((p) => p.tasks);
   const byId = new Map(all.map((x) => [x.id, x]));
   const done = new Set(all.filter((x) => x.status === 'done').map((x) => x.id));
   const out: string[] = [
@@ -122,14 +110,14 @@ export function renderStatus(s: State): string {
     out.push('', '## Phases');
     for (const p of s.phases) {
       out.push(`- ${phaseIcon(p)} ${p.name}${p.status === 'awaiting_approval' ? ' (built, waiting for approval)' : ''}`);
-      for (const x of p.slices) {
+      for (const x of p.tasks) {
         let tail = '';
-        if (x.status === 'in_progress') tail = ` (${x.substep ?? 'implementing'}${x.fixRound ? `, fix round ${x.fixRound}` : ''})`;
+        if (x.status === 'in_progress') tail = ` (${x.substep ?? 'implementing'}${x.fixRound ? `, fix attempt ${x.fixRound}` : ''})`;
         else if (x.status === 'pending') {
           const on = x.blockedBy.filter((b) => !done.has(b)).map((b) => byId.get(b)?.name ?? b);
           if (on.length) tail = ` (waits on ${on.join(', ')})`;
         }
-        out.push(`  - ${sliceIcon(x, done)} ${x.name}${tail}`);
+        out.push(`  - ${taskIcon(x, done)} ${x.name}${tail}`);
       }
     }
   }
@@ -144,7 +132,7 @@ export function renderStatus(s: State): string {
   if (checkpoints.length) out.push('', '## Checkpoints', ...checkpoints.map((c) => `- ${c}`));
 
   const drift = openDrift(s);
-  if (drift.length) out.push('', '## Drift to review', ...drift.map((d) => `- \`${d.path}\`: ${d.reason}`));
+  if (drift.length) out.push('', '## Out-of-scope edits to review', ...drift.map((d) => `- \`${d.path}\`: ${d.reason}`));
 
   const overrides = s.log.filter((l) => l.override);
   if (overrides.length) out.push('', '## Overrides', ...overrides.map((l) => `- ${day(l.at)} ${l.event}: ${l.override}${overrideSource(l.detail)}`));

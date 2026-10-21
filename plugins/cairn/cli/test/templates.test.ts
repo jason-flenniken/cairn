@@ -14,7 +14,7 @@ test('templates carry every section the CLI gates on', () => {
   assert.deepEqual(missingSections(read('templates/plan.md'), PLAN_SECTIONS), []);
   assert.deepEqual(missingSections(read('templates/record.md'), RECORD_SECTIONS), []);
   assert.deepEqual(missingSections(read('templates/handoff.md'), HANDOFF_SECTIONS), []);
-  assert.match(read('templates/plan.md'), /```yaml cairn-slices/);
+  assert.match(read('templates/plan.md'), /```yaml cairn-tasks/);
 });
 
 test('every procedure cairn next can route to exists', () => {

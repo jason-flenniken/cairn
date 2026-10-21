@@ -1,6 +1,6 @@
 import type { Ctx } from '../locate.ts';
 import { mergeProgress, parsePlan } from '../plan-parse.ts';
-import { allSlices } from '../ready.ts';
+import { allTasks } from '../ready.ts';
 import { log } from '../state.ts';
 import { hashText, readText, Refusal } from '../util.ts';
 import { mutate, planCtx, planFile, type Opts, type Result } from '../shared.ts';
@@ -16,10 +16,10 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
     const replanning = s.stage !== 'plan';
     if (replanning && !opts.replan) throw new Refusal(`the plan is in ${s.stage}; changing it mid-flight is a re-plan`, ['cairn plan load --replan']);
     if (!['plan', 'execute', 'verify', 'review'].includes(s.stage)) throw new Refusal(`a plan can't be loaded in ${s.stage}`);
-    const dropsFix = s.log.some((l) => l.event === 'escalated') && allSlices(s).some((x) => x.id === 'fix') && !parsed.phases.some((p) => p.slices.some((x) => x.id === 'fix'));
-    if (dropsFix) throw new Refusal('the new plan drops the "fix" slice that escalate kept', ['keep a slice with id "fix" in plan.md']);
+    const dropsFix = s.log.some((l) => l.event === 'escalated') && allTasks(s).some((x) => x.id === 'fix') && !parsed.phases.some((p) => p.tasks.some((x) => x.id === 'fix'));
+    if (dropsFix) throw new Refusal('the new plan drops the "fix" task that escalate kept', ['keep a task with id "fix" in plan.md']);
     const { phases, lostDone } = mergeProgress(parsed.phases, s.phases);
-    if (lostDone.length) throw new Refusal(`the new plan drops slices that already started or finished: ${lostDone.join(', ')}`, ['keep them in plan.md']);
+    if (lostDone.length) throw new Refusal(`the new plan drops tasks that already started or finished: ${lostDone.join(', ')}`, ['keep them in plan.md']);
     s.phases = phases;
     s.planHash = hashText(planMd);
     if (replanning) {
@@ -28,11 +28,11 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
       delete s.evidence.verify;
       delete s.evidence.review;
       for (const p of s.phases) delete p.verdict;
-      log(s, 're-plan loaded', `${allSlices(s).length} slices`);
-    } else log(s, 'plan loaded', `${s.phases.length} phases, ${allSlices(s).length} slices`);
+      log(s, 're-plan loaded', `${allTasks(s).length} tasks`);
+    } else log(s, 'plan loaded', `${s.phases.length} phases, ${allTasks(s).length} tasks`);
     return {
-      message: `Loaded ${s.phases.length} phases and ${allSlices(s).length} slices.${replanning ? ' The plan needs approval again.' : ''} Next: approve the plan with the user.`,
-      data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, slices: p.slices.map((x) => x.id) })) },
+      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? ' The plan needs approval again.' : ''} Next: approve the plan with the user.`,
+      data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, tasks: p.tasks.map((x) => x.id) })) },
     };
   });
 }

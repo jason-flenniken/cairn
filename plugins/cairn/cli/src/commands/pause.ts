@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { loadConfig, worktreeRoot } from '../config.ts';
 import { branchExists, git } from '../git.ts';
 import { planBranch, planRef, type Ctx } from '../locate.ts';
-import { allSlices } from '../ready.ts';
+import { allTasks } from '../ready.ts';
 import { nextFor, summary } from '../render.ts';
 import { HANDOFF_SECTIONS } from '../sections.ts';
 import { loadState, log } from '../state.ts';
@@ -51,7 +51,7 @@ export function cmdResume(ctx: Ctx, slug: string | undefined, opts: Opts): Resul
       s.paused = null;
     }
     const next = nextFor(s);
-    const running = allSlices(s).filter((x) => x.status === 'in_progress');
+    const running = allTasks(s).filter((x) => x.status === 'in_progress');
     return {
       message: [
         wasPaused ? `Resumed "${s.title}".` : `"${s.title}" was not paused.`,

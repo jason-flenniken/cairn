@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { matchesAny } from '../glob.ts';
 import { context } from '../locate.ts';
-import { allSlices, currentPhase, findSlice } from '../ready.ts';
+import { allTasks, currentPhase, findTask } from '../ready.ts';
 import { nextFor, summary } from '../render.ts';
 import { loadState, log, saveState } from '../state.ts';
 import { now, withLock } from '../util.ts';
@@ -23,9 +23,9 @@ export function hookSessionStart(input: HookInput): string {
     const s = loadState(pc.plan.dir);
     if (s.stage === 'closed') return '';
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
-    if (ctx.slice) {
-      const sl = findSlice(s, ctx.slice);
-      if (sl) lines.push(`This worktree is slice "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit docs/sdlc/.`);
+    if (ctx.task) {
+      const sl = findTask(s, ctx.task);
+      if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit docs/sdlc/.`);
     }
     return hookOut('SessionStart', lines.join('\n'));
   }
@@ -37,8 +37,8 @@ export function hookSessionStart(input: HookInput): string {
 export function hookPostEdit(input: HookInput): string {
   const file = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
   if (!file) return '';
-  // Subagents keep the session's cwd but edit by absolute path in their slice worktree,
-  // so the worktree (and therefore the plan and slice) comes from the file, not the cwd.
+  // Subagents keep the session's cwd but edit by absolute path in their task worktree,
+  // so the worktree (and therefore the plan and task) comes from the file, not the cwd.
   const abs = isAbsolute(file) ? file : resolve(input.cwd ?? process.cwd(), file);
   let dir = dirname(abs);
   while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir);
@@ -53,23 +53,23 @@ export function hookPostEdit(input: HookInput): string {
     if (s.stage === 'closed') return '';
     let allowed: string[];
     let where: string;
-    const slice = ctx.slice ? findSlice(s, ctx.slice) : undefined;
+    const task = ctx.task ? findTask(s, ctx.task) : undefined;
     if (['discover', 'prd', 'plan'].includes(s.stage)) {
       allowed = ['docs/**'];
       where = 'before the plan was approved';
-    } else if (slice) {
-      allowed = slice.scope;
-      where = `outside slice "${slice.name}" scope`;
+    } else if (task) {
+      allowed = task.scope;
+      where = `outside task "${task.name}" scope`;
     } else if (s.stage === 'execute') {
-      allowed = (currentPhase(s)?.slices ?? []).flatMap((x) => x.scope);
+      allowed = (currentPhase(s)?.tasks ?? []).flatMap((x) => x.scope);
       where = "outside the current phase's scope";
     } else {
-      allowed = allSlices(s).flatMap((x) => x.scope);
+      allowed = allTasks(s).flatMap((x) => x.scope);
       where = "outside the plan's scope";
     }
     if (matchesAny(rel, allowed)) return '';
     if (s.drift.some((d) => d.path === rel && !d.acked)) return '';
-    s.drift.push({ path: rel, at: now(), reason: `edited ${where}`, ...(slice ? { slice: slice.id } : {}) });
+    s.drift.push({ path: rel, at: now(), reason: `edited ${where}`, ...(task ? { task: task.id } : {}) });
     log(s, 'drift', rel);
     saveState(pc.plan.dir, s);
     return `${rel} was edited ${where}`;

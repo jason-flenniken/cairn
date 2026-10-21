@@ -1,6 +1,6 @@
 ---
 name: execute
-description: "Run the current phase: parallel slices, review, fix, merge."
+description: "Run the current phase: parallel tasks, review, fix, merge."
 disable-model-invocation: true
 allowed-tools:
   - "Bash(cairn next:*)"
@@ -12,7 +12,7 @@ allowed-tools:
   - "Bash(cairn advance:*)"
   - "Bash(cairn plan:*)"
   - "Bash(cairn ready:*)"
-  - "Bash(cairn slice:*)"
+  - "Bash(cairn task:*)"
   - "Bash(cairn evidence:*)"
   - "Bash(cairn drift:*)"
   - "Bash(cairn pause:*)"

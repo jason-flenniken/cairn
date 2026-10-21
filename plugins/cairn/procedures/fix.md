@@ -1,6 +1,6 @@
 # Fix
 
-Take one bug from repro to a shipped fix on a fix-track plan: a failing repro, a TDD fix in one slice, a security-focused review, and a short record.
+Take one bug from repro to a shipped fix on a fix-track plan: a failing repro, a TDD fix in one task, a security-focused review, and a short record.
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -33,20 +33,20 @@ Write a failing test or a command that reproduces the bug, in the plan worktree.
 **Done when:** `cairn repro` exited with a non-zero status and the stage is execute.
 
 ## 4. Execute the fix
-Run `cairn advance`. It creates the single slice `fix`, with scope `**`. Follow `procedures/execute.md` for that slice. The implementer works test-first in the slice worktree and covers the unhappy and security cases the bug implies: bad input, the failure path, and any trust boundary the fix touches. Each unhappy and security case gets a failing test before its fix.
+Run `cairn advance`. It creates the single task `fix`, with scope `**`. Follow `procedures/execute.md` for that task. The implementer works test-first in the task worktree and covers the unhappy and security cases the bug implies: bad input, the failure path, and any trust boundary the fix touches. Each unhappy and security case gets a failing test before its fix.
 
 When the implementer or the reviewer names a requirement that the bug report did not state, go to step 5 before merging.
 
-**Done when:** `cairn slice done fix` exits 0 and the stage is review.
+**Done when:** `cairn task done fix` exits 0 and the stage is review.
 
 ## 5. Escalate when the fix grows
 Offer `cairn escalate` through AskUserQuestion in these two cases:
-- `cairn slice done fix` refuses because too many files changed. The refusal names `escalate`.
+- `cairn task done fix` refuses because too many files changed. The refusal names `escalate`.
 - The implementer or the reviewer reports a requirement the bug report did not state.
 
-The question names the reason and offers two options: "Escalate to a feature plan (Recommended)" and "Keep the fix narrow". On "Escalate to a feature plan", run `cairn escalate`. The plan becomes a feature plan at stage prd, and this procedure stops; the user continues with `/cairn:prd`. On "Keep the fix narrow", send the implementer back to the slice with the file limit as the target.
+The question names the reason and offers two options: "Escalate to a feature plan (Recommended)" and "Keep the fix narrow". On "Escalate to a feature plan", run `cairn escalate`. The plan becomes a feature plan at stage prd, and this procedure stops; the user continues with `/cairn:prd`. On "Keep the fix narrow", send the implementer back to the task with the file limit as the target.
 
-**Done when:** the user has chosen, and either the plan is escalated or the fix slice is back in the loop.
+**Done when:** the user has chosen, and either the plan is escalated or the fix task is back in the loop.
 
 ## 6. Review
 Dispatch the `branch-reviewer` agent (`model: opus`) with a security focus on the diff. Give it only the bug title, the repro command from `state.repro` in `cairn status --json`, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`. It returns findings as blocking or advisory, each with `path:line`.
@@ -54,7 +54,7 @@ Dispatch the `branch-reviewer` agent (`model: opus`) with a security focus on th
 Record the result with the existing evidence command:
 - No blocking findings: `cairn evidence review pass --blocking 0 --note "<N advisory>"`.
 - Blocking findings, N of them: `cairn evidence review fail --blocking N --note "<N blocking; A advisory>"`. Tell the user the blocking findings, each with its `path:line`. Then ask with AskUserQuestion, with these options in order:
-  - "Fix in place (Recommended when small)": run `cairn slice start fix`. It reopens the fix slice from review: the stage returns to execute, the old review result is cleared, and the repro and the slice base are kept. Go to step 4 and give the implementer the blocking findings.
+  - "Fix in place (Recommended when small)": run `cairn task start fix`. It reopens the fix task from review: the stage returns to execute, the old review result is cleared, and the repro and the task base are kept. Go to step 4 and give the implementer the blocking findings.
   - "Escalate to a feature plan": run `cairn escalate` and stop this procedure.
   - "Hold": stop here; the plan stays at review.
 

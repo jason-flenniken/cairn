@@ -18,7 +18,7 @@ const SUBCOMMANDS = [
   'advance',
   'plan',
   'ready',
-  'slice',
+  'task',
   'evidence',
   'drift',
   'pause',

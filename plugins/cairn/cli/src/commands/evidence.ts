@@ -10,12 +10,12 @@ function cmdEvidencePhase(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
   return mutate(pc, 'phase direction verdict', (s) => {
     const phase = currentPhase(s);
-    if (s.stage !== 'execute' || !phase || phase.status !== 'awaiting_approval') throw new Refusal('no phase is waiting for approval', ['finish the phase\'s slices first (cairn ready / cairn slice done)']);
+    if (s.stage !== 'execute' || !phase || phase.status !== 'awaiting_approval') throw new Refusal('no phase is waiting for approval', ['finish the phase\'s tasks first (cairn ready / cairn task done)']);
     const rel = `direction/${phase.id}.md`;
     const md = readText(planFile(pc, rel));
     if (md === undefined) throw new Refusal(`${rel} does not exist`, ['run the direction check and write the report with a cairn-direction scorecard']);
     const { rows, problems } = parseScorecard(md);
-    const covered = [...new Set(phase.slices.flatMap((x) => x.covers))];
+    const covered = [...new Set(phase.tasks.flatMap((x) => x.covers))];
     const have = new Set(rows.requirements.map((r) => r?.id));
     const missing = covered.filter((id) => !have.has(id));
     if (missing.length) problems.push(`no row for covered requirement(s): ${missing.join(', ')}`);
@@ -36,7 +36,7 @@ export function cmdEvidence(ctx: Ctx, kind: string | undefined, result: string |
   return mutate(pc, `${kind} ${result}`, (s) => {
     gate(s.stage === kind, s, `evidence ${kind}`, opts, `the plan is in ${s.stage}, not ${kind}`);
     const blocking = opts.blocking !== undefined ? Number(opts.blocking) : undefined;
-    if (result === 'pass' && blocking) throw new Refusal(`a review with ${blocking} blocking finding(s) can't pass`, ['turn them into fix slices (cairn plan load --replan) or record fail']);
+    if (result === 'pass' && blocking) throw new Refusal(`a review with ${blocking} blocking finding(s) can't pass`, ['turn them into fix tasks (cairn plan load --replan) or record fail']);
     s.evidence[kind] = { result, at: now(), ...(opts.note ? { note: String(opts.note) } : {}), ...(blocking !== undefined ? { blocking } : {}) };
     log(s, `${kind} ${result}`, opts.note ? String(opts.note) : undefined);
     return { message: `Recorded ${kind}: ${result}.` };

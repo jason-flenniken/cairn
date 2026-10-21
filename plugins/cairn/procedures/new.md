@@ -6,7 +6,7 @@ Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLU
 
 ## 1. Check
 Run `cairn status --json`.
-- On a plan branch (`sdlc/<slug>` or `sdlc-slice/...`), tell the user a plan is already active, name it, and stop. Offer `/cairn:next` to continue it.
+- On a plan branch (`sdlc/<slug>` or `sdlc-task/...`), tell the user a plan is already active, name it, and stop. Offer `/cairn:next` to continue it.
 - On any other branch, continue.
 
 **Done when:** you know the session is on a non-plan branch (main or similar).
@@ -29,7 +29,7 @@ Run `cairn new <slug> --title "<title>"`. The output prints the plan worktree pa
 **Done when:** the command exits 0 and you have the worktree path.
 
 ## 5. Tell the user where the plan lives
-Tell the user the plan worktree path in one line. Never move the session into the worktree with a worktree-entering tool: a session locked to a worktree blocks its subagents from editing and committing in slice worktrees. You stay at the repo root, and every later `cairn` command runs as `cd <plan worktree> && cairn <command>`.
+Tell the user the plan worktree path in one line. Never move the session into the worktree with a worktree-entering tool: a session locked to a worktree blocks its subagents from editing and committing in task worktrees. You stay at the repo root, and every later `cairn` command runs as `cd <plan worktree> && cairn <command>`.
 
 Confirm with `cd <plan worktree> && cairn status --json` that the stage is `discover`.
 

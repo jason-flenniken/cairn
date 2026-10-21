@@ -19,7 +19,7 @@ function plan(over: Record<string, unknown> = {}): Record<string, unknown> {
   }
 }
 
-const slice = (id: string, name: string, over: Record<string, unknown> = {}) => ({
+const task = (id: string, name: string, over: Record<string, unknown> = {}) => ({
   id, name, covers: [], blockedBy: [], scope: [], complexity: 'standard', status: 'pending', fixRound: 0, ...over,
 })
 
@@ -175,13 +175,13 @@ const EXECUTE = plan({
   phases: [
     {
       id: 'p1', name: 'Core', status: 'in_progress',
-      slices: [
-        slice('cart', 'Cart', { status: 'in_progress', substep: 'fixing', fixRound: 2 }),
-        slice('pay', 'Payments', { blockedBy: ['cart'] }),
-        slice('auth', 'Auth', { status: 'done' }),
+      tasks: [
+        task('cart', 'Cart', { status: 'in_progress', substep: 'fixing', fixRound: 2 }),
+        task('pay', 'Payments', { blockedBy: ['cart'] }),
+        task('auth', 'Auth', { status: 'done' }),
       ],
     },
-    { id: 'p2', name: 'Polish', status: 'pending', slices: [slice('docs', 'Docs')] },
+    { id: 'p2', name: 'Polish', status: 'pending', tasks: [task('docs', 'Docs')] },
   ],
 })
 
@@ -209,14 +209,14 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await ui.unmount()
     })
 
-    test(`execute: phase 1 of 2, the running slice's substep and fix round 2, the waiting slice (${surface})`, async ($, on) => {
+    test(`execute: phase 1 of 2, the running task's substep and fix round 2, the waiting task (${surface})`, async ($, on) => {
       world(on, { rows: [row(EXECUTE, WT)] })
       await start($, WT)
       const ui = await mount($, surface)
       const text = await drawn(ui)
-      expect(text).toContain('Execute')
+      expect(text).toContain('Build')
       expect(text).toContain('phase 1 of 2')
-      expect(text).toMatch(/Cart \(fixing, fix round 2\)/)
+      expect(text).toMatch(/Cart \(fixing, fix attempt 2\)/)
       expect(text).toMatch(/Payments \(waits on Cart\)/)
       expect(text).toContain('Auth')
       expect(text).toContain('Polish')
@@ -241,8 +241,8 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
     test(`a pending phase stop: Waiting on you names it, the last verdict shows, Approve appears (${surface})`, async ($, on) => {
       const stop = plan({
         phases: [
-          { id: 'p1', name: 'Core', status: 'awaiting_approval', verdict: { result: 'yellow', at: 'x', commit: 'abc' }, slices: [slice('cart', 'Cart', { status: 'done' })] },
-          { id: 'p2', name: 'Polish', status: 'pending', slices: [] },
+          { id: 'p1', name: 'Core', status: 'awaiting_approval', verdict: { result: 'yellow', at: 'x', commit: 'abc' }, tasks: [task('cart', 'Cart', { status: 'done' })] },
+          { id: 'p2', name: 'Polish', status: 'pending', tasks: [] },
         ],
       })
       world(on, { rows: [row(stop, WT)] })
@@ -250,7 +250,7 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       const ui = await mount($, surface)
       const text = await drawn(ui)
       expect(text).toMatch(/Waiting on you: phase approval/)
-      expect(text).toMatch(/Last verdict: Core: yellow/)
+      expect(text).toMatch(/Last on-track check: Core: yellow/)
       expect(await buttonKeys(ui)).toEqual(['approve', 'pause', 'status'])
       await ui.unmount()
     })
@@ -305,12 +305,12 @@ describe('status line (FR-11)', () => {
   test('in a plan worktree it shows the plan summary', async ($, on) => {
     const { w } = world(on, { rows: [row(EXECUTE, WT)] })
     await start($, WT)
-    expect(w.statuses.at(-1)).toBe('Acme Storefront (shop): Execute · phase 1 of 2 "Core" · 1/4 slices done · 1 running')
+    expect(w.statuses.at(-1)).toBe('Acme Storefront (shop): Build · phase 1 of 2 "Core" · 1/4 tasks done · 1 running')
   })
 
-  test('in a slice worktree it shows its plan summary too', async ($, on) => {
-    const inSlice = plan({ phases: [{ id: 'p1', name: 'Core', status: 'in_progress', slices: [slice('cart', 'Cart', { status: 'in_progress', worktree: '/repo/.claude/worktrees/sdlc-shop--cart' })] }] })
-    const { w } = world(on, { rows: [row(inSlice, WT)], cwd: '/repo/.claude/worktrees/sdlc-shop--cart' })
+  test('in a task worktree it shows its plan summary too', async ($, on) => {
+    const inTask = plan({ phases: [{ id: 'p1', name: 'Core', status: 'in_progress', tasks: [task('cart', 'Cart', { status: 'in_progress', worktree: '/repo/.claude/worktrees/sdlc-shop--cart' })] }] })
+    const { w } = world(on, { rows: [row(inTask, WT)], cwd: '/repo/.claude/worktrees/sdlc-shop--cart' })
     await start($, '/repo/.claude/worktrees/sdlc-shop--cart')
     expect(w.statuses.at(-1)).toMatch(/^Acme Storefront \(shop\): /)
   })
@@ -462,7 +462,7 @@ describe('opening the pane (FR-08)', () => {
 })
 
 const PHASE_STOP = plan({
-  phases: [{ id: 'p1', name: 'Core', status: 'awaiting_approval', slices: [slice('cart', 'Cart', { status: 'done' })] }],
+  phases: [{ id: 'p1', name: 'Core', status: 'awaiting_approval', tasks: [task('cart', 'Cart', { status: 'done' })] }],
 })
 
 describe('pane buttons (FR-05, FR-12, FR-17)', () => {

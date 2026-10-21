@@ -11,11 +11,11 @@ Read the document in full. For every finding give: the heading, a short quote, w
 
 ## Lenses
 
-**coherence:** the document against itself. Contradictions between sections (scope says X is out, a requirement includes it), terms used two ways, ids that don't resolve (an acceptance criterion citing an FR that doesn't exist), duplicate or skipped ids, a plan slice whose Interfaces disagree with its Test cases, a constraint stated early and violated later.
+**coherence:** the document against itself. Contradictions between sections (scope says X is out, a requirement includes it), terms used two ways, ids that don't resolve (an acceptance criterion citing an FR that doesn't exist), duplicate or skipped ids, a plan task whose Interfaces disagree with its Test cases, a constraint stated early and violated later.
 
-**feasibility:** can it be built as written. Check against the actual codebase (Grep, Read): named modules, APIs, or libraries that don't exist or work differently, hidden dependencies between requirements, performance numbers that the architecture can't meet, slices too large for one context window, ordering that the dependencies don't allow.
+**feasibility:** can it be built as written. Check against the actual codebase (Grep, Read): named modules, APIs, or libraries that don't exist or work differently, hidden dependencies between requirements, performance numbers that the architecture can't meet, tasks too large for one context window, ordering that the dependencies don't allow.
 
-**scope-guardian:** the scope against the stated problem. Requirements nobody needs for the problem, user stories with no requirement, requirements with no user story, scope that crept past the non-goals, abstractions or configurability beyond the need, complexity out of proportion to the goal. In a plan: slices covering no requirement.
+**scope-guardian:** the scope against the stated problem. Requirements nobody needs for the problem, user stories with no requirement, requirements with no user story, scope that crept past the non-goals, abstractions or configurability beyond the need, complexity out of proportion to the goal. In a plan: tasks covering no requirement.
 
 **security:** threats the document misses. Authentication and authorization on every entry point, input validation and injection, data exposure and privacy, abuse and rate limits, secrets handling, trust boundaries with third parties. A security section that names threats without controls is a finding. So is a feature that handles user data with no security entry.
 

@@ -17,7 +17,7 @@ It says what the software must do; it does not list every input it will meet. Fo
 Start here. Find code the PRD does not ask for: options nobody requested, abstractions with a single use, configuration with one value, dead branches, helpers duplicating existing ones, speculative generality. Each is a finding with a suggested deletion or inlining. Unrequested code is blocking when it adds an attack surface or behavior; advisory otherwise.
 
 ## Pass 2: Correctness
-Logic errors, off-by-one, unhandled null and empty, wrong error propagation, races, double submits, state left inconsistent on failure, contracts between slices that disagree, requirements from the PRD that are not implemented.
+Logic errors, off-by-one, unhandled null and empty, wrong error propagation, races, double submits, state left inconsistent on failure, contracts between tasks that disagree, requirements from the PRD that are not implemented.
 
 ## Pass 3: Security
 Authentication and authorization on every new entry point, input validation and injection, data exposure in responses and logs, secrets, unsafe deserialization, SSRF and path traversal, missing rate limits where abuse is cheap.

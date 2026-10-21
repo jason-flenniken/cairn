@@ -86,7 +86,7 @@ s
 - [x] which processor?
 `;
 
-const planWith = (slices: string) => `## Goal
+const planWith = (tasks: string) => `## Goal
 g
 ## Architecture
 a
@@ -95,12 +95,12 @@ c
 ## Review focus
 r
 ## Phases
-\`\`\`yaml cairn-slices
+\`\`\`yaml cairn-tasks
 phases:
   - id: core
     name: Core
-    slices:
-${slices}
+    tasks:
+${tasks}
 \`\`\`
 `;
 const CHARGE = '      - { id: charge, name: Charge, covers: [FR-01], scope: ["src/charge/**"] }';
@@ -125,13 +125,13 @@ function featureInExecute(repo: string, slug: string, plan = PLAN): { wt: string
 
 const stateOf = (dir: string) => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
 
-/** Start a slice, commit files on its branch, and merge it into the plan branch. Returns the slice worktree. */
-function buildSlice(wt: string, slug: string, id: string, files: Record<string, string>): string {
-  const swt = ok(wt, 'slice', 'start', id).data!.worktree as string;
+/** Start a task, commit files on its branch, and merge it into the plan branch. Returns the task worktree. */
+function buildTask(wt: string, slug: string, id: string, files: Record<string, string>): string {
+  const swt = ok(wt, 'task', 'start', id).data!.worktree as string;
   for (const [p, s] of Object.entries(files)) write(join(swt, p), s);
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', id);
-  g(wt, 'merge', '-q', '--no-ff', '-m', `merge ${id}`, `sdlc-slice/${slug}/${id}`);
+  g(wt, 'merge', '-q', '--no-ff', '-m', `merge ${id}`, `sdlc-task/${slug}/${id}`);
   return swt;
 }
 
@@ -149,12 +149,12 @@ test('testSummary falls back to the last line when no line has counts', () => {
   assert.equal(testSummary([]), undefined);
 });
 
-test('slice done records the pass line when the test output ends with an npm notice', () => {
+test('task done records the pass line when the test output ends with an npm notice', () => {
   const repo = mkRepo({ test: "printf 'ℹ pass 12\\nnpm notice New version available\\n'", maxParallel: 3 });
   const { wt, dir } = featureInExecute(repo, 'summary');
-  buildSlice(wt, 'summary', 'charge', { 'src/charge/a.ts': '1\n' });
-  ok(wt, 'slice', 'done', 'charge');
-  assert.match(stateOf(dir).phases[0].slices[0].tests, /→ ℹ pass 12$/);
+  buildTask(wt, 'summary', 'charge', { 'src/charge/a.ts': '1\n' });
+  ok(wt, 'task', 'done', 'charge');
+  assert.match(stateOf(dir).phases[0].tasks[0].tests, /→ ℹ pass 12$/);
 });
 
 // FR-37
@@ -173,10 +173,10 @@ test('STATUS.md names who approved: the menu, the terminal', () => {
 test('STATUS.md shows the source of each override', () => {
   const s = newState('x', 'X', 'feature', 'sdlc/x', 'main');
   s.log.push({ at: '2026-10-21T10:00:00Z', event: 'override: advance', detail: 'no decisions (source: mod)', override: 'skip the interview' });
-  s.log.push({ at: '2026-10-21T11:00:00Z', event: 'override: slice done', detail: 'tests are not green (source: terminal)', override: 'flaky' });
+  s.log.push({ at: '2026-10-21T11:00:00Z', event: 'override: task done', detail: 'tests are not green (source: terminal)', override: 'flaky' });
   const md = renderStatus(s);
   assert.match(md, /advance: skip the interview \(you, in the menu\)/);
-  assert.match(md, /slice done: flaky \(you, in the terminal\)/);
+  assert.match(md, /task done: flaky \(you, in the terminal\)/);
 });
 
 test('an approval made through the mod shows in the generated STATUS.md', () => {
@@ -207,7 +207,7 @@ test('well-formed bold ids and bold words in the PRD do not trip the id check', 
 
 // FR-40
 
-test('a prefactor slice may have empty covers but still needs scope', () => {
+test('a prefactor task may have empty covers but still needs scope', () => {
   const pre = (extra: string) => `      - { id: groundwork, name: Groundwork, kind: prefactor, covers: []${extra} }`;
   const withScope = planWith(`${pre(', scope: ["src/shared/**"]')}\n${CHARGE}\n${REFUND}`);
   assert.deepEqual(parsePlan(withScope, PRD).problems, []);
@@ -220,70 +220,70 @@ test('empty covers without kind: prefactor still refuses', () => {
   assert.match(parsePlan(plan, PRD).problems.join('\n'), /groundwork.*covers/);
 });
 
-test('an unknown slice kind is a problem', () => {
+test('an unknown task kind is a problem', () => {
   const plan = planWith(`      - { id: odd, name: Odd, kind: chore, covers: [], scope: ["src/**"] }\n${CHARGE}\n${REFUND}`);
   assert.match(parsePlan(plan, PRD).problems.join('\n'), /odd.*kind/);
 });
 
 // FR-42
 
-test('a slice started before a re-plan can be marked done after it, with no override', () => {
+test('a task started before a re-plan can be marked done after it, with no override', () => {
   const repo = mkRepo();
   const { wt, dir } = featureInExecute(repo, 'replan');
-  const swt = ok(wt, 'slice', 'start', 'charge').data!.worktree as string;
-  const before = stateOf(dir).phases[0].slices[0].base;
-  assert.ok(before, 'the slice recorded its base');
+  const swt = ok(wt, 'task', 'start', 'charge').data!.worktree as string;
+  const before = stateOf(dir).phases[0].tasks[0].base;
+  assert.ok(before, 'the task recorded its base');
   write(join(dir, 'plan.md'), planWith(`${CHARGE}\n${REFUND}\n      - { id: audit, name: Audit, covers: [], kind: prefactor, scope: ["src/audit/**"] }`));
   ok(wt, 'plan', 'load', '--replan');
-  assert.equal(stateOf(dir).phases[0].slices[0].base, before, 're-plan keeps the base');
+  assert.equal(stateOf(dir).phases[0].tasks[0].base, before, 're-plan keeps the base');
   asUser(repo, () => ok(wt, 'approve', 'plan'));
   ok(wt, 'advance');
   write(join(swt, 'src/charge/a.ts'), '1\n');
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', 'charge');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'sdlc-slice/replan/charge');
-  ok(wt, 'slice', 'done', 'charge');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'sdlc-task/replan/charge');
+  ok(wt, 'task', 'done', 'charge');
   const s = stateOf(dir);
-  assert.equal(s.phases[0].slices[0].status, 'done');
+  assert.equal(s.phases[0].tasks[0].status, 'done');
   assert.ok(!s.log.some((l: { override?: string }) => l.override), 'no override was used');
 });
 
 // FR-41
 
-test('slice done logs each file changed outside the slice scope as drift, and phase approval waits for review', () => {
+test('task done logs each file changed outside the task scope as drift, and phase approval waits for review', () => {
   const repo = mkRepo();
   const { wt, dir } = featureInExecute(repo, 'driftcheck');
-  buildSlice(wt, 'driftcheck', 'charge', { 'src/charge/a.ts': '1\n', 'README.md': 'changed through bash\n' });
-  ok(wt, 'slice', 'done', 'charge');
+  buildTask(wt, 'driftcheck', 'charge', { 'src/charge/a.ts': '1\n', 'README.md': 'changed through bash\n' });
+  ok(wt, 'task', 'done', 'charge');
   const s = stateOf(dir);
   assert.deepEqual(s.drift.map((d: { path: string }) => d.path), ['README.md']);
-  assert.equal(s.drift[0].slice, 'charge');
-  assert.match(s.drift[0].reason, /outside slice "Charge" scope/);
-  buildSlice(wt, 'driftcheck', 'refund', { 'src/refund/b.ts': '2\n' });
-  ok(wt, 'slice', 'done', 'refund');
-  assert.equal(stateOf(dir).drift.length, 1, 'a slice inside its scope adds no drift');
+  assert.equal(s.drift[0].task, 'charge');
+  assert.match(s.drift[0].reason, /outside task "Charge" scope/);
+  buildTask(wt, 'driftcheck', 'refund', { 'src/refund/b.ts': '2\n' });
+  ok(wt, 'task', 'done', 'refund');
+  assert.equal(stateOf(dir).drift.length, 1, 'a task inside its scope adds no drift');
   asUser(repo, () => refused(wt, /drift not reviewed: README\.md/, 'approve', 'phase'));
 });
 
-test('slice done does not add drift for a path already logged and unreviewed', () => {
+test('task done does not add drift for a path already logged and unreviewed', () => {
   const repo = mkRepo();
   const { wt, dir } = featureInExecute(repo, 'nodup');
-  const swt = ok(wt, 'slice', 'start', 'charge').data!.worktree as string;
+  const swt = ok(wt, 'task', 'start', 'charge').data!.worktree as string;
   write(join(swt, 'README.md'), 'x\n');
   write(join(swt, 'src/charge/a.ts'), '1\n');
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', 'charge');
   const st = stateOf(dir);
-  st.drift.push({ path: 'README.md', at: '2026-10-21T00:00:00Z', reason: 'edited outside slice "Charge" scope', slice: 'charge' });
+  st.drift.push({ path: 'README.md', at: '2026-10-21T00:00:00Z', reason: 'edited outside task "Charge" scope', task: 'charge' });
   writeFileSync(join(dir, 'state.json'), JSON.stringify(st));
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge', 'sdlc-slice/nodup/charge');
-  ok(wt, 'slice', 'done', 'charge');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge', 'sdlc-task/nodup/charge');
+  ok(wt, 'task', 'done', 'charge');
   assert.equal(stateOf(dir).drift.length, 1);
 });
 
 // FR-28
 
-test('a re-plan of an escalated fix plan refuses to drop the fix slice', () => {
+test('a re-plan of an escalated fix plan refuses to drop the fix task', () => {
   const repo = mkRepo();
   const wt = ok(repo, 'new', 'bugfix', '--track', 'fix', '--title', 'Bug').data!.worktree as string;
   const dir = join(wt, 'docs/sdlc/plans/bugfix');
@@ -293,13 +293,13 @@ test('a re-plan of an escalated fix plan refuses to drop the fix slice', () => {
   ok(wt, 'repro', 'grep -q fixed bug.txt');
   ok(wt, 'advance');
   ok(wt, 'escalate');
-  assert.equal(stateOf(dir).phases[0].slices[0].id, 'fix');
+  assert.equal(stateOf(dir).phases[0].tasks[0].id, 'fix');
   write(join(dir, 'prd.md'), PRD);
   asUser(repo, () => ok(wt, 'approve', 'prd'));
   ok(wt, 'advance');
   write(join(dir, 'plan.md'), PLAN);
-  refused(wt, /"fix" slice[\s\S]*plan\.md/, 'plan', 'load', '--replan');
-  // keeping the fix slice loads
+  refused(wt, /"fix" task[\s\S]*plan\.md/, 'plan', 'load', '--replan');
+  // keeping the fix task loads
   write(join(dir, 'plan.md'), planWith(`      - { id: fix, name: Fix, covers: [FR-01, FR-02], scope: ["bug.txt"] }`));
   ok(wt, 'plan', 'load', '--replan');
 });

@@ -53,8 +53,8 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   const w = warnings(pc, s);
   const next = nextFor(s);
   return {
-    message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.slice ? [`(You are in the worktree for slice "${ctx.slice}".)`] : [])].join('\n'),
-    data: { state: s, next, warnings: w, slice: ctx.slice ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
+    message: [summary(s), `Next: ${next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
+    data: { state: s, next, warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
   };
 }
 

@@ -12,9 +12,9 @@ sed -i.bak "s/\"name\": *\"$old\"/\"name\": \"$new\"/; s#plugins/$old#plugins/$n
 git -C "$repo" mv "plugins/$old/bin/$old" "plugins/$old/bin/$new" 2>/dev/null || mv "$here/bin/$old" "$here/bin/$new"
 sed -i.bak "s#/bin/$old\\\\\"#/bin/$new\\\\\"#g" "$here/hooks/hooks.json"
 # User-facing text: slash-command prefix and CLI name.
-grep -rlE "/$old:|\\b$old (next|status|new|decide|approve|advance|plan|ready|slice|evidence|drift|pause|resume|close|render|product|hook)\\b" \
+grep -rlE "/$old:|\\b$old (next|status|new|decide|approve|advance|plan|ready|task|evidence|drift|pause|resume|close|render|product|hook)\\b" \
   "$here/skills" "$here/procedures" "$here/agents" "$here/references" "$here/templates" 2>/dev/null | while read -r f; do
-  sed -i.bak -E "s#/$old:#/$new:#g; s#\\b$old (next|status|new|decide|approve|advance|plan|ready|slice|evidence|drift|pause|resume|close|render|product|hook)\\b#$new \\1#g" "$f"
+  sed -i.bak -E "s#/$old:#/$new:#g; s#\\b$old (next|status|new|decide|approve|advance|plan|ready|task|evidence|drift|pause|resume|close|render|product|hook)\\b#$new \\1#g" "$f"
 done
 find "$here" "$repo/.claude-plugin" -name '*.bak' -delete
 git -C "$repo" mv "plugins/$old" "plugins/$new" 2>/dev/null || mv "$repo/plugins/$old" "$repo/plugins/$new"

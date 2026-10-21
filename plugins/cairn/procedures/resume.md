@@ -24,6 +24,6 @@ Tell the user in 3 lines: where the plan was (stage and phase), what was in flig
 **Done when:** the user has the summary and the handoff's open questions are answered. Append any question still open to `handoff.md` under `## Open questions` rather than dropping it.
 
 ## 4. Continue
-Run `cairn next --json` and follow the procedure it names, starting at the sub-step the handoff's Next action gives. In execute, in-progress slices continue from their recorded sub-step.
+Run `cairn next --json` and follow the procedure it names, starting at the sub-step the handoff's Next action gives. In execute, in-progress tasks continue from their recorded sub-step.
 
 **Done when:** the named procedure is running.

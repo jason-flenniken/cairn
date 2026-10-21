@@ -7,7 +7,7 @@ import { planRel, type Ctx } from '../locate.ts';
 import type { Config, State } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import { childEnv, gate, mutate, planCtx, type Opts, type Result } from '../shared.ts';
-import { allSlices } from '../ready.ts';
+import { allTasks } from '../ready.ts';
 import { loadState, log } from '../state.ts';
 import { appendDecision } from './plans.ts';
 
@@ -96,18 +96,18 @@ export function cmdRepro(ctx: Ctx, cmd: string | undefined, opts: Opts): Result 
   });
 }
 
-/** Turn a fix plan into a feature plan at prd, keeping the fix slice and its work (FR-28). */
+/** Turn a fix plan into a feature plan at prd, keeping the fix task and its work (FR-28). */
 export function cmdEscalate(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
   const pre = loadState(pc.plan.dir);
   if (pre.track !== 'fix') throw new Refusal('only a fix plan can be escalated; this is a feature plan');
   if (pre.stage === 'closed') throw new Refusal('the plan is closed');
-  // The files each started slice changed: committed from its base to its branch (or its recorded tip once merged
-  // and removed), plus uncommitted work in a running slice's worktree. Glob characters become `?` so the scope
+  // The files each started task changed: committed from its base to its branch (or its recorded tip once merged
+  // and removed), plus uncommitted work in a running task's worktree. Glob characters become `?` so the scope
   // stays a set of literal paths.
   const changed = new Map<string, string[]>();
   const own = planRel(pre.slug) + '/';
-  for (const sl of allSlices(pre)) {
+  for (const sl of allTasks(pre)) {
     const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
     if (!sl.base || !head) continue;
     const files = changedFiles(pc.plan.worktree, pre.slug, sl.base, head);
@@ -117,14 +117,14 @@ export function cmdEscalate(ctx: Ctx, opts: Opts): Result {
     changed.set(sl.id, [...new Set(files.map((f) => f.replace(/[*?]/g, '?')))].sort());
   }
   return mutate(pc, 'escalated to a feature plan', (s) => {
-    for (const sl of allSlices(s)) sl.scope = changed.get(sl.id) ?? [];
+    for (const sl of allTasks(s)) sl.scope = changed.get(sl.id) ?? [];
     const repro = s.repro ? `\`${s.repro.cmd}\` (failed with: ${s.repro.tail})` : 'none recorded';
-    appendDecision(pc, 'Escalate the fix to a feature plan', `The bug "${s.title}" is bigger than a fix. Repro: ${repro}. The fix slice and its work are kept; the plan must keep the slice id "fix".`, typeof opts.note === 'string' ? opts.note : undefined);
+    appendDecision(pc, 'Escalate the fix to a feature plan', `The bug "${s.title}" is bigger than a fix. Repro: ${repro}. The fix task and its work are kept; the plan must keep the task id "fix".`, typeof opts.note === 'string' ? opts.note : undefined);
     s.track = 'feature';
     s.stage = 'prd';
     delete s.evidence.review;
     delete s.approvals.ship;
     log(s, 'escalated', 'fix → feature plan at prd');
-    return { message: `"${s.title}" is now a feature plan at the PRD stage. The fix slice keeps its work, with its scope narrowed to the files it changed. Next: write the PRD.` };
+    return { message: `"${s.title}" is now a feature plan at the PRD stage. The fix task keeps its work, with its scope narrowed to the files it changed. Next: write the PRD.` };
   });
 }

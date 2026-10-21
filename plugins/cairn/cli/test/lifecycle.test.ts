@@ -79,16 +79,16 @@ c
 ## Review focus
 r
 ## Phases
-\`\`\`yaml cairn-slices
+\`\`\`yaml cairn-tasks
 phases:
   - id: core
     name: Core
-    slices:
+    tasks:
       - { id: charge, name: Charge, covers: [FR-01], scope: ["src/charge/**"] }
       - { id: refund, name: Refund, covers: [FR-02], scope: ["src/refund/**"] }
   - id: extras
     name: Extras
-    slices:
+    tasks:
       - { id: receipt, name: Receipt, covers: [FR-03], scope: ["src/receipt/**"], blocked_by: [charge] }
 \`\`\`
 `;
@@ -148,50 +148,50 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'advance');
   assert.equal(state().stage, 'execute');
 
-  // ready set and slice start
+  // ready set and task start
   const ready = ok(wt, 'ready').data!.ready as { id: string; model: string }[];
   assert.deepEqual(ready.map((x) => x.id), ['charge', 'refund']);
-  refused(wt, /waiting on charge|not in the current phase/, 'slice', 'start', 'receipt');
-  const chargeWt = ok(wt, 'slice', 'start', 'charge').data!.worktree as string;
-  const refundWt = ok(wt, 'slice', 'start', 'refund').data!.worktree as string;
-  assert.ok(existsSync(join(chargeWt, '.setup-ran')), 'setup ran in the slice worktree');
-  assert.equal(g(chargeWt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc-slice/billing/charge');
+  refused(wt, /waiting on charge|not in the current phase/, 'task', 'start', 'receipt');
+  const chargeWt = ok(wt, 'task', 'start', 'charge').data!.worktree as string;
+  const refundWt = ok(wt, 'task', 'start', 'refund').data!.worktree as string;
+  assert.ok(existsSync(join(chargeWt, '.setup-ran')), 'setup ran in the task worktree');
+  assert.equal(g(chargeWt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'sdlc-task/billing/charge');
 
-  // drift from a slice worktree is logged against the plan worktree's state
+  // drift from a task worktree is logged against the plan worktree's state
   const out = ctxOf(hookPostEdit({ cwd: wt, tool_input: { file_path: join(chargeWt, 'src/refund/oops.ts') } }));
-  assert.match(out, /outside slice "Charge" scope/);
+  assert.match(out, /outside task "Charge" scope/);
   assert.equal(hookPostEdit({ cwd: chargeWt, tool_input: { file_path: join(chargeWt, 'src/charge/ok.ts') } }), '');
   assert.equal(state().drift.length, 1);
 
-  // a slice with no commits can't be marked done
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'noop', 'sdlc-slice/billing/refund');
-  refused(wt, /no commits since the slice started/, 'slice', 'done', 'refund');
+  // a task with no commits can't be marked done
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'noop', 'sdlc-task/billing/refund');
+  refused(wt, /no commits since the task started/, 'task', 'done', 'refund');
 
   // fix rounds circuit breaker
-  for (let i = 0; i < 5; i++) ok(wt, 'slice', 'step', 'refund', 'fixing');
-  refused(wt, /5 fix rounds/, 'slice', 'step', 'refund', 'fixing');
+  for (let i = 0; i < 5; i++) ok(wt, 'task', 'step', 'refund', 'fixing');
+  refused(wt, /5 fix rounds/, 'task', 'step', 'refund', 'fixing');
 
-  // slice done requires merge and green tests
+  // task done requires merge and green tests
   write(join(chargeWt, 'src/charge/index.ts'), 'export const charge = 1;\n');
   g(chargeWt, 'add', '-A');
   g(chargeWt, 'commit', '-q', '-m', 'charge');
-  refused(wt, /not merged/, 'slice', 'done', 'charge');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'sdlc-slice/billing/charge');
+  refused(wt, /not merged/, 'task', 'done', 'charge');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'sdlc-task/billing/charge');
   write(join(wt, 'stray.ts'), 'x');
-  refused(wt, /uncommitted changes outside docs\/sdlc/, 'slice', 'done', 'charge');
+  refused(wt, /uncommitted changes outside docs\/sdlc/, 'task', 'done', 'charge');
   rmSync(join(wt, 'stray.ts'));
   write(join(wt, '../cairn-test-FAIL'), 'x');
-  refused(wt, /tests are not green/, 'slice', 'done', 'charge');
+  refused(wt, /tests are not green/, 'task', 'done', 'charge');
   rmSync(join(wt, '../cairn-test-FAIL'));
-  ok(wt, 'slice', 'done', 'charge');
-  assert.ok(!existsSync(chargeWt), 'slice worktree removed');
-  assert.equal(state().phases[0].slices[0].status, 'done');
+  ok(wt, 'task', 'done', 'charge');
+  assert.ok(!existsSync(chargeWt), 'task worktree removed');
+  assert.equal(state().phases[0].tasks[0].status, 'done');
 
   write(join(refundWt, 'src/refund/index.ts'), 'export const refund = 1;\n');
   g(refundWt, 'add', '-A');
   g(refundWt, 'commit', '-q', '-m', 'refund');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge refund', 'sdlc-slice/billing/refund');
-  ok(wt, 'slice', 'done', 'refund');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge refund', 'sdlc-task/billing/refund');
+  ok(wt, 'task', 'done', 'refund');
   assert.equal(state().phases[0].status, 'awaiting_approval');
 
   // phase approval requires drift review
@@ -208,25 +208,25 @@ test('full lifecycle with every checkpoint', () => {
   assert.ok(state().paused);
   assert.match(ok(wt, 'next').data!.procedure as string, /procedures\/resume\.md$/);
   assert.equal((ok(wt, 'ready').data!.ready as unknown[]).length, 0);
-  refused(wt, /paused/, 'slice', 'start', 'receipt');
+  refused(wt, /paused/, 'task', 'start', 'receipt');
   const rec = ok(wt, 'resume');
   assert.match(rec.message, /Resumed "Billing"/);
   assert.equal(state().paused, null);
-  ok(wt, 'slice', 'start', 'receipt');
+  ok(wt, 'task', 'start', 'receipt');
 
   // session start hook sees the plan from the plan worktree, and the index from main
-  assert.match(ctxOf(hookSessionStart({ cwd: wt })), /Billing \(billing\): Execute · phase 2\/2/);
+  assert.match(ctxOf(hookSessionStart({ cwd: wt })), /Billing \(billing\): Build · phase 2\/2/);
   assert.match(ctxOf(hookSessionStart({ cwd: repo })), /1 active plan/);
   const all = ok(repo, 'status', '--all');
   assert.match(all.message, /Billing/);
   assert.match(ok(repo, 'next').data!.procedure as string, /status\.md$/);
 
-  const receiptWt = state().phases[1].slices[0].worktree;
+  const receiptWt = state().phases[1].tasks[0].worktree;
   write(join(receiptWt, 'src/receipt/index.ts'), 'export const r = 1;\n');
   g(receiptWt, 'add', '-A');
   g(receiptWt, 'commit', '-q', '-m', 'receipt');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'sdlc-slice/billing/receipt');
-  ok(wt, 'slice', 'done', 'receipt');
+  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'sdlc-task/billing/receipt');
+  ok(wt, 'task', 'done', 'receipt');
   greenVerdict(wt, planDir(), 'extras', ['FR-03']);
   byUser(wt, 'approve', 'phase');
   assert.equal(state().stage, 'verify');
@@ -268,7 +268,7 @@ test('edits before the plan is approved are drift', () => {
   assert.equal(hookPostEdit({ cwd: swt, tool_input: { file_path: join(swt, 'docs/notes.md') } }), '');
 });
 
-test('re-plan from verify adds fix slices, keeps progress, and re-runs verification', () => {
+test('re-plan from verify adds fix tasks, keeps progress, and re-runs verification', () => {
   const r = ok(repo, 'new', 'fixes', '--title', 'Fixes');
   const fwt = r.data!.worktree as string;
   const dir = join(fwt, 'docs/sdlc/plans/fixes');
@@ -277,29 +277,29 @@ test('re-plan from verify adds fix slices, keeps progress, and re-runs verificat
   write(join(dir, 'prd.md'), PRD.replace('- [ ] which', '- [x] which').replace('- FR-02 refund\n- FR-03 receipt\n', ''));
   byUser(fwt, 'approve', 'prd');
   ok(fwt, 'advance');
-  const one = (extra = '') => PLAN.replace(/  - id: core[\s\S]*```/, `  - id: core\n    name: Core\n    slices:\n      - { id: charge, name: Charge, covers: [FR-01], scope: ["src/charge/**"] }\n${extra}\`\`\``);
+  const one = (extra = '') => PLAN.replace(/  - id: core[\s\S]*```/, `  - id: core\n    name: Core\n    tasks:\n      - { id: charge, name: Charge, covers: [FR-01], scope: ["src/charge/**"] }\n${extra}\`\`\``);
   write(join(dir, 'plan.md'), one());
   ok(fwt, 'plan', 'load');
   byUser(fwt, 'approve', 'plan');
   ok(fwt, 'advance');
-  const swt = ok(fwt, 'slice', 'start', 'charge').data!.worktree as string;
+  const swt = ok(fwt, 'task', 'start', 'charge').data!.worktree as string;
   write(join(swt, 'src/charge/a.ts'), '1\n');
   g(swt, 'add', '-A');
   g(swt, 'commit', '-q', '-m', 'c');
-  g(fwt, 'merge', '-q', '--no-ff', '-m', 'm', 'sdlc-slice/fixes/charge');
-  ok(fwt, 'slice', 'done', 'charge');
+  g(fwt, 'merge', '-q', '--no-ff', '-m', 'm', 'sdlc-task/fixes/charge');
+  ok(fwt, 'task', 'done', 'charge');
   greenVerdict(fwt, dir, 'core', ['FR-01']);
   byUser(fwt, 'approve', 'phase');
   ok(fwt, 'evidence', 'verify', 'fail', '--note', 'double charge');
   refused(fwt, /re-plan/, 'plan', 'load');
-  write(join(dir, 'plan.md'), one('  - id: hardening\n    name: Hardening\n    slices:\n      - { id: idempotency, name: Idempotency, covers: [FR-01], scope: ["src/charge/idem/**"] }\n'));
+  write(join(dir, 'plan.md'), one('  - id: hardening\n    name: Hardening\n    tasks:\n      - { id: idempotency, name: Idempotency, covers: [FR-01], scope: ["src/charge/idem/**"] }\n'));
   ok(fwt, 'plan', 'load', '--replan');
   const s = JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
   assert.equal(s.stage, 'plan');
   assert.equal(s.approvals.plan, undefined);
   assert.equal(s.evidence.verify, undefined);
   assert.equal(s.phases[0].status, 'done');
-  assert.equal(s.phases[0].slices[0].status, 'done');
+  assert.equal(s.phases[0].tasks[0].status, 'done');
   assert.equal(s.phases[1].status, 'pending');
   byUser(fwt, 'approve', 'plan');
   ok(fwt, 'advance');
