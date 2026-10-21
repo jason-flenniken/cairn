@@ -219,7 +219,7 @@ The `setup`, `test`, and `build` commands are locked when you approve the plan. 
 |---|---|
 | A feature plan's branch | `feature/<slug>`, in a worktree under `.claude/worktrees/` (folder `feature-<slug>`) |
 | A fix plan's branch | `fix/<slug>`, in a worktree under `.claude/worktrees/` (folder `fix-<slug>`) |
-| A plan's documents | `docs/sdlc/plans/<slug>/` on the plan branch: `decisions.md`, `prd.md`, `plan.md`, `STATUS.md`, `handoff.md`, `RECORD.md`, `state.json` |
+| A plan's documents | `docs/sdlc/plans/<date>-<slug>/` on the plan branch: `decisions.md`, `prd.md`, `plan.md`, `STATUS.md`, `handoff.md`, `RECORD.md`, `state.json` |
 | A task's branch | `task/<slug>/<task>`, in its own worktree (folder: the plan folder plus `--<task>`, e.g. `feature-billing--cart-api`) |
 | The product PRD | `docs/sdlc/product/` on main |
 | Repo config | `.sdlc/config.json` |

@@ -16,7 +16,7 @@ A pause under `resumeFreshAfterMinutes` (`.sdlc/config.json`, default 60) resume
 
 Run `cairn resume`. It clears the pause and prints a recap: status, the handoff, and the next procedure.
 
-**Done when:** the command exits 0 and you have read the recap and `docs/sdlc/plans/<slug>/handoff.md`.
+**Done when:** the command exits 0 and you have read the recap and `docs/sdlc/plans/<date>-<slug>/handoff.md`.
 
 ## 3. Previously
 Tell the user in 3 lines: where the plan was (stage and phase), what was in flight, and what happens next. Surface open questions from the handoff and ask them with AskUserQuestion (recommended first) before continuing.

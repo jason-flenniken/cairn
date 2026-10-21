@@ -15,7 +15,7 @@ Run `cd <plan worktree> && cairn status --json`. The stage must be `execute`. An
 
 **Done when:** the stage is `execute`, the plan is not paused, and you hold the four values above.
 
-**Pause check.** Between any two steps below (before starting a task, dispatching or messaging an agent, merging), run `cd <plan worktree> && cairn status --json`. When it shows `paused`, start nothing new: no `cairn task start`, no new agent, no merge. Let running steps finish and record them. Append any open question you are holding to `docs/sdlc/plans/<slug>/handoff.md` under `## Open questions` (earlier ones stay), then stop. `/cairn:resume` continues the plan.
+**Pause check.** Between any two steps below (before starting a task, dispatching or messaging an agent, merging), run `cd <plan worktree> && cairn status --json`. When it shows `paused`, start nothing new: no `cairn task start`, no new agent, no merge. Let running steps finish and record them. Append any open question you are holding to `docs/sdlc/plans/<date>-<slug>/handoff.md` under `## Open questions` (earlier ones stay), then stop. `/cairn:resume` continues the plan.
 
 ## 2. Resume what is in progress
 Tasks already `in_progress` carry a recorded step. Continue each from there; starting over wastes finished work.

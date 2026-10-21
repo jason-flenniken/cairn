@@ -17,7 +17,7 @@ Ask with AskUserQuestion: "Anything worth remembering for next time?" Offer: Not
 **Done when:** the user answered.
 
 ## 3. Write the note
-For a note, append it under `## Follow-ups` in `docs/sdlc/plans/<slug>/RECORD.md` (or as a bullet under a `## Learnings` heading added at the end of the file). Keep the record within 900 words (`wc -w`). Commit the change on the plan branch.
+For a note, append it under `## Follow-ups` in `docs/sdlc/plans/<date>-<slug>/RECORD.md` (or as a bullet under a `## Learnings` heading added at the end of the file). Keep the record within 900 words (`wc -w`). Commit the change on the plan branch.
 
 **Done when:** the note is saved and committed, or the user chose to add nothing.
 

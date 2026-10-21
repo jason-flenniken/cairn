@@ -39,7 +39,7 @@ The mod registers these commands. Their names have no ":" because the engine for
 
 ## Where things live
 - Plan branch (from `cairn status --json`, `state.branch`): `feature/<slug>` for a feature plan, `fix/<slug>` for a fix. It is usually checked out in its own worktree. The orchestrator session stays at the repo root and runs `cd <plan worktree> && cairn <command>`.
-- Plan dir, committed on the plan branch: `docs/sdlc/plans/<slug>/`, containing:
+- Plan dir, committed on the plan branch: `docs/sdlc/plans/<date>-<slug>/` (the date is the plan's start; `cairn status --json` gives the absolute path as `dir`; older plans keep the undated `<slug>` folder and are still found), containing:
   - `decisions.md`: append-only, written via `cairn decide`
   - `prd.md`, `plan.md`, `handoff.md`, `RECORD.md`: written by procedures from `templates/`
   - `direction/<phase-id>.md`: one direction report per phase, with its `cairn-direction` scorecard
@@ -53,7 +53,7 @@ The mod registers these commands. Their names have no ":" because the engine for
   - `fixMaxFiles`: how many files a fix may change before `task done fix` refuses and names `escalate` (default 8)
   - `reproTimeoutMinutes`: how long `cairn repro` may run (default 10)
 - Config lock (FR-32): plan approval records a hash of the `setup`, `test`, and `build` commands. On the fix track the hash is taken when the repro is recorded. `task start`, `task done`, `repro`, and `close` refuse while the hash differs, and name the fix: the user re-approves the plan, or chooses Override.
-- The active plan is decided by the current git branch. A branch counts as a plan only when it holds `docs/sdlc/plans/<slug>/state.json`; hand-made `feature/` branches are ignored. On any other branch the CLI works on the index of all plans. Plans created before the `feature/`, `fix/`, and `task/` names keep `sdlc/<slug>`, `sdlc-task/<slug>/<task>`, and `sdlc-<slug>` folders, finish under those names, and cairn still recognises them.
+- The active plan is decided by the current git branch. A branch counts as a plan only when it holds `docs/sdlc/plans/<date>-<slug>/state.json`; hand-made `feature/` branches are ignored. On any other branch the CLI works on the index of all plans. Plans created before the `feature/`, `fix/`, and `task/` names keep `sdlc/<slug>`, `sdlc-task/<slug>/<task>`, and `sdlc-<slug>` folders, finish under those names, and cairn still recognises them.
 
 ## Stages
 `discover → prd → plan → execute → verify → review → ship → learn → closed`

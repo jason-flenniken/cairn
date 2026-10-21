@@ -10,7 +10,7 @@ Run `cairn status --json`. The stage must be `ship`. Any other stage: say which 
 **Done when:** the stage is `ship` and verify and review evidence are recorded.
 
 ## 2. Draft the record
-Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open-suggestion counts, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, and `git log <base>..<plan-branch>`. It writes `docs/sdlc/plans/<slug>/RECORD.md` from the record template in at most 500 words.
+Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open-suggestion counts, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, and `git log <base>..<plan-branch>`. It writes `docs/sdlc/plans/<date>-<slug>/RECORD.md` from the record template in at most 500 words.
 
 **Done when:** `RECORD.md` exists with every template heading and is within 500 words (`wc -w`).
 
