@@ -6,10 +6,17 @@
   "branch": "feature/roomier-pane-visuals",
   "base": "main",
   "created": "2026-10-21T20:32:04.977Z",
-  "updated": "2026-10-21T20:38:13.633Z",
+  "updated": "2026-10-21T20:39:31.482Z",
   "stage": "prd",
   "paused": null,
-  "approvals": {},
+  "approvals": {
+    "prd": {
+      "at": "2026-10-21T20:39:31.481Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "e6da444b6f44f404"
+    }
+  },
   "phases": [],
   "evidence": {},
   "drift": [],
@@ -22,6 +29,11 @@
       "at": "2026-10-21T20:38:13.633Z",
       "event": "advanced",
       "detail": "prd"
+    },
+    {
+      "at": "2026-10-21T20:39:31.482Z",
+      "event": "PRD approved",
+      "detail": "mod"
     }
   ],
   "suggestions": [
