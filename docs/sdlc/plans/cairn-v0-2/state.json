@@ -6,7 +6,7 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T11:19:25.422Z",
+  "updated": "2026-10-21T11:19:35.456Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -296,7 +296,7 @@
     {
       "id": "drift-and-fix",
       "name": "Drift check and fast lane",
-      "status": "awaiting_approval",
+      "status": "done",
       "slices": [
         {
           "id": "direction-procedure",
@@ -962,6 +962,11 @@
       "at": "2026-10-21T11:19:25.422Z",
       "event": "direction yellow",
       "detail": "Drift check and fast lane"
+    },
+    {
+      "at": "2026-10-21T11:19:35.455Z",
+      "event": "phase approved",
+      "detail": "Drift check and fast lane (source: mod)"
     }
   ],
   "planHash": "f50ac9cf22d057f7"
