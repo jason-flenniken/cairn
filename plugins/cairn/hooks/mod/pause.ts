@@ -23,9 +23,12 @@ const STOP_NOW_MESSAGE =
 
 // The main loop's running turn, from turn.start to turn.complete; a subagent's turns are not tracked.
 let mainTurn: string | undefined
-// Set once Stop now has cut a turn. The engine refuses a prompt.submit made from the command's own
+// The id of the turn Stop now cut, until its message is sent. The engine refuses a prompt.submit made from the command's own
 // hook (it would wait on the turn the hook holds), so the message goes out when that turn completes.
-let stopMessagePending = false
+let stopMessageFor: string | undefined
+
+// The template's own example line under Open questions (templates/handoff.md).
+const TEMPLATE_QUESTION = '- <question> (recommended: <answer>)'
 
 const sectionBody = (md: string, title: string): string => {
   const lines = md.split('\n')
@@ -36,8 +39,11 @@ const sectionBody = (md: string, title: string): string => {
   return (end < 0 ? rest : rest.slice(0, end)).join('\n')
 }
 
-const running = (state: PlanState): Slice[] =>
-  (state.phases ?? []).flatMap(p => p.slices ?? []).filter(s => s.status === 'in_progress')
+const running = (state: PlanState): Slice[] => {
+  const phases = Array.isArray(state.phases) ? state.phases : []
+  const slices = phases.flatMap(p => (Array.isArray(p?.slices) ? p.slices : []))
+  return slices.filter(s => s?.status === 'in_progress')
+}
 
 /** handoff.md for a plan now: running slices, the earlier file's open questions, the next action. */
 export function handoffFromState(state: PlanState, existing = ''): string {
@@ -46,7 +52,7 @@ export function handoffFromState(state: PlanState, existing = ''): string {
   const kept = sectionBody(existing, 'open questions')
     .split('\n')
     .map(l => l.trim())
-    .filter(l => l !== '' && !/^-?\s*<.*>/.test(l) && !/^-?\s*none\.?$/i.test(l))
+    .filter(l => l !== '' && l !== TEMPLATE_QUESTION && !/^-?\s*none\.?$/i.test(l))
   const next =
     slices.length > 0
       ? `Continue ${slices.map(s => s.id).join(', ')} from the recorded substeps: run \`cairn status --json\`, then \`cairn next --json\` and follow the procedure it names.`
@@ -112,7 +118,7 @@ export async function pause($: EngineInterface, mode: 'drain' | 'now'): Promise<
 async function freshMinutes($: EngineInterface, worktree: string): Promise<number> {
   try {
     const n = (JSON.parse(await $.fs.read(`${worktree}/.sdlc/config.json`)) as { resumeFreshAfterMinutes?: unknown }).resumeFreshAfterMinutes
-    return typeof n === 'number' && n > 0 ? n : FRESH_MINUTES
+    return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : FRESH_MINUTES
   } catch {
     return FRESH_MINUTES
   }
@@ -142,12 +148,16 @@ export async function resume($: EngineInterface, slug?: string): Promise<Outcome
 
 /** Cuts the running turn and tells the model to wind down; with no turn, or a refused abort, just pauses. */
 async function stopNow($: EngineInterface): Promise<Outcome> {
+  if (stopMessageFor !== undefined) {
+    $.ui.toast('cairn: already stopping; waiting for the cut turn to finish')
+    return { ok: false, message: 'Already stopping.' }
+  }
   const turnId = mainTurn
   if (turnId !== undefined) {
     try {
       await $.turn.abort({ turnId })
       mainTurn = undefined
-      stopMessagePending = true
+      stopMessageFor = turnId
       return { ok: true, message: 'Stopped the running turn; Claude will wind down the agents.' }
     } catch {
       // The turn was already over; fall through to pausing without it.
@@ -168,15 +178,19 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
 
 export function install(on: On): void {
   on('turn.start', (_$, e, next) => {
-    if (e.agentId === undefined) mainTurn = e.turnId
+    if (e.agentId === undefined) {
+      mainTurn = e.turnId
+      // A different turn began, so the cut one will not report in time; the message is dropped.
+      if (e.turnId !== stopMessageFor) stopMessageFor = undefined
+    }
     return next(e)
   })
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
     if (e.agentId === undefined) {
       if (e.turnId === mainTurn) mainTurn = undefined
-      if (stopMessagePending) {
-        stopMessagePending = false
+      if (e.turnId === stopMessageFor) {
+        stopMessageFor = undefined
         void $.prompt.submit({ text: STOP_NOW_MESSAGE }).catch(() => undefined)
       }
     }

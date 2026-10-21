@@ -27,6 +27,7 @@ type World = {
   refusePause?: string
   failAbort?: boolean
   failRegister?: boolean
+  failTimer?: boolean
   answer?: string
 }
 
@@ -42,7 +43,12 @@ function world(on: On, w: World = {}) {
   const order: string[] = []
   const beats: string[] = []
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
-  mock.clock(on, { now: NOW })
+  if (w.failTimer) {
+    on('clock.now', () => ({ deny: 'clock down' }))
+    on('clock.every', () => ({ value: { cancel() {} } as never }))
+  } else {
+    mock.clock(on, { now: NOW })
+  }
   on('process.run', (_$, e) => {
     const [bin, ...args] = e.argv
     const answer = (exitCode: number, stdout: string, stderr = '') => ({ value: { ...RAN, exitCode, stdout, stderr } })
@@ -279,5 +285,79 @@ test('session start registers both commands; one failing registration does not s
   const w = world(on, { failRegister: true })
   expect(await start($)).toEqual({ cwd: '/repo' })
   expect(w.beats).toEqual([String(NOW)])
+  expect(w.registered).toEqual(['cairn-pause-now', 'cairn-pause-mod', 'cairn-resume-mod'])
+})
+
+const aborted = ($: any, turnId: string) => $.turn.complete({ turnId, reason: 'aborted', answer: '' } as never)
+
+test('after Stop now, a different turn completing sends no message', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await $.turn.start({ text: 'go', turnId: 'turn-1' })
+  await $.command.run({ command: 'cairn-pause-now' })
+  await aborted($, 'turn-other')
+  expect(w.submits).toEqual([])
+})
+
+test('after Stop now, a new main turn starting clears the pending message for good', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await $.turn.start({ text: 'go', turnId: 'turn-1' })
+  await $.command.run({ command: 'cairn-pause-now' })
+  await $.turn.start({ text: 'next', turnId: 'turn-2' })
+  await aborted($, 'turn-1')
+  await aborted($, 'turn-2')
+  expect(w.submits).toEqual([])
+})
+
+test('after Stop now, the aborted turn completing sends the message exactly once', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await $.turn.start({ text: 'go', turnId: 'turn-1' })
+  await $.command.run({ command: 'cairn-pause-now' })
+  await aborted($, 'turn-1')
+  await aborted($, 'turn-1')
+  expect(w.submits).toHaveLength(1)
+})
+
+test('Stop now while a stop message is pending does nothing but toast', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await $.turn.start({ text: 'go', turnId: 'turn-1' })
+  await $.command.run({ command: 'cairn-pause-now' })
+  await $.command.run({ command: 'cairn-pause-now' })
+  expect(w.aborts).toEqual(['turn-1'])
+  expect(w.ran('pause')).toEqual([])
+  expect(w.toasts.join('\n')).toMatch(/already stopping/)
+})
+
+test('the handoff survives null slices and non-array phases or slices', () => {
+  const messy = { slug: 'shop', phases: [null, { slices: 'oops' }, { slices: [null, { id: 'ok', status: 'in_progress' }] }] }
+  expect(handoffFromState(messy as never)).toContain('- ok (no substep recorded)')
+  expect(handoffFromState({ slug: 'shop', phases: 'nope' } as never)).toContain('Nothing in flight')
+})
+
+test('only the template placeholder line is dropped from earlier open questions', () => {
+  const md = handoffFromState(
+    planState(),
+    '## Open questions\n- <question> (recommended: <answer>)\n- <b>Bold</b> or not? (recommended: bold)\n',
+  )
+  expect(md).toContain('- <b>Bold</b> or not? (recommended: bold)')
+  expect(md).not.toContain('<question>')
+})
+
+test('a resumeFreshAfterMinutes that is not a finite positive number falls back to 60', async ($, on) => {
+  const w = world(on, { paused: { at: minutesAgo(90), mode: 'drain' }, config: '{"resumeFreshAfterMinutes": 1e999}' })
+  await start($)
+  await $.command.run({ command: 'cairn-resume-mod' })
+  expect(w.asked).toHaveLength(1)
+  expect(w.ran('resume')).toEqual([])
+})
+
+test('a module whose start throws does not stop the other module or the session', async ($, on) => {
+  // The clock is refused, so the heartbeat's first beat throws out of its start.
+  const w = world(on, { failTimer: true })
+  expect(await start($)).toEqual({ cwd: '/repo' })
+  expect(w.beats).toEqual([])
   expect(w.registered).toEqual(['cairn-pause-now', 'cairn-pause-mod', 'cairn-resume-mod'])
 })
