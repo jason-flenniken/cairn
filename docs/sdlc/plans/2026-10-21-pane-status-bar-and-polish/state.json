@@ -6,10 +6,17 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T22:22:49.815Z",
+  "updated": "2026-10-21T22:25:39.091Z",
   "stage": "prd",
   "paused": null,
-  "approvals": {},
+  "approvals": {
+    "prd": {
+      "at": "2026-10-21T22:25:39.090Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "d3e850d849e38d5a"
+    }
+  },
   "phases": [],
   "evidence": {},
   "drift": [],
@@ -22,6 +29,11 @@
       "at": "2026-10-21T22:22:49.815Z",
       "event": "advanced",
       "detail": "prd"
+    },
+    {
+      "at": "2026-10-21T22:25:39.091Z",
+      "event": "PRD approved",
+      "detail": "mod"
     }
   ],
   "suggestions": [

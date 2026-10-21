@@ -96,3 +96,8 @@ _2026-10-21 22:22_
 **Decision:** Outcome: accurate cairn pane: bottom-pinned bar (stage steps, this plan's spend, 5h/weekly usage with warnings), header and terminal status that say what is really running in check/review/ship, cards that switch to their agent when clicked anywhere, one scrolling doc viewer for PRD, plan, ship record and Records. User: Jason watching his own plans in the docked pane. Why now: last plan said all phases done while review and fixes ran. Success: a full plan run without looking outside the pane, header never wrong. Constraint: 48 columns, inline 7-row mode works, icons render in the user's font. Out of scope: spend across sessions, budget cap, spend in RECORD.md, the declined thin-tests follow-up.
 **Why:** confirmed by the user
 _2026-10-21 22:22_
+
+### 20. What an agent card shows for cost
+**Decision:** Tokens update live; a dollar estimate from a small built-in per-model price table, marked with ~; an unknown model shows tokens only
+**Why:** Claude Code reports dollars only as a session total
+_2026-10-21 22:24_
