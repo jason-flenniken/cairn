@@ -101,3 +101,8 @@ _2026-10-21 10:08_
 **Decision:** Added slices stop-now-fix (Stop now runs pause --now itself after the abort; pause shows the clear tip) and test-flake (root-cause the 1-in-3 git invalid-object failure) to phase 3. The PRD now names the mod commands cairn-pane, cairn-approve, cairn-pause-now, cairn-pause-mod, and cairn-resume-mod because the engine forbids colons. hooks/NOTES.md joins the dogfood-docs slice.
 **Why:** Phase 2 alignment check and test runs.
 _2026-10-21 10:11_
+
+### 21. Move the flaky-test hunt to phase 4
+**Decision:** The user stopped the 24-minute test-flake run; it moves to phase 4 with its lead: forcing a repack shows packfile index unavailable errors, pointing at background git gc or repack racing the next command in the same test repo.
+**Why:** Not on the critical path; the user asked to keep moving.
+_2026-10-21 11:05_

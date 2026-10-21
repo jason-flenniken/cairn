@@ -149,12 +149,6 @@ phases:
         blocked_by: []
         scope: ["plugins/cairn/hooks/mod/pause.ts", "plugins/cairn/hooks/test/pause.test.ts"]
         complexity: standard
-      - id: test-flake
-        name: Find and fix the flaky git invalid-object test failure
-        covers: [FR-19]
-        blocked_by: []
-        scope: ["plugins/cairn/cli/test/**", "plugins/cairn/cli/src/shared.ts", "plugins/cairn/cli/src/git.ts"]
-        complexity: complex
       - id: fix-procedure
         name: Fix procedure and command
         covers: [FR-23, FR-26]
@@ -164,6 +158,12 @@ phases:
   - id: dogfood
     name: Dogfood fixes
     slices:
+      - id: test-flake
+        name: Find and fix the flaky git invalid-object test failure
+        covers: [FR-19]
+        blocked_by: []
+        scope: ["plugins/cairn/cli/test/**", "plugins/cairn/cli/src/shared.ts", "plugins/cairn/cli/src/git.ts"]
+        complexity: complex
       - id: file-input
         name: Decisions and notes from files
         covers: [FR-29]
@@ -617,3 +617,5 @@ Behavior-neutral refactor, plus clean child environments (FR-33).
 - Security: no test is weakened or skipped to pass. A fix that changes CLI behavior has its own test.
 
 **Done when** the suite has 20 green runs in a row and the root cause is written in the commit message.
+
+**Lead from the first attempt (stopped at the user's request):** forcing a repack produces `packfile … index unavailable` errors, a pack deleted under a running git. That points to background `git gc --auto`/repack racing the next command in the same test repo. Test whether setting `gc.auto=0` and `maintenance.auto=false` in the test repos, or in CLI-run git, removes the failure.

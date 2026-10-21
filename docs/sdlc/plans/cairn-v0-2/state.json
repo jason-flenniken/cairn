@@ -6,8 +6,8 @@
   "branch": "sdlc/cairn-v0-2",
   "base": "main",
   "created": "2026-10-20T21:00:43.533Z",
-  "updated": "2026-10-21T10:39:14.918Z",
-  "stage": "execute",
+  "updated": "2026-10-21T11:05:14.406Z",
+  "stage": "plan",
   "paused": null,
   "approvals": {
     "prd": {
@@ -15,12 +15,6 @@
       "via": "agent",
       "note": "bootstrap: approved in menu, relayed by agent because the mod does not exist yet",
       "hash": "5bde3d913b280c57"
-    },
-    "plan": {
-      "at": "2026-10-21T10:12:11.757Z",
-      "via": "agent",
-      "note": "re-plan approved in menu, relayed (bootstrap)",
-      "hash": "8c7f32988aef9d04"
     }
   },
   "phases": [
@@ -296,7 +290,7 @@
     {
       "id": "drift-and-fix",
       "name": "Drift check and fast lane",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "slices": [
         {
           "id": "direction-procedure",
@@ -321,11 +315,10 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/direction-procedure",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--direction-procedure",
-          "base": "f4a011fcf6079bda5816ecc0afdf7b701561a88f",
-          "note": "unverified rows, missing refusals, example block parsed in test",
-          "doneAt": "2026-10-21T10:18:57.693Z",
           "tip": "d4675c1",
-          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:18:57.693Z",
+          "note": "unverified rows, missing refusals, example block parsed in test"
         },
         {
           "id": "fix-cli",
@@ -354,11 +347,10 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/fix-cli",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--fix-cli",
-          "base": "f4a011fcf6079bda5816ecc0afdf7b701561a88f",
-          "note": "config lock skipped under --override before proof; minors",
-          "doneAt": "2026-10-21T10:39:14.918Z",
           "tip": "8f825f5",
-          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:39:14.918Z",
+          "note": "config lock skipped under --override before proof; minors"
         },
         {
           "id": "stop-now-fix",
@@ -377,26 +369,9 @@
           "fixRound": 0,
           "branch": "sdlc-slice/cairn-v0-2/stop-now-fix",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--stop-now-fix",
-          "base": "f4a011fcf6079bda5816ecc0afdf7b701561a88f",
-          "doneAt": "2026-10-21T10:15:27.329Z",
           "tip": "090c994",
-          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
-        },
-        {
-          "id": "test-flake",
-          "name": "Find and fix the flaky git invalid-object test failure",
-          "covers": [
-            "FR-19"
-          ],
-          "blockedBy": [],
-          "scope": [
-            "plugins/cairn/cli/test/**",
-            "plugins/cairn/cli/src/shared.ts",
-            "plugins/cairn/cli/src/git.ts"
-          ],
-          "complexity": "complex",
-          "status": "pending",
-          "fixRound": 0
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:15:27.329Z"
         },
         {
           "id": "fix-procedure",
@@ -417,19 +392,37 @@
           "fixRound": 1,
           "branch": "sdlc-slice/cairn-v0-2/fix-procedure",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--fix-procedure",
-          "base": "e48fc76f80bc8652b131c154d3ee77feec5d3377",
-          "note": "review inputs for fix track; blocking-finding loop pending fix-cli",
-          "doneAt": "2026-10-21T10:20:14.128Z",
           "tip": "e368d37",
-          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi"
+          "tests": "npm run typecheck && npm test → npm notice run if ls plugins/cairn/hooks/test/*.test.ts* >/dev/null 2>&1; then d=$(mktemp -d) && cp -R plugins/cairn/.claude-plugin plugins/cairn/hooks plugins/cairn/types \"$d\" && claude plugin test \"$d\"; s=$?; rm -rf \"$d\"; exit $s; fi",
+          "doneAt": "2026-10-21T10:20:14.128Z",
+          "note": "review inputs for fix track; blocking-finding loop pending fix-cli"
         }
       ]
     },
     {
       "id": "dogfood",
       "name": "Dogfood fixes",
-      "status": "pending",
+      "status": "in_progress",
       "slices": [
+        {
+          "id": "test-flake",
+          "name": "Find and fix the flaky git invalid-object test failure",
+          "covers": [
+            "FR-19"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/test/**",
+            "plugins/cairn/cli/src/shared.ts",
+            "plugins/cairn/cli/src/git.ts"
+          ],
+          "complexity": "complex",
+          "status": "in_progress",
+          "fixRound": 0,
+          "substep": "implementing",
+          "branch": "sdlc-slice/cairn-v0-2/test-flake",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/sdlc-cairn-v0-2--test-flake"
+        },
         {
           "id": "file-input",
           "name": "Decisions and notes from files",
@@ -932,7 +925,17 @@
       "at": "2026-10-21T10:39:14.918Z",
       "event": "slice done",
       "detail": "Fix track in the CLI"
+    },
+    {
+      "at": "2026-10-21T10:39:15.665Z",
+      "event": "slice started",
+      "detail": "Find and fix the flaky git invalid-object test failure"
+    },
+    {
+      "at": "2026-10-21T11:05:14.406Z",
+      "event": "re-plan loaded",
+      "detail": "18 slices"
     }
   ],
-  "planHash": "8c7f32988aef9d04"
+  "planHash": "f50ac9cf22d057f7"
 }
