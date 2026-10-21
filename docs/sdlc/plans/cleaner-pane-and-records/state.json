@@ -6,7 +6,7 @@
   "branch": "feature/cleaner-pane-and-records",
   "base": "main",
   "created": "2026-10-21T14:27:19.719Z",
-  "updated": "2026-10-21T15:01:24.879Z",
+  "updated": "2026-10-21T15:01:28.125Z",
   "stage": "execute",
   "paused": null,
   "approvals": {
@@ -123,7 +123,7 @@
     {
       "id": "few-follow-ups",
       "name": "Few follow-ups and automatic findings",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "followup-rules",
@@ -219,7 +219,7 @@
     {
       "id": "records",
       "name": "Records tab",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "records-command",
@@ -590,6 +590,11 @@
       "at": "2026-10-21T15:01:24.879Z",
       "event": "task done",
       "detail": "Findings written automatically"
+    },
+    {
+      "at": "2026-10-21T15:01:28.124Z",
+      "event": "phase finished",
+      "detail": "Few follow-ups and automatic findings (tests green (0 fail))"
     }
   ],
   "planHash": "2de7ba0ac296b6b8",
