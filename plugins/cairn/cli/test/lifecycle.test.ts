@@ -36,6 +36,12 @@ const byUser = (cwd: string, ...argv: string[]) => asUser(() => ok(cwd, ...argv)
 const refusedByUser = (cwd: string, pattern: RegExp, ...argv: string[]) => asUser(() => refused(cwd, pattern, ...argv));
 const state = () => JSON.parse(readFileSync(join(wt, 'docs/sdlc/plans/billing/state.json'), 'utf8'));
 const ctxOf = (out: string) => (out ? JSON.parse(out).hookSpecificOutput.additionalContext : '');
+/** Record a green direction verdict for the phase that is waiting for approval. */
+const greenVerdict = (cwd: string, dir: string, phaseId: string, reqs: string[]) => {
+  const rows = reqs.map((id) => ({ id, verdict: 'aligned', evidence: 'src/x.ts:1' }));
+  write(join(dir, `direction/${phaseId}.md`), `# Direction\n\n\`\`\`yaml cairn-direction\n${JSON.stringify({ requirements: rows })}\n\`\`\`\n`);
+  ok(cwd, 'evidence', 'phase');
+};
 const planDir = () => join(wt, 'docs/sdlc/plans/billing');
 
 const PRD = `# Billing PRD
@@ -190,6 +196,7 @@ test('full lifecycle with every checkpoint', () => {
   // phase approval requires drift review
   refusedByUser(wt, /drift not reviewed/, 'approve', 'phase');
   ok(wt, 'drift', 'ack', '--all', '--note', 'reverted');
+  greenVerdict(wt, planDir(), 'core', ['FR-01', 'FR-02']);
   byUser(wt, 'approve', 'phase');
   assert.equal(state().phases[1].status, 'in_progress');
 
@@ -219,6 +226,7 @@ test('full lifecycle with every checkpoint', () => {
   g(receiptWt, 'commit', '-q', '-m', 'receipt');
   g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'sdlc-slice/billing/receipt');
   ok(wt, 'slice', 'done', 'receipt');
+  greenVerdict(wt, planDir(), 'extras', ['FR-03']);
   byUser(wt, 'approve', 'phase');
   assert.equal(state().stage, 'verify');
 
@@ -279,6 +287,7 @@ test('re-plan from verify adds fix slices, keeps progress, and re-runs verificat
   g(swt, 'commit', '-q', '-m', 'c');
   g(fwt, 'merge', '-q', '--no-ff', '-m', 'm', 'sdlc-slice/fixes/charge');
   ok(fwt, 'slice', 'done', 'charge');
+  greenVerdict(fwt, dir, 'core', ['FR-01']);
   byUser(fwt, 'approve', 'phase');
   ok(fwt, 'evidence', 'verify', 'fail', '--note', 'double charge');
   refused(fwt, /re-plan/, 'plan', 'load');

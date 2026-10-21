@@ -25,6 +25,7 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
       delete s.approvals.plan;
       delete s.evidence.verify;
       delete s.evidence.review;
+      for (const p of s.phases) delete p.verdict;
       log(s, 're-plan loaded', `${allSlices(s).length} slices`);
     } else log(s, 'plan loaded', `${s.phases.length} phases, ${allSlices(s).length} slices`);
     return {

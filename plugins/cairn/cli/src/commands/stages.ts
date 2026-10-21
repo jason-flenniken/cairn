@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { commitPath } from '../git.ts';
+import { commitPath, gitOk } from '../git.ts';
 import { planRel, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
@@ -53,6 +53,12 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         gate(phase.status === 'awaiting_approval', s, 'approve phase', opts, `phase "${phase.name}" still has unfinished slices`, ['finish them (cairn ready / cairn slice done)']);
         const drift = s.drift.filter((d) => !d.acked);
         gate(!drift.length, s, 'approve phase', opts, `drift not reviewed: ${drift.map((d) => d.path).join(', ')}`, ['review each with the user, then cairn drift ack <path> --note "…" (or --all)']);
+        const v = phase.verdict;
+        gate(!!v, s, 'approve phase', opts, 'no direction verdict is recorded for this phase', ['run the direction check, then cairn evidence phase']);
+        if (v) {
+          gate(v.result !== 'red', s, 'approve phase', opts, `the direction verdict is red${v.note ? ` (${v.note})` : ''}`, ['fix what the report flags, then re-run the check and cairn evidence phase']);
+          gate(gitOk(['diff', '--quiet', v.commit, 'HEAD', '--', '.', ':!docs/sdlc'], pc.plan.worktree), s, 'approve phase', opts, `code changed since the direction check (verdict at ${v.commit.slice(0, 7)})`, ['re-run the direction check, then cairn evidence phase']);
+        }
         phase.status = 'done';
         log(s, 'phase approved', `${phase.name} (source: ${source})`);
         const following = currentPhase(s);
