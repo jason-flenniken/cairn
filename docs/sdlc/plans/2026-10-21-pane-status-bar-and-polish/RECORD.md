@@ -4,7 +4,7 @@
 ## Links
 - PRD: docs/sdlc/plans/2026-10-21-pane-status-bar-and-polish/prd.md
 - Plan: docs/sdlc/plans/2026-10-21-pane-status-bar-and-polish/plan.md
-- PR: (added at ship)
+- PR: https://github.com/jason-flenniken/cairn/pull/3
 - Tracker: none
 
 ## Why
