@@ -17,6 +17,8 @@ export type CairnPlanState = {
   /** `feature` or `fix`; an old plan without it is a feature plan. */
   track?: string
   stage?: string
+  /** The plan's depth level as stored; absent until one is chosen. */
+  level?: string
   /** The step the plan is on inside its stage, as the CLI last recorded it. */
   step?: { stage: string; name: string; count?: number; at: string }
   updated?: string
@@ -41,6 +43,10 @@ export type CairnPlanRow = {
   next?: { text?: string }
   /** The recorded step for the plan's current stage in words ("fixing 3 findings"); the CLI words it, the pane only shows it. */
   stepText?: string
+  /** The level in words, from the CLI ("Polished"); empty when the plan never chose one. The pane shows it as given. */
+  levelLabel?: string
+  /** Milliseconds spent in each stage, paused time left out; null for a plan with no history. */
+  timing?: Record<string, number> | null
   /** Suggestions nobody has closed; absent until the CLI reports them. */
   openSuggestions?: number
   /** The plan's config.maxParallel, when the CLI reports it. */

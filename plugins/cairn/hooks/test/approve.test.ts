@@ -50,6 +50,13 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
     const given = e.init?.env?.CAIRN_APPROVER
     if (hangIn !== undefined && e.init?.cwd === hangIn) return { deny: `timed out after ${e.init?.timeoutMs} ms` }
     if (refuse !== undefined) return answer(2, `✗ Refused: ${refuse}\n`)
+    if (args[0] === 'level') {
+      if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
+        onDisk = undefined
+        return answer(0, `Level raised to ${args[1]}.\n`)
+      }
+      return answer(2, '✗ Refused: no human proof\n')
+    }
     if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
       onDisk = undefined
       return answer(0, args[0] === 'approve' ? `${args[1]} approved.\n` : 'Advanced (override recorded).\n')
@@ -70,8 +77,9 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
     return { value: undefined }
   })
   const approveRuns = () => runs.filter(r => r.argv[1] === 'approve')
+  const levelRuns = () => runs.filter(r => r.argv[1] === 'level')
   const cliRuns = () => runs.filter(r => /\/bin\/cairn$/.test(r.argv[0] ?? '') && r.argv[1] !== 'status')
-  return { runs, hashes, toasts, approveRuns, cliRuns, where }
+  return { runs, hashes, toasts, approveRuns, levelRuns, cliRuns, where }
 }
 
 /** The dialog beneath the mod: the user's `answers`, plus any `extra` fields of the result. */
@@ -956,5 +964,137 @@ describe('mod-run overrides (FR-34)', () => {
     expect(ran).toEqual([ADVANCE])
     expect(runs).toEqual([])
     expect(got.context).toBeUndefined()
+  })
+})
+
+describe('menu level change', () => {
+  const askLevel = (q: string, extra: Record<string, unknown> = {}) => ({
+    tool: 'AskUserQuestion' as const,
+    questions: [{
+      question: q,
+      header: 'Level',
+      multiSelect: false,
+      options: ['MVP', 'Standard', 'Polished'].map(label => ({ label, description: label })),
+      ...extra,
+    }],
+  })
+
+  test('parseTags reads a level tag with its slug and question', () => {
+    expect(parseTags([{ question: 'How deep? [cairn:level shop-2]' }])).toEqual([
+      { slug: 'shop-2', question: 'How deep? [cairn:level shop-2]', level: true },
+    ])
+  })
+
+  test('a picked label runs cairn level with the secret in the plan worktree', async ($, on) => {
+    const { hashes, levelRuns, toasts } = world(on, [{ slug: 'lv', stage: 'plan', worktree: '/wt/lv' }])
+    const q = 'How deep? [cairn:level lv]'
+    dialog(on, { [q]: 'Polished' })
+    const got = await $.tool.call(askLevel(q))
+    const [run] = levelRuns()
+    expect(levelRuns()).toHaveLength(1)
+    expect(run?.argv.slice(1)).toEqual(['level', 'polished'])
+    expect(run?.init?.cwd).toBe('/wt/lv')
+    expect(hashes[0]).toBe(await sha256(run?.init?.env?.CAIRN_APPROVER ?? ''))
+    expect(got.context?.join('\n')).toMatch(/Level raised to polished/)
+    expect(toasts.join('\n')).toMatch(/Level raised to polished/)
+  })
+
+  const maps: [string, string][] = [['MVP', 'mvp'], ['Standard', 'standard'], ['Polished (Recommended)', 'polished']]
+  for (const [label, literal] of maps) {
+    test(`"${label}" maps to ${literal}`, async ($, on) => {
+      const { levelRuns } = world(on, [{ slug: 'lv', stage: 'plan', worktree: '/wt/lv' }])
+      const q = 'How deep? [cairn:level lv]'
+      dialog(on, { [q]: label })
+      await $.tool.call(askLevel(q))
+      expect(levelRuns().map(r => r.argv.slice(1))).toEqual([['level', literal]])
+    })
+  }
+
+  for (const label of ['Keep it as is', 'polished', 'Polished-ish', 'Approve', '--human']) {
+    test(`the label "${label}" changes nothing`, async ($, on) => {
+      const { levelRuns } = world(on, [{ slug: 'lv', stage: 'plan', worktree: '/wt/lv' }])
+      const q = 'How deep? [cairn:level lv]'
+      dialog(on, { [q]: label })
+      await $.tool.call(askLevel(q))
+      expect(levelRuns()).toEqual([])
+    })
+  }
+
+  test('an answer the model put in its own call is ignored and said so', async ($, on) => {
+    const { levelRuns } = world(on, [{ slug: 'lv', stage: 'plan', worktree: '/wt/lv' }])
+    const q = 'How deep? [cairn:level lv]'
+    dialog(on, { [q]: 'Polished' })
+    const got = await $.tool.call({ ...askLevel(q), answers: { [q]: 'Polished' } })
+    expect(levelRuns()).toEqual([])
+    expect(got.context?.join('\n')).toMatch(/came from the model's call/)
+  })
+
+  test('a dialog that answered itself while away (afkTimeoutMs) changes nothing', async ($, on) => {
+    const { levelRuns } = world(on, [{ slug: 'lv', stage: 'plan', worktree: '/wt/lv' }])
+    const q = 'How deep? [cairn:level lv]'
+    dialog(on, { [q]: 'Polished' }, { afkTimeoutMs: 60_000 })
+    const got = await $.tool.call(askLevel(q))
+    expect(levelRuns()).toEqual([])
+    expect(got.context?.join('\n')).toMatch(/while you were away/)
+  })
+
+  test('a multi-select level question changes nothing', async ($, on) => {
+    const { levelRuns } = world(on, [{ slug: 'lv', stage: 'plan', worktree: '/wt/lv' }])
+    const q = 'How deep? [cairn:level lv]'
+    dialog(on, { [q]: 'Polished' })
+    await $.tool.call(askLevel(q, { multiSelect: true }))
+    expect(levelRuns()).toEqual([])
+  })
+
+  test('a subagent\'s level menu is left alone', async ($, on) => {
+    const { levelRuns } = world(on, [{ slug: 'lv', stage: 'plan', worktree: '/wt/lv' }])
+    const q = 'How deep? [cairn:level lv]'
+    dialog(on, { [q]: 'Polished' })
+    await $.tool.call({ ...askLevel(q), agentId: 'a1' } as never)
+    expect(levelRuns()).toEqual([])
+  })
+
+  test('a dismissed dialog changes nothing', async ($, on) => {
+    const { levelRuns } = world(on, [{ slug: 'lv', stage: 'plan', worktree: '/wt/lv' }])
+    on('tool.call', { tool: 'AskUserQuestion' }, () => ({ deny: 'The user dismissed the question.' }))
+    const got = await $.tool.call(askLevel('How deep? [cairn:level lv]'))
+    expect(levelRuns()).toEqual([])
+    expect(got.deny).toBe('The user dismissed the question.')
+  })
+
+  test('a plan that is not checked out is refused with a reason', async ($, on) => {
+    const { levelRuns } = world(on, [{ slug: 'lv', stage: 'plan' }])
+    const q = 'How deep? [cairn:level lv]'
+    dialog(on, { [q]: 'MVP' })
+    const got = await $.tool.call(askLevel(q))
+    expect(levelRuns()).toEqual([])
+    expect(got.context?.join('\n')).toMatch(/not checked out/)
+  })
+
+  test('a CLI refusal is carried in context and a toast', async ($, on) => {
+    const { toasts } = world(on, [{ slug: 'lv', stage: 'plan', worktree: '/wt/lv' }], { refuse: 'lowering the level is only allowed before any task starts' })
+    const q = 'How deep? [cairn:level lv]'
+    dialog(on, { [q]: 'MVP' })
+    const got = await $.tool.call(askLevel(q))
+    expect(got.context?.join('\n')).toMatch(/refused: .*lowering the level/)
+    expect(toasts.join('\n')).toMatch(/refused: .*lowering the level/)
+  })
+
+  test('an approval, then a level change, both succeed in order with their own secrets', async ($, on) => {
+    const { runs, approveRuns, levelRuns } = world(on, [{ slug: 'lv', stage: 'prd', worktree: '/wt/lv' }])
+    const a = 'Approve the PRD? [cairn:approve prd lv]'
+    const l = 'How deep? [cairn:level lv]'
+    dialog(on, { [a]: 'Approve', [l]: 'Polished' })
+    const got = await $.tool.call({
+      tool: 'AskUserQuestion' as const,
+      questions: [...ask(a).questions, ...askLevel(l).questions],
+    })
+    expect(approveRuns()).toHaveLength(1)
+    expect(levelRuns()).toHaveLength(1)
+    const order = runs.map(r => r.argv[1]).filter(v => v === 'approve' || v === 'level')
+    expect(order).toEqual(['approve', 'level'])
+    expect(approveRuns()[0]?.init?.env?.CAIRN_APPROVER).not.toBe(levelRuns()[0]?.init?.env?.CAIRN_APPROVER)
+    expect(got.context?.join('\n')).toMatch(/prd approved/)
+    expect(got.context?.join('\n')).toMatch(/Level raised/)
   })
 })

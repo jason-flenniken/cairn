@@ -4,7 +4,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
 import { LINGER_MS, readAgents, readFeed, readMain, readTick } from './activity.ts'
-import { approvalCard, approvePress, confirmAndApprove } from './approval.tsx'
+import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel } from './approval.tsx'
 import { activeStep, Bar, cells, stageSteps, type BarLine } from './bar.tsx'
 import { act, agentCard, agentLines, mainCard, message, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
@@ -43,6 +43,7 @@ const COMMANDS = [
     description: 'Approve the stop this cairn plan is waiting on, after a confirm.',
     argumentHint: '[prd|plan|ship]',
   },
+  { name: 'cairn-level', description: 'Change this cairn plan\'s depth level (MVP, Standard or Polished), after a menu.' },
 ] as const
 
 const openDrift = (s: CairnPlanState) => list<Drift>(s.drift).filter(d => !d.acked)
@@ -225,6 +226,16 @@ async function approveCommand($: EngineInterface, arg: string): Promise<string> 
   return (await confirmAndApprove($, state.slug, waiting)) ?? `cairn: ${state.slug} ${waiting} is already approved.`
 }
 
+/** /cairn-level: asks which level for the session's plan; the menu offers only what the CLI would accept. */
+async function levelCommand($: EngineInterface): Promise<string> {
+  const found = await plan($)
+  if (typeof found === 'string') return 'cairn: this session is not in a plan, so the level was not changed.'
+  const state = found.state as CairnPlanState & { level?: string }
+  const current = state.level === 'mvp' || state.level === 'polished' ? state.level : 'standard'
+  const hasStarted = tasksOf(state).some(x => typeof x.startedAt === 'string')
+  return confirmAndSetLevel($, state.slug, current, hasStarted)
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** "Oct 21" for a record's YYYY-MM-DD date; the text itself when it is not one. */
@@ -274,6 +285,7 @@ export function install(on: On): void {
     return next(e)
   })
   on('command.run', { command: 'cairn-approve' }, async ($, e) => asOutput(await approveCommand($, (e.args ?? '').trim()).catch(message)))
+  on('command.run', { command: 'cairn-level' }, async ($, e) => asOutput(await levelCommand($).catch(message)))
   // The bar sits at the window's last rows, so every move of the window draws it again there.
   on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
     const moved = await next(e)

@@ -34,6 +34,7 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 The mod registers these commands. Their names have no ":" because the engine forbids it.
 - `/cairn-pane [on|off]`: shows or hides the pane; no word toggles. The choice is kept across sessions, and a hand close turns it off.
 - `/cairn-approve [kind]`: approves the stop waiting on the session's plan.
+- `/cairn-level`: asks MVP, Standard or Polished for the session's plan and runs `cairn level` with the mod's proof. It offers only levels the CLI would accept.
 - `/cairn-pause-now`: stops the running turn and pauses the plan now (Stop now).
 - `/cairn-pause-mod`: pauses the plan once in-flight work reaches a safe point.
 - `/cairn-resume-mod [plan]`: resumes a paused plan, here or after `/clear`.

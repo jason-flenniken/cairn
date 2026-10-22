@@ -6,10 +6,15 @@ import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
 
 export type Kind = 'prd' | 'plan' | 'ship'
-export type Tag = { kind?: Kind; slug: string; question: string; override?: true }
+export type Tag = { kind?: Kind; slug: string; question: string; override?: true; level?: true }
+export type Level = 'mvp' | 'standard' | 'polished'
+
+/** The three level labels the agent's menu and /cairn-level show, and the literal the CLI takes for each. */
+export const LEVEL_OF_LABEL: Record<string, Level> = { MVP: 'mvp', Standard: 'standard', Polished: 'polished' }
 
 const APPROVE_TAG = /\[cairn:approve (prd|plan|ship) ([^\s\]]+)\]/
 const OVERRIDE_TAG = /\[cairn:override ([^\s\]]+)\]/
+const LEVEL_TAG = /\[cairn:level ([^\s\]]+)\]/
 // How long a child may run: quick reads, and the commands that hold the secret.
 const QUICK_MS = 60_000
 const CLI_MS = 10 * 60_000
@@ -23,8 +28,16 @@ export function parseTags(questions: readonly { question?: unknown }[]): Tag[] {
     if (approve) tags.push({ kind: approve[1] as Kind, slug: approve[2] as string, question })
     const override = OVERRIDE_TAG.exec(question)
     if (override) tags.push({ slug: override[1] as string, question, override: true })
+    const level = LEVEL_TAG.exec(question)
+    if (level) tags.push({ slug: level[1] as string, question, level: true })
   }
   return tags
+}
+
+/** The level a menu answer names: exactly one of the three labels, optionally marked "(Recommended)". Anything else is none. */
+export function levelOfAnswer(answer: unknown): Level | undefined {
+  if (typeof answer !== 'string') return undefined
+  return LEVEL_OF_LABEL[answer.endsWith(' (Recommended)') ? answer.slice(0, -' (Recommended)'.length) : answer]
 }
 
 /** A label starting with "Approve", or free text that opens with an approving word. */
@@ -78,7 +91,7 @@ function withSecret<T>($: EngineInterface, use: (secret: string) => Promise<T>):
 const quick: ProcessRunInit = { timeoutMs: QUICK_MS }
 
 /** Runs bin/cairn with the secret in its env; the timeout keeps a hung CLI from holding the secret's turn. */
-function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promise<CairnRun> {
+export function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promise<CairnRun> {
   return withSecret($, s => {
     const init: ProcessRunInit = { cwd, env: { CAIRN_APPROVER: s }, timeoutMs: CLI_MS }
     return cairn($, args, init)
@@ -131,6 +144,20 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind): P
   if (ran.exitCode !== 0) return `cairn: ${slug} ${kind} approval refused: ${said}`
   fireApproved(kind, slug)
   return `cairn: ${slug}: ${said}`
+}
+
+/**
+ * Sets plan `slug` to `level` with the secret, through the same one-at-a-time secret path as approvals.
+ * The CLI decides what is allowed (no lower once a task started, not while paused, not at ship); its refusal is the answer.
+ */
+export async function levelAs($: EngineInterface, slug: string, level: Level): Promise<string> {
+  const row = (await planRows($)).find(p => p.state?.slug === slug)
+  if (row?.state === undefined) return `cairn: no plan "${slug}", so the level was not changed.`
+  if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so the level was not changed.`
+  const ran = await cairnWithSecret($, ['level', level], row.worktree).catch((err: unknown) => message(err))
+  if (typeof ran === 'string') return `cairn: ${slug} level change failed: ${ran}`
+  const said = `${ran.stdout}${ran.stderr}`.trim()
+  return ran.exitCode !== 0 ? `cairn: ${slug} level change refused: ${said}` : `cairn: ${slug}: ${said}`
 }
 
 export const ALREADY_APPROVED = 'Already approved from the pane'
@@ -301,6 +328,28 @@ export function install(on: On): void {
           pendingOverrides.set(tag.slug, await $.clock.now())
           notes.push(`cairn: your override for "${tag.slug}" is ready for 10 minutes: run the cairn --override command alone, with no cd or &&.`)
         }
+        continue
+      }
+      if (tag.level) {
+        // A level menu is the user's answer only: the same checks as an approval, and only the three labels.
+        const asked = (e.questions as readonly Asked[]).find(q => q.question === tag.question)
+        const level = levelOfAnswer(answers[tag.question])
+        const why = tag.question in prefilled
+          ? 'the answer came from the model\'s call, not from you'
+          : result?.afkTimeoutMs !== undefined
+            ? 'the dialog answered itself while you were away'
+            : asked?.multiSelect === true
+              ? 'it was a multi-select question'
+              : undefined
+        if (level === undefined || judged.has(`level ${tag.slug}`)) continue
+        if (why !== undefined) {
+          notes.push(`cairn: level of ${tag.slug} not changed: ${why}.`)
+          continue
+        }
+        judged.add(`level ${tag.slug}`)
+        const outcome = await levelAs($, tag.slug, level)
+        $.ui.toast(outcome)
+        notes.push(outcome)
         continue
       }
       if (tag.kind === undefined) continue

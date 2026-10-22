@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { CairnPlanState } from '../../types/index.d.ts'
 import { stageSteps, type BarLine } from '../mod/bar.tsx'
-import { MAIN, mount, mountAs, PANE_PROPS, plan, ready, row, start, task, world, WT, type Row } from './world.tsx'
+import { MAIN, mount, mountAs, PANE_PROPS, plan, ready, row, start, task, withLevel, world, WT, type Row } from './world.tsx'
 
 type El = { type: string; props: Record<string, unknown>; children: (El | string)[] }
 
@@ -124,6 +124,7 @@ describe('the bar on every tab (FR-01)', () => {
   const INLINE_CASES = [
     ['in the plan worktree', WT, () => row(BUILD_2_OF_3, WT), true],
     ['from the repo root', MAIN, () => row(BUILD_2_OF_3, WT), true],
+    ['in the plan worktree, with a level and stage time shown', WT, () => withLevel(row(BUILD_2_OF_3, WT), 'polished', 'Polished', { execute: 12 * 60_000 }), true],
     ['from the repo root, an approval waiting', MAIN, () => row(plan({ stage: 'plan' }), WT, undefined, ready('plan')), false],
   ] as const
   for (const [where, cwd, make, hasTip] of INLINE_CASES) {
@@ -138,6 +139,15 @@ describe('the bar on every tab (FR-01)', () => {
       await ui.unmount()
     })
   }
+
+  test('inline, the level and stage time ride on the existing header line, not a new row', async ($, on) => {
+    world(on, { rows: [withLevel(row(BUILD_2_OF_3, WT), 'polished', 'Polished', { execute: 12 * 60_000 })] })
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    const line = (await ui.findAll({ type: 'Text' })).map((t: El) => textOf(t)).find((t: string) => t.startsWith('Acme Storefront'))
+    expect(line).toMatch(/ · Polished · 12m$/)
+    await ui.unmount()
+  })
 
   const OTHER = '/repo/.claude/worktrees/sdlc-other'
   const texts = async (ui: any) => (await ui.findAll({ type: 'Text' })).map((t: El) => textOf(t))
