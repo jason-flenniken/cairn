@@ -24,7 +24,8 @@ The old pane file is split into `pane.tsx` (tabs, routing), `header.tsx`, `cards
 - Whole-branch review: 2 Required fixes (inline pane overflowed with 3 agents or a second plan; the pane kept its own copy of the step wording), plus a bar redraw on close and tab switch. Security review passed, with optional hardening logged.
 - A pre-existing test flake was fixed: approval tests read results before the real hash finished.
 - Check stage: 210 CLI and 422 mod tests pass, build clean, secret scan clean, npm audit 0 vulnerabilities. Requirements: 16 met, 3 met but untested.
-- The installed cairn predates the previous merge, so the new security-reviewer agent was not registered. Reviews ran as general agents following the repo's reviewer definitions, and `cairn step` ran from the plan's own CLI bundle.
+- The installed cairn predates the previous merge, so reviews ran as general agents following the repo's reviewer definitions.
+- Close was refused by dated-folder tests that computed today in UTC and failed every evening; they now use the local date, as the CLI does.
 
 ## Follow-ups
 - Live checks pending with you before ship: the bar stays at the bottom while scrolling, clicking a card opens the transcript, the viewer reaches the last line.
