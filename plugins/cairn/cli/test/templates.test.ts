@@ -27,6 +27,12 @@ test('every agent pins a model and every skill is user-invoked only', () => {
   for (const d of readdirSync(join(root, 'skills'))) assert.match(read(`skills/${d}/SKILL.md`), /^disable-model-invocation:\s*true\s*$/m, d);
 });
 
+test('the plan reviewer is read-only on sonnet', () => {
+  const a = read('agents/plan-reviewer.md');
+  assert.match(a, /^model:\s*sonnet\s*$/m);
+  assert.match(a, /^tools:\s*Read, Grep, Glob\s*$/m);
+});
+
 test('the direction procedure, agent, and skill fit together', () => {
   const t = read('procedures/direction.md');
   assert.match(t, /```yaml cairn-direction/);

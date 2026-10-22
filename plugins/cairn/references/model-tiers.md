@@ -20,6 +20,7 @@ Every `Agent` dispatch passes an explicit `model`. An omitted model inherits the
 | Explore (research) | sonnet |
 | acceptance-checker, recorder | sonnet |
 | branch-reviewer | opus |
+| plan-reviewer (Polished plans only) | sonnet |
 
 ## Start low, escalate on evidence
 - Start one tier lower than instinct says when a task sits between two tiers.
