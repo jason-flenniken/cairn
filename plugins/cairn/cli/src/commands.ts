@@ -5,6 +5,7 @@ import { runTests } from './shared.ts';
 export type { Opts, Result } from './shared.ts';
 export { cmdNew, cmdProductInit, cmdDecide } from './commands/plans.ts';
 export { cmdApprove, cmdAdvance, cmdClose } from './commands/stages.ts';
+export { cmdLevel } from './commands/level.ts';
 export { cmdPlanLoad } from './commands/planload.ts';
 export { cmdReady, cmdTask } from './commands/tasks.ts';
 export { cmdEscalate, cmdRepro } from './commands/fix.ts';

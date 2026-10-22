@@ -49,13 +49,21 @@ function humanOnce(opts: Opts, io?: ProofIO): { source: 'mod' | 'terminal' } | u
   return current.human ?? undefined;
 }
 
-/** Approvals come from the user: the mod's menu or pane, or a terminal run with --human. */
-export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO): 'mod' | 'terminal' {
+/** Approvals and level changes come from the user: the mod's menu or pane, or a terminal run with --human. */
+export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO, action: 'approve' | 'level' = 'approve'): 'mod' | 'terminal' {
   const p = humanOnce(opts, io);
   if (p) return p.source;
+  const slug = current?.ctx.plan?.slug;
+  const cmd = `cd ${current?.ctx.plan?.worktree ?? '<plan worktree>'} && ${pluginRoot()}/bin/cairn ${action} ${kind} --human`;
+  if (action === 'level')
+    throw new Refusal('level changes come from the user, and this command has no proof that one did', [
+      `the user answers the level menu tagged [cairn:level ${slug}]`,
+      `or the user runs, in their own terminal: ${cmd}`,
+      'or the user changes the level in the cairn pane (or runs /cairn-level)',
+    ]);
   throw new Refusal('approvals come from the user, and this command has no proof that one did', [
-    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${current?.ctx.plan?.slug}]`,
-    `or the user runs, in their own terminal: cd ${current?.ctx.plan?.worktree ?? '<plan worktree>'} && ${pluginRoot()}/bin/cairn approve ${kind} --human`,
+    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${slug}]`,
+    `or the user runs, in their own terminal: ${cmd}`,
     'or the user presses Approve in the cairn pane (or runs /cairn:approve)',
   ]);
 }

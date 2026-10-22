@@ -11,6 +11,7 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 
 ## Human proof
 `cairn approve prd|plan|ship` and any command run with `--override` succeed only with human proof. Each recorded approval or override notes its source.
+`cairn level mvp|standard|polished` needs the same human proof as an approval, through the same routes (the same level again needs none).
 - **Mod menu (`source: mod`).** The session's mod asks through AskUserQuestion and runs the approval when the user picks "Approve (Recommended)". The pane's Approve button and `/cairn-approve` run it the same way.
   - The mod keeps the secret in memory only. On disk, `<git common dir>/cairn/mod-secret.sha256` (mode 0600) holds the secret's SHA-256 as lowercase hex.
   - The mod passes the secret to the CLI in `CAIRN_APPROVER`. The CLI hashes it and compares. On a match the CLI claims and deletes the hash file, so a used secret can't be replayed. The mod then writes a fresh secret and hash.
@@ -70,7 +71,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 | `cairn approve plan` | the plan is loaded and `plan.md` is unchanged since it was loaded |
 | `cairn advance` (to execute) | plan approved |
 | `cairn task start <id>` | the task is in the ready set (`cairn ready`), and the config lock holds |
-| `cairn task done <id>` | the task branch is merged into the plan branch, the config `test` command passes in the plan worktree (a missing test command is a warning, not a refusal), and the config lock holds |
+| `cairn task done <id>` | the task branch is merged into the plan branch, the config `test` command passes in the plan worktree (a missing test command is a warning, not a refusal; at MVP a red suite is a warning plus a hardening item), the config lock holds, and on feature plans no non-merge commit made directly on the plan branch since the task started changes files in the task's scope (outside `docs/sdlc/`). That refusal lists the short SHAs: move them onto the task branch and merge it with `--no-ff` |
 | `cairn evidence phase` | (on demand) the phase's direction report has one valid `cairn-direction` block with a row for every covered requirement |
 | `cairn phase finish` | every task in the current phase is done, nothing is blocked or paused, the plan worktree is clean, tests are green at the current commit (the last `task done` run is reused when no code changed), and no on-track check for the phase is red. No human step |
 | (last phase finished) | stage moves to verify automatically |
@@ -94,6 +95,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 - **Stage transitions**
   - `cairn approve prd|plan|ship [--note "…"]`: through the mod's menu, or `--human` in the user's terminal (see Human proof)
   - `cairn advance [--to <stage>]`
+  - `cairn level mvp|standard|polished [--human]`: changes a feature plan's level, with the human proof above. It refuses on the fix track, while paused, at ship, learn or closed, and for a lower level once any task has started. Refusals come before the proof is spent. A raise clears plan approval if no task has started, clears recorded Check and review results (a plan in review goes back to Check), and files one hardening item per finished task built below the new level.
 - **Plan and tasks**
   - `cairn plan load [--replan]`: parses `plan.md` into state. Use `--replan` during execute, for example to change later phases. Existing task progress is kept, the stage returns to plan, the plan needs approval again, and verify and review evidence is cleared.
   - `cairn ready [--json]`: tasks that can start now (blockers done, no scope overlap, under the parallel cap).

@@ -7463,6 +7463,13 @@ function commitPath(cwd, path, message) {
   git(["commit", "-q", "-m", message, "--", path], cwd);
   return true;
 }
+function directCommits(cwd, base, head) {
+  const shas = git(["rev-list", "--first-parent", "--no-merges", `${base}..${head}`], cwd).split("\n").filter(Boolean);
+  return shas.map((sha) => ({
+    sha: sha.slice(0, 7),
+    files: git(["diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "--root", sha], cwd).split("\0").filter(Boolean)
+  }));
+}
 var quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: "0", GH_PROMPT_DISABLED: "1" });
 function safeRef(cwd, name) {
   if (!name || name.startsWith("-") || name.includes("@{")) return false;
@@ -8012,12 +8019,20 @@ function humanOnce(opts, io) {
   if (current.human === void 0) current.human = humanProof(current.ctx, opts, io) ?? null;
   return current.human ?? void 0;
 }
-function requireHumanProof(kind, opts, io) {
+function requireHumanProof(kind, opts, io, action = "approve") {
   const p = humanOnce(opts, io);
   if (p) return p.source;
+  const slug = current?.ctx.plan?.slug;
+  const cmd = `cd ${current?.ctx.plan?.worktree ?? "<plan worktree>"} && ${pluginRoot()}/bin/cairn ${action} ${kind} --human`;
+  if (action === "level")
+    throw new Refusal("level changes come from the user, and this command has no proof that one did", [
+      `the user answers the level menu tagged [cairn:level ${slug}]`,
+      `or the user runs, in their own terminal: ${cmd}`,
+      "or the user changes the level in the cairn pane (or runs /cairn-level)"
+    ]);
   throw new Refusal("approvals come from the user, and this command has no proof that one did", [
-    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${current?.ctx.plan?.slug}]`,
-    `or the user runs, in their own terminal: cd ${current?.ctx.plan?.worktree ?? "<plan worktree>"} && ${pluginRoot()}/bin/cairn approve ${kind} --human`,
+    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${slug}]`,
+    `or the user runs, in their own terminal: ${cmd}`,
     "or the user presses Approve in the cairn pane (or runs /cairn:approve)"
   ]);
 }
@@ -8833,6 +8848,43 @@ function cmdClose(ctx, opts) {
   });
 }
 
+// plugins/cairn/cli/src/commands/level.ts
+var USAGE2 = "usage: cairn level mvp|standard|polished [--human]";
+function cmdLevel(ctx, value, opts, io) {
+  if (!value) throw new CliError(USAGE2);
+  if (!LEVELS.includes(value)) throw new Refusal(`"${value}" is not a level: use ${LEVELS.join(", ")}`);
+  const to = value;
+  const pc = planCtx(ctx);
+  return mutate(pc, "level changed", (s) => {
+    const from = levelOf(s);
+    if (s.track === "fix") throw new Refusal("a fix plan has no level", ["levels apply to feature plans"]);
+    if (s.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
+    if (s.stage === "ship" || s.stage === "learn" || s.stage === "closed") throw new Refusal(`the level can't change once the plan is at ${s.stage}`);
+    if (from === to) return { message: `The plan is already at ${LEVEL_LABEL[to]}.` };
+    const tasks = allTasks(s);
+    const started = tasks.some((t) => t.startedAt);
+    const lowering = LEVELS.indexOf(to) < LEVELS.indexOf(from);
+    if (lowering && started) throw new Refusal("lowering the level is only allowed before any task starts", [`keep ${LEVEL_LABEL[from]}, or raise it`]);
+    requireHumanProof(to, opts, io, "level");
+    s.level = to;
+    log(s, "level changed", `${from} -> ${to}`);
+    if (lowering) return { message: `Level lowered to ${LEVEL_LABEL[to]}.`, data: { level: to } };
+    if (!started && s.approvals.plan) {
+      delete s.approvals.plan;
+      if (s.stage === "execute") setStage(s, "plan");
+    }
+    if (s.evidence.verify) {
+      delete s.evidence.verify;
+      if (s.stage === "review") setStage(s, "verify");
+    }
+    delete s.evidence.review;
+    const behind = tasks.filter((t) => t.status === "done" && LEVELS.indexOf(t.level ?? "standard") < LEVELS.indexOf(to));
+    for (const t of behind)
+      addHardening(s, { area: "tests", text: `Task "${t.id}" was built at ${LEVEL_LABEL[t.level ?? "standard"]}: bring it up to ${LEVEL_LABEL[to]} (the reviews and tests that level adds)`, where: t.scope });
+    return { message: `Level raised to ${LEVEL_LABEL[to]}.${behind.length ? ` ${behind.length} finished task(s) got a hardening item.` : ""}`, data: { level: to, hardening: behind.length } };
+  });
+}
+
 // plugins/cairn/cli/src/plan-parse.ts
 var import_yaml = __toESM(require_dist(), 1);
 var BLOCK = /```ya?ml\s+cairn-tasks\s*\n([\s\S]*?)```/;
@@ -9101,6 +9153,7 @@ function taskDone(pc, id, opts) {
   const heads = [pb, ...tip ? [sl.branch] : []];
   const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base, h))).size : 0;
   const outside = tip && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
+  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !f.startsWith("docs/sdlc/") && matchesAny(f, sl.scope))) : [];
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `task done: ${sl.name}`, (s) => {
     const cur = findTask(s, id);
@@ -9108,6 +9161,7 @@ function taskDone(pc, id, opts) {
     gate(!dirty, s, "task done", opts, `the task worktree has uncommitted changes`, [`commit or discard them in ${cur.worktree}`]);
     gate(commits > 0, s, "task done", opts, `${cur.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
     gate(!planDirty, s, "task done", opts, `the plan worktree has uncommitted changes outside docs/sdlc: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
+    gate(!stray.length, s, "task done", opts, `commits for task "${cur.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(", ")}`, [`move these commits to the task branch (git cherry-pick them onto ${cur.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
     gate(merged, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
     testsGate(tests ?? (checkable ? void 0 : { ok: false, ran: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts, cur.scope);
     if (fix) {
@@ -9542,9 +9596,9 @@ ${v}` : v;
   }
   return { pos, opts };
 }
-var USAGE2 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
+var USAGE3 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
+  approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
   pause [--now] | resume [<slug>] | close | render | records
@@ -9568,6 +9622,8 @@ function run(argv, cwd = process.cwd()) {
       return cmdDecide(ctx(), a, b, opts);
     case "approve":
       return cmdApprove(ctx(), a, opts);
+    case "level":
+      return cmdLevel(ctx(), a, opts);
     case "advance":
       return cmdAdvance(ctx(), opts);
     case "plan":
@@ -9607,10 +9663,10 @@ function run(argv, cwd = process.cwd()) {
     case void 0:
     case "help":
     case "--help":
-      return { message: USAGE2 };
+      return { message: USAGE3 };
     default:
       throw new CliError(`unknown command "${cmd}"
-${USAGE2}`);
+${USAGE3}`);
   }
 }
 function readStdin() {

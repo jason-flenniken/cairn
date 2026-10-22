@@ -7,6 +7,7 @@ import {
   cmdDecide,
   cmdDriftAck,
   cmdEscalate,
+  cmdLevel,
   cmdEvidence,
   cmdNew,
   cmdNext,
@@ -75,7 +76,7 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
 
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] | new <slug> --title "…" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
+  approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
   pause [--now] | resume [<slug>] | close | render | records
@@ -100,6 +101,8 @@ export function run(argv: string[], cwd = process.cwd()): Result {
       return cmdDecide(ctx(), a, b, opts);
     case 'approve':
       return cmdApprove(ctx(), a, opts);
+    case 'level':
+      return cmdLevel(ctx(), a, opts);
     case 'advance':
       return cmdAdvance(ctx(), opts);
     case 'plan':
