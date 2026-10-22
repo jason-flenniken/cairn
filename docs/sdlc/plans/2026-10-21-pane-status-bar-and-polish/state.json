@@ -6,8 +6,8 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-22T00:01:46.357Z",
-  "stage": "ship",
+  "updated": "2026-10-22T00:02:03.022Z",
+  "stage": "learn",
   "paused": null,
   "approvals": {
     "prd": {
@@ -685,6 +685,16 @@
       "at": "2026-10-22T00:01:46.357Z",
       "event": "ship approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-22T00:01:50.472Z",
+      "event": "step",
+      "detail": "opening-pr"
+    },
+    {
+      "at": "2026-10-22T00:02:03.021Z",
+      "event": "advanced",
+      "detail": "learn"
     }
   ],
   "suggestions": [
@@ -1093,7 +1103,7 @@
   "configHash": "12129909968d47d2",
   "step": {
     "stage": "ship",
-    "name": "approving",
-    "at": "2026-10-21T23:39:32.526Z"
+    "name": "opening-pr",
+    "at": "2026-10-22T00:01:50.472Z"
   }
 }
