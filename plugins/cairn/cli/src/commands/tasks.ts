@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { worktreeRoot } from '../config.ts';
-import { branchExists, git, gitOk } from '../git.ts';
+import { branchExists, directCommits, git, gitOk } from '../git.ts';
 import { matchesAny } from '../glob.ts';
 import { planRelOf, taskBranch, type Ctx } from '../locate.ts';
 import { phaseStatus } from '../plan-parse.ts';
@@ -133,6 +133,10 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base!, h))).size : 0;
   // Files the task changed, from its base to its branch: this catches edits made through Bash, which the edit hook never sees (FR-41).
   const outside = tip && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
+  // Work committed straight onto the plan branch inside the task's scope, since the task base. Merge commits are
+  // skipped (a task merge is the normal path) and so is cairn's own state under docs/sdlc/.
+  // The fix track is exempt: it has its own size limit, which counts plan-branch commits.
+  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !f.startsWith('docs/sdlc/') && matchesAny(f, sl.scope))) : [];
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `task done: ${sl.name}`, (s) => {
     const cur = findTask(s, id)!;
@@ -140,6 +144,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
     gate(!dirty, s, 'task done', opts, `the task worktree has uncommitted changes`, [`commit or discard them in ${cur.worktree}`]);
     gate(commits > 0, s, 'task done', opts, `${cur.branch} has no commits since the task started`, ['the implementer commits its work on the task branch, in the task worktree']);
     gate(!planDirty, s, 'task done', opts, `the plan worktree has uncommitted changes outside docs/sdlc: ${planDirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
+    gate(!stray.length, s, 'task done', opts, `commits for task "${cur.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(', ')}`, [`move these commits to the task branch (git cherry-pick them onto ${cur.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
     gate(merged, s, 'task done', opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
     testsGate(tests ?? (checkable ? undefined : { ok: false, ran: false, cmd: pc.cfg.test ?? '(none)', tail: 'not run' }), s, 'task done', opts, cur.scope);
     if (fix) {

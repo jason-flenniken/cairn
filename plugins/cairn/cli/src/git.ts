@@ -51,6 +51,19 @@ export function commitPath(cwd: string, path: string, message: string): boolean 
   return true;
 }
 
+/**
+ * Non-merge commits on `head`'s first-parent history since `base`, each with the files it changed. A task branch
+ * merged with `--no-ff` hangs off the second parent, so only work committed directly on `head` (or merged by
+ * fast-forward) shows up here.
+ */
+export function directCommits(cwd: string, base: string, head: string): { sha: string; files: string[] }[] {
+  const shas = git(['rev-list', '--first-parent', '--no-merges', `${base}..${head}`], cwd).split('\n').filter(Boolean);
+  return shas.map((sha) => ({
+    sha: sha.slice(0, 7),
+    files: git(['diff-tree', '--no-commit-id', '--name-only', '-r', '-z', '--root', sha], cwd).split('\0').filter(Boolean),
+  }));
+}
+
 export type MergeState = 'merged' | 'open' | 'unknown';
 
 /** Nothing here may prompt for credentials. */
