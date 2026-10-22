@@ -1,4 +1,5 @@
 // cairn's mod types contract, named in plugin.json "types". It adds no noun to `$`.
+import type { SessionContextUsage, SessionCost, SessionRateLimit } from 'claude-code'
 
 /** What `cairn($, args)` in hooks/mod/cli.ts resolves with. */
 export type CairnRun = {
@@ -13,7 +14,11 @@ export type CairnRun = {
 export type CairnPlanState = {
   slug: string
   title?: string
+  /** `feature` or `fix`; an old plan without it is a feature plan. */
+  track?: string
   stage?: string
+  /** The step the plan is on inside its stage, as the CLI last recorded it. */
+  step?: { stage: string; name: string; count?: number; at: string }
   updated?: string
   paused?: { at?: string } | null
   approvals?: Record<string, unknown>
@@ -34,6 +39,8 @@ export type CairnPlanRow = {
   /** Absolute plan folder (dated folders included); the pane watches `${dir}/state.json`. */
   dir?: string
   next?: { text?: string }
+  /** The recorded step for the plan's current stage in words ("fixing 3 findings"); the CLI words it, the pane only shows it. */
+  stepText?: string
   /** Suggestions nobody has closed; absent until the CLI reports them. */
   openSuggestions?: number
   /** The plan's config.maxParallel, when the CLI reports it. */
@@ -71,7 +78,14 @@ export type AgentCard = {
   endedAt?: number
   durationMs?: number
   tokens?: number
+  /** Tokens so far while the agent still works. */
+  tokensLive?: number
+  /** What the agent cost, in US dollars. */
+  usd?: number
 }
+
+/** The session's usage as `session.measure` last reported it, and the model in use. */
+export type CairnUsage = { cost?: SessionCost; context: SessionContextUsage; rateLimits: SessionRateLimit[]; model?: string }
 
 declare module 'claude-code' {
   interface PluginState {
@@ -85,10 +99,14 @@ declare module 'claude-code' {
       feed: { at: number; text: string }[]
       /** Ticked while anything is active, so the pane redraws its timers. */
       now: number
-      /** The file whose full text the approval card shows ("Read all"); null when closed. */
-      readAllOf: string | null
       /** The pane's tab. */
       tab: 'now' | 'history' | 'records'
+      /** The session's usage; null before the first measurement. */
+      usage: CairnUsage | null
+      /** The session cost recorded as a plan's starting point; null until one is. */
+      planBaseline: { slug: string; usd: number } | null
+      /** The document the pane's viewer shows; null while closed. */
+      docOpen: { file: string; title: string; kind?: string } | null
     }
   }
 }

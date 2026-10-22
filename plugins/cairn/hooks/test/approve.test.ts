@@ -587,6 +587,33 @@ describe('already approved from the pane (FR-13, FR-15)', () => {
     expect(toasts).toHaveLength(1)
   })
 
+  test('FR-16: two stops of two plans in one dialog, each answered Approve, both approve', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [
+      { slug: 'one', stage: 'prd', worktree: '/wt/one' },
+      { slug: 'two', stage: 'plan', worktree: '/wt/two' },
+    ])
+    const a = 'Approve the PRD? [cairn:approve prd one]'
+    const b = 'Approve the plan? [cairn:approve plan two]'
+    counted(on, () => ({ [a]: 'Approve (Recommended)', [b]: 'Approve (Recommended)' }))
+    const got = await $.tool.call(ask(a, b))
+    expect(approveRuns().map(r => r.argv.slice(1))).toEqual([['approve', 'prd'], ['approve', 'plan']])
+    expect(got.context).toHaveLength(2)
+    expect(got.context?.join('\n')).toMatch(/one: prd approved[\s\S]*two: plan approved/)
+    expect(toasts).toHaveLength(2)
+  })
+
+  test('FR-16: a second stop of the same plan, answered Approve, approves only the stop still waiting', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'same', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/same' }])
+    const prd = 'PRD? [cairn:approve prd same]'
+    const plan = 'Plan? [cairn:approve plan same]'
+    counted(on, () => ({ [prd]: 'Approve', [plan]: 'Approve' }))
+    const got = await $.tool.call(ask(prd, plan))
+    expect(approveRuns().map(r => r.argv.slice(1))).toEqual([['approve', 'plan']])
+    expect(got.context).toHaveLength(1)
+    expect(got.context?.[0]).toMatch(/same: plan approved/)
+    expect(toasts).toHaveLength(1)
+  })
+
   test('an approval that is already recorded, answered Approve in a shown dialog, says nothing', async ($, on) => {
     const { approveRuns, toasts } = world(on, [{ slug: 'late', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/late' }])
     const a = 'PRD? [cairn:approve prd late]'

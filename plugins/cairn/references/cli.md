@@ -100,6 +100,11 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn task start <id>`: creates the task worktree and branch, and prints the path. On a fix plan at review, `cairn task start fix` reopens the fix (see Fix track).
   - `cairn task step <id> implementing|reviewing|fixing|merging|blocked [--note "…"]`: `fixing` increments the fix attempt. After 2 attempts it is refused: stop and ask the user.
   - `cairn task done <id>`
+  - `cairn step <name> [--count N]`: records what the current stage is doing, shown as "Review · fixing 3 findings" in `cairn status`, STATUS.md and `status --json` (`state.step`). The step clears when the stage changes. Names by stage:
+    - check: `testing` (running tests), `scanning` (scanning for secrets), `fixing`;
+    - review: `reviewing`, `fixing`, `rechecking`;
+    - ship: `approving` (waiting on approval), `opening-pr`.
+    - The fix track uses review and ship. A name not valid for the current stage exits 2 and lists the valid ones. `--count` is a whole number, shown with `fixing` ("fixing 3 findings").
   - `cairn phase finish`: finishes the current phase with no human proof and prints one summary line (tasks, tests, new suggestions, out-of-scope edits). It opens the next phase, or moves the plan to Check after the last one.
 - **Suggestions**
   - `cairn suggest add --area tests|security|perf|quality|ux|docs [--where <glob>]... (--text "…" | --text-file <f>) [--from task-review|branch-review|check|implementer|plan|user]`: appends to the current plan and prints `<slug>:<id>`.

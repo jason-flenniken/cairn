@@ -85,6 +85,8 @@ export function mutate<T>(pc: PlanCtx, commitMsg: string | undefined, fn: (s: St
   const r = withLock(pc.plan.dir, () => {
     const s = loadState(pc.plan.dir);
     const out = fn(s);
+    // A step belongs to one stage: any change of stage clears it.
+    if (s.step && s.step.stage !== s.stage) delete s.step;
     saveState(pc.plan.dir, s);
     return out;
   });

@@ -63,13 +63,44 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - `agent.spawn`'s `next(e)` resolves with the new `agentId`; that same id is on the agent's `tool.call`, `turn.start` and `turn.complete` events (each run of an agent's loop is one turn, so a woken agent fires `turn.start` again) and in `$.agent.list()`. `activity.ts` keys its cards on it. The probe was the type docs only; a live background-agent run is still to check.
 - Activity rides the existing unmatched hooks (one per event per module): `tool.call` in `guards.ts` after the guards allow, `turn.start`/`turn.complete` in `pause.ts`. `register.tsx` adds the `session.start` rebuild from `$.agent.list()`.
 - The engine follows `$` into another file only through a `function` declaration, not a `const` arrow, so every helper there that takes `$` is one, and `import * as ns` calls are refused.
-- Token counts arrive only at `turn.complete`, so a card shows tokens when it finishes, not live. The pane opens with `columns: 48, rows: 7`; `session.start` has no fullscreen flag, so the open is unasked and the engine seats it only on a wide fullscreen terminal.
+- Tokens and cost: a `turn.step` stream hook in `activity.ts` adds each step's `usage` (input + output tokens) to the card's `tokensLive` and its estimated cost to `usd`, so a running card's numbers rise with every step. `turn.complete` then sets `tokens` from the turn's total and clears `tokensLive`. `prices.ts` holds the per-million-token table by model family (dated source comment); an id outside it has no `usd`, so the card shows tokens only.
+- Clicking a card ("nothing happens"): the cause is the hit area. A `plain` Button presses only where its own label is drawn ("one press wherever on them it lands" in the Button docs). Each card row was a Button sized to its text, so a click on the blank part of a line, the model name, or the empty third row (a single space) landed on no Button: no press, so neither a switch nor a toast. Every row is now one Button whose label is padded with spaces to the card's inner width (42 docked), the title row carrying the model name too. This is read from the types and docs and the tests; whether it is the whole story in a live terminal is for the user to check. Ruled out from the types: the card's `agentId` is the id `$.agent.list()` lists (`AgentSpawnResult.agentId`), and `viewPress` runs inside the press (`act` calls `work()` at once, before any await), so the person-initiated rule holds. A deny (an ended agent, a teammate in its own pane) is a toast saying the transcript isn't available, with the engine's reason.
+- The pane opens with `columns: 48, rows: 7`; `session.start` has no fullscreen flag, so the open is unasked and the engine seats it only on a wide fullscreen terminal.
+
+## Pinned bar (pane)
+
+- The pane's code is split by concern: `pane.tsx` (registration, tabs, routing, Records, `frame`), `header.tsx` (plan header, status line), `cards.tsx` (agent and main-session cards), `approval.tsx` (approval card), `bar.tsx` (bottom bar).
+- The engine owns the docked body's window (`e.props.scroll = { offset, bodyRows }`). The bar is a `position: 'absolute'` Box at `top = offset + bodyRows - barRows`, as the last child of the tab's root.
+  - The root gets `paddingBottom` of the bar's rows plus one blank row, so the last content row clears the bar at the end of the scroll.
+  - The root also gets `minHeight = bodyRows`, so on a short tab the bar still sits at the bottom.
+  - Each bar line is padded with spaces to the bar's width, so it covers the content scrolled beneath it.
+- Why absolute and not our own window:
+  - Own rows would fix the root at `bodyRows` and shift the content by an offset of the mod's. Then the tree always fits, so `ui.scroll`'s `contentRows` equals `bodyRows` and the mod can't clamp its offset without measuring its content. It would also lose the engine keeping a Tab-focused button in view.
+  - Absolute keeps the engine's scrolling. Its cost: on the terminal the engine's own moves (following the end, a clamp, a held element kept in view) don't re-ask the render, so the bar can sit off the bottom until the next redraw. The 1 s tick and the 2 s poll redraw while anything runs.
+- A `ui.scroll` hook on the pane calls `next(e)` and then `$.ui.invalidate('ui.render')`, so the bar follows every move.
+- The test kit runs the `ui.scroll` chain but never changes the mounted `props.scroll`; a test redraws with the new offset itself.
+- Inline (the 7-row pane) has no pinning: the bar is one line at the end, the active step. The "run /tui fullscreen" tip shows only while it still fits the 7 rows (it goes for a fallback plan with an approval waiting).
+- Bar lines wrap between steps to fit `bodyColumns - 2` cells (46 docked), counting an emoji as 2 cells (NFR-01).
+
+## Usage lines (pane)
+
+- `usage.ts` owns the `usage` and `planBaseline` atoms. A `session.measure` hook (registered from `pane.tsx`'s `install`) stores the model, context, rate limits and cost; the bar only reads them, so there is no timer beyond the 2 s poll (NFR-02). Before the first measure `readUsage` asks `$.session.usage()`.
+- The plan cost is the session cost less the baseline. The baseline is set when the shown plan is first seen active, when it changes, or when it is resumed after a pause (the pane's refresh and poll call `syncBaseline`). A paused plan seen first has no baseline, so the line shows the session total labelled "session", as it does with no plan.
+- Line 2 is the model, cost, context bar with percent and tokens; line 3 is the 5h and 7d bars (warning from 80% with the reset time, error from 95%), left out with no rate limits. Each shrinks (shorter bar, then fewer parts) to fit the bar's columns. Inline, one line: the active step, the plan cost and the limit percents.
+
+## Doc viewer (pane)
+
+- `doc.tsx` owns the `docOpen` atom (read through `readDoc`, since the engine only follows an atom read in the file that declares it). Read all on an approval card and a Records entry with a record file open it; docked only.
+- The viewer replaces the tab's content, drawn through `frame` so the bar stays pinned: title, Back, Approve (only while that very file is the one waiting on approval), then the whole text in one Markdown. Opening scrolls the pane to the start. The kit raises no `ui.scroll` for it, so that part is a live check.
+- Document text only reaches `Markdown`; Approve is the one path to `approvePress`, which asks the confirm first.
 
 ## Testing
 
 `claude plugin test <dir>` runs every `*.test.ts` under `<dir>`, skipping only `node_modules` and dot-folders. That includes `cli/test`, whose node:test files can't load in the mod environment.
 
 To avoid that, `npm run test:mod` copies `.claude-plugin/`, `hooks/`, and `types/` to a temp folder and runs `claude plugin test` there. Keep mod tests under `hooks/test/` and mod code under `hooks/` or `types/`.
+
+Pane tests share one world beneath the mod, `hooks/test/world.tsx`: the CLI, git, the files, the dialogs, the row builders and the mount helpers. Each pane feature gets its own test file.
 
 ## Live check
 

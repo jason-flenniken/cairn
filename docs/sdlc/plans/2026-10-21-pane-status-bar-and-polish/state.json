@@ -1,0 +1,1113 @@
+{
+  "schema": 1,
+  "slug": "pane-status-bar-and-polish",
+  "title": "Pane status bar and polish",
+  "track": "feature",
+  "branch": "feature/pane-status-bar-and-polish",
+  "base": "main",
+  "created": "2026-10-21T22:08:54.056Z",
+  "updated": "2026-10-22T00:04:34.220Z",
+  "stage": "closed",
+  "paused": null,
+  "approvals": {
+    "prd": {
+      "at": "2026-10-21T22:25:39.090Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "d3e850d849e38d5a"
+    },
+    "plan": {
+      "at": "2026-10-21T22:28:17.843Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "0eaa106a32c142a9"
+    },
+    "ship": {
+      "at": "2026-10-22T00:01:46.357Z",
+      "via": "human",
+      "source": "mod"
+    }
+  },
+  "phases": [
+    {
+      "id": "frame",
+      "name": "Pinned bar and late-stage steps",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "pinned-bar",
+          "name": "Split the pane and pin the bar",
+          "covers": [
+            "FR-01",
+            "FR-02"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/header.tsx",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/approval.tsx",
+            "plugins/cairn/hooks/mod/bar.tsx",
+            "plugins/cairn/hooks/register.tsx",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/world.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/bar.test.tsx",
+            "plugins/cairn/hooks/NOTES.md"
+          ],
+          "complexity": "complex",
+          "status": "done",
+          "fixRound": 1,
+          "risky": false,
+          "branch": "task/pane-status-bar-and-polish/pinned-bar",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--pinned-bar",
+          "base": "11adf57e4e0abc18283d5630663bfa13db8e7fec",
+          "startedAt": "2026-10-21T22:28:24.382Z",
+          "doneAt": "2026-10-21T22:50:37.741Z",
+          "tip": "6afa563",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2c997ba20dd894e73fee553fc015b0c8b0d4bdc1"
+        },
+        {
+          "id": "late-steps",
+          "name": "Record check, review and ship steps",
+          "covers": [
+            "FR-07"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/**",
+            "plugins/cairn/cli/test/step.test.ts",
+            "plugins/cairn/cli/test/render.test.ts",
+            "plugins/cairn/dist/**",
+            "plugins/cairn/references/cli.md"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "a new CLI command takes arguments from procedures and writes plan state",
+          "branch": "task/pane-status-bar-and-polish/late-steps",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--late-steps",
+          "base": "11adf57e4e0abc18283d5630663bfa13db8e7fec",
+          "startedAt": "2026-10-21T22:28:24.838Z",
+          "doneAt": "2026-10-21T22:32:50.506Z",
+          "tip": "42a8e0a",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "cbc6771263136451287f35a6d4fba6c3538c77a4"
+        }
+      ]
+    },
+    {
+      "id": "fill",
+      "name": "Fill the pane",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "usage-lines",
+          "name": "Spend and limits lines",
+          "covers": [
+            "FR-03",
+            "FR-04",
+            "FR-05",
+            "FR-06"
+          ],
+          "blockedBy": [
+            "pinned-bar"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/bar.tsx",
+            "plugins/cairn/hooks/mod/usage.ts",
+            "plugins/cairn/hooks/test/bar.test.tsx",
+            "plugins/cairn/hooks/test/usage.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/pane-status-bar-and-polish/usage-lines",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--usage-lines",
+          "base": "b87d0f7c8fd7da0538f395f914fecc884500e25e",
+          "startedAt": "2026-10-21T22:50:55.335Z",
+          "doneAt": "2026-10-21T22:56:56.275Z",
+          "tip": "94c342e",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "6bd15e7cc7595bbb0c755a62a0bc16079546eb36"
+        },
+        {
+          "id": "accurate-header",
+          "name": "Accurate header and status line",
+          "covers": [
+            "FR-08",
+            "FR-09",
+            "FR-10"
+          ],
+          "blockedBy": [
+            "pinned-bar",
+            "late-steps"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/header.tsx",
+            "plugins/cairn/hooks/test/header.test.tsx",
+            "plugins/cairn/procedures/verify.md",
+            "plugins/cairn/procedures/review.md",
+            "plugins/cairn/procedures/ship.md",
+            "plugins/cairn/procedures/fix.md",
+            "plugins/cairn/cli/test/steps-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "risky": false,
+          "branch": "task/pane-status-bar-and-polish/accurate-header",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--accurate-header",
+          "base": "b87d0f7c8fd7da0538f395f914fecc884500e25e",
+          "startedAt": "2026-10-21T22:50:55.825Z",
+          "doneAt": "2026-10-21T23:00:53.096Z",
+          "tip": "d4f8454",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "1cdb392e8e9f289e31c998f11ef2b90cfe58704d"
+        },
+        {
+          "id": "card-click-cost",
+          "name": "Clickable cards with live tokens and cost",
+          "covers": [
+            "FR-11",
+            "FR-12"
+          ],
+          "blockedBy": [
+            "pinned-bar"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/prices.ts",
+            "plugins/cairn/hooks/test/cards.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "risky": false,
+          "branch": "task/pane-status-bar-and-polish/card-click-cost",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--card-click-cost",
+          "base": "b87d0f7c8fd7da0538f395f914fecc884500e25e",
+          "startedAt": "2026-10-21T22:50:56.284Z",
+          "doneAt": "2026-10-21T22:59:13.303Z",
+          "tip": "f2a6270",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "5df7fb6ce2dab24b31a79aab43cf2a770ac03c06"
+        },
+        {
+          "id": "doc-viewer",
+          "name": "One scrolling doc viewer",
+          "covers": [
+            "FR-13",
+            "FR-14",
+            "FR-15"
+          ],
+          "blockedBy": [
+            "pinned-bar"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/approval.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/doc.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "renders agent-written documents next to the Approve button",
+          "branch": "task/pane-status-bar-and-polish/doc-viewer",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--doc-viewer",
+          "base": "518d8544e56d44b07c17ac406e282aa0eeea9d17",
+          "startedAt": "2026-10-21T22:57:00.816Z",
+          "doneAt": "2026-10-21T23:02:57.741Z",
+          "tip": "342feb9",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "d74a09cba5dc0a5889293e38cd145ca3e7ff3cc7"
+        },
+        {
+          "id": "followup-tests",
+          "name": "Tighter pane, approval and close tests",
+          "covers": [
+            "FR-16",
+            "FR-17"
+          ],
+          "blockedBy": [
+            "pinned-bar",
+            "late-steps"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/approve.test.ts",
+            "plugins/cairn/cli/test/close-merged.test.ts",
+            "plugins/cairn/cli/test/fix.test.ts",
+            "plugins/cairn/cli/test/fix-procedure.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 1,
+          "risky": false,
+          "branch": "task/pane-status-bar-and-polish/followup-tests",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-pane-status-bar-and-polish--followup-tests",
+          "base": "2f54df3536753c60f050cf06a45fc3f755b56fea",
+          "startedAt": "2026-10-21T23:00:58.642Z",
+          "doneAt": "2026-10-21T23:15:10.833Z",
+          "tip": "ce09e94",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "9ac5d5c242ab214505f58ddfb97c112c95cb5980"
+        }
+      ]
+    }
+  ],
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-21T23:17:34.418Z",
+      "note": "tests: 209 CLI + 419 mod passing, build clean; 19 requirements met, 3 untested (NFR-02, step exit code, live checks pending for bar scroll, card click, viewer scroll); secret scan: clean; audit: npm 0 vulnerabilities, no lockfile changes"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-21T23:38:12.696Z",
+      "note": "whole-branch and security review: 2 Required fixed (inline row budget, step wording from the CLI) plus bar redraw on close and tab switch; a pre-existing approve-test flake fixed; follow-ups logged",
+      "blocking": 0
+    }
+  },
+  "drift": [
+    {
+      "path": "plugins/cairn/hooks/test/late-header.test.tsx",
+      "at": "2026-10-21T22:52:40.267Z",
+      "reason": "edited outside task \"Accurate header and status line\" scope",
+      "task": "accurate-header"
+    },
+    {
+      "path": "plugins/cairn/hooks/NOTES.md",
+      "at": "2026-10-21T22:56:56.275Z",
+      "reason": "changed outside task \"Spend and limits lines\" scope (found at task done)",
+      "task": "usage-lines"
+    },
+    {
+      "path": "plugins/cairn/hooks/mod/pane.tsx",
+      "at": "2026-10-21T22:56:56.275Z",
+      "reason": "changed outside task \"Spend and limits lines\" scope (found at task done)",
+      "task": "usage-lines"
+    },
+    {
+      "path": "plugins/cairn/hooks/test/usage.test.tsx",
+      "at": "2026-10-21T22:56:56.275Z",
+      "reason": "changed outside task \"Spend and limits lines\" scope (found at task done)",
+      "task": "usage-lines"
+    },
+    {
+      "path": "plugins/cairn/cli/src/types.ts",
+      "at": "2026-10-21T23:00:53.096Z",
+      "reason": "changed outside task \"Accurate header and status line\" scope (found at task done)",
+      "task": "accurate-header"
+    },
+    {
+      "path": "plugins/cairn/dist/cairn.mjs",
+      "at": "2026-10-21T23:00:53.096Z",
+      "reason": "changed outside task \"Accurate header and status line\" scope (found at task done)",
+      "task": "accurate-header"
+    },
+    {
+      "path": "plugins/cairn/references/cli.md",
+      "at": "2026-10-21T23:00:53.096Z",
+      "reason": "changed outside task \"Accurate header and status line\" scope (found at task done)",
+      "task": "accurate-header"
+    },
+    {
+      "path": "plugins/cairn/hooks/mod/doc.tsx",
+      "at": "2026-10-21T23:02:57.741Z",
+      "reason": "changed outside task \"One scrolling doc viewer\" scope (found at task done)",
+      "task": "doc-viewer"
+    },
+    {
+      "path": "plugins/cairn/hooks/test/pane.test.tsx",
+      "at": "2026-10-21T23:02:57.741Z",
+      "reason": "changed outside task \"One scrolling doc viewer\" scope (found at task done)",
+      "task": "doc-viewer"
+    },
+    {
+      "path": "plugins/cairn/types/index.d.ts",
+      "at": "2026-10-21T23:02:57.741Z",
+      "reason": "changed outside task \"One scrolling doc viewer\" scope (found at task done)",
+      "task": "doc-viewer"
+    }
+  ],
+  "log": [
+    {
+      "at": "2026-10-21T22:08:54.056Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-10-21T22:22:49.815Z",
+      "event": "advanced",
+      "detail": "prd"
+    },
+    {
+      "at": "2026-10-21T22:25:39.091Z",
+      "event": "PRD approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T22:25:41.820Z",
+      "event": "advanced",
+      "detail": "plan"
+    },
+    {
+      "at": "2026-10-21T22:27:39.480Z",
+      "event": "plan loaded",
+      "detail": "2 phases, 7 tasks"
+    },
+    {
+      "at": "2026-10-21T22:28:17.844Z",
+      "event": "plan approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-21T22:28:20.524Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-21T22:28:24.382Z",
+      "event": "task started",
+      "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:28:24.838Z",
+      "event": "task started",
+      "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:29:01.390Z",
+      "event": "task implementing",
+      "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:29:01.461Z",
+      "event": "task implementing",
+      "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:30:50.318Z",
+      "event": "task reviewing",
+      "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:32:23.062Z",
+      "event": "task merging",
+      "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:32:50.507Z",
+      "event": "task done",
+      "detail": "Record check, review and ship steps"
+    },
+    {
+      "at": "2026-10-21T22:47:14.682Z",
+      "event": "task reviewing",
+      "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:48:23.141Z",
+      "event": "task fixing",
+      "detail": "Split the pane and pin the bar (attempt 1)"
+    },
+    {
+      "at": "2026-10-21T22:50:11.332Z",
+      "event": "task merging",
+      "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:50:37.741Z",
+      "event": "task done",
+      "detail": "Split the pane and pin the bar"
+    },
+    {
+      "at": "2026-10-21T22:50:44.636Z",
+      "event": "phase finished",
+      "detail": "Pinned bar and late-stage steps (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T22:50:55.336Z",
+      "event": "task started",
+      "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:50:55.827Z",
+      "event": "task started",
+      "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T22:50:56.285Z",
+      "event": "task started",
+      "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:51:47.332Z",
+      "event": "task implementing",
+      "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:51:47.398Z",
+      "event": "task implementing",
+      "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T22:51:47.464Z",
+      "event": "task implementing",
+      "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:52:40.267Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/late-header.test.tsx"
+    },
+    {
+      "at": "2026-10-21T22:54:32.386Z",
+      "event": "task reviewing",
+      "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T22:54:57.217Z",
+      "event": "task reviewing",
+      "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:55:41.968Z",
+      "event": "task reviewing",
+      "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:56:03.941Z",
+      "event": "task fixing",
+      "detail": "Accurate header and status line (attempt 1)"
+    },
+    {
+      "at": "2026-10-21T22:56:25.885Z",
+      "event": "task merging",
+      "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:56:56.275Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/NOTES.md"
+    },
+    {
+      "at": "2026-10-21T22:56:56.275Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/mod/pane.tsx"
+    },
+    {
+      "at": "2026-10-21T22:56:56.275Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/usage.test.tsx"
+    },
+    {
+      "at": "2026-10-21T22:56:56.275Z",
+      "event": "task done",
+      "detail": "Spend and limits lines"
+    },
+    {
+      "at": "2026-10-21T22:57:00.817Z",
+      "event": "task started",
+      "detail": "One scrolling doc viewer"
+    },
+    {
+      "at": "2026-10-21T22:57:00.942Z",
+      "event": "task implementing",
+      "detail": "One scrolling doc viewer"
+    },
+    {
+      "at": "2026-10-21T22:57:22.501Z",
+      "event": "task fixing",
+      "detail": "Clickable cards with live tokens and cost (attempt 1)"
+    },
+    {
+      "at": "2026-10-21T22:58:35.502Z",
+      "event": "task merging",
+      "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:59:13.304Z",
+      "event": "task done",
+      "detail": "Clickable cards with live tokens and cost"
+    },
+    {
+      "at": "2026-10-21T22:59:17.752Z",
+      "event": "task merging",
+      "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T23:00:53.096Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/src/types.ts"
+    },
+    {
+      "at": "2026-10-21T23:00:53.096Z",
+      "event": "drift",
+      "detail": "plugins/cairn/dist/cairn.mjs"
+    },
+    {
+      "at": "2026-10-21T23:00:53.096Z",
+      "event": "drift",
+      "detail": "plugins/cairn/references/cli.md"
+    },
+    {
+      "at": "2026-10-21T23:00:53.096Z",
+      "event": "task done",
+      "detail": "Accurate header and status line"
+    },
+    {
+      "at": "2026-10-21T23:00:58.069Z",
+      "event": "task reviewing",
+      "detail": "One scrolling doc viewer"
+    },
+    {
+      "at": "2026-10-21T23:00:58.643Z",
+      "event": "task started",
+      "detail": "Tighter pane, approval and close tests"
+    },
+    {
+      "at": "2026-10-21T23:00:58.722Z",
+      "event": "task implementing",
+      "detail": "Tighter pane, approval and close tests"
+    },
+    {
+      "at": "2026-10-21T23:02:27.904Z",
+      "event": "task merging",
+      "detail": "One scrolling doc viewer"
+    },
+    {
+      "at": "2026-10-21T23:02:57.741Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/mod/doc.tsx"
+    },
+    {
+      "at": "2026-10-21T23:02:57.741Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/pane.test.tsx"
+    },
+    {
+      "at": "2026-10-21T23:02:57.741Z",
+      "event": "drift",
+      "detail": "plugins/cairn/types/index.d.ts"
+    },
+    {
+      "at": "2026-10-21T23:02:57.741Z",
+      "event": "task done",
+      "detail": "One scrolling doc viewer"
+    },
+    {
+      "at": "2026-10-21T23:06:27.346Z",
+      "event": "task reviewing",
+      "detail": "Tighter pane, approval and close tests"
+    },
+    {
+      "at": "2026-10-21T23:08:58.918Z",
+      "event": "task fixing",
+      "detail": "Tighter pane, approval and close tests (attempt 1)"
+    },
+    {
+      "at": "2026-10-21T23:14:44.668Z",
+      "event": "task merging",
+      "detail": "Tighter pane, approval and close tests"
+    },
+    {
+      "at": "2026-10-21T23:15:10.834Z",
+      "event": "task done",
+      "detail": "Tighter pane, approval and close tests"
+    },
+    {
+      "at": "2026-10-21T23:15:13.799Z",
+      "event": "phase finished",
+      "detail": "Fill the pane (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-21T23:15:13.800Z",
+      "event": "advanced",
+      "detail": "verify"
+    },
+    {
+      "at": "2026-10-21T23:15:27.574Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-10-21T23:15:58.941Z",
+      "event": "step",
+      "detail": "scanning"
+    },
+    {
+      "at": "2026-10-21T23:17:34.419Z",
+      "event": "verify pass",
+      "detail": "tests: 209 CLI + 419 mod passing, build clean; 19 requirements met, 3 untested (NFR-02, step exit code, live checks pending for bar scroll, card click, viewer scroll); secret scan: clean; audit: npm 0 vulnerabilities, no lockfile changes"
+    },
+    {
+      "at": "2026-10-21T23:17:34.515Z",
+      "event": "advanced",
+      "detail": "review"
+    },
+    {
+      "at": "2026-10-21T23:17:39.800Z",
+      "event": "step",
+      "detail": "reviewing"
+    },
+    {
+      "at": "2026-10-21T23:27:48.507Z",
+      "event": "step",
+      "detail": "fixing (3)"
+    },
+    {
+      "at": "2026-10-21T23:30:54.275Z",
+      "event": "step",
+      "detail": "rechecking"
+    },
+    {
+      "at": "2026-10-21T23:38:12.696Z",
+      "event": "review pass",
+      "detail": "whole-branch and security review: 2 Required fixed (inline row budget, step wording from the CLI) plus bar redraw on close and tab switch; a pre-existing approve-test flake fixed; follow-ups logged"
+    },
+    {
+      "at": "2026-10-21T23:38:12.792Z",
+      "event": "advanced",
+      "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T23:39:32.526Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-10-22T00:01:46.357Z",
+      "event": "ship approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-22T00:01:50.472Z",
+      "event": "step",
+      "detail": "opening-pr"
+    },
+    {
+      "at": "2026-10-22T00:02:03.021Z",
+      "event": "advanced",
+      "detail": "learn"
+    },
+    {
+      "at": "2026-10-22T00:04:34.220Z",
+      "event": "closed"
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "tests",
+      "text": "Resolved roomier-pane-visuals:s15",
+      "where": [
+        "plugins/cairn/hooks/test/pane.test.tsx",
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:13:01.400Z",
+      "resolves": "roomier-pane-visuals:s15",
+      "note": "brought into pane-status-bar-and-polish"
+    },
+    {
+      "id": "s2",
+      "area": "tests",
+      "text": "Resolved sharper-interview-and-review:s27",
+      "where": [
+        "plugins/cairn/cli/test/close-merged.test.ts",
+        "plugins/cairn/hooks/test/pane.test.tsx",
+        "plugins/cairn/cli/test/fix.test.ts",
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:13:01.631Z",
+      "resolves": "sharper-interview-and-review:s27",
+      "note": "brought into pane-status-bar-and-polish"
+    },
+    {
+      "id": "s3",
+      "area": "tests",
+      "text": "Declined cleaner-pane-and-records:s20",
+      "where": [
+        "plugins/cairn/cli/test/**",
+        "plugins/cairn/hooks/test/**"
+      ],
+      "from": "user",
+      "at": "2026-10-21T22:13:01.854Z",
+      "declines": "cleaner-pane-and-records:s20"
+    },
+    {
+      "id": "s4",
+      "area": "quality",
+      "text": "cairn step stores --count for any step but only shows it with fixing; refuse --count on other steps, and build the (count) suffix once",
+      "where": [
+        "plugins/cairn/cli/src/commands/step.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:11.939Z"
+    },
+    {
+      "id": "s5",
+      "area": "tests",
+      "text": "Cover --count 1000000 (over the cap) and --count with no value in step.test.ts",
+      "where": [
+        "plugins/cairn/cli/test/step.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:12.023Z"
+    },
+    {
+      "id": "s6",
+      "area": "security",
+      "text": "(security review) stepText trusts state.step from state.json: show only known step names and integer counts, or strip a bad step in normalize()",
+      "where": [
+        "plugins/cairn/cli/src/render.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:22.920Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "(security review) Assert approvals, planHash and evidence are unchanged after a step; add count edge cases (1.5, 1e3, ' 3', newline) and make the refusal text say 0 to 999999",
+      "where": [
+        "plugins/cairn/cli/test/step.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:22.991Z"
+    },
+    {
+      "id": "s8",
+      "area": "quality",
+      "text": "execute.md and review.md tell the orchestrator to log with --from security-review, but cairn suggest add refuses it (allowed: task-review, branch-review, check, implementer, plan, user); add security-review",
+      "where": [
+        "plugins/cairn/cli/src/commands/suggest.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:32:55.863Z"
+    },
+    {
+      "id": "s9",
+      "area": "quality",
+      "text": "Declare the records and openRecord atoms in PluginState",
+      "where": [
+        "plugins/cairn/types/index.d.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T22:47:14.615Z"
+    },
+    {
+      "id": "s10",
+      "area": "tests",
+      "text": "Test that a ui.scroll move runs the mod's hook and redraws (stub invalidate or count renders); note in NOTES.md that an engine-made move (end-follow, clamp, focus) can leave the bar off the bottom until the next 1 s redraw",
+      "where": [
+        "plugins/cairn/hooks/test/bar.test.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:48:23.001Z"
+    },
+    {
+      "id": "s11",
+      "area": "ux",
+      "text": "Inline already passes 7 rows when paused or with working agents (before this plan); fold rows so every inline state fits",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:48:23.069Z"
+    },
+    {
+      "id": "s12",
+      "area": "quality",
+      "text": "Share the step wording between the CLI and the hooks so the hooks' copy of the step labels can't drift",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T22:54:32.303Z"
+    },
+    {
+      "id": "s13",
+      "area": "tests",
+      "text": "Check the model-name prettifier against ids the engine really returns, including a date-suffixed id",
+      "where": [
+        "plugins/cairn/hooks/test/usage.test.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T22:54:57.143Z"
+    },
+    {
+      "id": "s14",
+      "area": "docs",
+      "text": "Refresh the card price table against published pricing when the next model family ships (values dated 2026-10-21, not looked up live)",
+      "where": [
+        "plugins/cairn/hooks/mod/prices.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T22:55:41.893Z"
+    },
+    {
+      "id": "s15",
+      "area": "ux",
+      "text": "Status line says 'N working' during Build and 'N running' after it; use one word in both",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:56:03.861Z"
+    },
+    {
+      "id": "s16",
+      "area": "quality",
+      "text": "Plan-cost baseline edges: stop re-reading usage every tick when no cost is reported, clear a stale baseline on resume without a cost, reset when the session cost drops below the baseline, and test a full-width spend line ($123.45, 1.2M tokens, 100% context)",
+      "where": [
+        "plugins/cairn/hooks/mod/usage.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:56:25.807Z"
+    },
+    {
+      "id": "s17",
+      "area": "quality",
+      "text": "Card tokens: keep tokensLive when a turn ends with no usage (interrupt or error); give Haiku 3 its own price row instead of the Haiku 4.5 rate",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:57:22.418Z"
+    },
+    {
+      "id": "s18",
+      "area": "tests",
+      "text": "npm run test:mod fails 1 test intermittently (seen twice in the accurate-header worktree, passes on rerun); find and fix the flaky test",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T22:59:17.675Z"
+    },
+    {
+      "id": "s19",
+      "area": "ux",
+      "text": "Doc viewer polish: scroll to the top on Back, close the viewer after a successful Approve, route records without a file through the same viewer and drop openRecord, share the pane id constant, and test the viewer when ready changes while open",
+      "where": [
+        "plugins/cairn/hooks/mod/doc.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T23:02:23.701Z"
+    },
+    {
+      "id": "s20",
+      "area": "security",
+      "text": "(security review) Doc viewer approval hardening: hash the text shown and refuse Approve if the file changed before confirm; show a visible truncation line and hide Approve when a doc passes Markdown's 100000-character limit",
+      "where": [
+        "plugins/cairn/hooks/mod/doc.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-21T23:02:27.837Z"
+    },
+    {
+      "id": "s21",
+      "area": "tests",
+      "text": "The mod sandbox has no unhandledRejection event, so the abandoned-dialog test can't see a rejection; assert the shown.catch guard directly, and decide whether one question carrying two stop tags should approve both (parseTags takes the first)",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T23:06:27.279Z"
+    },
+    {
+      "id": "s22",
+      "area": "quality",
+      "text": "Unhandled-rejection gaps: guard beat()'s clock.now read in heartbeat.ts (no catch on the every() callback) and add a prompt.submit failure flag to the test world so pause.ts:218's catch is checked",
+      "where": [
+        "plugins/cairn/hooks/mod/heartbeat.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T23:13:47.108Z"
+    },
+    {
+      "id": "s23",
+      "area": "tests",
+      "text": "Pin NFR-02 and the step refusal: a test that the approve kinds are exactly prd, plan, ship and that only the poll and heartbeat timers start; a run() test that a bad cairn step exits 2",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "check",
+      "at": "2026-10-21T23:17:34.351Z"
+    },
+    {
+      "id": "s24",
+      "area": "security",
+      "text": "(security review) Strip control and bidi characters from outside text the pane draws (agent descriptions, plan titles, Bash phrases, model ids, step and stage names, limit kinds) with one plain() helper, and test a description with a newline and ESC; show only the program name for unrecognised Bash commands so tokens don't reach the screen",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T23:19:04.073Z"
+    },
+    {
+      "id": "s25",
+      "area": "quality",
+      "text": "Pane tidy-up: fix.md's re-review overwrites the rechecking step with reviewing; bar.tsx copies the CLI stage order and labels (carry them on the status row or pin with a test); one token formatter instead of three; move shared press and cell helpers into a util module; one word for working agents in Build and after it",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T23:27:48.449Z"
+    },
+    {
+      "id": "s26",
+      "area": "tests",
+      "text": "Resolved pane-status-bar-and-polish:s18",
+      "where": [
+        "plugins/cairn/hooks/test/approve.test.ts"
+      ],
+      "from": "user",
+      "at": "2026-10-21T23:36:21.957Z",
+      "resolves": "pane-status-bar-and-polish:s18",
+      "note": "flake found and fixed in 9e3e69a: real-crypto approve hash raced the fake clock"
+    },
+    {
+      "id": "s27",
+      "area": "tests",
+      "text": "Make the test kit record ui.scroll({in, to}) so the bar-redraw scroll on doc open, close and tab switch can be asserted",
+      "where": [
+        "plugins/cairn/hooks/test/world.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-21T23:36:22.023Z"
+    },
+    {
+      "id": "s28",
+      "area": "ux",
+      "text": "Inline worst case (repo-root fallback, paused, approval, another plan) still draws 8 rows: drop the Showing line first, keep a '+N more' line whenever agent lines are hidden, and count only agents in N",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-21T23:38:12.634Z"
+    },
+    {
+      "id": "s29",
+      "area": "quality",
+      "text": "Dismissed pane-status-bar-and-polish:s12",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T23:38:35.199Z",
+      "resolves": "pane-status-bar-and-polish:s12",
+      "dismissed": true,
+      "note": "done in review fix: the pane reads step text from the CLI"
+    },
+    {
+      "id": "s30",
+      "area": "ux",
+      "text": "Dismissed pane-status-bar-and-polish:s11",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T23:38:35.411Z",
+      "resolves": "pane-status-bar-and-polish:s11",
+      "dismissed": true,
+      "note": "done in review fix: one inline row budget; the remaining worst case is in s28"
+    },
+    {
+      "id": "s31",
+      "area": "tests",
+      "text": "Tighter tests: cairn step edge cases and exit code (counts over the cap, approvals untouched), the scroll hook and bar redraw (record ui.scroll in the test kit), the model-name prettifier, the approve-dialog catch, and pins for the three approval stops and the two timers",
+      "where": [
+        "plugins/cairn/cli/test/step.test.ts",
+        "plugins/cairn/hooks/test/bar.test.tsx",
+        "plugins/cairn/hooks/test/usage.test.tsx",
+        "plugins/cairn/hooks/test/approve.test.ts",
+        "plugins/cairn/hooks/test/world.tsx"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T23:38:35.599Z",
+      "merges": [
+        "pane-status-bar-and-polish:s5",
+        "pane-status-bar-and-polish:s7",
+        "pane-status-bar-and-polish:s10",
+        "pane-status-bar-and-polish:s13",
+        "pane-status-bar-and-polish:s21",
+        "pane-status-bar-and-polish:s23",
+        "pane-status-bar-and-polish:s27"
+      ]
+    },
+    {
+      "id": "s32",
+      "area": "security",
+      "text": "Harden what the pane shows and approves: strip control and bidi characters from outside text (agent descriptions, titles, Bash phrases, model ids, step names), refuse Approve if the doc changed after it was shown or was truncated, and show only the program name for unknown Bash commands",
+      "where": [
+        "plugins/cairn/cli/src/render.ts",
+        "plugins/cairn/hooks/mod/doc.tsx",
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T23:38:35.826Z",
+      "merges": [
+        "pane-status-bar-and-polish:s6",
+        "pane-status-bar-and-polish:s20",
+        "pane-status-bar-and-polish:s24"
+      ]
+    },
+    {
+      "id": "s33",
+      "area": "quality",
+      "text": "Robustness tidy-ups: let cairn suggest accept --from security-review (the procedures use it), refuse --count on steps other than fixing, declare the records atoms, plan-cost baseline edges (no cost, resume, cost drop), keep card tokens when a turn ends without usage, and close the heartbeat and pause unhandled-rejection gaps",
+      "where": [
+        "plugins/cairn/cli/src/commands/step.ts",
+        "plugins/cairn/cli/src/commands/suggest.ts",
+        "plugins/cairn/types/index.d.ts",
+        "plugins/cairn/hooks/mod/usage.ts",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/heartbeat.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T23:38:36.013Z",
+      "merges": [
+        "pane-status-bar-and-polish:s4",
+        "pane-status-bar-and-polish:s8",
+        "pane-status-bar-and-polish:s9",
+        "pane-status-bar-and-polish:s16",
+        "pane-status-bar-and-polish:s17",
+        "pane-status-bar-and-polish:s22"
+      ]
+    },
+    {
+      "id": "s34",
+      "area": "ux",
+      "text": "Pane polish: inline worst case still 8 rows, doc viewer closes after Approve and handles records without a file, fix.md's re-review keeps the re-checking step, one token formatter and one word for running agents, shared helpers in a util module",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx",
+        "plugins/cairn/hooks/mod/doc.tsx",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T23:38:36.206Z",
+      "merges": [
+        "pane-status-bar-and-polish:s15",
+        "pane-status-bar-and-polish:s19",
+        "pane-status-bar-and-polish:s25",
+        "pane-status-bar-and-polish:s28"
+      ]
+    }
+  ],
+  "planHash": "0eaa106a32c142a9",
+  "configHash": "12129909968d47d2",
+  "step": {
+    "stage": "ship",
+    "name": "opening-pr",
+    "at": "2026-10-22T00:01:50.472Z"
+  }
+}

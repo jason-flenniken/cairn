@@ -1,187 +1,9 @@
-import { describe, expect, mock, test } from 'claude-code/testing'
+import { describe, expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import { etaMs, fmtDuration, phrase } from '../mod/activity.ts'
-
-const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
-const MAIN = '/repo'
-const WT = '/repo/.claude/worktrees/sdlc-shop'
-const STATE = `${WT}/docs/sdlc/plans/shop/state.json`
-const HASH_FILE = '/repo/.git/cairn/mod-secret.sha256'
-const NOW = Date.parse('2026-03-01T12:00:00.000Z')
-const SURFACES = ['terminal', 'desktop'] as const
-
-type Ready = { kind: 'prd' | 'plan' | 'ship'; file: string; summary: string }
-type Row = { state: Record<string, unknown>; live: boolean; worktree?: string; next: { text: string }; ready?: Ready }
-
-/** A plan's state.json as the CLI writes it, with the fields under test overridden. */
-function plan(over: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    schema: 1, slug: 'shop', title: 'Acme Storefront', track: 'feature', stage: 'execute', paused: null,
-    approvals: {}, phases: [], evidence: {}, drift: [], log: [], ...over,
-  }
-}
-
-const task = (id: string, name: string, over: Record<string, unknown> = {}) => ({
-  id, name, covers: [], blockedBy: [], scope: [], complexity: 'standard', status: 'pending', fixRound: 0, ...over,
-})
-
-/** A `cairn status --all --json` row: live when it has a worktree. */
-function row(state: Record<string, unknown>, worktree?: string, next = `next step for ${String(state.slug)}`, ready?: Ready): Row {
-  return { state, live: worktree !== undefined, worktree, next: { text: next }, ready }
-}
-
-/** What the CLI reports for a document waiting on the human. */
-const ready = (kind: Ready['kind'], summary = `- **FR-01** the ${kind} summary`): Ready => ({ kind, file: `${WT}/docs/sdlc/plans/shop/${kind}.md`, summary })
-
-async function sha256(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-type WorldInit = { rows?: Row[]; cwd?: string; placed?: true | string; answer?: string; branchGone?: boolean; isGitRepo?: boolean }
-
-/**
- * The world beneath the mod: git names /repo/.git; `cairn status --all --json` answers `w.rows`
- * (or `w.raw` when set); stat answers the mtimes in `w.mtimes`; `cairn approve` checks the secret's
- * hash as the CLI does; the dialog answers `w.answer`, or is dismissed when it is undefined.
- */
-function world(on: On, init: WorldInit = {}) {
-  const w = {
-    rows: init.rows ?? [],
-    cwd: init.cwd ?? WT,
-    placed: init.placed ?? (true as true | string),
-    answer: 'answer' in init ? init.answer : 'Approve',
-    branchGone: init.branchGone ?? false,
-    raw: undefined as string | undefined,
-    records: undefined as unknown[] | undefined,
-    mtimes: new Map<string, number>([[STATE, 1]]),
-    runs: [] as string[][],
-    toasts: [] as string[],
-    statuses: [] as (string | undefined)[],
-    opens: [] as string[],
-    registered: [] as string[],
-    asked: [] as { question: string; options: string[] }[],
-    commands: [] as string[],
-    aborts: [] as string[],
-    secrets: [] as string[],
-    files: new Map<string, string>(),
-    views: [] as Record<string, unknown>[],
-    viewDeny: undefined as string | undefined,
-  }
-  let onDisk: string | undefined
-  const clock = mock.clock(on, { now: NOW })
-  on('process.run', async (_$, e) => {
-    const [bin, ...args] = e.argv
-    const answer = (exitCode: number, stdout: string, stderr = '') => ({ value: { ...RAN, exitCode, stdout, stderr } })
-    if (bin === 'git') return init.isGitRepo === false ? answer(128, '', 'fatal: not a git repository') : answer(0, '/repo/.git\n')
-    if (bin === 'chmod') return answer(0, '')
-    w.runs.push(args)
-    if (args.join(' ') === 'status --all --json') {
-      return answer(0, w.raw ?? JSON.stringify({ ok: true, message: '', plans: w.rows, modActive: true }))
-    }
-    if (args.join(' ') === 'records --json') return answer(0, JSON.stringify({ ok: true, records: w.records ?? [] }))
-    if (args.join(' ') === 'status --json') {
-      const here = w.rows.find(r => r.worktree === w.cwd)
-      return here === undefined
-        ? answer(1, JSON.stringify({ ok: false, error: 'not in a plan' }))
-        : answer(0, JSON.stringify({ ok: true, state: here.state, planWorktree: here.worktree, ready: here.ready }))
-    }
-    if (args[0] === 'approve') {
-      const given = e.init?.env?.CAIRN_APPROVER
-      if (given !== undefined) w.secrets.push(given)
-      if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
-        onDisk = undefined
-        return answer(0, `${args[1]} approved.\n`)
-      }
-      return answer(2, '✗ Refused: no human proof\n')
-    }
-    if (args[0] === 'pause') return answer(0, 'Paused "Acme Storefront".\n')
-    if (args[0] === 'resume' && args[1] !== undefined) {
-      if (w.branchGone) return answer(2, '', `✗ Refused: no plan "${args[1]}": its branch sdlc/${args[1]} is gone\n`)
-      const at = `/repo/.claude/worktrees/sdlc-${args[1]}`
-      return answer(0, `Plan "${args[1]}" lives in ${at}. Switch into it (EnterWorktree with that path, or \`cd ${at} && claude\`), then run /cairn:resume.\n`)
-    }
-    if (args[0] === 'resume') return answer(0, 'Resumed "Acme Storefront".\n')
-    return answer(1, '', 'unexpected')
-  })
-  on('fs.stat', (_$, e) => {
-    const m = w.mtimes.get(e.path)
-    return m === undefined
-      ? { deny: `ENOENT: no such file or directory, stat '${e.path}'` }
-      : { value: { kind: 'file', size: 1, mtimeMs: m, isLink: false } as never }
-  })
-  on('fs.read', (_$, e) => {
-    const text = w.files.get(e.path)
-    return text === undefined ? { deny: 'ENOENT: no such file' } : { value: text as never }
-  })
-  on('ui.view', (_$, e) => {
-    w.views.push(e as Record<string, unknown>)
-    return { value: (w.viewDeny === undefined ? {} : { deny: w.viewDeny }) as never }
-  })
-  on('fs.write', (_$, e) => {
-    if (e.path === HASH_FILE) onDisk = e.text
-    return { value: undefined }
-  })
-  on('session.cwd', () => ({ value: w.cwd }))
-  on('session.start', (_$, e) => ({ cwd: e.cwd }))
-  on('ui.toast', (_$, e) => {
-    w.toasts.push(e.text)
-    return { value: undefined }
-  })
-  on('ui.status', (_$, e) => {
-    w.statuses.push(e.text)
-    return { value: undefined }
-  })
-  on('ui.open', (_$, e) => {
-    w.opens.push(e.id)
-    return { value: w.placed === true ? { isPlaced: true as const } : { isPlaced: false as const, reason: w.placed } }
-  })
-  on('command.register', (_$, e) => {
-    w.registered.push(e.name)
-    return { value: undefined as never }
-  })
-  on('command.run', (_$, e) => {
-    w.commands.push(e.command)
-    return { text: '' }
-  })
-  on('tool.call', { tool: 'AskUserQuestion' }, (_$, e) => {
-    for (const q of e.questions) w.asked.push({ question: q.question, options: q.options.map((o: { label: string }) => o.label) })
-    if (w.answer === undefined) return { deny: 'The user dismissed the question.' }
-    return { result: { questions: e.questions, answers: Object.fromEntries(e.questions.map((q: { question: string }) => [q.question, w.answer])) } as never }
-  })
-  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'shell ran it', stderr: '', interrupted: false } }))
-  on('turn.start', (_$, e) => ({ turnId: e.turnId }))
-  on('turn.complete', () => ({ text: '' }))
-  on('turn.abort', (_$, e) => {
-    w.aborts.push(e.turnId)
-    return { value: undefined }
-  })
-  const ran = (verb: string) => w.runs.filter(a => a[0] === verb)
-  const statusReads = () => w.runs.filter(a => a.join(' ') === 'status --all --json').length
-  return { w, clock, ran, statusReads }
-}
-
-/** Runs one of the mod's slash commands as the person typing it would. */
-const command = ($: any, name: string, args = ''): Promise<{ text?: string }> => $.command.run({ command: name, args })
-
-const start = ($: any, cwd: string) => $.session.start({ cwd, surface: null, isInteractive: true })
-
-const PANE_PROPS = {
-  title: 'cairn',
-  isFocused: false,
-  bodyColumns: 60,
-  placement: 'dock',
-  scroll: { offset: 0, bodyRows: 40 },
-  view: {},
-} as const
-
-const mount = ($: any, surface: (typeof SURFACES)[number]) =>
-  $.ui.mount({ plugin: 'cairn', surface, component: 'Pane', requestId: 'cairn', props: PANE_PROPS })
-
-/** Every text the pane draws, in order, one per line. */
-async function drawn(ui: any): Promise<string> {
-  return (await ui.findAll({ type: 'Text' })).map((t: { text: string }) => t.text).join('\n')
-}
+import {
+  command, drawn, MAIN, mount, mountAs, plan, ready, row, SURFACES, start, STATE, task, until, world, WT, type Row,
+} from './world.tsx'
 
 const isCardPress = (key: string) => key === 'approval' || key.startsWith('main') || key.startsWith('agent:')
 const isTab = (key: string) => key.startsWith('tab:')
@@ -339,6 +161,37 @@ test('Stop now shows within one poll of a main-loop turn starting, and goes when
   await ui.unmount()
 })
 
+// `cairn status --all --json` as the CLI printed it for a learn plan on a feature branch that is not in main
+// (cairn new shop, the stage set to learn, one code commit). Only the worktree paths are rebased to this test's WT.
+const REAL_STATUS = {
+  ok: true,
+  message: '',
+  plans: [{
+    state: {
+      schema: 1, slug: 'shop', title: 'Shop', track: 'feature', branch: 'feature/shop', base: 'main',
+      created: '2026-10-21T23:03:11.084Z', updated: '2026-10-21T23:03:11.084Z', stage: 'learn', paused: null,
+      approvals: {}, phases: [], evidence: {}, drift: [], log: [{ at: '2026-10-21T23:03:11.084Z', event: 'created' }],
+    },
+    live: true,
+    worktree: WT,
+    dir: `${WT}/docs/sdlc/plans/2026-10-21-shop`,
+    prOpen: true,
+    next: { procedure: 'learn', text: 'Capture anything worth keeping, then close the plan.' },
+    openSuggestions: 0,
+  }],
+  modActive: false,
+  openSuggestions: 0,
+}
+
+test('the pane reads PR open from a real status --all row', async ($, on) => {
+  const { w } = world(on, { rows: [] })
+  w.raw = JSON.stringify(REAL_STATUS)
+  await start($, WT)
+  const ui = await mount($, 'terminal')
+  expect(await drawn(ui)).toContain('Learn · PR open')
+  await ui.unmount()
+})
+
 describe('status line (FR-11)', () => {
   test('in a plan worktree it shows the plan summary', async ($, on) => {
     const { w } = world(on, { rows: [row(EXECUTE, WT)] })
@@ -377,6 +230,22 @@ describe('status line (FR-11)', () => {
 })
 
 describe('polling (FR-10, NFR-01)', () => {
+  test('a poll whose state read fails outside its own catches is not an unhandled rejection, and the next tick still polls', async ($, on) => {
+    // Hooks register before $ is first used. Once the state read is down, the poll's first read rejects.
+    let isStateDown = false
+    on('state.get', ($, e, next) => (isStateDown ? { deny: 'state is unavailable' } : next(e)))
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    let spawned = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++spawned}` }))
+    await start($, WT)
+    isStateDown = true
+    await clock.advance(2_000)
+    isStateDown = false
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await clock.advance(2_000)
+    expect(w.statuses.at(-1)).toMatch(/1 working/)
+  })
+
   test('ten idle polls stat files and start no process', async ($, on) => {
     const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
     await start($, WT)
@@ -518,7 +387,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
-    await clock.settle()
+    await until(clock, () => ran('approve').length > 0 && w.toasts.length > 0)
     expect(w.asked).toEqual([{ question: 'Approve the ship stop of plan shop?', options: ['Cancel', 'Approve'] }])
     expect(ran('approve')).toEqual([['approve', 'ship']])
     expect(w.secrets).toHaveLength(1)
@@ -540,7 +409,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
   })
 
   test('a menu approval and a button approval back to back each use their own secret, and both land (Review focus 2)', async ($, on) => {
-    const { w, ran } = world(on, {
+    const { w, ran, clock } = world(on, {
       rows: [shipRow(), row(plan({ slug: 'beta', title: 'Beta', stage: 'prd' }), '/repo/.claude/worktrees/sdlc-beta', undefined, ready('prd'))],
     })
     await start($, WT)
@@ -551,6 +420,7 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
       questions: [{ question: q, header: 'cairn', multiSelect: false, options: [{ label: 'Approve', description: 'ok' }, { label: 'Revise', description: 'no' }] }],
     } as never)
     await ui.press({ key: 'approve' })
+    await until(clock, () => ran('approve').length > 1 && w.toasts.length > 0)
     expect(ran('approve')).toEqual([['approve', 'prd'], ['approve', 'ship']])
     expect(new Set(w.secrets).size).toBe(2)
     expect(menu.context?.join()).toMatch(/prd approved/)
@@ -677,35 +547,12 @@ describe('/cairn-approve (FR-05)', () => {
 describe('approval card and pressable cards (FR-11..FR-14)', () => {
   const PRD_FILE = `${WT}/docs/sdlc/plans/shop/prd.md`
 
-  test('Read all shows the file text through Markdown, and Close takes it away again', async ($, on) => {
-    const { w } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
-    w.files.set(PRD_FILE, '# The PRD\n\n- FR-01 whole document line')
-    await start($, WT)
-    const ui = await mount($, 'terminal')
-    const shown = async () => (await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text)
-    expect(await shown()).toEqual(['- **FR-01** the prd summary'])
-    await ui.press({ key: 'readall' })
-    expect(await shown()).toEqual(['- **FR-01** the prd summary', '# The PRD\n\n- FR-01 whole document line'])
-    await ui.press({ key: 'readall' })
-    expect(await shown()).toEqual(['- **FR-01** the prd summary'])
-    await ui.unmount()
-  })
-
-  test('Read all says so when the file cannot be read', async ($, on) => {
-    world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
-    await start($, WT)
-    const ui = await mount($, 'terminal')
-    await ui.press({ key: 'readall' })
-    expect((await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text).join()).toContain(`Could not read ${PRD_FILE}`)
-    await ui.unmount()
-  })
-
   test('Approve on a ready card approves once through the secret path', async ($, on) => {
     const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
-    await clock.settle()
+    await until(clock, () => ran('approve').length > 0)
     expect(ran('approve')).toEqual([['approve', 'prd']])
     expect(w.secrets).toHaveLength(1)
     await ui.unmount()
@@ -748,7 +595,9 @@ describe('History tab (FR-07)', () => {
     for (let i = 1; i <= 12; i++) expect(text).toContain(`Task done: t-${String(i).padStart(2, '0')}`)
     expect(text.indexOf('Task done: t-12')).toBeLessThan(text.indexOf('Task done: t-01'))
     expect(text.indexOf('Task done: t-12')).toBeLessThan(text.indexOf('Task done: t-11'))
-    const inStage = (await ui.findAll({ type: 'Text' })).filter((n: { props: { color?: string } }) => n.props.color === 'yellowBright').map((t: { text: string }) => t.text)
+    // The timeline's own lines: the bar below it draws the active step in the stage color too.
+    const timeline = (await ui.find({ type: 'Box', key: 'timeline' }))!.children as { props: { color?: string }; children: string[] }[]
+    const inStage = timeline.filter(n => n.props.color === 'yellowBright').map(n => n.children.join(''))
     expect(inStage.some((t: string) => t.endsWith('Task done: t-12'))).toBe(true)
     expect(inStage.length).toBe(12)
     await ui.unmount()
@@ -1040,8 +889,6 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
   const rec = (slug: string, date: string) => ({
     slug, title: `Plan ${slug}`, date, stage: 'closed', why: `why ${slug}`, record: `/repo/docs/sdlc/plans/${slug}/RECORD.md`, followUps: [],
   })
-  const mountAs = ($: any, over: Record<string, unknown>) =>
-    $.ui.mount({ plugin: 'cairn', surface: 'terminal', component: 'Pane', requestId: 'cairn', props: { ...PANE_PROPS, ...over } })
   const boxes = async (ui: any): Promise<{ key?: string; props: Record<string, unknown> }[]> => ui.findAll({ type: 'Box' })
   const root = async (ui: any) => (await boxes(ui))[0]!
 
@@ -1056,6 +903,33 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
     }
     await ui.press({ key: 'record:a' })
     expect((await root(ui)).props).toMatchObject({ paddingX: 1, gap: 1 })
+    await ui.unmount()
+  })
+
+  test('docked: no box in any tab sets a background color, so Claude Code paints the pane', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20'), rec('b', '2026-09-03')]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    for (const key of ['tab:now', 'tab:history', 'tab:records', 'record:a']) {
+      await ui.press({ key })
+      for (const b of await boxes(ui)) expect(b.props.backgroundColor).toBeUndefined()
+    }
+    await ui.unmount()
+  })
+
+  test('Records rows keep their two lines together with no gap between them', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20'), rec('b', '2026-09-03')]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:records' })
+    for (const slug of ['a', 'b']) {
+      const rowBox = (await ui.find({ type: 'Box', key: `record:${slug}:row` }))!
+      expect(rowBox.props.gap).toBeUndefined()
+      expect(rowBox.props.flexDirection).toBe('column')
+      expect(rowBox.children).toHaveLength(2)
+    }
     await ui.unmount()
   })
 
@@ -1088,9 +962,9 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'tab:history' })
-    const timeline = (await boxes(ui)).find(b => b.key === 'timeline')!
+    const timeline = (await ui.find({ type: 'Box', key: 'timeline' }))!
     expect(timeline.props.gap).toBeUndefined()
-    expect(await ui.findAll({ type: 'Text' })).toHaveLength(3)
+    expect(timeline.children).toHaveLength(3)
     await ui.unmount()
   })
 

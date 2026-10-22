@@ -55,7 +55,7 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
     } else {
       s.stage = 'verify';
       log(s, 'advanced', 'verify');
-      next = 'all phases done, moved to Check';
+      next = 'moved to Check';
     }
     const driftText = drift.length ? `; ${drift.length} out-of-scope edit(s): ${drift.slice(0, 5).map((d) => d.path).join(', ')}` : '';
     return {
