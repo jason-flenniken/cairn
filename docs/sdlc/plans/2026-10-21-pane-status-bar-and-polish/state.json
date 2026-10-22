@@ -6,7 +6,7 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-21T23:38:12.793Z",
+  "updated": "2026-10-22T00:01:46.357Z",
   "stage": "ship",
   "paused": null,
   "approvals": {
@@ -21,6 +21,11 @@
       "via": "human",
       "source": "mod",
       "hash": "0eaa106a32c142a9"
+    },
+    "ship": {
+      "at": "2026-10-22T00:01:46.357Z",
+      "via": "human",
+      "source": "mod"
     }
   },
   "phases": [
@@ -670,6 +675,16 @@
       "at": "2026-10-21T23:38:12.792Z",
       "event": "advanced",
       "detail": "ship"
+    },
+    {
+      "at": "2026-10-21T23:39:32.526Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-10-22T00:01:46.357Z",
+      "event": "ship approved",
+      "detail": "mod"
     }
   ],
   "suggestions": [
@@ -964,13 +979,121 @@
       ],
       "from": "branch-review",
       "at": "2026-10-21T23:38:12.634Z"
+    },
+    {
+      "id": "s29",
+      "area": "quality",
+      "text": "Dismissed pane-status-bar-and-polish:s12",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T23:38:35.199Z",
+      "resolves": "pane-status-bar-and-polish:s12",
+      "dismissed": true,
+      "note": "done in review fix: the pane reads step text from the CLI"
+    },
+    {
+      "id": "s30",
+      "area": "ux",
+      "text": "Dismissed pane-status-bar-and-polish:s11",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "at": "2026-10-21T23:38:35.411Z",
+      "resolves": "pane-status-bar-and-polish:s11",
+      "dismissed": true,
+      "note": "done in review fix: one inline row budget; the remaining worst case is in s28"
+    },
+    {
+      "id": "s31",
+      "area": "tests",
+      "text": "Tighter tests: cairn step edge cases and exit code (counts over the cap, approvals untouched), the scroll hook and bar redraw (record ui.scroll in the test kit), the model-name prettifier, the approve-dialog catch, and pins for the three approval stops and the two timers",
+      "where": [
+        "plugins/cairn/cli/test/step.test.ts",
+        "plugins/cairn/hooks/test/bar.test.tsx",
+        "plugins/cairn/hooks/test/usage.test.tsx",
+        "plugins/cairn/hooks/test/approve.test.ts",
+        "plugins/cairn/hooks/test/world.tsx"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T23:38:35.599Z",
+      "merges": [
+        "pane-status-bar-and-polish:s5",
+        "pane-status-bar-and-polish:s7",
+        "pane-status-bar-and-polish:s10",
+        "pane-status-bar-and-polish:s13",
+        "pane-status-bar-and-polish:s21",
+        "pane-status-bar-and-polish:s23",
+        "pane-status-bar-and-polish:s27"
+      ]
+    },
+    {
+      "id": "s32",
+      "area": "security",
+      "text": "Harden what the pane shows and approves: strip control and bidi characters from outside text (agent descriptions, titles, Bash phrases, model ids, step names), refuse Approve if the doc changed after it was shown or was truncated, and show only the program name for unknown Bash commands",
+      "where": [
+        "plugins/cairn/cli/src/render.ts",
+        "plugins/cairn/hooks/mod/doc.tsx",
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T23:38:35.826Z",
+      "merges": [
+        "pane-status-bar-and-polish:s6",
+        "pane-status-bar-and-polish:s20",
+        "pane-status-bar-and-polish:s24"
+      ]
+    },
+    {
+      "id": "s33",
+      "area": "quality",
+      "text": "Robustness tidy-ups: let cairn suggest accept --from security-review (the procedures use it), refuse --count on steps other than fixing, declare the records atoms, plan-cost baseline edges (no cost, resume, cost drop), keep card tokens when a turn ends without usage, and close the heartbeat and pause unhandled-rejection gaps",
+      "where": [
+        "plugins/cairn/cli/src/commands/step.ts",
+        "plugins/cairn/cli/src/commands/suggest.ts",
+        "plugins/cairn/types/index.d.ts",
+        "plugins/cairn/hooks/mod/usage.ts",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/heartbeat.ts"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T23:38:36.013Z",
+      "merges": [
+        "pane-status-bar-and-polish:s4",
+        "pane-status-bar-and-polish:s8",
+        "pane-status-bar-and-polish:s9",
+        "pane-status-bar-and-polish:s16",
+        "pane-status-bar-and-polish:s17",
+        "pane-status-bar-and-polish:s22"
+      ]
+    },
+    {
+      "id": "s34",
+      "area": "ux",
+      "text": "Pane polish: inline worst case still 8 rows, doc viewer closes after Approve and handles records without a file, fix.md's re-review keeps the re-checking step, one token formatter and one word for running agents, shared helpers in a util module",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx",
+        "plugins/cairn/hooks/mod/doc.tsx",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "plan",
+      "at": "2026-10-21T23:38:36.206Z",
+      "merges": [
+        "pane-status-bar-and-polish:s15",
+        "pane-status-bar-and-polish:s19",
+        "pane-status-bar-and-polish:s25",
+        "pane-status-bar-and-polish:s28"
+      ]
     }
   ],
   "planHash": "0eaa106a32c142a9",
   "configHash": "12129909968d47d2",
   "step": {
-    "stage": "review",
-    "name": "rechecking",
-    "at": "2026-10-21T23:30:54.274Z"
+    "stage": "ship",
+    "name": "approving",
+    "at": "2026-10-21T23:39:32.526Z"
   }
 }
