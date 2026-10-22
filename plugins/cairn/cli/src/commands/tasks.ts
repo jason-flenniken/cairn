@@ -141,7 +141,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
     gate(commits > 0, s, 'task done', opts, `${cur.branch} has no commits since the task started`, ['the implementer commits its work on the task branch, in the task worktree']);
     gate(!planDirty, s, 'task done', opts, `the plan worktree has uncommitted changes outside docs/sdlc: ${planDirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
     gate(merged, s, 'task done', opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
-    testsGate(tests ?? (checkable ? undefined : { ok: false, cmd: pc.cfg.test ?? '(none)', tail: 'not run' }), s, 'task done', opts);
+    testsGate(tests ?? (checkable ? undefined : { ok: false, ran: false, cmd: pc.cfg.test ?? '(none)', tail: 'not run' }), s, 'task done', opts, cur.scope);
     if (fix) {
       gate(repro?.outcome === 'passes', s, 'task done', opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` → ${repro.detail})` : 'the repro was not run: the task is not merged', ['fix the bug so the repro command exits 0']);
       gate(changed <= maxFiles, s, 'task done', opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ['this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work']);

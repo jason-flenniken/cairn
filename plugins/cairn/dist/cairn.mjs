@@ -7792,7 +7792,7 @@ var LEVELS = ["mvp", "standard", "polished"];
 var LEVEL_LABEL = { mvp: "MVP", standard: "Standard", polished: "Polished" };
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 var SUGGESTION_AREAS = ["tests", "security", "perf", "quality", "ux", "docs"];
-var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user"];
+var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user", "mvp"];
 
 // plugins/cairn/cli/src/render.ts
 var day = (iso) => iso ? iso.slice(0, 10) : "";
@@ -8063,12 +8063,39 @@ function runTests(cfg, cwd) {
   const r = spawnSync2("sh", ["-c", cfg.test], { cwd, encoding: "utf8", env: childEnv(), maxBuffer: 64 * 1024 * 1024 });
   const lines = `${r.stdout ?? ""}
 ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
-  return { ok: r.status === 0, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
+  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
 }
-function testsGate(t, s, event, opts) {
+function addHardening(s, item) {
+  const all = s.suggestions ??= [];
+  const x = { id: `s${all.length + 1}`, ...item, from: "mvp", at: now(), kind: "hardening" };
+  all.push(x);
+  return x;
+}
+var planScope = (s) => {
+  const all = [...new Set(s.phases.flatMap((p) => p.tasks.flatMap((t) => t.scope)))];
+  return all.length ? all : ["**"];
+};
+function knownFailures(s) {
+  const all = s.suggestions ?? [];
+  const gone = new Set(all.flatMap((x) => [x.resolves, ...x.merges ?? []]));
+  return all.filter((x) => x.testCmd && !gone.has(`${s.slug}:${x.id}`));
+}
+function testsGate(t, s, event, opts, scope) {
   if (!t) {
     log(s, `warning: ${event}`, "no test command configured, so nothing was run");
     return void 0;
+  }
+  const open = knownFailures(s).find((x) => x.testCmd === t.cmd);
+  if (t.ok && open) {
+    const all = s.suggestions;
+    all.push({ id: `s${all.length + 1}`, area: open.area, text: `Resolved ${s.slug}:${open.id}`, where: open.where, from: "mvp", at: now(), resolves: `${s.slug}:${open.id}` });
+  }
+  if (!t.ok && t.ran && levelOf(s) === "mvp") {
+    const text = `Tests failing: \`${t.cmd}\` \u2192 ${t.tail}`;
+    if (open) open.text = text;
+    else addHardening(s, { area: "tests", text, where: scope?.length ? scope : planScope(s), testCmd: t.cmd });
+    log(s, `warning: ${event}`, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail}); recorded as a hardening item`);
+    return t;
   }
   gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail})`, ["fix the failing tests, then retry"]);
   return t;
@@ -8417,16 +8444,18 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.s
   const w = warnings(pc, s);
   const next = nextFor(s);
   const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
+  const hardeningItems = openHardeningCount(ctx);
   return {
     message: [
       summary(s, prOpen),
       `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
       ...s.level ? [`Level: ${levelLabel(s)}`] : [],
+      ...hardeningItems ? [`Hardening items: ${hardeningItems}`] : [],
       ...s.stageHistory ? [`Time per stage: ${timingText(stageTimes(s))}`] : [],
       ...w.map((x) => `! ${x}`),
       ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []
     ].join("\n"),
-    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing: stageTimes(s), prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
+    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing: stageTimes(s), prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx), hardeningItems, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
   };
 }
 var procedurePath = (name) => join9(pluginRoot(), "procedures", `${name}.md`);
@@ -8495,20 +8524,28 @@ function collectSuggestions(ctx, at = Date.now()) {
     (s) => (s.suggestions ?? []).filter((x) => !isMarker(x)).map((x) => {
       const key = `${s.slug}:${x.id}`;
       const declined = declines.get(key) ?? 0;
+      const hardening = x.kind === "hardening";
       const old = at - Date.parse(x.at) > MAX_AGE_DAYS * 864e5;
-      const status = closed.has(key) ? "closed" : merged.has(key) ? "merged" : declined >= MAX_DECLINES || old ? "expired" : "open";
-      return { ...x, slug: s.slug, key, open: status === "open", status, declined };
+      const status = closed.has(key) ? "closed" : merged.has(key) ? "merged" : !hardening && (declined >= MAX_DECLINES || old) ? "expired" : "open";
+      return { ...x, slug: s.slug, key, open: status === "open", status, declined, hardening };
     })
   );
 }
 function openSuggestionCount(ctx) {
   try {
-    return collectSuggestions(ctx).filter((x) => x.open).length;
+    return collectSuggestions(ctx).filter((x) => x.open && !x.hardening).length;
   } catch {
     return 0;
   }
 }
-var USAGE = "usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...";
+function openHardeningCount(ctx) {
+  try {
+    return collectSuggestions(ctx).filter((x) => x.open && x.hardening).length;
+  } catch {
+    return 0;
+  }
+}
+var USAGE = "usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] [--kind hardening] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...";
 function cmdSuggest(ctx, action, arg, opts, more = []) {
   if (action === "add") return suggestAdd(ctx, opts);
   if (action === "list") return suggestList(ctx, opts);
@@ -8520,15 +8557,18 @@ function cmdSuggest(ctx, action, arg, opts, more = []) {
 function suggestAdd(ctx, opts) {
   const area = String(opts.area ?? "");
   if (!SUGGESTION_AREAS.includes(area)) throw new CliError(`--area must be one of ${SUGGESTION_AREAS.join(", ")}`);
-  const from = String(opts.from ?? "implementer");
+  const kind = opts.kind === void 0 ? void 0 : String(opts.kind);
+  if (kind !== void 0 && kind !== "hardening") throw new CliError("--kind must be hardening");
+  const from = String(opts.from ?? (kind ? "mvp" : "implementer"));
   if (!SUGGESTION_SOURCES.includes(from)) throw new CliError(`--from must be one of ${SUGGESTION_SOURCES.join(", ")}`);
   const text = typeof opts.text === "string" ? opts.text.trim() : "";
   if (!text) throw new CliError("--text or --text-file is required");
+  if (kind && !list(opts.where).length) throw new CliError("--kind hardening needs at least one --where glob: the item is found later by path");
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
     const all = s.suggestions ??= [];
     const id = `s${all.length + 1}`;
-    all.push({ id, area, text, where: list(opts.where), from, at: now() });
+    all.push({ id, area, text, where: list(opts.where), from, at: now(), ...kind ? { kind: "hardening" } : {} });
     return { message: `${s.slug}:${id}`, data: { id, key: `${s.slug}:${id}` } };
   });
 }
@@ -8622,7 +8662,7 @@ function fixRecordProblems(pc) {
 var recordCheck = (pc, track) => track === "fix" ? { problems: fixRecordProblems(pc), fix: "write RECORD.md from templates/record-fix.md" } : { problems: recordProblems(pc), fix: "write RECORD.md from templates/record.md" };
 function closeGates(pc, s, opts, record, tests) {
   configGate(s, pc.cfg, "close", opts);
-  const open = collectSuggestions(pc.ctx).filter((x) => x.open && x.slug === s.slug);
+  const open = collectSuggestions(pc.ctx).filter((x) => x.open && !x.hardening && x.slug === s.slug);
   gate(
     open.length <= MAX_OPEN_PER_PLAN,
     s,
@@ -8762,6 +8802,10 @@ function cmdAdvance(ctx, opts) {
         gate(!!s.approvals.ship, s, "advance", opts, "shipping is not approved", ["cairn approve ship"]);
         if (record) closeGates(pc, s, opts, record, tests);
         break;
+    }
+    if (to === "ship" && levelOf(s) === "mvp") {
+      for (const t of s.phases.flatMap((p) => p.tasks))
+        if (t.status === "done" && t.level === "mvp" && !t.risky) addHardening(s, { area: "quality", text: `Task "${t.name}" ran at MVP without a per-task review.`, where: t.scope });
     }
     setStage(s, to);
     if (to === "execute") {
@@ -9065,7 +9109,7 @@ function taskDone(pc, id, opts) {
     gate(commits > 0, s, "task done", opts, `${cur.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
     gate(!planDirty, s, "task done", opts, `the plan worktree has uncommitted changes outside docs/sdlc: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
     gate(merged, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
-    testsGate(tests ?? (checkable ? void 0 : { ok: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts);
+    testsGate(tests ?? (checkable ? void 0 : { ok: false, ran: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts, cur.scope);
     if (fix) {
       gate(repro?.outcome === "passes", s, "task done", opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` \u2192 ${repro.detail})` : "the repro was not run: the task is not merged", ["fix the bug so the repro command exits 0"]);
       gate(changed <= maxFiles, s, "task done", opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ["this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work"]);
@@ -9164,6 +9208,19 @@ function cmdPhase(ctx, action, opts) {
     };
   });
 }
+function cmdTest(ctx, opts) {
+  const pc = planCtx(ctx);
+  const tests = runTests(pc.cfg, pc.plan.worktree);
+  return mutate(pc, void 0, (s) => {
+    if (!tests) {
+      testsGate(tests, s, "check", opts);
+      return { message: "No test command configured: nothing was run.", data: { ran: false } };
+    }
+    if (tests.ok || levelOf(s) === "mvp") testsGate(tests, s, "check", opts);
+    const note = !tests.ok && levelOf(s) === "mvp" ? " Recorded as a hardening item; the plan continues." : "";
+    return { message: `Tests ${tests.ok ? "green" : "RED"} (\`${tests.cmd}\` \u2192 ${tests.tail}).${note}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail } };
+  });
+}
 
 // plugins/cairn/cli/src/commands/records.ts
 import { existsSync as existsSync8, readdirSync as readdirSync3 } from "node:fs";
@@ -9191,7 +9248,7 @@ function listRecords(ctx) {
       }
     }
   const followUps = /* @__PURE__ */ new Map();
-  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status }]);
+  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status, ...x.hardening ? { hardening: true } : {} }]);
   const entries = [...found.values()].map(({ state, dir }) => {
     let recordPath = join13(dir, "RECORD.md");
     if (!existsSync8(recordPath)) recordPath = join13(base, basename4(dir), "RECORD.md");
@@ -9488,7 +9545,7 @@ ${v}` : v;
 var USAGE2 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
-  task start|step|done <id> | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
   pause [--now] | resume [<slug>] | close | render | records
   repro "<command>" | escalate (fix plans)
@@ -9528,6 +9585,8 @@ function run(argv, cwd = process.cwd()) {
       return cmdEvidence(ctx(), a, b, opts);
     case "step":
       return cmdStep(ctx(), a, opts);
+    case "test":
+      return cmdTest(ctx(), opts);
     case "phase":
       return cmdPhase(ctx(), a, opts);
     case "suggest":

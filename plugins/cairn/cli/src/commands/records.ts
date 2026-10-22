@@ -17,7 +17,7 @@ export interface RecordEntry {
   stage: string;
   why: string;
   record?: string;
-  followUps: { text: string; area: Suggestion['area']; status: FollowupStatus }[];
+  followUps: { text: string; area: Suggestion['area']; status: FollowupStatus; hardening?: true }[];
 }
 
 const DATE_PREFIX = /^(\d{4}-\d{2}-\d{2})-/;
@@ -48,7 +48,7 @@ export function listRecords(ctx: Ctx): RecordEntry[] {
       }
     }
   const followUps = new Map<string, RecordEntry['followUps']>();
-  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...(followUps.get(x.slug) ?? []), { text: x.text, area: x.area, status: x.status }]);
+  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...(followUps.get(x.slug) ?? []), { text: x.text, area: x.area, status: x.status, ...(x.hardening ? { hardening: true as const } : {}) }]);
 
   const entries = [...found.values()].map(({ state, dir }): RecordEntry => {
     let recordPath = join(dir, 'RECORD.md');

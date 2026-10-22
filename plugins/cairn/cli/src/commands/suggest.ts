@@ -23,6 +23,7 @@ export interface ListedSuggestion extends Suggestion {
   open: boolean;
   status: FollowupStatus;
   declined: number;
+  hardening: boolean;
 }
 
 const isMarker = (x: Suggestion): boolean => !!x.resolves || !!x.declines;
@@ -58,23 +59,34 @@ export function collectSuggestions(ctx: Ctx, at: number = Date.now()): ListedSug
     (s.suggestions ?? []).filter((x) => !isMarker(x)).map((x) => {
       const key = `${s.slug}:${x.id}`;
       const declined = declines.get(key) ?? 0;
+      const hardening = x.kind === 'hardening';
       const old = at - Date.parse(x.at) > MAX_AGE_DAYS * 86_400_000;
-      const status: FollowupStatus = closed.has(key) ? 'closed' : merged.has(key) ? 'merged' : declined >= MAX_DECLINES || old ? 'expired' : 'open';
-      return { ...x, slug: s.slug, key, open: status === 'open', status, declined };
+      // Hardening items never expire: they wait until someone works them.
+      const status: FollowupStatus = closed.has(key) ? 'closed' : merged.has(key) ? 'merged' : !hardening && (declined >= MAX_DECLINES || old) ? 'expired' : 'open';
+      return { ...x, slug: s.slug, key, open: status === 'open', status, declined, hardening };
     }),
   );
 }
 
+/** Open follow-ups across plans; hardening items are counted apart. */
 export function openSuggestionCount(ctx: Ctx): number {
   try {
-    return collectSuggestions(ctx).filter((x) => x.open).length;
+    return collectSuggestions(ctx).filter((x) => x.open && !x.hardening).length;
+  } catch {
+    return 0;
+  }
+}
+
+export function openHardeningCount(ctx: Ctx): number {
+  try {
+    return collectSuggestions(ctx).filter((x) => x.open && x.hardening).length;
   } catch {
     return 0;
   }
 }
 
 const USAGE =
-  'usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...';
+  'usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] [--kind hardening] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...';
 
 export function cmdSuggest(ctx: Ctx, action: string | undefined, arg: string | undefined, opts: Opts, more: string[] = []): Result {
   if (action === 'add') return suggestAdd(ctx, opts);
@@ -88,15 +100,18 @@ export function cmdSuggest(ctx: Ctx, action: string | undefined, arg: string | u
 function suggestAdd(ctx: Ctx, opts: Opts): Result {
   const area = String(opts.area ?? '');
   if (!(SUGGESTION_AREAS as readonly string[]).includes(area)) throw new CliError(`--area must be one of ${SUGGESTION_AREAS.join(', ')}`);
-  const from = String(opts.from ?? 'implementer');
+  const kind = opts.kind === undefined ? undefined : String(opts.kind);
+  if (kind !== undefined && kind !== 'hardening') throw new CliError('--kind must be hardening');
+  const from = String(opts.from ?? (kind ? 'mvp' : 'implementer'));
   if (!(SUGGESTION_SOURCES as readonly string[]).includes(from)) throw new CliError(`--from must be one of ${SUGGESTION_SOURCES.join(', ')}`);
   const text = typeof opts.text === 'string' ? opts.text.trim() : '';
   if (!text) throw new CliError('--text or --text-file is required');
+  if (kind && !list(opts.where).length) throw new CliError('--kind hardening needs at least one --where glob: the item is found later by path');
   const pc = planCtx(ctx);
   return mutate(pc, undefined, (s) => {
     const all = (s.suggestions ??= []);
     const id = `s${all.length + 1}`;
-    all.push({ id, area: area as Suggestion['area'], text, where: list(opts.where), from: from as Suggestion['from'], at: now() });
+    all.push({ id, area: area as Suggestion['area'], text, where: list(opts.where), from: from as Suggestion['from'], at: now(), ...(kind ? { kind: 'hardening' as const } : {}) });
     return { message: `${s.slug}:${id}`, data: { id, key: `${s.slug}:${id}` } };
   });
 }

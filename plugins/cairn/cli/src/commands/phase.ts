@@ -1,7 +1,7 @@
 import { git, gitOk } from '../git.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
-import { loadState, log, setStage } from '../state.ts';
+import { levelOf, loadState, log, setStage } from '../state.ts';
 import type { State, Suggestion } from '../types.ts';
 import { CliError, Refusal } from '../util.ts';
 import { gate, mutate, planCtx, runTests, testsGate, type Opts, type Result, type TestRun } from '../shared.ts';
@@ -62,5 +62,23 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
       message: `Phase "${cur.name}" finished: ${cur.tasks.length} tasks, ${testText}, ${suggestions}${driftText}; ${next}.`,
       data: { phase: cur.id, next: following?.id ?? null, stage: s.stage },
     };
+  });
+}
+
+/**
+ * Run the configured suite in the plan worktree and report it. At MVP a red run files its hardening item and the command
+ * still succeeds; at the other levels a red run is only reported, because Check's own fix loop handles it.
+ */
+export function cmdTest(ctx: Ctx, opts: Opts): Result {
+  const pc = planCtx(ctx);
+  const tests = runTests(pc.cfg, pc.plan.worktree);
+  return mutate(pc, undefined, (s) => {
+    if (!tests) {
+      testsGate(tests, s, 'check', opts);
+      return { message: 'No test command configured: nothing was run.', data: { ran: false } };
+    }
+    if (tests.ok || levelOf(s) === 'mvp') testsGate(tests, s, 'check', opts);
+    const note = !tests.ok && levelOf(s) === 'mvp' ? ' Recorded as a hardening item; the plan continues.' : '';
+    return { message: `Tests ${tests.ok ? 'green' : 'RED'} (\`${tests.cmd}\` → ${tests.tail}).${note}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail } };
   });
 }
