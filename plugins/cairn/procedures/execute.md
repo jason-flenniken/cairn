@@ -8,6 +8,15 @@ You stay at the repo root. The session is not locked to a worktree, so your suba
 
 **Running cairn.** Every `cairn` command below runs from the plan worktree: `cd <plan worktree> && cairn <command>`. The one exception is an override command (a `cairn` command the user chose to override). It runs alone, with no `cd` and no `&&`, because the mod refuses compound commands and resolves the plan itself. Keep its reason plain text, as `procedures/review.md` describes.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP: skip `task-reviewer`. The floor still applies: a task that touches a trust boundary gets the `security-reviewer` in step 5, and its Critical and Required findings go through step 6. Implementers run one tier below the task's complexity (the MVP table in `references/model-tiers.md`). Tests warn: a red suite at `cairn task done` is not a refusal; the CLI files the hardening item. File each task you merged unreviewed as a hardening item: `cairn suggest add --kind hardening --area quality --where <task scope> --text "task <name> merged without review"`. File Optional and Nit findings from the security reviewer the same way, with `--kind hardening --from security-review`.
+- Standard: as written below.
+- Polished: test-first for every task. Tell each implementer to write the failing test before the code, and have the task-reviewer check that it did.
+
+## Changing the level
+`references/levels.md` explains how a raise works. Only suggest one when the MVP shortcuts are visibly costing more than they save; the user decides. After a raise, run `cairn status --json`, read `hardeningItems`, and ask whether to work through them now.
+
 ## 1. Check
 Run `cd <plan worktree> && cairn status --json`. The stage must be `execute`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 - Paused: tell the user the plan is paused and stop. `/cairn:resume` continues it.

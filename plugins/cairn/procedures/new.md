@@ -23,19 +23,29 @@ Check for `.sdlc/config.json`.
 
 **Done when:** `.sdlc/config.json` exists and is committed, and its `test` command is non-empty.
 
-## 4. Create the plan
-Run `cairn new <slug> --title "<title>"`. The output prints the plan worktree path.
+## 4. Level
+Ask once with AskUserQuestion, a plain choice and not an approval: "How much effort should this build spend?" Options, with the repo's default first and marked "(Recommended)" (`defaultLevel` in `.sdlc/config.json`, Standard when unset):
+- MVP: a short interview, few large tasks, no per-task review, red tests warn; shortcuts go on a hardening list for later.
+- Standard: the full interview, every task reviewed, tests, scans and the full branch review.
+- Polished: Standard plus test-first on every task, a fresh read of the plan, and the on-track check after every phase.
+
+`references/levels.md` has the full table. Security review of risky work and the three approvals stay at every level. This answer is applied as given; changing the level later needs the user's own proof. A fix plan (`--track fix`) has no level: skip this step for it.
+
+**Done when:** you hold the level the user picked.
+
+## 5. Create the plan
+Run `cairn new <slug> --title "<title>" --level <mvp|standard|polished>`. The output prints the plan worktree path.
 
 **Done when:** the command exits 0 and you have the worktree path.
 
-## 5. Tell the user where the plan lives
-Tell the user the plan worktree path in one line. Never move the session into the worktree with a worktree-entering tool: a session locked to a worktree blocks its subagents from editing and committing in task worktrees. You stay at the repo root, and every later `cairn` command runs as `cd <plan worktree> && cairn <command>`.
+## 6. Tell the user where the plan lives
+Tell the user the plan worktree path and the level in one line. Never move the session into the worktree with a worktree-entering tool: a session locked to a worktree blocks its subagents from editing and committing in task worktrees. You stay at the repo root, and every later `cairn` command runs as `cd <plan worktree> && cairn <command>`.
 
 Confirm with `cd <plan worktree> && cairn status --json` that the stage is `discover`.
 
 **Done when:** the user has the worktree path and the stage is `discover`.
 
-## 6. Continue
+## 7. Continue
 Tell the user in one line that the plan exists and discovery starts. Run `cd <plan worktree> && cairn next --json` and follow the procedure it names (discover).
 
 **Done when:** the discover procedure is running.

@@ -4,6 +4,12 @@ Draft the PRD from the decisions, then stop for the user to approve it. There ar
 
 Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLUGIN_ROOT}/templates/prd.md`). Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP: a thin PRD. Problem, Solution, Requirements with one-line checks, Non-goals. Add Security only when discover recorded a trust boundary.
+- Standard: as written below.
+- Polished: also add acceptance examples (Given / When / Then) for every requirement that is conditional. The builder check on the PRD is not in cairn yet.
+
 ## 1. Check
 Run `cairn status --json`. The stage must be `prd`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 

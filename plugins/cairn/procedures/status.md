@@ -16,7 +16,8 @@ Per plan, give these lines, using names rather than ids:
 - **Next:** the next action (`cairn next --json` for the current plan).
 - **Blocked:** blocked tasks with their note.
 - **Out-of-scope edits:** edits outside task scopes, by path.
-- **Follow-ups:** the open recommended follow-up count (`openSuggestions`); `/cairn:suggestions` lists them.
+- **Level:** the plan's level (`levelLabel`) and the time per stage (`timing`) when present. When MVP shortcuts have piled up in `hardeningItems`, offer a raise as `references/levels.md` describes under Changing the level.
+- **Follow-ups:** the open recommended follow-up count (`openSuggestions`) and, separately, the `hardeningItems` count; `/cairn:suggestions` lists them.
 - **Pending stops:** the approval waiting on the user (PRD, plan, ship), if any.
 
 For several plans, use one compact block per plan, the one needing the user first. Leave out lines with nothing to say.

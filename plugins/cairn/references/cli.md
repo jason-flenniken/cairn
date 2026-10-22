@@ -87,7 +87,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn next [--json]`: what to do now. Returns `{stage, substep, procedure: <abs path>, summary, plan}`. Read and follow the procedure file it names.
   - `cairn status [--all] [--json]`: one plan, or every plan with `--all`, read live from each worktree.
 - **Plans**
-  - `cairn new <slug> --title "…" [--track feature|fix] [--from <ref>] [--no-worktree]`: creates the branch, the worktree, the plan dir, and state, and prints the worktree path.
+  - `cairn new <slug> --title "…" [--track feature|fix] [--level mvp|standard|polished] [--from <ref>] [--no-worktree]`: creates the branch, the worktree, the plan dir, and state, and prints the worktree path. `--level` defaults to config `defaultLevel`, then Standard; fix plans have no level.
   - `cairn product init`: creates `docs/sdlc/product/` from templates, on the current branch.
   - `cairn decide "<question>" "<answer>" [--why "…"]`: appends to `decisions.md`.
   - `cairn decide --file <path>`: reads the decision from a JSON file, `{question, answer, why?}`.

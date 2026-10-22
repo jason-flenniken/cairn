@@ -4,6 +4,12 @@ Write the completion record, get the user's go, open the pull request.
 
 Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLUGIN_ROOT}/templates/record.md`). Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP: before dispatching the recorder in step 3, run `cd <plan worktree> && cairn test`. The approval question in step 4 names each open failing test command (`knownFailures` in `cairn status --json`), and the record lists them with the hardening list. The record stays short.
+- Standard: as written below.
+- Polished: as written below. The captured learning is added when cairn has it.
+
 ## 1. Check
 Run `cairn status --json`. The stage must be `ship`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 

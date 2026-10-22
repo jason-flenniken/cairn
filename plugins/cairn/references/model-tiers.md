@@ -27,3 +27,13 @@ Every `Agent` dispatch passes an explicit `model`. An omitted model inherits the
 - Escalate one tier when an agent returns BLOCKED, returns NEEDS_CONTEXT twice for the same task, or produces work the reviewer rejects twice for the same reason.
 - A task's second (last) fix attempt uses a fresh implementer one tier above the task's complexity (opus stays opus).
 - State the escalation to the user in one line: what moved up a tier and why.
+
+## MVP plans
+
+Plans at MVP (`level` in `cairn status --json`; see `references/levels.md`) use these instead of the rows above where they differ. Everything else stays as above.
+
+| Role | Model |
+|---|---|
+| implementer | one tier below the task's complexity (simple: haiku, standard: haiku, complex: sonnet) |
+| branch-reviewer | sonnet, set at dispatch |
+| task-reviewer | not dispatched |

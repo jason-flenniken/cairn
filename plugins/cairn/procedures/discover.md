@@ -4,6 +4,13 @@ Interview the user until cairn can predict their next answers: the goal first, t
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP: run a short interview. Ask the goal questions in step 4, then only the one flow that must work and the trust boundaries in step 6. Skip step 5 (goal implications) and the 2b follow-up match; still show the read-back card (step 7) and record it.
+- Standard: everything below, as written.
+- Polished: everything below, as written. Comparing approaches before the PRD is not in cairn yet.
+- Hardening items for the same area as this plan are offered as scope in step 2b: run `cairn suggest list --open --for <path>` and treat them as follow-ups.
+
 ## 1. Check
 Run `cairn status --json`. The stage must be `discover`. Any other stage: say which stage the plan is in and run `cairn next --json` to route there. Stop this procedure.
 
