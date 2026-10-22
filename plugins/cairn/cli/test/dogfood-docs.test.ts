@@ -105,3 +105,12 @@ test('the recorder agent writes Findings within the 600-word budget', () => {
   assert.match(src, /600 words/);
   assert.doesNotMatch(src, /500/);
 });
+
+test('the recorder states the level, summarizes hardening, names known failures and time per stage', () => {
+  const src = read('agents/recorder.md');
+  assert.match(src, /level/i);
+  assert.match(src, /hardeningByArea/);
+  assert.match(src, /knownFailures/);
+  assert.match(src, /time per stage/i);
+  assert.match(src, /about 300/);
+});

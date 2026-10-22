@@ -153,3 +153,20 @@ test('MVP close with a red suite closes, and the failure shows in status --json'
   assert.equal(known.length, 1);
   assert.match(known[0].text, /1 failed, 2 passed/);
 });
+
+test('U10: MVP status --json groups this plan\'s hardening items by area and names the failing command', () => {
+  const wt = planAt('rec', 'mvp');
+  const common = ['--text', 'No tests cover the parser', '--where', 'src/one/**'];
+  run(['suggest', 'add', '--area', 'security', ...common, '--kind', 'hardening'], wt);
+  run(['suggest', 'add', '--area', 'docs', ...common, '--kind', 'hardening'], wt);
+  run(['suggest', 'add', '--area', 'docs', ...common, '--kind', 'hardening'], wt);
+  red();
+  finish(wt, 'rec', 'one');
+  const d = run(['status', '--json'], wt).data!;
+  assert.deepEqual(d.hardeningByArea, { security: 1, docs: 2, tests: 1 });
+  const known = d.knownFailures as { command: string }[];
+  assert.equal(known.length, 1);
+  assert.match(known[0].command, /echo/);
+  assert.equal(d.level, 'mvp');
+  assert.ok(d.timing);
+});
