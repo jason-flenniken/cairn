@@ -6,8 +6,8 @@
   "branch": "feature/pane-status-bar-and-polish",
   "base": "main",
   "created": "2026-10-21T22:08:54.056Z",
-  "updated": "2026-10-22T00:02:03.022Z",
-  "stage": "learn",
+  "updated": "2026-10-22T00:04:34.220Z",
+  "stage": "closed",
   "paused": null,
   "approvals": {
     "prd": {
@@ -695,6 +695,10 @@
       "at": "2026-10-22T00:02:03.021Z",
       "event": "advanced",
       "detail": "learn"
+    },
+    {
+      "at": "2026-10-22T00:04:34.220Z",
+      "event": "closed"
     }
   ],
   "suggestions": [
