@@ -4,6 +4,13 @@ One whole-branch review before shipping. Critical and Required findings are fixe
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP: in step 2 dispatch the `branch-reviewer` with `model: sonnet` instead of opus (the `security-reviewer` runs as written). In step 3 file Optional and Nit findings as hardening items: `cairn suggest add --kind hardening --area <area> --from branch-review --where <path> --text "<finding>"`.
+- Standard: as written below.
+- Polished: as written below. The simplify pass and focused reviewers are added when cairn has them.
+- The whole-branch security review runs at every level.
+
 ## 1. Check
 Run `cd <plan worktree> && cairn status --json`. The stage must be `review`. Any other stage: say which and run `cd <plan worktree> && cairn next --json`. Stop this procedure. Note the base branch and the plan branch.
 

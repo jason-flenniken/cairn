@@ -8,5 +8,6 @@
   "maxParallel": 3,
   "resumeFreshAfterMinutes": 60,
   "autoCommit": true,
-  "audit": ""
+  "audit": "",
+  "defaultLevel": "standard"
 }

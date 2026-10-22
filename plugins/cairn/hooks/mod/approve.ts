@@ -6,10 +6,21 @@ import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
 
 export type Kind = 'prd' | 'plan' | 'ship'
-export type Tag = { kind?: Kind; slug: string; question: string; override?: true }
+export type Tag = { kind?: Kind; slug: string; question: string; override?: true; level?: true }
+export const LEVELS = ['mvp', 'standard', 'polished'] as const
+export type Level = (typeof LEVELS)[number]
+
+/** The three level labels the agent's menu and /cairn-level show, by the literal the CLI takes. */
+export const LABEL_OF: Record<Level, string> = { mvp: 'MVP', standard: 'Standard', polished: 'Polished' }
+/** The literal the CLI takes for each label. */
+export const LEVEL_OF_LABEL: Record<string, Level> = Object.fromEntries(LEVELS.map(l => [LABEL_OF[l], l]))
+
+/** A plan's stored level as one of the three, `standard` when absent or unrecognised. */
+export const levelOrStandard = (v: unknown): Level => LEVELS.find(l => l === v) ?? 'standard'
 
 const APPROVE_TAG = /\[cairn:approve (prd|plan|ship) ([^\s\]]+)\]/
 const OVERRIDE_TAG = /\[cairn:override ([^\s\]]+)\]/
+const LEVEL_TAG = /\[cairn:level ([^\s\]]+)\]/
 // How long a child may run: quick reads, and the commands that hold the secret.
 const QUICK_MS = 60_000
 const CLI_MS = 10 * 60_000
@@ -23,8 +34,16 @@ export function parseTags(questions: readonly { question?: unknown }[]): Tag[] {
     if (approve) tags.push({ kind: approve[1] as Kind, slug: approve[2] as string, question })
     const override = OVERRIDE_TAG.exec(question)
     if (override) tags.push({ slug: override[1] as string, question, override: true })
+    const level = LEVEL_TAG.exec(question)
+    if (level) tags.push({ slug: level[1] as string, question, level: true })
   }
   return tags
+}
+
+/** The level a menu answer names: exactly one of the three labels, optionally marked "(Recommended)". Anything else is none. */
+export function levelOfAnswer(answer: unknown): Level | undefined {
+  if (typeof answer !== 'string') return undefined
+  return LEVEL_OF_LABEL[answer.endsWith(' (Recommended)') ? answer.slice(0, -' (Recommended)'.length) : answer]
 }
 
 /** A label starting with "Approve", or free text that opens with an approving word. */
@@ -133,6 +152,20 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind): P
   return `cairn: ${slug}: ${said}`
 }
 
+/**
+ * Sets plan `slug` to `level` with the secret, through the same one-at-a-time secret path as approvals.
+ * The CLI decides what is allowed (no lower once a task started, not while paused, not at ship); its refusal is the answer.
+ */
+export async function levelAs($: EngineInterface, slug: string, level: Level): Promise<string> {
+  const row = (await planRows($)).find(p => p.state?.slug === slug)
+  if (row?.state === undefined) return `cairn: no plan "${slug}", so the level was not changed.`
+  if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so the level was not changed.`
+  const ran = await cairnWithSecret($, ['level', level], row.worktree).catch((err: unknown) => message(err))
+  if (typeof ran === 'string') return `cairn: ${slug} level change failed: ${ran}`
+  const said = `${ran.stdout}${ran.stderr}`.trim()
+  return ran.exitCode !== 0 ? `cairn: ${slug} level change refused: ${said}` : `cairn: ${slug}: ${said}`
+}
+
 export const ALREADY_APPROVED = 'Already approved from the pane'
 
 // FR-34: plan slug -> when the user answered "Override". Memory only: no file stands for one.
@@ -176,6 +209,24 @@ function hasOverride(argv: string[]): boolean {
 }
 
 /**
+ * True when the argv names `approve` or `level` outside prose. Prose is `--note`/`--why`/`--override`
+ * values and everything after `decide`, so a reason that says "level" or "approve" doesn't trip it.
+ */
+function namesUserOnlyCommand(argv: string[]): boolean {
+  let isDeciding = false
+  for (let at = 1; at < argv.length; at++) {
+    const word = argv[at] as string
+    if (isDeciding || /^--(note|why|override)=/.test(word)) continue
+    if (/^--(note|why|override)$/.test(word)) at++
+    else if (word === 'approve' || word === 'level') return true
+    else if (word === 'decide') isDeciding = true
+  }
+  return false
+}
+
+const USER_ONLY = 'approvals and level changes come from the user, so they never run on an override'
+
+/**
  * Runs a plain `cairn … --override` for the plan the user's Override named, spending it: the plan whose
  * worktree the session is in, or the one plan holding an override. `{}` when none is pending;
  * `{ why }` when the override can't be used.
@@ -208,9 +259,11 @@ export function install(on: On): void {
     }
     const argv = plainArgv(command)
     if (argv !== undefined && argv[0] !== 'cairn') return next(e)
-    // `approve` never rides an override: approvals come from the menu (the Bash guard denies it too).
-    const isPlain = argv !== undefined && !argv.includes('approve') && hasOverride(argv)
-    const out = isPlain ? await runOverride($, argv) : { why: NOT_PLAIN }
+    // Neither `approve` nor `level` ever rides an override: approvals and level changes come from the
+    // user (the menu, or /cairn-level). The Bash guard denies both too. Only words outside prose count.
+    const isUserOnly = argv !== undefined && namesUserOnlyCommand(argv)
+    const isPlain = argv !== undefined && !isUserOnly && hasOverride(argv)
+    const out = isPlain ? await runOverride($, argv) : { why: isUserOnly ? USER_ONLY : NOT_PLAIN }
     if (out.ran !== undefined) {
       // Core keeps no is_error from a hook's Bash result, so a failure reads as the Bash tool's does.
       const proof = 'cairn ran this --override itself, with your Override answer as proof'
@@ -301,6 +354,28 @@ export function install(on: On): void {
           pendingOverrides.set(tag.slug, await $.clock.now())
           notes.push(`cairn: your override for "${tag.slug}" is ready for 10 minutes: run the cairn --override command alone, with no cd or &&.`)
         }
+        continue
+      }
+      if (tag.level) {
+        // A level menu is the user's answer only: the same checks as an approval, and only the three labels.
+        const asked = (e.questions as readonly Asked[]).find(q => q.question === tag.question)
+        const level = levelOfAnswer(answers[tag.question])
+        const why = tag.question in prefilled
+          ? 'the answer came from the model\'s call, not from you'
+          : result?.afkTimeoutMs !== undefined
+            ? 'the dialog answered itself while you were away'
+            : asked?.multiSelect === true
+              ? 'it was a multi-select question'
+              : undefined
+        if (level === undefined || judged.has(`level ${tag.slug}`)) continue
+        if (why !== undefined) {
+          notes.push(`cairn: level of ${tag.slug} not changed: ${why}.`)
+          continue
+        }
+        judged.add(`level ${tag.slug}`)
+        const outcome = await levelAs($, tag.slug, level)
+        $.ui.toast(outcome)
+        notes.push(outcome)
         continue
       }
       if (tag.kind === undefined) continue

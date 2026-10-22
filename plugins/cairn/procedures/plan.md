@@ -4,6 +4,13 @@ Turn the approved PRD into phases of vertical tasks, load it, then stop for appr
 
 Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLUGIN_ROOT}/templates/plan.md`). Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP: few, large vertical tasks, usually one phase, and no Test cases lists. Still set `risky: true` on every task that touches a trust boundary: that is what brings in the security review. File the areas you leave untested with `cairn suggest add --kind hardening --area tests --from plan --where <glob> --text "<what to cover and why>"` instead of the up-to-5 suggestions rule below.
+- Standard: as written below.
+- Polished: every task lists Test cases, each naming the failure mode it pins. Before the approval stop, dispatch `plan-reviewer` (`model: sonnet`, `description` "Review · plan") with the paths to `prd.md` and `plan.md`. Fix what it lists as answered by the plan, settle the minor ones yourself, and ask the user about the ones that are theirs, then rerun `cairn plan load`.
+- A level raised after the plan was approved clears the approval: run the plan again at the new level and ask for approval again.
+
 ## 1. Check
 Run `cairn status --json`. The stage must be `plan`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 

@@ -3,12 +3,13 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from './config.ts';
 import { commitPath, commonDir } from './git.ts';
+import { allTasks } from './ready.ts';
 import { planRelOf, requirePlan, type Ctx, type PlanRef } from './locate.ts';
 import { humanProof, type ProofIO } from './proof.ts';
 import { emptySections, missingSections, RECORD_SECTIONS, RECORD_WORD_BUDGET, wordCount } from './sections.ts';
-import { loadState, log, saveState } from './state.ts';
-import type { Config, State } from './types.ts';
-import { pluginRoot, readText, Refusal, withLock } from './util.ts';
+import { levelOf, loadState, log, saveState } from './state.ts';
+import type { Config, State, Suggestion } from './types.ts';
+import { now, pluginRoot, readText, Refusal, withLock } from './util.ts';
 
 export interface Opts {
   json?: boolean;
@@ -30,6 +31,8 @@ export interface PlanCtx {
 
 export interface TestRun {
   ok: boolean;
+  /** False when the suite never executed (a dirty or unmerged worktree, or a spawn error): that is not a test failure. */
+  ran: boolean;
   cmd: string;
   tail: string;
 }
@@ -47,13 +50,21 @@ function humanOnce(opts: Opts, io?: ProofIO): { source: 'mod' | 'terminal' } | u
   return current.human ?? undefined;
 }
 
-/** Approvals come from the user: the mod's menu or pane, or a terminal run with --human. */
-export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO): 'mod' | 'terminal' {
+/** Approvals and level changes come from the user: the mod's menu or pane, or a terminal run with --human. */
+export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO, action: 'approve' | 'level' = 'approve'): 'mod' | 'terminal' {
   const p = humanOnce(opts, io);
   if (p) return p.source;
+  const slug = current?.ctx.plan?.slug;
+  const cmd = `cd ${current?.ctx.plan?.worktree ?? '<plan worktree>'} && ${pluginRoot()}/bin/cairn ${action} ${kind} --human`;
+  if (action === 'level')
+    throw new Refusal('level changes come from the user, and this command has no proof that one did', [
+      `the user answers the level menu tagged [cairn:level ${slug}]`,
+      `or the user runs, in their own terminal: ${cmd}`,
+      'or the user changes the level in the cairn pane (or runs /cairn-level)',
+    ]);
   throw new Refusal('approvals come from the user, and this command has no proof that one did', [
-    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${current?.ctx.plan?.slug}]`,
-    `or the user runs, in their own terminal: cd ${current?.ctx.plan?.worktree ?? '<plan worktree>'} && ${pluginRoot()}/bin/cairn approve ${kind} --human`,
+    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${slug}]`,
+    `or the user runs, in their own terminal: ${cmd}`,
     'or the user presses Approve in the cairn pane (or runs /cairn:approve)',
   ]);
 }
@@ -111,14 +122,54 @@ export function runTests(cfg: Config, cwd: string): TestRun | undefined {
   if (!cfg.test) return undefined;
   const r = spawnSync('sh', ['-c', cfg.test], { cwd, encoding: 'utf8', env: childEnv(), maxBuffer: 64 * 1024 * 1024 });
   const lines = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.split('\n').map((l) => l.trim()).filter(Boolean);
-  return { ok: r.status === 0, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
+  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
 }
 
-/** Refuse (or log an override) when the tests failed. No test command is a warning, not a refusal. Tests run before the state lock is taken. */
-export function testsGate(t: TestRun | undefined, s: State, event: string, opts: Opts): TestRun | undefined {
+/** A hardening item is a follow-up an MVP plan leaves behind; its `where` is never empty. */
+export function addHardening(s: State, item: Pick<Suggestion, 'area' | 'text' | 'where'> & { testCmd?: string }): Suggestion {
+  return pushSuggestion(s, { ...item, from: 'mvp', kind: 'hardening' });
+}
+
+/** Append a suggestion (or marker) to the plan: the next `s<n>` id and the current time are filled in. */
+export function pushSuggestion(s: State, partial: Omit<Suggestion, 'id' | 'at'>): Suggestion {
+  const all = (s.suggestions ??= []);
+  const x: Suggestion = { id: `s${all.length + 1}`, ...partial, at: now() };
+  all.push(x);
+  return x;
+}
+
+/** The union of the plan's task scopes: where a whole-suite failure is said to be. */
+const planScope = (s: State): string[] => {
+  const all = [...new Set(allTasks(s).flatMap((t) => t.scope))];
+  return all.length ? all : ['**'];
+};
+
+/** This plan's open failing-suite items: not resolved, not merged into another item. */
+export function knownFailures(s: State): Suggestion[] {
+  const all = s.suggestions ?? [];
+  const gone = new Set(all.flatMap((x) => [x.resolves, ...(x.merges ?? [])]));
+  return all.filter((x) => x.testCmd && !gone.has(`${s.slug}:${x.id}`));
+}
+
+/**
+ * Refuse (or log an override) when the tests failed. No test command is a warning, not a refusal. Tests run before the state lock is taken.
+ * At MVP a suite that ran and failed is a warning plus one hardening item per command, scoped to the task or, outside a task, the plan.
+ */
+export function testsGate(t: TestRun | undefined, s: State, event: string, opts: Opts, scope?: string[]): TestRun | undefined {
   if (!t) {
     log(s, `warning: ${event}`, 'no test command configured, so nothing was run');
     return undefined;
+  }
+  const open = knownFailures(s).find((x) => x.testCmd === t.cmd);
+  if (t.ok && open) {
+    pushSuggestion(s, { area: open.area, text: `Resolved ${s.slug}:${open.id}`, where: open.where, from: 'mvp', resolves: `${s.slug}:${open.id}` });
+  }
+  if (!t.ok && t.ran && levelOf(s) === 'mvp') {
+    const text = `Tests failing: \`${t.cmd}\` → ${t.tail}`;
+    if (open) open.text = text;
+    else addHardening(s, { area: 'tests', text, where: scope?.length ? scope : planScope(s), testCmd: t.cmd });
+    log(s, `warning: ${event}`, `tests are not green (\`${t.cmd}\` → ${t.tail}); recorded as a hardening item`);
+    return t;
   }
   gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` → ${t.tail})`, ['fix the failing tests, then retry']);
   return t;

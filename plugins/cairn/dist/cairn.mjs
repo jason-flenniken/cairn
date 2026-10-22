@@ -7403,6 +7403,9 @@ function pluginRoot() {
   }
   throw new CliError("cannot locate plugin root");
 }
+function pluginVersion() {
+  return JSON.parse(readFileSync(join(pluginRoot(), ".claude-plugin", "plugin.json"), "utf8")).version;
+}
 function withLock(dir, fn) {
   const lock = join(dir, ".lock");
   const deadline = Date.now() + 1e4;
@@ -7459,6 +7462,13 @@ function commitPath(cwd, path, message) {
   if (gitOk(["diff", "--cached", "--quiet", "--", path], cwd)) return false;
   git(["commit", "-q", "-m", message, "--", path], cwd);
   return true;
+}
+function directCommits(cwd, base, head) {
+  const out = git(["log", "--first-parent", "--no-merges", "--name-only", "-z", "--format=%x01%H", `${base}..${head}`], cwd);
+  return out.split("").filter(Boolean).map((chunk) => {
+    const [sha = "", ...paths] = chunk.split("\0");
+    return { sha: sha.slice(0, 7), files: paths.map((f, i) => i === 0 ? f.replace(/^\n/, "") : f).filter(Boolean) };
+  });
 }
 var quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: "0", GH_PROMPT_DISABLED: "1" });
 function safeRef(cwd, name) {
@@ -7627,6 +7637,69 @@ function loadConfig(...roots) {
 }
 var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join3(mainRoot, cfg.worktreeRoot) : join3(mainRoot, ".claude", "worktrees");
 
+// plugins/cairn/cli/src/glob.ts
+function globToRegex(glob) {
+  let re = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*") {
+      if (glob[i + 1] === "*") {
+        i++;
+        if (glob[i + 1] === "/") {
+          i++;
+          re += "(?:.*/)?";
+        } else re += ".*";
+      } else re += "[^/]*";
+    } else if (c === "?") re += "[^/]";
+    else re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  if (!/[*?]/.test(glob)) re = re.replace(/\/$/, "") + "(?:/.*)?";
+  return new RegExp(`^${re}$`);
+}
+var matchesAny = (path, globs) => globs.some((g) => globToRegex(g).test(path));
+var staticPrefix = (glob) => glob.split(/[*?[]/)[0];
+function scopesOverlap(a, b) {
+  for (const x of a)
+    for (const y of b) {
+      if (globToRegex(x).test(y) || globToRegex(y).test(x)) return true;
+      const px = staticPrefix(x);
+      const py = staticPrefix(y);
+      if (px.startsWith(py) || py.startsWith(px)) return true;
+    }
+  return false;
+}
+
+// plugins/cairn/cli/src/ready.ts
+var currentPhase = (s) => s.phases.find((p) => p.status !== "done");
+var allTasks = (s) => s.phases.flatMap((p) => p.tasks);
+var findTask = (s, id) => allTasks(s).find((x) => x.id === id);
+function readySet(s, maxParallel) {
+  const phase = currentPhase(s);
+  const done = new Set(allTasks(s).filter((x) => x.status === "done").map((x) => x.id));
+  const inProgress = allTasks(s).filter((x) => x.status === "in_progress");
+  const result = { ready: [], inProgress, waiting: [], phase };
+  if (!phase || s.stage !== "execute" || s.paused) return result;
+  let room = Math.max(0, maxParallel - inProgress.length);
+  const taken = inProgress.map((x) => x.scope);
+  for (const sl of phase.tasks) {
+    if (sl.status !== "pending") continue;
+    const on = sl.blockedBy.filter((b) => !done.has(b));
+    if (on.length) {
+      result.waiting.push({ task: sl, on });
+      continue;
+    }
+    const clash = taken.some((t) => scopesOverlap(t, sl.scope));
+    if (clash || room === 0) {
+      result.waiting.push({ task: sl, on: clash ? ["scope overlap with running work"] : ["parallel cap"] });
+      continue;
+    }
+    result.ready.push(sl);
+    taken.push(sl.scope);
+    room--;
+  }
+  return result;
+}
+
 // plugins/cairn/cli/src/proof.ts
 import { createHash as createHash2, randomBytes, timingSafeEqual } from "node:crypto";
 import { closeSync, constants, fstatSync, linkSync, openSync, readFileSync as readFileSync4, readSync, renameSync, rmSync } from "node:fs";
@@ -7785,9 +7858,12 @@ var STEP_LABEL = {
   approving: "waiting on approval",
   "opening-pr": "opening the PR"
 };
+var LEVELS = ["mvp", "standard", "polished"];
+var isLevel = (v) => LEVELS.includes(v);
+var LEVEL_LABEL = { mvp: "MVP", standard: "Standard", polished: "Polished" };
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 var SUGGESTION_AREAS = ["tests", "security", "perf", "quality", "ux", "docs"];
-var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user"];
+var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user", "mvp", "security-review"];
 
 // plugins/cairn/cli/src/render.ts
 var day = (iso) => iso ? iso.slice(0, 10) : "";
@@ -7831,6 +7907,15 @@ function stepText(s) {
   const label = STEP_LABEL[st.name] ?? st.name;
   if (st.name === "fixing" && st.count !== void 0) return `${label} ${st.count} finding${st.count === 1 ? "" : "s"}`;
   return label;
+}
+var levelLabel = (s) => s.level && LEVEL_LABEL[s.level] || "";
+function timingText(times) {
+  if (!times) return "n/a";
+  const fmt = (ms) => {
+    const m = Math.round(ms / 6e4);
+    return ms < 6e4 ? "<1m" : m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+  };
+  return STAGES.filter((st) => times[st] !== void 0).map((st) => `${STAGE_LABEL[st]} ${fmt(times[st])}`).join(" \xB7 ") || "n/a";
 }
 function progress(s, prOpen = false) {
   const stage = `${STAGE_LABEL[s.stage]}${prOpen ? " \xB7 PR open" : ""}`;
@@ -7944,7 +8029,35 @@ function saveState(dir, s) {
 function log(s, event, detail, override) {
   s.log.push({ at: now(), event, ...detail ? { detail } : {}, ...override ? { override } : {} });
 }
-function newState(slug, title, track, branch, base) {
+var levelOf = (s) => isLevel(s.level) ? s.level : "standard";
+function setStage(s, stage) {
+  s.stage = stage;
+  (s.stageHistory ??= []).push({ stage, at: now() });
+}
+function stageTimes(s, nowMs = Date.now()) {
+  const h = s.stageHistory;
+  if (!h?.length) return null;
+  const pauses = [];
+  let from;
+  for (const l of s.log) {
+    if (l.event === "paused") from = Date.parse(l.at);
+    else if (l.event === "resumed" && from !== void 0) {
+      pauses.push([from, Date.parse(l.at)]);
+      from = void 0;
+    }
+  }
+  if (from !== void 0) pauses.push([from, Infinity]);
+  const out = {};
+  h.forEach((e, i) => {
+    if (e.stage === "closed") return;
+    const a = Date.parse(e.at);
+    const b = i + 1 < h.length ? Date.parse(h[i + 1].at) : nowMs;
+    const paused = pauses.reduce((sum, [p, q]) => sum + Math.max(0, Math.min(b, q) - Math.max(a, p)), 0);
+    out[e.stage] = (out[e.stage] ?? 0) + Math.max(0, b - a - paused);
+  });
+  return out;
+}
+function newState(slug, title, track, branch, base, stage = "discover") {
   const t = now();
   return {
     schema: 1,
@@ -7955,7 +8068,8 @@ function newState(slug, title, track, branch, base) {
     base,
     created: t,
     updated: t,
-    stage: "discover",
+    stage,
+    stageHistory: [{ stage, at: t }],
     paused: null,
     approvals: {},
     phases: [],
@@ -7972,12 +8086,20 @@ function humanOnce(opts, io) {
   if (current.human === void 0) current.human = humanProof(current.ctx, opts, io) ?? null;
   return current.human ?? void 0;
 }
-function requireHumanProof(kind, opts, io) {
+function requireHumanProof(kind, opts, io, action = "approve") {
   const p = humanOnce(opts, io);
   if (p) return p.source;
+  const slug = current?.ctx.plan?.slug;
+  const cmd = `cd ${current?.ctx.plan?.worktree ?? "<plan worktree>"} && ${pluginRoot()}/bin/cairn ${action} ${kind} --human`;
+  if (action === "level")
+    throw new Refusal("level changes come from the user, and this command has no proof that one did", [
+      `the user answers the level menu tagged [cairn:level ${slug}]`,
+      `or the user runs, in their own terminal: ${cmd}`,
+      "or the user changes the level in the cairn pane (or runs /cairn-level)"
+    ]);
   throw new Refusal("approvals come from the user, and this command has no proof that one did", [
-    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${current?.ctx.plan?.slug}]`,
-    `or the user runs, in their own terminal: cd ${current?.ctx.plan?.worktree ?? "<plan worktree>"} && ${pluginRoot()}/bin/cairn approve ${kind} --human`,
+    `the user answers "Approve (Recommended)" in the approval menu tagged [cairn:approve ${kind} ${slug}]`,
+    `or the user runs, in their own terminal: ${cmd}`,
     "or the user presses Approve in the cairn pane (or runs /cairn:approve)"
   ]);
 }
@@ -8023,12 +8145,41 @@ function runTests(cfg, cwd) {
   const r = spawnSync2("sh", ["-c", cfg.test], { cwd, encoding: "utf8", env: childEnv(), maxBuffer: 64 * 1024 * 1024 });
   const lines = `${r.stdout ?? ""}
 ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
-  return { ok: r.status === 0, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
+  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
 }
-function testsGate(t, s, event, opts) {
+function addHardening(s, item) {
+  return pushSuggestion(s, { ...item, from: "mvp", kind: "hardening" });
+}
+function pushSuggestion(s, partial) {
+  const all = s.suggestions ??= [];
+  const x = { id: `s${all.length + 1}`, ...partial, at: now() };
+  all.push(x);
+  return x;
+}
+var planScope = (s) => {
+  const all = [...new Set(allTasks(s).flatMap((t) => t.scope))];
+  return all.length ? all : ["**"];
+};
+function knownFailures(s) {
+  const all = s.suggestions ?? [];
+  const gone = new Set(all.flatMap((x) => [x.resolves, ...x.merges ?? []]));
+  return all.filter((x) => x.testCmd && !gone.has(`${s.slug}:${x.id}`));
+}
+function testsGate(t, s, event, opts, scope) {
   if (!t) {
     log(s, `warning: ${event}`, "no test command configured, so nothing was run");
     return void 0;
+  }
+  const open = knownFailures(s).find((x) => x.testCmd === t.cmd);
+  if (t.ok && open) {
+    pushSuggestion(s, { area: open.area, text: `Resolved ${s.slug}:${open.id}`, where: open.where, from: "mvp", resolves: `${s.slug}:${open.id}` });
+  }
+  if (!t.ok && t.ran && levelOf(s) === "mvp") {
+    const text = `Tests failing: \`${t.cmd}\` \u2192 ${t.tail}`;
+    if (open) open.text = text;
+    else addHardening(s, { area: "tests", text, where: scope?.length ? scope : planScope(s), testCmd: t.cmd });
+    log(s, `warning: ${event}`, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail}); recorded as a hardening item`);
+    return t;
   }
   gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail})`, ["fix the failing tests, then retry"]);
   return t;
@@ -8086,6 +8237,9 @@ function cmdNew(ctx, slug, opts) {
   const base = typeof opts.from === "string" ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === "string" ? opts.title : slug;
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
+  if (typeof opts.level === "string" && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(", ")}`);
+  const badDefault = cfg.defaultLevel !== void 0 && !isLevel(cfg.defaultLevel);
+  const level = typeof opts.level === "string" ? opts.level : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : "standard";
   let wt;
   if (opts["no-worktree"]) {
     git(["switch", "-q", "-c", branch, base], ctx.top);
@@ -8102,18 +8256,23 @@ function cmdNew(ctx, slug, opts) {
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
-  const state = newState(slug, title, track, branch, base);
-  if (track === "fix") state.stage = "repro";
+  const state = newState(slug, title, track, branch, base, track === "fix" ? "repro" : "discover");
+  state.cairnVersion = pluginVersion();
+  if (track === "feature") {
+    state.level = level;
+    log(state, "level", level);
+  }
   saveState(dir, state);
   if (cfg.autoCommit) commitPath(wt, rel, `cairn(${slug}): start plan "${title}"`);
   const setup = opts["no-worktree"] ? "" : runSetup(cfg, wt, ctx.mainRoot);
   return {
     message: [
       `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
+      ...badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(", ")}; using standard.`] : [],
       `Worktree: ${wt}`,
       `The plan is ready. Continue with /cairn:next from where you are.`
     ].join("\n"),
-    data: { slug, branch, base, worktree: wt, dir }
+    data: { slug, branch, base, worktree: wt, dir, level: track === "feature" ? level : null }
   };
 }
 function cmdProductInit(ctx) {
@@ -8157,69 +8316,6 @@ _${now().slice(0, 16).replace("T", " ")}_
 
 // plugins/cairn/cli/src/commands/stages.ts
 import { join as join11 } from "node:path";
-
-// plugins/cairn/cli/src/glob.ts
-function globToRegex(glob) {
-  let re = "";
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (c === "*") {
-      if (glob[i + 1] === "*") {
-        i++;
-        if (glob[i + 1] === "/") {
-          i++;
-          re += "(?:.*/)?";
-        } else re += ".*";
-      } else re += "[^/]*";
-    } else if (c === "?") re += "[^/]";
-    else re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  }
-  if (!/[*?]/.test(glob)) re = re.replace(/\/$/, "") + "(?:/.*)?";
-  return new RegExp(`^${re}$`);
-}
-var matchesAny = (path, globs) => globs.some((g) => globToRegex(g).test(path));
-var staticPrefix = (glob) => glob.split(/[*?[]/)[0];
-function scopesOverlap(a, b) {
-  for (const x of a)
-    for (const y of b) {
-      if (globToRegex(x).test(y) || globToRegex(y).test(x)) return true;
-      const px = staticPrefix(x);
-      const py = staticPrefix(y);
-      if (px.startsWith(py) || py.startsWith(px)) return true;
-    }
-  return false;
-}
-
-// plugins/cairn/cli/src/ready.ts
-var currentPhase = (s) => s.phases.find((p) => p.status !== "done");
-var allTasks = (s) => s.phases.flatMap((p) => p.tasks);
-var findTask = (s, id) => allTasks(s).find((x) => x.id === id);
-function readySet(s, maxParallel) {
-  const phase = currentPhase(s);
-  const done = new Set(allTasks(s).filter((x) => x.status === "done").map((x) => x.id));
-  const inProgress = allTasks(s).filter((x) => x.status === "in_progress");
-  const result = { ready: [], inProgress, waiting: [], phase };
-  if (!phase || s.stage !== "execute" || s.paused) return result;
-  let room = Math.max(0, maxParallel - inProgress.length);
-  const taken = inProgress.map((x) => x.scope);
-  for (const sl of phase.tasks) {
-    if (sl.status !== "pending") continue;
-    const on = sl.blockedBy.filter((b) => !done.has(b));
-    if (on.length) {
-      result.waiting.push({ task: sl, on });
-      continue;
-    }
-    const clash = taken.some((t) => scopesOverlap(t, sl.scope));
-    if (clash || room === 0) {
-      result.waiting.push({ task: sl, on: clash ? ["scope overlap with running work"] : ["parallel cap"] });
-      continue;
-    }
-    result.ready.push(sl);
-    taken.push(sl.scope);
-    room--;
-  }
-  return result;
-}
 
 // plugins/cairn/cli/src/commands/fix.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
@@ -8305,7 +8401,7 @@ function cmdEscalate(ctx, opts) {
     const repro = s.repro ? `\`${s.repro.cmd}\` (failed with: ${s.repro.tail})` : "none recorded";
     appendDecision(pc, "Escalate the fix to a feature plan", `The bug "${s.title}" is bigger than a fix. Repro: ${repro}. The fix task and its work are kept; the plan must keep the task id "fix".`, typeof opts.note === "string" ? opts.note : void 0);
     s.track = "feature";
-    s.stage = "prd";
+    setStage(s, "prd");
     delete s.evidence.review;
     delete s.approvals.ship;
     log(s, "escalated", "fix \u2192 feature plan at prd");
@@ -8360,18 +8456,36 @@ function cmdStatus(ctx, opts) {
     const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, `${PLANS_DIR}/${basename2(r.dir)}`) }));
     const lines = rows.length ? shown.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state, r.prOpen)}
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
-    const openSuggestions = openSuggestionCount(ctx);
+    const openSuggestions2 = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
+${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions: openSuggestions2, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
   const w = warnings(pc, s);
   const next = nextFor(s);
   const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
+  let listed = [];
+  try {
+    listed = collectSuggestions(ctx);
+  } catch {
+  }
+  const openSuggestions = listed.filter((x) => x.open && !x.hardening).length;
+  const hardeningItems = listed.filter((x) => x.open && x.hardening).length;
+  const hardeningByArea = {};
+  for (const x of listed) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
+  const timing = stageTimes(s);
   return {
-    message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`, ...w.map((x) => `! ${x}`), ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []].join("\n"),
-    data: { state: s, next, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
+    message: [
+      summary(s, prOpen),
+      `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
+      ...s.level ? [`Level: ${levelLabel(s)}`] : [],
+      ...hardeningItems ? [`Hardening items: ${hardeningItems}`] : [],
+      ...s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : [],
+      ...w.map((x) => `! ${x}`),
+      ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []
+    ].join("\n"),
+    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
   };
 }
 var procedurePath = (name) => join9(pluginRoot(), "procedures", `${name}.md`);
@@ -8393,7 +8507,7 @@ Ask the user which plan to resume (/cairn:resume <slug>) or whether to start a n
     message: `${summary(s)}
 Next: ${n.text}
 Follow: ${procedurePath(n.procedure)}`,
-    data: { plan: s.slug, stage: s.stage, substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
+    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
   };
 }
 function cmdRender(ctx) {
@@ -8440,20 +8554,21 @@ function collectSuggestions(ctx, at = Date.now()) {
     (s) => (s.suggestions ?? []).filter((x) => !isMarker(x)).map((x) => {
       const key = `${s.slug}:${x.id}`;
       const declined = declines.get(key) ?? 0;
+      const hardening = x.kind === "hardening";
       const old = at - Date.parse(x.at) > MAX_AGE_DAYS * 864e5;
-      const status = closed.has(key) ? "closed" : merged.has(key) ? "merged" : declined >= MAX_DECLINES || old ? "expired" : "open";
-      return { ...x, slug: s.slug, key, open: status === "open", status, declined };
+      const status = closed.has(key) ? "closed" : merged.has(key) ? "merged" : !hardening && (declined >= MAX_DECLINES || old) ? "expired" : "open";
+      return { ...x, slug: s.slug, key, open: status === "open", status, declined, hardening };
     })
   );
 }
 function openSuggestionCount(ctx) {
   try {
-    return collectSuggestions(ctx).filter((x) => x.open).length;
+    return collectSuggestions(ctx).filter((x) => x.open && !x.hardening).length;
   } catch {
     return 0;
   }
 }
-var USAGE = "usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...";
+var USAGE = "usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] [--kind hardening] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...";
 function cmdSuggest(ctx, action, arg, opts, more = []) {
   if (action === "add") return suggestAdd(ctx, opts);
   if (action === "list") return suggestList(ctx, opts);
@@ -8465,15 +8580,16 @@ function cmdSuggest(ctx, action, arg, opts, more = []) {
 function suggestAdd(ctx, opts) {
   const area = String(opts.area ?? "");
   if (!SUGGESTION_AREAS.includes(area)) throw new CliError(`--area must be one of ${SUGGESTION_AREAS.join(", ")}`);
-  const from = String(opts.from ?? "implementer");
+  const kind = opts.kind === void 0 ? void 0 : String(opts.kind);
+  if (kind !== void 0 && kind !== "hardening") throw new CliError("--kind must be hardening");
+  const from = String(opts.from ?? (kind ? "mvp" : "implementer"));
   if (!SUGGESTION_SOURCES.includes(from)) throw new CliError(`--from must be one of ${SUGGESTION_SOURCES.join(", ")}`);
   const text = typeof opts.text === "string" ? opts.text.trim() : "";
   if (!text) throw new CliError("--text or --text-file is required");
+  if (kind && !list(opts.where).length) throw new CliError("--kind hardening needs at least one --where glob: the item is found later by path");
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    const id = `s${all.length + 1}`;
-    all.push({ id, area, text, where: list(opts.where), from, at: now() });
+    const { id } = pushSuggestion(s, { area, text, where: list(opts.where), from, ...kind ? { kind: "hardening" } : {} });
     return { message: `${s.slug}:${id}`, data: { id, key: `${s.slug}:${id}` } };
   });
 }
@@ -8483,7 +8599,7 @@ function suggestList(ctx, opts) {
   const lines = [];
   for (const area of SUGGESTION_AREAS)
     for (const x of rows.filter((r) => r.area === area))
-      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` \u2014 ${x.where.join(", ")}` : ""}${x.open ? "" : ` [${x.status}]`}`);
+      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` \u2014 ${x.where.join(", ")}` : ""}${x.hardening ? " [hardening]" : ""}${x.open ? "" : ` [${x.status}]`}`);
   return {
     message: lines.length ? lines.join("\n") : opts.open ? "No open suggestions." : "No suggestions.",
     data: { suggestions: rows, open: rows.filter((x) => x.open).length }
@@ -8495,14 +8611,11 @@ function suggestResolve(ctx, key, opts) {
   if (!target) throw new Refusal(`no suggestion ${key}`, ["cairn suggest list"]);
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    all.push({
-      id: `s${all.length + 1}`,
+    pushSuggestion(s, {
       area: target.area,
       text: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}`,
       where: target.where,
       from: "user",
-      at: now(),
       resolves: key,
       ...opts.dismiss ? { dismissed: true } : {},
       ...opts.note ? { note: String(opts.note) } : {}
@@ -8528,12 +8641,12 @@ function suggestMerge(ctx, keys, opts) {
   const text = typeof opts.text === "string" ? opts.text.trim() : "";
   if (!text) throw new CliError("--text or --text-file is required");
   const targets = openTargets(ctx, [...new Set(keys)]);
+  const hardening = targets.filter((t) => t.hardening).length;
+  if (hardening && hardening < targets.length) throw new Refusal("merge hardening items only with each other", ["merge the ordinary follow-ups in one call and the hardening items in another"]);
   const where = list(opts.where).length ? list(opts.where) : [...new Set(targets.flatMap((t) => t.where))];
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    const id = `s${all.length + 1}`;
-    all.push({ id, area, text, where, from: "plan", at: now(), merges: targets.map((t) => t.key) });
+    const { id } = pushSuggestion(s, { area, text, where, from: "plan", ...hardening ? { kind: "hardening" } : {}, merges: targets.map((t) => t.key) });
     return { message: `Merged ${targets.length} into ${s.slug}:${id}.`, data: { id, key: `${s.slug}:${id}` } };
   });
 }
@@ -8541,8 +8654,7 @@ function suggestDecline(ctx, keys) {
   const targets = openTargets(ctx, [...new Set(keys)]);
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    for (const t of targets) all.push({ id: `s${all.length + 1}`, area: t.area, text: `Declined ${t.key}`, where: t.where, from: "user", at: now(), declines: t.key });
+    for (const t of targets) pushSuggestion(s, { area: t.area, text: `Declined ${t.key}`, where: t.where, from: "user", declines: t.key });
     const expired = targets.filter((t) => t.declined + 1 >= MAX_DECLINES);
     return { message: `Declined ${targets.length}.${expired.length ? ` Now expired: ${expired.map((t) => t.key).join(", ")}.` : ""}` };
   });
@@ -8567,7 +8679,7 @@ function fixRecordProblems(pc) {
 var recordCheck = (pc, track) => track === "fix" ? { problems: fixRecordProblems(pc), fix: "write RECORD.md from templates/record-fix.md" } : { problems: recordProblems(pc), fix: "write RECORD.md from templates/record.md" };
 function closeGates(pc, s, opts, record, tests) {
   configGate(s, pc.cfg, "close", opts);
-  const open = collectSuggestions(pc.ctx).filter((x) => x.open && x.slug === s.slug);
+  const open = collectSuggestions(pc.ctx).filter((x) => x.open && !x.hardening && x.slug === s.slug);
   gate(
     open.length <= MAX_OPEN_PER_PLAN,
     s,
@@ -8708,7 +8820,11 @@ function cmdAdvance(ctx, opts) {
         if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
-    s.stage = to;
+    if (to === "ship" && levelOf(s) === "mvp") {
+      for (const t of allTasks(s))
+        if (t.status === "done" && t.level === "mvp" && !t.risky) addHardening(s, { area: "quality", text: `Task "${t.name}" ran at MVP without a per-task review.`, where: t.scope });
+    }
+    setStage(s, to);
     if (to === "execute") {
       const p = currentPhase(s);
       if (p && p.status === "pending") p.status = "in_progress";
@@ -8728,10 +8844,65 @@ function cmdClose(ctx, opts) {
   return mutate(pc, "closed", (s) => {
     gate(s.stage === "learn", s, "close", opts, `the plan is in ${s.stage}, not learn`);
     closeGates(pc, s, opts, record, tests);
-    s.stage = "closed";
+    setStage(s, "closed");
     log(s, "closed");
     return { message: `Closed "${s.title}". The record is ${join11(pc.plan.dir, "RECORD.md")}.` };
   });
+}
+
+// plugins/cairn/cli/src/commands/level.ts
+var USAGE2 = "usage: cairn level mvp|standard|polished [--human]";
+function cmdLevel(ctx, value, opts, io) {
+  if (!value) throw new CliError(USAGE2);
+  if (!isLevel(value)) throw new Refusal(`"${value}" is not a level: use ${LEVELS.join(", ")}`);
+  const to = value;
+  const pc = planCtx(ctx);
+  const first = levelCheck(loadState(pc.plan.dir), to);
+  if (first.same) return { message: first.message };
+  requireHumanProof(to, opts, io, "level");
+  return mutate(pc, "level changed", (s) => {
+    const { from, tasks, started, lowering, same, message } = levelCheck(s, to);
+    if (same) return { message };
+    s.level = to;
+    log(s, "level changed", `${from} -> ${to}`);
+    if (lowering) return { message: `Level lowered to ${LEVEL_LABEL[to]}.`, data: { level: to } };
+    if (!started && s.approvals.plan) {
+      delete s.approvals.plan;
+      if (s.stage === "execute") setStage(s, "plan");
+    }
+    if (s.evidence.verify) {
+      delete s.evidence.verify;
+      if (s.stage === "review") setStage(s, "verify");
+    }
+    delete s.evidence.review;
+    const behind = tasks.filter((t) => t.startedAt && LEVELS.indexOf(levelOf(t)) < LEVELS.indexOf(to));
+    const taken = new Set((s.suggestions ?? []).flatMap((x) => [x.resolves, ...x.merges ?? []]).filter((k) => !!k));
+    let filed = 0;
+    for (const t of behind) {
+      const prefix = `Task "${t.id}" was built at `;
+      const open = (s.suggestions ?? []).find((x) => x.kind === "hardening" && x.text.startsWith(prefix) && !taken.has(`${s.slug}:${x.id}`));
+      const text = `${prefix}${LEVEL_LABEL[levelOf(t)]}: bring it up to ${LEVEL_LABEL[to]} (the reviews and tests that level adds)`;
+      if (open) open.text = text;
+      else {
+        addHardening(s, { area: "tests", text, where: t.scope });
+        filed++;
+      }
+      t.level = to;
+    }
+    return { message: `Level raised to ${LEVEL_LABEL[to]}.${filed ? ` ${filed} started task(s) got a hardening item.` : ""}`, data: { level: to, hardening: filed } };
+  });
+}
+function levelCheck(s, to) {
+  const from = levelOf(s);
+  if (s.track === "fix") throw new Refusal("a fix plan has no level", ["levels apply to feature plans"]);
+  if (s.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
+  if (s.stage === "ship" || s.stage === "learn" || s.stage === "closed") throw new Refusal(`the level can't change once the plan is at ${s.stage}`);
+  const tasks = allTasks(s);
+  const started = tasks.some((t) => t.startedAt);
+  const lowering = LEVELS.indexOf(to) < LEVELS.indexOf(from);
+  const same = from === to;
+  if (!same && lowering && started) throw new Refusal("lowering the level is only allowed before any task starts", [`keep ${LEVEL_LABEL[from]}, or raise it`]);
+  return { from, tasks, started, lowering, same, message: `The plan is already at ${LEVEL_LABEL[to]}.` };
 }
 
 // plugins/cairn/cli/src/plan-parse.ts
@@ -8877,7 +9048,7 @@ function cmdPlanLoad(ctx, opts) {
     s.phases = phases;
     s.planHash = hashText(planMd);
     if (replanning) {
-      s.stage = "plan";
+      setStage(s, "plan");
       delete s.approvals.plan;
       delete s.evidence.verify;
       delete s.evidence.review;
@@ -8940,7 +9111,7 @@ function taskStart(pc, id, opts) {
     if (sl.status === "done" && fastLane(s) && s.stage === "review") {
       sl.status = "pending";
       s.phases.find((p) => p.tasks.includes(sl)).status = "in_progress";
-      s.stage = "execute";
+      setStage(s, "execute");
       delete s.evidence.review;
       log(s, "fix reopened", "from review");
     }
@@ -8957,7 +9128,7 @@ function taskStart(pc, id, opts) {
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
     }
-    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now() });
+    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level });
     const phase = s.phases.find((p) => p.tasks.includes(sl));
     if (phase.status === "pending") phase.status = "in_progress";
     log(s, "task started", sl.name);
@@ -9002,6 +9173,7 @@ function taskDone(pc, id, opts) {
   const heads = [pb, ...tip ? [sl.branch] : []];
   const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base, h))).size : 0;
   const outside = tip && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
+  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !f.startsWith("docs/sdlc/") && matchesAny(f, sl.scope))) : [];
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `task done: ${sl.name}`, (s) => {
     const cur = findTask(s, id);
@@ -9009,8 +9181,9 @@ function taskDone(pc, id, opts) {
     gate(!dirty, s, "task done", opts, `the task worktree has uncommitted changes`, [`commit or discard them in ${cur.worktree}`]);
     gate(commits > 0, s, "task done", opts, `${cur.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
     gate(!planDirty, s, "task done", opts, `the plan worktree has uncommitted changes outside docs/sdlc: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
+    gate(!stray.length, s, "task done", opts, `commits for task "${cur.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(", ")}`, [`move these commits to the task branch (git cherry-pick them onto ${cur.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
     gate(merged, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
-    testsGate(tests ?? (checkable ? void 0 : { ok: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts);
+    testsGate(tests ?? (checkable ? void 0 : { ok: false, ran: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts, cur.scope);
     if (fix) {
       gate(repro?.outcome === "passes", s, "task done", opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` \u2192 ${repro.detail})` : "the repro was not run: the task is not merged", ["fix the bug so the repro command exits 0"]);
       gate(changed <= maxFiles, s, "task done", opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ["this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work"]);
@@ -9098,7 +9271,7 @@ function cmdPhase(ctx, action, opts) {
       following.status = "in_progress";
       next = `next phase "${following.name}"`;
     } else {
-      s.stage = "verify";
+      setStage(s, "verify");
       log(s, "advanced", "verify");
       next = "moved to Check";
     }
@@ -9107,6 +9280,20 @@ function cmdPhase(ctx, action, opts) {
       message: `Phase "${cur.name}" finished: ${cur.tasks.length} tasks, ${testText}, ${suggestions}${driftText}; ${next}.`,
       data: { phase: cur.id, next: following?.id ?? null, stage: s.stage }
     };
+  });
+}
+function cmdTest(ctx, opts) {
+  const pc = planCtx(ctx);
+  const tests = runTests(pc.cfg, pc.plan.worktree);
+  return mutate(pc, void 0, (s) => {
+    if (!tests) {
+      testsGate(tests, s, "check", opts);
+      return { message: "No test command configured: nothing was run.", data: { ran: false } };
+    }
+    const mvp = levelOf(s) === "mvp";
+    if (tests.ok || mvp) testsGate(tests, s, "check", opts);
+    const note = !tests.ok && mvp ? " Recorded as a hardening item; the plan continues." : "";
+    return { message: `Tests ${tests.ok ? "green" : "RED"} (\`${tests.cmd}\` \u2192 ${tests.tail}).${note}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail } };
   });
 }
 
@@ -9136,7 +9323,7 @@ function listRecords(ctx) {
       }
     }
   const followUps = /* @__PURE__ */ new Map();
-  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status }]);
+  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status, ...x.hardening ? { hardening: true } : {} }]);
   const entries = [...found.values()].map(({ state, dir }) => {
     let recordPath = join13(dir, "RECORD.md");
     if (!existsSync8(recordPath)) recordPath = join13(base, basename4(dir), "RECORD.md");
@@ -9430,10 +9617,10 @@ ${v}` : v;
   }
   return { pos, opts };
 }
-var USAGE2 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
+var USAGE3 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd|plan|ship | advance [--to <stage>] | plan load [--replan] | ready
-  task start|step|done <id> | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
+  task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
   pause [--now] | resume [<slug>] | close | render | records
   repro "<command>" | escalate (fix plans)
@@ -9456,6 +9643,8 @@ function run(argv, cwd = process.cwd()) {
       return cmdDecide(ctx(), a, b, opts);
     case "approve":
       return cmdApprove(ctx(), a, opts);
+    case "level":
+      return cmdLevel(ctx(), a, opts);
     case "advance":
       return cmdAdvance(ctx(), opts);
     case "plan":
@@ -9473,6 +9662,8 @@ function run(argv, cwd = process.cwd()) {
       return cmdEvidence(ctx(), a, b, opts);
     case "step":
       return cmdStep(ctx(), a, opts);
+    case "test":
+      return cmdTest(ctx(), opts);
     case "phase":
       return cmdPhase(ctx(), a, opts);
     case "suggest":
@@ -9493,10 +9684,10 @@ function run(argv, cwd = process.cwd()) {
     case void 0:
     case "help":
     case "--help":
-      return { message: USAGE2 };
+      return { message: USAGE3 };
     default:
       throw new CliError(`unknown command "${cmd}"
-${USAGE2}`);
+${USAGE3}`);
   }
 }
 function readStdin() {

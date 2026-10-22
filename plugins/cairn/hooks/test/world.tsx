@@ -11,7 +11,13 @@ export const NOW = Date.parse('2026-03-01T12:00:00.000Z')
 export const SURFACES = ['terminal', 'desktop'] as const
 
 export type Ready = { kind: 'prd' | 'plan' | 'ship'; file: string; summary: string }
-export type Row = { state: Record<string, unknown>; live: boolean; worktree?: string; next: { text: string }; stepText?: string; ready?: Ready }
+export type Row = {
+  state: Record<string, unknown>; live: boolean; worktree?: string; next: { text: string }; stepText?: string; ready?: Ready
+  level?: string; levelLabel?: string; timing?: Record<string, number> | null
+}
+
+/** A row as the CLI reports a plan that chose a level: the level, its display label, and ms per stage. */
+export const withLevel = (r: Row, level: string, levelLabel: string, timing: Record<string, number> | null = null): Row => ({ ...r, level, levelLabel, timing })
 
 /** A plan's state.json as the CLI writes it, with the fields under test overridden. */
 export function plan(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -102,6 +108,15 @@ export function world(on: On, init: WorldInit = {}) {
       if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
         onDisk = undefined
         return answer(0, `${args[1]} approved.\n`)
+      }
+      return answer(2, '✗ Refused: no human proof\n')
+    }
+    if (args[0] === 'level') {
+      const given = e.init?.env?.CAIRN_APPROVER
+      if (given !== undefined) w.secrets.push(given)
+      if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
+        onDisk = undefined
+        return answer(0, `Level raised to ${args[1]}.\n`)
       }
       return answer(2, '✗ Refused: no human proof\n')
     }

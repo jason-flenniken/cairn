@@ -4,6 +4,12 @@ Write the completion record, get the user's go, open the pull request.
 
 Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLUGIN_ROOT}/templates/record.md`). Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP: before dispatching the recorder in step 3, run `cd <plan worktree> && cairn test`. The approval question in step 4 names each open failing test command (`knownFailures` in `cairn status --json`), and the record lists them with the hardening list. The record stays short.
+- Standard: as written below.
+- Polished: as written below. The captured learning is added when cairn has it.
+
 ## 1. Check
 Run `cairn status --json`. The stage must be `ship`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 
@@ -13,6 +19,7 @@ Run `cairn status --json`. The stage must be `ship`. Any other stage: say which 
 A plan closes with at most 5 open recommended follow-ups from itself. Run `cairn suggest list --open --json` and look at the ones whose key starts with `<slug>:`.
 - Group related ones into a high-level item (for example many missing-test notes become "add more detailed tests for the pane"): `cairn suggest merge <key> <key>... --area <a> --text "<high-level item>"`. The merged ones show as merged; the new item is the one left open.
 - Duplicates: merge them too. Trivia: `cairn suggest resolve <key> --dismiss --note "<reason>"`.
+- Hardening items (marked `[hardening]`) are not counted toward the 5 and are merged only with each other.
 - Keep a list of what was dropped (merged away or dismissed) for the record.
 Follow-ups declined twice, or older than 60 days, expire on their own and need nothing.
 

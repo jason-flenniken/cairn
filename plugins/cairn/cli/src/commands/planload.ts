@@ -1,7 +1,7 @@
 import type { Ctx } from '../locate.ts';
 import { mergeProgress, parsePlan } from '../plan-parse.ts';
 import { allTasks } from '../ready.ts';
-import { log } from '../state.ts';
+import { log, setStage } from '../state.ts';
 import { hashText, readText, Refusal } from '../util.ts';
 import { mutate, planCtx, planFile, type Opts, type Result } from '../shared.ts';
 
@@ -23,7 +23,7 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
     s.phases = phases;
     s.planHash = hashText(planMd);
     if (replanning) {
-      s.stage = 'plan';
+      setStage(s, 'plan');
       delete s.approvals.plan;
       delete s.evidence.verify;
       delete s.evidence.review;

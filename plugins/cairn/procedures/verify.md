@@ -4,6 +4,12 @@ Prove the finished build works: tests and build, then one pass over the PRD's ac
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP: in step 2 run the suite with `cd <plan worktree> && cairn test` instead of the bare test command. A red suite is not a blocker: it goes to step 6 with its hardening item (which `cairn test` files) and the note lists it as a known failure, not to the fix loop in step 5. Steps 3 and 4 run as written; the scan and audit are floors.
+- Standard: as written below.
+- Polished: every requirement must be met and tested. Treat "met but untested" in step 4 as blocking and fix it in step 5. App or browser verification is added when cairn can run it.
+
 ## 1. Check
 Run `cairn status --json`. The stage must be `verify`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 

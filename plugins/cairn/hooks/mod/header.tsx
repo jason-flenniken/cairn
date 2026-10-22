@@ -26,6 +26,12 @@ export const STAGE_COLOR: Record<string, string> = {
 /** The stages after Build: the phases are finished, so the header shows the stage and its step instead. */
 const LATE_STAGES = ['verify', 'review', 'ship', 'learn']
 
+/** " · Polished · 12m": the CLI's level label and the current stage's time, each only when the CLI gave one. */
+export function levelTail(row: CairnPlanRow): string {
+  const ms = row.timing?.[row.state.stage ?? '']
+  return `${row.levelLabel ? ` · ${row.levelLabel}` : ''}${typeof ms === 'number' ? ` · ${fmtDuration(ms, true)}` : ''}`
+}
+
 /** After Build: " · fixing 3 findings", then " · 2 running" while agents work. */
 export function lateTail(row: CairnPlanRow, running: number): string {
   if (!LATE_STAGES.includes(row.state.stage ?? '')) return ''
@@ -84,7 +90,7 @@ export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumn
   const filled = tasks.length === 0 ? 0 : Math.round((done / tasks.length) * bar)
   return (
     <Box key="header" flexDirection="column">
-      <Text key="head" bold color={accent} wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s, row.prOpen)}${where}`}</Text>
+      <Text key="head" bold color={accent} wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s, row.prOpen)}${where}${levelTail(row)}`}</Text>
       {fallback !== undefined && <Text key="fallback" dimColor wrap="truncate-end">{`Showing ${s.slug}, ${fallback > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>}
       {!!s.paused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>}
       {tasks.length > 0 ? <Text key="bar" color={accent} wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor color={accent} wrap="truncate-end">{label}</Text>}

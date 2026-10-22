@@ -6,6 +6,12 @@ v0.1 scope. A later version adds structured learnings written to `docs/sdlc/lear
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP: no extra learn work. The record is already short: do steps 4 and 5, and steps 2 and 3 only if `cairn close` refuses.
+- Standard and Polished: as written below.
+- Hardening items do not count toward the follow-up limit: only ordinary follow-ups do.
+
 ## 1. Check
 Run `cairn status --json`. The stage must be `learn`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 

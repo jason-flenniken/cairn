@@ -2,7 +2,7 @@
 // Read all and Approve, and the confirm every pane or /cairn-approve approval goes through (FR-05).
 import type { EngineInterface } from 'claude-code'
 import type { CairnReady } from '../../types/index.d.ts'
-import { approveAs, type Kind } from './approve.ts'
+import { approveAs, LABEL_OF, levelAs, LEVEL_OF_LABEL, LEVELS, type Kind, type Level } from './approve.ts'
 import { act, viewPress } from './cards.tsx'
 import { openDoc } from './doc.tsx'
 import type { Ui } from './header.tsx'
@@ -23,6 +23,25 @@ export async function confirmAndApprove($: EngineInterface, slug: string, kind: 
   const answer = await $.ui.ask(confirmQuestion(kind, slug), ['Cancel', APPROVE]).catch(() => undefined)
   if (answer !== APPROVE) return 'cairn: not approved; nothing was recorded.'
   return approveAs($, slug, kind)
+}
+
+/** The labels the CLI would accept as a target: not the level the plan is at, and none lower once a task has started. */
+export function levelChoices(current: Level, hasStarted: boolean): string[] {
+  const at = LEVELS.indexOf(current)
+  return LEVELS.filter((l, i) => i !== at && !(hasStarted && i < at)).map(l => LABEL_OF[l])
+}
+
+/** Asks which level, with fixed wording, then sets it through the shared secret path. */
+export async function confirmAndSetLevel($: EngineInterface, slug: string, current: Level, hasStarted: boolean): Promise<string> {
+  // The slug is the only plan text in the question, and only when it is a plain slug: no tag can ride in.
+  if (!SLUG.test(slug)) return 'cairn: the plan name is not a plain slug, so the level was not changed.'
+  const choices = levelChoices(current, hasStarted)
+  if (choices.length === 0) return `cairn: ${slug} is at ${LABEL_OF[current]} and nothing else can be chosen now; the level was not changed.`
+  // Cancel comes first, so a dialog that takes its first option changes nothing.
+  const answer = await $.ui.ask(`Change the depth level of plan ${slug}?`, ['Cancel', ...choices]).catch(() => undefined)
+  const level = typeof answer === 'string' && choices.includes(answer) ? LEVEL_OF_LABEL[answer] : undefined
+  if (level === undefined) return 'cairn: the level was not changed.'
+  return levelAs($, slug, level)
 }
 
 export async function approvePress($: EngineInterface, slug: string, kind: Kind): Promise<void> {

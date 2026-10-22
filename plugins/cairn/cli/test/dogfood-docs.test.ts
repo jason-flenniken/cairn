@@ -84,6 +84,13 @@ test('the README states the Claude Code version and names the fix lane, the pane
   assert.match(src, /\/cairn:direction/);
 });
 
+test('the README names the three levels and matches the procedures on review', () => {
+  const src = readFileSync(join(root, '..', '..', 'README.md'), 'utf8');
+  for (const l of ['MVP', 'Standard', 'Polished', '/cairn-level', 'defaultLevel']) assert.ok(src.includes(l), l);
+  assert.doesNotMatch(src, /Only \*\*risky\*\* tasks get thorough tests and a reviewer|only if the fix is risky|One optional question/);
+  assert.doesNotMatch(read('skills/fix/SKILL.md'), /review only if risky/);
+});
+
 test('hooks/NOTES.md records the session.start fan-out and the mod command naming', () => {
   const src = read('hooks/NOTES.md');
   for (const needle of ['register.tsx', 'one matcherless hook per event', '$.command.run', 'cairn-pause-now', 'cut turn']) assert.ok(src.includes(needle), `NOTES.md names ${needle}`);
@@ -104,4 +111,13 @@ test('the recorder agent writes Findings within the 600-word budget', () => {
   assert.match(src, /Findings/);
   assert.match(src, /600 words/);
   assert.doesNotMatch(src, /500/);
+});
+
+test('the recorder states the level, summarizes hardening, names known failures and time per stage', () => {
+  const src = read('agents/recorder.md');
+  assert.match(src, /level/i);
+  assert.match(src, /hardeningByArea/);
+  assert.match(src, /knownFailures/);
+  assert.match(src, /time per stage/i);
+  assert.match(src, /about 300/);
 });

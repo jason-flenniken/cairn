@@ -1,14 +1,14 @@
 import { join } from 'node:path';
 import { commitPath } from '../git.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
-import { currentPhase } from '../ready.ts';
+import { allTasks, currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
 import { FIX_RECORD_SECTIONS, FIX_RECORD_WORD_BUDGET, PRD_SECTIONS, proseWordCount, sections, uncheckedItems } from '../sections.ts';
-import { loadState, log } from '../state.ts';
+import { levelOf, loadState, log, setStage } from '../state.ts';
 import { STAGES, type Stage, type State, type Track } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
-import { docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
+import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { configGate, configHash, fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
 
@@ -38,7 +38,7 @@ const recordCheck = (pc: PlanCtx, track: Track) =>
 /** The checks for closing a plan: the record, green tests, and the approved commands. */
 function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: string[]; fix: string }, tests: TestRun | undefined): void {
   configGate(s, pc.cfg, 'close', opts);
-  const open = collectSuggestions(pc.ctx).filter((x) => x.open && x.slug === s.slug);
+  const open = collectSuggestions(pc.ctx).filter((x) => x.open && !x.hardening && x.slug === s.slug);
   gate(
     open.length <= MAX_OPEN_PER_PLAN,
     s,
@@ -201,7 +201,11 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
-    s.stage = to;
+    // An MVP task that was not flagged risky skipped its per-task review: say so, scoped to the task.
+    if (to === 'ship' && levelOf(s) === 'mvp')
+      for (const t of allTasks(s))
+        if (t.status === 'done' && t.level === 'mvp' && !t.risky) addHardening(s, { area: 'quality', text: `Task "${t.name}" ran at MVP without a per-task review.`, where: t.scope });
+    setStage(s, to);
     if (to === 'execute') {
       const p = currentPhase(s);
       if (p && p.status === 'pending') p.status = 'in_progress';
@@ -222,7 +226,7 @@ export function cmdClose(ctx: Ctx, opts: Opts): Result {
   return mutate(pc, 'closed', (s) => {
     gate(s.stage === 'learn', s, 'close', opts, `the plan is in ${s.stage}, not learn`);
     closeGates(pc, s, opts, record, tests);
-    s.stage = 'closed';
+    setStage(s, 'closed');
     log(s, 'closed');
     return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };
   });

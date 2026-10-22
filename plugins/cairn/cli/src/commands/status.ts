@@ -3,13 +3,13 @@ import { basename, join } from 'node:path';
 import { commonDir, git, landedState } from '../git.ts';
 import { PLAN_PREFIXES, PLANS_DIR, parseBranch, planRef, planRelIn, planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { modActive } from '../proof.ts';
-import { nextFor, renderIndex, stepText, summary, type IndexRow } from '../render.ts';
-import { loadState, parseState, saveState } from '../state.ts';
+import { levelLabel, nextFor, renderIndex, stepText, summary, timingText, type IndexRow } from '../render.ts';
+import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.ts';
 import type { State } from '../types.ts';
 import { hashText, pluginRoot, readText, withLock, writeText } from '../util.ts';
 import { readyFor } from './stages.ts';
-import { openSuggestionCount } from './suggest.ts';
-import { planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
+import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
+import { knownFailures, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function listPlans(ctx: Ctx): IndexRow[] {
   const refs = git(['for-each-ref', '--format=%(refname:short)', ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split('\n').filter(Boolean);
@@ -63,16 +63,31 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
   const w = warnings(pc, s);
   const next = nextFor(s);
   const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
+  let listed: ListedSuggestion[] = [];
+  try {
+    listed = collectSuggestions(ctx);
+  } catch {
+    // An unreadable follow-up listing leaves the counts and the grouping empty.
+  }
+  const openSuggestions = listed.filter((x) => x.open && !x.hardening).length;
+  const hardeningItems = listed.filter((x) => x.open && x.hardening).length;
+  // This plan's open hardening items by area; `hardeningItems` above spans every plan.
+  const hardeningByArea: Record<string, number> = {};
+  for (const x of listed) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
+  const timing = stageTimes(s);
   return {
-    message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
+    message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
+      ...(s.level ? [`Level: ${levelLabel(s)}`] : []),
+      ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
+      ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
+    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
   };
 }
 
@@ -92,7 +107,7 @@ export function cmdNext(ctx: Ctx): Result {
   const n = nextFor(s);
   return {
     message: `${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
-    data: { plan: s.slug, stage: s.stage, substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
+    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
   };
 }
 

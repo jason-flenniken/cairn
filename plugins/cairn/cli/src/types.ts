@@ -34,6 +34,10 @@ export interface Step {
   at: string;
 }
 export type Track = 'feature' | 'fix';
+export const LEVELS = ['mvp', 'standard', 'polished'] as const;
+export type Level = (typeof LEVELS)[number];
+export const isLevel = (v: unknown): v is Level => (LEVELS as readonly unknown[]).includes(v);
+export const LEVEL_LABEL: Record<Level, string> = { mvp: 'MVP', standard: 'Standard', polished: 'Polished' };
 export type Complexity = 'simple' | 'standard' | 'complex';
 export type TaskStatus = 'pending' | 'in_progress' | 'done';
 export const SUBSTEPS = ['implementing', 'reviewing', 'fixing', 'merging', 'blocked'] as const;
@@ -72,6 +76,8 @@ export interface Task {
   doneAt?: string;
   /** ISO time the task first started; kept on resume. */
   startedAt?: string;
+  /** The plan's level when the task first started. */
+  level?: Level;
   /** Risky tasks (auth, money, deletes data, migrations, public API) get TDD and a reviewer. */
   risky?: boolean;
   riskReason?: string;
@@ -101,7 +107,7 @@ export interface DriftEntry {
 }
 
 export const SUGGESTION_AREAS = ['tests', 'security', 'perf', 'quality', 'ux', 'docs'] as const;
-export const SUGGESTION_SOURCES = ['task-review', 'branch-review', 'check', 'implementer', 'plan', 'user'] as const;
+export const SUGGESTION_SOURCES = ['task-review', 'branch-review', 'check', 'implementer', 'plan', 'user', 'mvp', 'security-review'] as const;
 
 /** A recommended piece of future quality work. A suggestion with `resolves` closes another one. */
 export interface Suggestion {
@@ -119,6 +125,10 @@ export interface Suggestion {
   merges?: string[];
   dismissed?: boolean;
   note?: string;
+  /** A hardening item is a follow-up an MVP plan leaves behind: it skips the close cap, the open count and expiry. */
+  kind?: 'hardening';
+  /** The test command a failing-suite hardening item is about; at most one stays open per command. */
+  testCmd?: string;
 }
 
 export interface LogEntry {
@@ -133,11 +143,17 @@ export interface State {
   slug: string;
   title: string;
   track: Track;
+  /** Feature plans only. Read through `levelOf`; absent reads as Standard. */
+  level?: Level;
+  /** The cairn version that created the plan. */
+  cairnVersion?: string;
   branch: string;
   base: string;
   created: string;
   updated: string;
   stage: Stage;
+  /** Every stage entry, oldest first. Plans made before this field have none. */
+  stageHistory?: { stage: Stage; at: string }[];
   paused: { at: string; mode: 'drain' | 'now'; handoffHash?: string } | null;
   approvals: { prd?: Approval; plan?: Approval; ship?: Approval };
   planHash?: string;
@@ -166,4 +182,6 @@ export interface Config {
   resumeFreshAfterMinutes?: number;
   fixMaxFiles?: number;
   reproTimeoutMinutes?: number;
+  /** The level `/cairn:new` pre-selects: mvp, standard or polished. Standard when unset. */
+  defaultLevel?: string;
 }

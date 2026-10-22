@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { renderStatus } from './render.ts';
-import type { Phase, State } from './types.ts';
+import { isLevel, type Level, type Phase, type Stage, type State } from './types.ts';
 import { CliError, now, readText, writeText } from './util.ts';
 
 export const statePath = (dir: string) => join(dir, 'state.json');
@@ -37,7 +37,44 @@ export function log(s: State, event: string, detail?: string, override?: string)
   s.log.push({ at: now(), event, ...(detail ? { detail } : {}), ...(override ? { override } : {}) });
 }
 
-export function newState(slug: string, title: string, track: State['track'], branch: string, base: string): State {
+/** The plan's level; plans and the fix track without one read as Standard. */
+export const levelOf = (s: Pick<State, 'level'>): Level => (isLevel(s.level) ? s.level : 'standard');
+
+/** Every stage change goes through here, so the stage history is complete. */
+export function setStage(s: State, stage: Stage): void {
+  s.stage = stage;
+  (s.stageHistory ??= []).push({ stage, at: now() });
+}
+
+/**
+ * Milliseconds spent in each stage, summing every visit and leaving out paused time; a paused plan's current
+ * stage is frozen at the pause. Null for plans with no history. A closed plan stops counting at close.
+ */
+export function stageTimes(s: State, nowMs = Date.now()): Partial<Record<Stage, number>> | null {
+  const h = s.stageHistory;
+  if (!h?.length) return null;
+  const pauses: [number, number][] = [];
+  let from: number | undefined;
+  for (const l of s.log) {
+    if (l.event === 'paused') from = Date.parse(l.at);
+    else if (l.event === 'resumed' && from !== undefined) {
+      pauses.push([from, Date.parse(l.at)]);
+      from = undefined;
+    }
+  }
+  if (from !== undefined) pauses.push([from, Infinity]);
+  const out: Partial<Record<Stage, number>> = {};
+  h.forEach((e, i) => {
+    if (e.stage === 'closed') return;
+    const a = Date.parse(e.at);
+    const b = i + 1 < h.length ? Date.parse(h[i + 1].at) : nowMs;
+    const paused = pauses.reduce((sum, [p, q]) => sum + Math.max(0, Math.min(b, q) - Math.max(a, p)), 0);
+    out[e.stage] = (out[e.stage] ?? 0) + Math.max(0, b - a - paused);
+  });
+  return out;
+}
+
+export function newState(slug: string, title: string, track: State['track'], branch: string, base: string, stage: Stage = 'discover'): State {
   const t = now();
   return {
     schema: 1,
@@ -48,7 +85,8 @@ export function newState(slug: string, title: string, track: State['track'], bra
     base,
     created: t,
     updated: t,
-    stage: 'discover',
+    stage,
+    stageHistory: [{ stage, at: t }],
     paused: null,
     approvals: {},
     phases: [],

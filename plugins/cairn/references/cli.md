@@ -11,6 +11,7 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 
 ## Human proof
 `cairn approve prd|plan|ship` and any command run with `--override` succeed only with human proof. Each recorded approval or override notes its source.
+`cairn level mvp|standard|polished` needs the same human proof as an approval, through the same routes (the same level again needs none).
 - **Mod menu (`source: mod`).** The session's mod asks through AskUserQuestion and runs the approval when the user picks "Approve (Recommended)". The pane's Approve button and `/cairn-approve` run it the same way.
   - The mod keeps the secret in memory only. On disk, `<git common dir>/cairn/mod-secret.sha256` (mode 0600) holds the secret's SHA-256 as lowercase hex.
   - The mod passes the secret to the CLI in `CAIRN_APPROVER`. The CLI hashes it and compares. On a match the CLI claims and deletes the hash file, so a used secret can't be replayed. The mod then writes a fresh secret and hash.
@@ -33,6 +34,7 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 The mod registers these commands. Their names have no ":" because the engine forbids it.
 - `/cairn-pane [on|off]`: shows or hides the pane; no word toggles. The choice is kept across sessions, and a hand close turns it off.
 - `/cairn-approve [kind]`: approves the stop waiting on the session's plan.
+- `/cairn-level`: asks MVP, Standard or Polished for the session's plan and runs `cairn level` with the mod's proof. It offers only levels the CLI would accept.
 - `/cairn-pause-now`: stops the running turn and pauses the plan now (Stop now).
 - `/cairn-pause-mod`: pauses the plan once in-flight work reaches a safe point.
 - `/cairn-resume-mod [plan]`: resumes a paused plan, here or after `/clear`.
@@ -70,7 +72,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 | `cairn approve plan` | the plan is loaded and `plan.md` is unchanged since it was loaded |
 | `cairn advance` (to execute) | plan approved |
 | `cairn task start <id>` | the task is in the ready set (`cairn ready`), and the config lock holds |
-| `cairn task done <id>` | the task branch is merged into the plan branch, the config `test` command passes in the plan worktree (a missing test command is a warning, not a refusal), and the config lock holds |
+| `cairn task done <id>` | the task branch is merged into the plan branch, the config `test` command passes in the plan worktree (a missing test command is a warning, not a refusal; at MVP a red suite is a warning plus a hardening item), the config lock holds, and on feature plans no non-merge commit made directly on the plan branch since the task started changes files in the task's scope (outside `docs/sdlc/`). That refusal lists the short SHAs: move them onto the task branch and merge it with `--no-ff` |
 | `cairn evidence phase` | (on demand) the phase's direction report has one valid `cairn-direction` block with a row for every covered requirement |
 | `cairn phase finish` | every task in the current phase is done, nothing is blocked or paused, the plan worktree is clean, tests are green at the current commit (the last `task done` run is reused when no code changed), and no on-track check for the phase is red. No human step |
 | (last phase finished) | stage moves to verify automatically |
@@ -85,7 +87,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn next [--json]`: what to do now. Returns `{stage, substep, procedure: <abs path>, summary, plan}`. Read and follow the procedure file it names.
   - `cairn status [--all] [--json]`: one plan, or every plan with `--all`, read live from each worktree.
 - **Plans**
-  - `cairn new <slug> --title "…" [--track feature|fix] [--from <ref>] [--no-worktree]`: creates the branch, the worktree, the plan dir, and state, and prints the worktree path.
+  - `cairn new <slug> --title "…" [--track feature|fix] [--level mvp|standard|polished] [--from <ref>] [--no-worktree]`: creates the branch, the worktree, the plan dir, and state, and prints the worktree path. `--level` defaults to config `defaultLevel`, then Standard; fix plans have no level.
   - `cairn product init`: creates `docs/sdlc/product/` from templates, on the current branch.
   - `cairn decide "<question>" "<answer>" [--why "…"]`: appends to `decisions.md`.
   - `cairn decide --file <path>`: reads the decision from a JSON file, `{question, answer, why?}`.
@@ -94,6 +96,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 - **Stage transitions**
   - `cairn approve prd|plan|ship [--note "…"]`: through the mod's menu, or `--human` in the user's terminal (see Human proof)
   - `cairn advance [--to <stage>]`
+  - `cairn level mvp|standard|polished [--human]`: changes a feature plan's level, with the human proof above. It refuses on the fix track, while paused, at ship, learn or closed, and for a lower level once any task has started. Refusals come before the proof is spent. A raise clears plan approval if no task has started, clears recorded Check and review results (a plan in review goes back to Check), and files one hardening item per finished task built below the new level.
 - **Plan and tasks**
   - `cairn plan load [--replan]`: parses `plan.md` into state. Use `--replan` during execute, for example to change later phases. Existing task progress is kept, the stage returns to plan, the plan needs approval again, and verify and review evidence is cleared.
   - `cairn ready [--json]`: tasks that can start now (blockers done, no scope overlap, under the parallel cap).
@@ -105,9 +108,10 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
     - review: `reviewing`, `fixing`, `rechecking`;
     - ship: `approving` (waiting on approval), `opening-pr`.
     - The fix track uses review and ship. A name not valid for the current stage exits 2 and lists the valid ones. `--count` is a whole number, shown with `fixing` ("fixing 3 findings").
+  - `cairn test`: runs the configured test command in the plan worktree and prints the result. At MVP a red run files one hardening item per command (a repeat only logs, a green run resolves it) and the command still succeeds; at Standard and Polished a red run is only reported. `status --json` lists the open failing-suite items as `knownFailures`.
   - `cairn phase finish`: finishes the current phase with no human proof and prints one summary line (tasks, tests, new suggestions, out-of-scope edits). It opens the next phase, or moves the plan to Check after the last one.
 - **Suggestions**
-  - `cairn suggest add --area tests|security|perf|quality|ux|docs [--where <glob>]... (--text "…" | --text-file <f>) [--from task-review|branch-review|check|implementer|plan|user]`: appends to the current plan and prints `<slug>:<id>`.
+  - `cairn suggest add --area tests|security|perf|quality|ux|docs [--where <glob>]... (--text "…" | --text-file <f>) [--from task-review|branch-review|check|implementer|plan|user|mvp|security-review] [--kind hardening]`: appends to the current plan and prints `<slug>:<id>`. `--kind hardening` files a hardening item (what an MVP plan leaves untested, unreviewed or failing): it needs at least one `--where`, defaults `--from` to `mvp`, never expires, and does not count toward the 5-open limit on close or the open follow-up count; `status --json` reports them as `hardeningItems`. It is otherwise a follow-up: `suggest list --for` matches it and `records` lists it.
   - `cairn suggest list [--open] [--for <glob>]... [--json]`: all plans (worktrees, plan branches, closed plans in this checkout), grouped by area. `--for` keeps suggestions whose `where` overlaps the globs.
   - `cairn suggest resolve <slug>:<id> [--dismiss] [--note "…"]`: closes a suggestion from the current plan.
   - `cairn suggest merge <key> <key>... --area <a> [--where <glob>]... --text "…"`: groups open follow-ups into one new item in the current plan (its `where` defaults to theirs combined). The grouped ones become `merged`.

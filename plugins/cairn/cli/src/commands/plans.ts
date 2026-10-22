@@ -1,10 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { loadConfig, worktreeRoot } from '../config.ts';
+import { CONFIG_REL, loadConfig, worktreeRoot } from '../config.ts';
 import { commitPath, git, gitOk } from '../git.ts';
 import { PLANS_DIR, planBranch, planBranchesFor, planDirName, worktreeName, type Ctx } from '../locate.ts';
-import { newState, saveState } from '../state.ts';
-import { CliError, now, readText, Refusal, SLUG, writeText } from '../util.ts';
+import { log, newState, saveState } from '../state.ts';
+import { isLevel, LEVELS, type Level } from '../types.ts';
+import { CliError, now, pluginVersion, readText, Refusal, SLUG, writeText } from '../util.ts';
 import { ensureExcluded, planCtx, planFile, runSetup, template, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
@@ -18,6 +19,9 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   const base = typeof opts.from === 'string' ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === 'string' ? opts.title : slug;
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
+  if (typeof opts.level === 'string' && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(', ')}`);
+  const badDefault = cfg.defaultLevel !== undefined && !isLevel(cfg.defaultLevel);
+  const level: Level = typeof opts.level === 'string' ? (opts.level as Level) : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : 'standard';
 
   let wt: string;
   if (opts['no-worktree']) {
@@ -32,18 +36,23 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   const rel = `${PLANS_DIR}/${planDirName(slug, new Date())}`;
   const dir = join(wt, rel);
   writeText(join(dir, 'decisions.md'), `# Decisions: ${title}\n\nAppend-only. Written by \`cairn decide\` as each decision is made.\n`);
-  const state = newState(slug, title, track, branch, base);
-  if (track === 'fix') state.stage = 'repro';
+  const state = newState(slug, title, track, branch, base, track === 'fix' ? 'repro' : 'discover');
+  state.cairnVersion = pluginVersion();
+  if (track === 'feature') {
+    state.level = level;
+    log(state, 'level', level);
+  }
   saveState(dir, state);
   if (cfg.autoCommit) commitPath(wt, rel, `cairn(${slug}): start plan "${title}"`);
   const setup = opts['no-worktree'] ? '' : runSetup(cfg, wt, ctx.mainRoot);
   return {
     message: [
       `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
+      ...(badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(', ')}; using standard.`] : []),
       `Worktree: ${wt}`,
       `The plan is ready. Continue with /cairn:next from where you are.`,
     ].join('\n'),
-    data: { slug, branch, base, worktree: wt, dir },
+    data: { slug, branch, base, worktree: wt, dir, level: track === 'feature' ? level : null },
   };
 }
 

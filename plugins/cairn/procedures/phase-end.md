@@ -4,6 +4,11 @@ Finish the built phase and keep going. The CLI checks the phase; there is no hum
 
 Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`. Run every `cairn` command from the plan worktree: `cd <plan worktree> && cairn <command>`.
 
+## At this level
+Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- MVP and Standard: as written below. The on-track check is optional.
+- Polished: after `cairn phase finish`, run the on-track check for the phase without being asked: follow `procedures/direction.md` and treat a red result as in step 3.
+
 ## 1. Finish the phase
 Run `cd <plan worktree> && cairn phase finish`.
 

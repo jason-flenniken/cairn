@@ -77,6 +77,9 @@ describe('bashVerdict', () => {
     'cairn decide "q" "$(cairn approve prd)"',
     'cairn --note "see decide" approve prd',
     'cairn --why x approve prd',
+    // Level changes come from the user too.
+    'cairn level polished',
+    'cairn level mvp --human',
     // Interpreter code that writes a state.json.
     `python3 -c "open('docs/sdlc/plans/x/state.json','w').write('{}')"`,
     `python3 -c "open('docs/sdlc/plans/x/state.json', 'a').write('{}')"`,
@@ -104,6 +107,8 @@ describe('bashVerdict', () => {
     'cairn status',
     'cairn ready --json',
     'cairn task done x',
+    'cairn advance --override "r" --note "level of approve"',
+    'cairn decide "change the level?" "yes"',
     'cairn decide "approve the wording?" "yes"',
     'grep approve README.md',
     'cat bin/cairn | grep approve',
