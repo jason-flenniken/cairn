@@ -24,7 +24,7 @@ Workflow plugins such as Compound Engineering and Superpowers describe their sta
 cairn fixes this in four ways:
 
 - **A script owns the state.** The stage, phases, tasks, approvals, and test results live in a `state.json` that only the `cairn` CLI writes. The CLI refuses a move when its proof is missing, and it names the fix.
-- **The minimum by default.** Every task gets tests for its core logic, and the full test suite runs before each merge. Only **risky** tasks get thorough tests and a reviewer: auth, money, deleting data, migrations, public APIs. Everything else worth doing later goes into a list of **recommended follow-ups**, and cairn offers them back when you next touch the same code.
+- **Effort you choose.** Each plan starts at a **level**: MVP to prototype fast, Standard for normal work, or Polished for the deepest checks. At Standard every task gets tests for its core logic and a reviewer, the full test suite runs before each merge, and **risky** tasks (auth, money, deleting data, migrations, public APIs) also get thorough tests and a security review. Everything else worth doing later goes into a list of **recommended follow-ups**, and cairn offers them back when you next touch the same code.
 - **You can see it working.** A live pane beside the chat shows a card for every running agent: what it's doing, how long it's taken, and roughly how long is left.
 - **Parallel, isolated work.** Each plan runs on its own branch and worktree, and each task on its own branch and worktree. Tasks that don't touch the same files run in parallel, up to 3 at a time.
 
@@ -91,6 +91,7 @@ The mod adds these commands, which run instantly without a Claude turn:
 |---|---|
 | `/cairn-pane [on\|off]` | Shows or hides the live pane. With no word it toggles. Your choice sticks across sessions, and closing the pane by hand also turns it off. |
 | `/cairn-approve [prd\|plan\|ship]` | Approves the stop the current plan is waiting on. |
+| `/cairn-level` | Changes the current plan's level. Offers only the levels the plan can move to. |
 | `/cairn-pause-mod` | Pauses once in-flight work reaches a safe point. |
 | `/cairn-pause-now` | Stops the running turn and pauses right away. |
 | `/cairn-resume-mod [plan]` | Resumes a paused plan, even after `/clear`. |
@@ -102,13 +103,31 @@ The mod adds these commands, which run instantly without a Claude turn:
 | **Discover** | An interview, one decision at a time, covering users, the core flow, non-goals, and anything risky. Facts come from the codebase first, so the questions are only real decisions. | No |
 | **PRD** | A short PRD: Problem, Solution, Requirements (each with a one-line check), Non-goals, Open questions. Unhappy paths, security, and performance sections appear only when they matter. | **Yes: approve the PRD** |
 | **Plan** | The PRD is broken into phases of small vertical **tasks**. Each task lists its files, what it waits on, its size (which picks the model), and whether it's risky. Recommended follow-ups that touch the same files are offered as extra tasks. | **Yes: approve the plan** |
-| **Build** | Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic. Risky tasks also get thorough tests and a reviewer, with at most two fix attempts before cairn asks you. Every task is merged and the full test suite runs. A finished phase continues on its own when tests pass. | Only if tests fail or something is blocked |
+| **Build** | Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic and gets a reviewer. Risky tasks also get thorough tests and a security review, with at most two fix attempts before cairn asks you. Every task is merged and the full test suite runs. A finished phase continues on its own when tests pass. | Only if tests fail or something is blocked |
 | **Check** | Tests and build, then one pass over the PRD's checks. A requirement that isn't met gets fixed. One that works but has no test becomes a recommended follow-up. | Only if something is broken |
 | **Review** | One review of the whole branch. Blocking means a bug, a security hole, data loss, or an unmet requirement, and those are fixed in place. Everything else becomes a recommended follow-up. | Only if something is blocking |
 | **Ship** | A one-page `RECORD.md`: links, why, what was built, how it works, follow-ups. | **Yes: approve the ship** |
-| **Learn** | One optional question: anything worth remembering for next time? | No |
+| **Learn** | Checks the follow-ups are tidied, then closes the plan. It asks you nothing. | No |
 
 The `cairn` CLI checks each move between stages. If something is missing, such as an approval, a required PRD section, or a passing test run, it refuses and prints the exact fix. You can overrule a refusal from an **Override** menu, and every override is logged with its reason.
+
+The table above is the Standard level. See Depth levels for how MVP and Polished change each stage.
+
+## Depth levels
+
+`/cairn:new` asks how deep the whole plan should go, with your repo's `defaultLevel` picked first:
+
+| Level | For | What changes |
+|---|---|---|
+| **MVP** | Prototyping fast, finding out if something is worth building | A short interview and thin PRD, a few large tasks, no per-task review, tests that warn instead of block, one light branch review, and a short record. What it skips goes on a **hardening list**. |
+| **Standard** | Normal work | The lifecycle above, as is. |
+| **Polished** | Hardening what you'll keep | Test cases and test-first for every task, a fresh-agent review of the plan, an automatic on-track check at each phase end, and every requirement met and tested. |
+
+Some things never change with the level: Check always runs the secret scan and dependency audit, any task touching a trust boundary gets a security review, the whole-branch security review always runs, and you still approve the PRD, the plan, and the ship.
+
+The hardening list doesn't count toward the 5 follow-ups a plan may close with. When a later Standard or Polished plan touches the same code, cairn offers those items as scope, so moving past an MVP is one deliberate run.
+
+You can raise the level any time before ship with `/cairn-level` in the pane, and lower it only before any task starts. The pane header shows the level and how long the current stage has taken. Only you change the level; cairn can suggest a raise, but the change needs your pick in a menu or `cairn level <level> --human` in a terminal.
 
 ## The live pane
 
@@ -177,7 +196,7 @@ Behind the scenes, the mod holds a one-time secret in memory and the CLI checks 
 
 1. **Repro first.** cairn records a command that fails because of the bug, and refuses to go on until it has one.
 2. **The fix.** One task, which must make the repro pass with tests green.
-3. **Review,** only if the fix is risky.
+3. **Review** of the fix, every time.
 4. **A short record** of at most 200 words, then ship.
 
 If the fix grows past 8 files, or turns out to need new requirements, `cairn escalate` turns it into a full plan.
@@ -196,7 +215,8 @@ Each repo has `.sdlc/config.json`, which cairn creates the first time:
   "appTypes": ["web"],
   "maxParallel": 3,
   "resumeFreshAfterMinutes": 60,
-  "autoCommit": true
+  "autoCommit": true,
+  "defaultLevel": "standard"
 }
 ```
 
@@ -207,6 +227,7 @@ Each repo has `.sdlc/config.json`, which cairn creates the first time:
 | `build` | The build command, run at Check. |
 | `start`, `seed`, `appTypes` | How to run the app, seed its data, and what kind of app it is (`web`, `expo`, `api`). These are recorded for checks that drive the running app; the lean defaults don't use them yet. |
 | `maxParallel` | How many tasks run at once (default 3). |
+| `defaultLevel` | The level `/cairn:new` picks first: `mvp`, `standard` or `polished` (default standard). |
 | `resumeFreshAfterMinutes` | How long a pause counts as recent before resume suggests a fresh session (default 60). |
 | `fixMaxFiles` | How many files a bug fix may touch before cairn suggests a full plan (default 8). |
 | `reproTimeoutMinutes` | How long a bug repro may run (default 10). |

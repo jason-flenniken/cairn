@@ -1,6 +1,6 @@
 ---
 name: fix
-description: "Fix one bug on a fix-track plan: failing repro, the fix, a review only if risky, short record."
+description: "Fix one bug on a fix-track plan: failing repro, the fix, a review, short record."
 disable-model-invocation: true
 allowed-tools:
   - "Bash(cairn next:*)"
