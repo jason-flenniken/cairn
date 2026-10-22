@@ -8,7 +8,7 @@ import type { Config, State } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import { childEnv, gate, mutate, planCtx, type Opts, type Result } from '../shared.ts';
 import { allTasks } from '../ready.ts';
-import { loadState, log } from '../state.ts';
+import { loadState, log, setStage } from '../state.ts';
 import { appendDecision } from './plans.ts';
 
 const DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
@@ -121,7 +121,7 @@ export function cmdEscalate(ctx: Ctx, opts: Opts): Result {
     const repro = s.repro ? `\`${s.repro.cmd}\` (failed with: ${s.repro.tail})` : 'none recorded';
     appendDecision(pc, 'Escalate the fix to a feature plan', `The bug "${s.title}" is bigger than a fix. Repro: ${repro}. The fix task and its work are kept; the plan must keep the task id "fix".`, typeof opts.note === 'string' ? opts.note : undefined);
     s.track = 'feature';
-    s.stage = 'prd';
+    setStage(s, 'prd');
     delete s.evidence.review;
     delete s.approvals.ship;
     log(s, 'escalated', 'fix → feature plan at prd');

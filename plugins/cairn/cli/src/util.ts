@@ -37,6 +37,11 @@ export function pluginRoot(): string {
   throw new CliError('cannot locate plugin root');
 }
 
+/** The plugin's version, from its plugin.json. */
+export function pluginVersion(): string {
+  return JSON.parse(readFileSync(join(pluginRoot(), '.claude-plugin', 'plugin.json'), 'utf8')).version;
+}
+
 /** Serialize read-modify-write of a plan's state across concurrent hooks and commands. */
 export function withLock<T>(dir: string, fn: () => T): T {
   const lock = join(dir, '.lock');

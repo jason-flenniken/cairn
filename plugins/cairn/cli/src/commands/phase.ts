@@ -1,7 +1,7 @@
 import { git, gitOk } from '../git.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
-import { loadState, log } from '../state.ts';
+import { loadState, log, setStage } from '../state.ts';
 import type { State, Suggestion } from '../types.ts';
 import { CliError, Refusal } from '../util.ts';
 import { gate, mutate, planCtx, runTests, testsGate, type Opts, type Result, type TestRun } from '../shared.ts';
@@ -53,7 +53,7 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
       following.status = 'in_progress';
       next = `next phase "${following.name}"`;
     } else {
-      s.stage = 'verify';
+      setStage(s, 'verify');
       log(s, 'advanced', 'verify');
       next = 'moved to Check';
     }

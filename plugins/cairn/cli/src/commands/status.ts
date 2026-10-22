@@ -3,8 +3,8 @@ import { basename, join } from 'node:path';
 import { commonDir, git, landedState } from '../git.ts';
 import { PLAN_PREFIXES, PLANS_DIR, parseBranch, planRef, planRelIn, planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { modActive } from '../proof.ts';
-import { nextFor, renderIndex, stepText, summary, type IndexRow } from '../render.ts';
-import { loadState, parseState, saveState } from '../state.ts';
+import { levelLabel, nextFor, renderIndex, stepText, summary, timingText, type IndexRow } from '../render.ts';
+import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.ts';
 import type { State } from '../types.ts';
 import { hashText, pluginRoot, readText, withLock, writeText } from '../util.ts';
 import { readyFor } from './stages.ts';
@@ -63,7 +63,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -71,8 +71,10 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   const next = nextFor(s);
   const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
   return {
-    message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`, ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
+    message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
+      ...(s.level ? [`Level: ${levelLabel(s)}`] : []),
+      ...(s.stageHistory ? [`Time per stage: ${timingText(stageTimes(s))}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
+    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing: stageTimes(s), prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) },
   };
 }
 
@@ -92,7 +94,7 @@ export function cmdNext(ctx: Ctx): Result {
   const n = nextFor(s);
   return {
     message: `${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
-    data: { plan: s.slug, stage: s.stage, substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
+    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
   };
 }
 

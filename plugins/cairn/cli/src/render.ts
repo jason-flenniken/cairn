@@ -1,5 +1,5 @@
-import { STAGES, STAGE_LABEL, STEP_LABEL } from './types.ts';
-import type { Approval, Phase, Task, State } from './types.ts';
+import { LEVEL_LABEL, STAGES, STAGE_LABEL, STEP_LABEL } from './types.ts';
+import type { Approval, Phase, Stage, Task, State } from './types.ts';
 
 const day = (iso?: string) => (iso ? iso.slice(0, 10) : '');
 
@@ -62,6 +62,16 @@ export function stepText(s: State): string | undefined {
   const label = STEP_LABEL[st.name] ?? st.name;
   if (st.name === 'fixing' && st.count !== undefined) return `${label} ${st.count} finding${st.count === 1 ? '' : 's'}`;
   return label;
+}
+
+/** The level in words for display; empty for a plan that never chose one (old plans, the fix track). */
+export const levelLabel = (s: State): string => (s.level && LEVEL_LABEL[s.level]) || '';
+
+/** Per-stage time as text: "Discover 4m · Plan 12m"; "n/a" for a plan with no history. */
+export function timingText(times: Partial<Record<Stage, number>> | null): string {
+  if (!times) return 'n/a';
+  const fmt = (ms: number) => (ms < 60_000 ? '<1m' : ms < 3_600_000 ? `${Math.round(ms / 60_000)}m` : `${Math.floor(ms / 3_600_000)}h ${Math.round((ms % 3_600_000) / 60_000)}m`);
+  return STAGES.filter((st) => times[st] !== undefined).map((st) => `${STAGE_LABEL[st]} ${fmt(times[st]!)}`).join(' · ') || 'n/a';
 }
 
 export function progress(s: State, prOpen = false): string {

@@ -34,6 +34,9 @@ export interface Step {
   at: string;
 }
 export type Track = 'feature' | 'fix';
+export const LEVELS = ['mvp', 'standard', 'polished'] as const;
+export type Level = (typeof LEVELS)[number];
+export const LEVEL_LABEL: Record<Level, string> = { mvp: 'MVP', standard: 'Standard', polished: 'Polished' };
 export type Complexity = 'simple' | 'standard' | 'complex';
 export type TaskStatus = 'pending' | 'in_progress' | 'done';
 export const SUBSTEPS = ['implementing', 'reviewing', 'fixing', 'merging', 'blocked'] as const;
@@ -72,6 +75,8 @@ export interface Task {
   doneAt?: string;
   /** ISO time the task first started; kept on resume. */
   startedAt?: string;
+  /** The plan's level when the task first started. */
+  level?: Level;
   /** Risky tasks (auth, money, deletes data, migrations, public API) get TDD and a reviewer. */
   risky?: boolean;
   riskReason?: string;
@@ -133,11 +138,17 @@ export interface State {
   slug: string;
   title: string;
   track: Track;
+  /** Feature plans only. Read through `levelOf`; absent reads as Standard. */
+  level?: Level;
+  /** The cairn version that created the plan. */
+  cairnVersion?: string;
   branch: string;
   base: string;
   created: string;
   updated: string;
   stage: Stage;
+  /** Every stage entry, oldest first. Plans made before this field have none. */
+  stageHistory?: { stage: Stage; at: string }[];
   paused: { at: string; mode: 'drain' | 'now'; handoffHash?: string } | null;
   approvals: { prd?: Approval; plan?: Approval; ship?: Approval };
   planHash?: string;
@@ -166,4 +177,6 @@ export interface Config {
   resumeFreshAfterMinutes?: number;
   fixMaxFiles?: number;
   reproTimeoutMinutes?: number;
+  /** The level `/cairn:new` pre-selects: mvp, standard or polished. Standard when unset. */
+  defaultLevel?: string;
 }

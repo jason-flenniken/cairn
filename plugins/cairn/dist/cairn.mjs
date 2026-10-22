@@ -7403,6 +7403,9 @@ function pluginRoot() {
   }
   throw new CliError("cannot locate plugin root");
 }
+function pluginVersion() {
+  return JSON.parse(readFileSync(join(pluginRoot(), ".claude-plugin", "plugin.json"), "utf8")).version;
+}
 function withLock(dir, fn) {
   const lock = join(dir, ".lock");
   const deadline = Date.now() + 1e4;
@@ -7785,6 +7788,8 @@ var STEP_LABEL = {
   approving: "waiting on approval",
   "opening-pr": "opening the PR"
 };
+var LEVELS = ["mvp", "standard", "polished"];
+var LEVEL_LABEL = { mvp: "MVP", standard: "Standard", polished: "Polished" };
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 var SUGGESTION_AREAS = ["tests", "security", "perf", "quality", "ux", "docs"];
 var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user"];
@@ -7831,6 +7836,12 @@ function stepText(s) {
   const label = STEP_LABEL[st.name] ?? st.name;
   if (st.name === "fixing" && st.count !== void 0) return `${label} ${st.count} finding${st.count === 1 ? "" : "s"}`;
   return label;
+}
+var levelLabel = (s) => s.level && LEVEL_LABEL[s.level] || "";
+function timingText(times) {
+  if (!times) return "n/a";
+  const fmt = (ms) => ms < 6e4 ? "<1m" : ms < 36e5 ? `${Math.round(ms / 6e4)}m` : `${Math.floor(ms / 36e5)}h ${Math.round(ms % 36e5 / 6e4)}m`;
+  return STAGES.filter((st) => times[st] !== void 0).map((st) => `${STAGE_LABEL[st]} ${fmt(times[st])}`).join(" \xB7 ") || "n/a";
 }
 function progress(s, prOpen = false) {
   const stage = `${STAGE_LABEL[s.stage]}${prOpen ? " \xB7 PR open" : ""}`;
@@ -7944,7 +7955,35 @@ function saveState(dir, s) {
 function log(s, event, detail, override) {
   s.log.push({ at: now(), event, ...detail ? { detail } : {}, ...override ? { override } : {} });
 }
-function newState(slug, title, track, branch, base) {
+var levelOf = (s) => s.level && LEVELS.includes(s.level) ? s.level : "standard";
+function setStage(s, stage) {
+  s.stage = stage;
+  (s.stageHistory ??= []).push({ stage, at: now() });
+}
+function stageTimes(s, nowMs = Date.now()) {
+  const h = s.stageHistory;
+  if (!h?.length) return null;
+  const pauses = [];
+  let from;
+  for (const l of s.log) {
+    if (l.event === "paused") from = Date.parse(l.at);
+    else if (l.event === "resumed" && from !== void 0) {
+      pauses.push([from, Date.parse(l.at)]);
+      from = void 0;
+    }
+  }
+  if (from !== void 0) pauses.push([from, Infinity]);
+  const out = {};
+  h.forEach((e, i) => {
+    if (e.stage === "closed") return;
+    const a = Date.parse(e.at);
+    const b = i + 1 < h.length ? Date.parse(h[i + 1].at) : nowMs;
+    const paused = pauses.reduce((sum, [p, q]) => sum + Math.max(0, Math.min(b, q) - Math.max(a, p)), 0);
+    out[e.stage] = (out[e.stage] ?? 0) + Math.max(0, b - a - paused);
+  });
+  return out;
+}
+function newState(slug, title, track, branch, base, stage = "discover") {
   const t = now();
   return {
     schema: 1,
@@ -7955,7 +7994,8 @@ function newState(slug, title, track, branch, base) {
     base,
     created: t,
     updated: t,
-    stage: "discover",
+    stage,
+    stageHistory: [{ stage, at: t }],
     paused: null,
     approvals: {},
     phases: [],
@@ -8086,6 +8126,9 @@ function cmdNew(ctx, slug, opts) {
   const base = typeof opts.from === "string" ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === "string" ? opts.title : slug;
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
+  if (typeof opts.level === "string" && !LEVELS.includes(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(", ")}`);
+  const badDefault = cfg.defaultLevel !== void 0 && !LEVELS.includes(cfg.defaultLevel);
+  const level = typeof opts.level === "string" ? opts.level : badDefault || !cfg.defaultLevel ? "standard" : cfg.defaultLevel;
   let wt;
   if (opts["no-worktree"]) {
     git(["switch", "-q", "-c", branch, base], ctx.top);
@@ -8102,18 +8145,23 @@ function cmdNew(ctx, slug, opts) {
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
-  const state = newState(slug, title, track, branch, base);
-  if (track === "fix") state.stage = "repro";
+  const state = newState(slug, title, track, branch, base, track === "fix" ? "repro" : "discover");
+  state.cairnVersion = pluginVersion();
+  if (track === "feature") {
+    state.level = level;
+    log(state, "level", level);
+  }
   saveState(dir, state);
   if (cfg.autoCommit) commitPath(wt, rel, `cairn(${slug}): start plan "${title}"`);
   const setup = opts["no-worktree"] ? "" : runSetup(cfg, wt, ctx.mainRoot);
   return {
     message: [
       `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
+      ...badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(", ")}; using standard.`] : [],
       `Worktree: ${wt}`,
       `The plan is ready. Continue with /cairn:next from where you are.`
     ].join("\n"),
-    data: { slug, branch, base, worktree: wt, dir }
+    data: { slug, branch, base, worktree: wt, dir, level: track === "feature" ? level : null }
   };
 }
 function cmdProductInit(ctx) {
@@ -8305,7 +8353,7 @@ function cmdEscalate(ctx, opts) {
     const repro = s.repro ? `\`${s.repro.cmd}\` (failed with: ${s.repro.tail})` : "none recorded";
     appendDecision(pc, "Escalate the fix to a feature plan", `The bug "${s.title}" is bigger than a fix. Repro: ${repro}. The fix task and its work are kept; the plan must keep the task id "fix".`, typeof opts.note === "string" ? opts.note : void 0);
     s.track = "feature";
-    s.stage = "prd";
+    setStage(s, "prd");
     delete s.evidence.review;
     delete s.approvals.ship;
     log(s, "escalated", "fix \u2192 feature plan at prd");
@@ -8362,7 +8410,7 @@ function cmdStatus(ctx, opts) {
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     const openSuggestions = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
+${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -8370,8 +8418,15 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.s
   const next = nextFor(s);
   const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
   return {
-    message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`, ...w.map((x) => `! ${x}`), ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []].join("\n"),
-    data: { state: s, next, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
+    message: [
+      summary(s, prOpen),
+      `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
+      ...s.level ? [`Level: ${levelLabel(s)}`] : [],
+      ...s.stageHistory ? [`Time per stage: ${timingText(stageTimes(s))}`] : [],
+      ...w.map((x) => `! ${x}`),
+      ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []
+    ].join("\n"),
+    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing: stageTimes(s), prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx) }
   };
 }
 var procedurePath = (name) => join9(pluginRoot(), "procedures", `${name}.md`);
@@ -8393,7 +8448,7 @@ Ask the user which plan to resume (/cairn:resume <slug>) or whether to start a n
     message: `${summary(s)}
 Next: ${n.text}
 Follow: ${procedurePath(n.procedure)}`,
-    data: { plan: s.slug, stage: s.stage, substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
+    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
   };
 }
 function cmdRender(ctx) {
@@ -8708,7 +8763,7 @@ function cmdAdvance(ctx, opts) {
         if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
-    s.stage = to;
+    setStage(s, to);
     if (to === "execute") {
       const p = currentPhase(s);
       if (p && p.status === "pending") p.status = "in_progress";
@@ -8728,7 +8783,7 @@ function cmdClose(ctx, opts) {
   return mutate(pc, "closed", (s) => {
     gate(s.stage === "learn", s, "close", opts, `the plan is in ${s.stage}, not learn`);
     closeGates(pc, s, opts, record, tests);
-    s.stage = "closed";
+    setStage(s, "closed");
     log(s, "closed");
     return { message: `Closed "${s.title}". The record is ${join11(pc.plan.dir, "RECORD.md")}.` };
   });
@@ -8877,7 +8932,7 @@ function cmdPlanLoad(ctx, opts) {
     s.phases = phases;
     s.planHash = hashText(planMd);
     if (replanning) {
-      s.stage = "plan";
+      setStage(s, "plan");
       delete s.approvals.plan;
       delete s.evidence.verify;
       delete s.evidence.review;
@@ -8940,7 +8995,7 @@ function taskStart(pc, id, opts) {
     if (sl.status === "done" && fastLane(s) && s.stage === "review") {
       sl.status = "pending";
       s.phases.find((p) => p.tasks.includes(sl)).status = "in_progress";
-      s.stage = "execute";
+      setStage(s, "execute");
       delete s.evidence.review;
       log(s, "fix reopened", "from review");
     }
@@ -8957,7 +9012,7 @@ function taskStart(pc, id, opts) {
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
     }
-    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now() });
+    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level });
     const phase = s.phases.find((p) => p.tasks.includes(sl));
     if (phase.status === "pending") phase.status = "in_progress";
     log(s, "task started", sl.name);
@@ -9098,7 +9153,7 @@ function cmdPhase(ctx, action, opts) {
       following.status = "in_progress";
       next = `next phase "${following.name}"`;
     } else {
-      s.stage = "verify";
+      setStage(s, "verify");
       log(s, "advanced", "verify");
       next = "moved to Check";
     }

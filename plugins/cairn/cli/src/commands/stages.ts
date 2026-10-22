@@ -4,7 +4,7 @@ import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
 import { FIX_RECORD_SECTIONS, FIX_RECORD_WORD_BUDGET, PRD_SECTIONS, proseWordCount, sections, uncheckedItems } from '../sections.ts';
-import { loadState, log } from '../state.ts';
+import { loadState, log, setStage } from '../state.ts';
 import { STAGES, type Stage, type State, type Track } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
@@ -201,7 +201,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
-    s.stage = to;
+    setStage(s, to);
     if (to === 'execute') {
       const p = currentPhase(s);
       if (p && p.status === 'pending') p.status = 'in_progress';
@@ -222,7 +222,7 @@ export function cmdClose(ctx: Ctx, opts: Opts): Result {
   return mutate(pc, 'closed', (s) => {
     gate(s.stage === 'learn', s, 'close', opts, `the plan is in ${s.stage}, not learn`);
     closeGates(pc, s, opts, record, tests);
-    s.stage = 'closed';
+    setStage(s, 'closed');
     log(s, 'closed');
     return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };
   });

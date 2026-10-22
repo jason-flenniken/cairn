@@ -6,7 +6,7 @@ import { matchesAny } from '../glob.ts';
 import { planRelOf, taskBranch, type Ctx } from '../locate.ts';
 import { phaseStatus } from '../plan-parse.ts';
 import { findTask, readySet } from '../ready.ts';
-import { loadState, log } from '../state.ts';
+import { loadState, log, setStage } from '../state.ts';
 import { SUBSTEPS, type Substep } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
 import { ensureExcluded, gate, mutate, planCtx, runSetup, runTests, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
@@ -63,7 +63,7 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
       // A review finding reopens the fix: back to execute, keeping the repro and the task base.
       sl.status = 'pending';
       s.phases.find((p) => p.tasks.includes(sl))!.status = 'in_progress';
-      s.stage = 'execute';
+      setStage(s, 'execute');
       delete s.evidence.review;
       log(s, 'fix reopened', 'from review');
     }
@@ -80,7 +80,7 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
       else git(['worktree', 'add', '-q', '-b', branch, path, pb], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
     }
-    Object.assign(sl, { status: 'in_progress', substep: 'implementing', fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now() });
+    Object.assign(sl, { status: 'in_progress', substep: 'implementing', fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level });
     const phase = s.phases.find((p) => p.tasks.includes(sl))!;
     if (phase.status === 'pending') phase.status = 'in_progress';
     log(s, 'task started', sl.name);
