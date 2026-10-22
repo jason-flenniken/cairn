@@ -77,14 +77,6 @@ export function openSuggestionCount(ctx: Ctx): number {
   }
 }
 
-export function openHardeningCount(ctx: Ctx): number {
-  try {
-    return collectSuggestions(ctx).filter((x) => x.open && x.hardening).length;
-  } catch {
-    return 0;
-  }
-}
-
 const USAGE =
   'usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] [--kind hardening] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...';
 
@@ -120,7 +112,7 @@ function suggestList(ctx: Ctx, opts: Opts): Result {
   const lines: string[] = [];
   for (const area of SUGGESTION_AREAS)
     for (const x of rows.filter((r) => r.area === area))
-      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` — ${x.where.join(', ')}` : ''}${x.open ? '' : ` [${x.status}]`}`);
+      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` — ${x.where.join(', ')}` : ''}${x.hardening ? ' [hardening]' : ''}${x.open ? '' : ` [${x.status}]`}`);
   return {
     message: lines.length ? lines.join('\n') : opts.open ? 'No open suggestions.' : 'No suggestions.',
     data: { suggestions: rows, open: rows.filter((x) => x.open).length },
@@ -167,10 +159,12 @@ function suggestMerge(ctx: Ctx, keys: string[], opts: Opts): Result {
   const text = typeof opts.text === 'string' ? opts.text.trim() : '';
   if (!text) throw new CliError('--text or --text-file is required');
   const targets = openTargets(ctx, [...new Set(keys)]);
+  const hardening = targets.filter((t) => t.hardening).length;
+  if (hardening && hardening < targets.length) throw new Refusal('merge hardening items only with each other', ['merge the ordinary follow-ups in one call and the hardening items in another']);
   const where = list(opts.where).length ? list(opts.where) : [...new Set(targets.flatMap((t) => t.where))];
   const pc = planCtx(ctx);
   return mutate(pc, undefined, (s) => {
-    const { id } = pushSuggestion(s, { area: area as Suggestion['area'], text, where, from: 'plan', merges: targets.map((t) => t.key) });
+    const { id } = pushSuggestion(s, { area: area as Suggestion['area'], text, where, from: 'plan', ...(hardening ? { kind: 'hardening' as const } : {}), merges: targets.map((t) => t.key) });
     return { message: `Merged ${targets.length} into ${s.slug}:${id}.`, data: { id, key: `${s.slug}:${id}` } };
   });
 }

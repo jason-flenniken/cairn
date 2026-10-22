@@ -70,7 +70,10 @@ export const levelLabel = (s: State): string => (s.level && LEVEL_LABEL[s.level]
 /** Per-stage time as text: "Discover 4m · Plan 12m"; "n/a" for a plan with no history. */
 export function timingText(times: Partial<Record<Stage, number>> | null): string {
   if (!times) return 'n/a';
-  const fmt = (ms: number) => (ms < 60_000 ? '<1m' : ms < 3_600_000 ? `${Math.round(ms / 60_000)}m` : `${Math.floor(ms / 3_600_000)}h ${Math.round((ms % 3_600_000) / 60_000)}m`);
+  const fmt = (ms: number) => {
+    const m = Math.round(ms / 60_000);
+    return ms < 60_000 ? '<1m' : m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+  };
   return STAGES.filter((st) => times[st] !== undefined).map((st) => `${STAGE_LABEL[st]} ${fmt(times[st]!)}`).join(' · ') || 'n/a';
 }
 

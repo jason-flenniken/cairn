@@ -42,6 +42,7 @@ function isDenied(cmd: string): boolean {
   return list.some((command, at) =>
     readsDeniedInput(list, at) ||
     approves(command) ||
+    changesLevel(command) ||
     setsApprover(command) ||
     writes(command, isStateFile) ||
     runsCodeNamingStateFile(command) ||
@@ -258,6 +259,14 @@ function approves(command: Command): boolean {
     return (name === 'eval' || flag >= 0) && script !== undefined && isDenied(script)
   }
   return false
+}
+
+/** `level` as an argument of cairn (parity with `approves`): level changes come from the user too. */
+function changesLevel(command: Command): boolean {
+  const from = cairnArgsAt(command)
+  if (from < 0) return false
+  const prose = proseWords(command)
+  return command.words.some((word, at) => at >= from && word === 'level' && !prose.has(at))
 }
 
 /** `CAIRN_APPROVER=…` anywhere a shell reads an assignment, or `export`/`read` and kin naming it. */

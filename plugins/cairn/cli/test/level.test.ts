@@ -2,10 +2,12 @@ import './no-auto-gc.ts';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
+import { cmdLevel } from '../src/commands/level.ts';
+import { context } from '../src/locate.ts';
 import { run } from '../src/main.ts';
 import { Refusal } from '../src/util.ts';
 import { pd } from './plandir.ts';
@@ -160,13 +162,55 @@ test("AE3: raising MVP to Standard after two tasks finished files two hardening 
     task('a', 'done', { startedAt: 'x', level: 'mvp' }),
     task('b', 'done', { startedAt: 'x', level: 'mvp' }),
     task('c', 'done', { startedAt: 'x', level: 'standard' }),
-    task('d', 'in_progress', { startedAt: 'x', level: 'mvp' }),
+    task('d', 'pending', { level: 'mvp' }),
   ]);
   lvl(wt, 'standard');
   const items = stateOf(wt).suggestions as { kind: string; from: string; where: string[] }[];
   assert.equal(items.length, 2);
   assert.ok(items.every((x) => x.kind === 'hardening' && x.from === 'mvp'));
   assert.deepEqual(items.map((x) => x.where), [['src/a/**'], ['src/b/**']]);
+});
+
+test('raising files a hardening item for a task still in progress, not only finished ones', () => {
+  const wt = mkPlan('mvp');
+  withTasks(wt, [task('a', 'done', { startedAt: 'x', level: 'mvp' }), task('d', 'in_progress', { startedAt: 'x', level: 'mvp' })]);
+  lvl(wt, 'standard');
+  const items = stateOf(wt).suggestions as { where: string[] }[];
+  assert.deepEqual(items.map((x) => x.where), [['src/a/**'], ['src/d/**']]);
+});
+
+test('two successive raises file one item per task, and restamp the task level', () => {
+  const wt = mkPlan('mvp');
+  withTasks(wt, [task('a', 'done', { startedAt: 'x', level: 'mvp' }), task('d', 'in_progress', { startedAt: 'x', level: 'mvp' })]);
+  lvl(wt, 'standard');
+  lvl(wt, 'polished');
+  const s = stateOf(wt);
+  assert.equal(s.suggestions.length, 2);
+  assert.deepEqual(s.phases[0].tasks.map((t: { level: string }) => t.level), ['polished', 'polished']);
+});
+
+test('--human proof is taken before the plan lock is held', () => {
+  const wt = mkPlan('mvp');
+  let lockedDuringProof: boolean | undefined;
+  const io = {
+    isTTY: () => true,
+    readLine: () => {
+      lockedDuringProof = existsSync(join(pd(wt, 'lv'), '.lock'));
+      return 'lv';
+    },
+  };
+  cmdLevel(context(wt), 'standard', { human: true }, io);
+  assert.equal(lockedDuringProof, false);
+  assert.equal(stateOf(wt).level, 'standard');
+});
+
+test('a refusal comes before the proof is asked for', () => {
+  const wt = mkPlan('polished');
+  withTasks(wt, [task('a', 'in_progress', { startedAt: 'x', level: 'polished' })]);
+  let asked = false;
+  const io = { isTTY: () => true, readLine: () => ((asked = true), 'lv') };
+  assert.throws(() => cmdLevel(context(wt), 'mvp', { human: true }, io), (e: unknown) => e instanceof Refusal);
+  assert.equal(asked, false);
 });
 
 test('level refuses on a paused plan, a fix plan, and at ship', () => {

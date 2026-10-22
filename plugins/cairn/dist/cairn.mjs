@@ -7863,7 +7863,7 @@ var isLevel = (v) => LEVELS.includes(v);
 var LEVEL_LABEL = { mvp: "MVP", standard: "Standard", polished: "Polished" };
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 var SUGGESTION_AREAS = ["tests", "security", "perf", "quality", "ux", "docs"];
-var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user", "mvp"];
+var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user", "mvp", "security-review"];
 
 // plugins/cairn/cli/src/render.ts
 var day = (iso) => iso ? iso.slice(0, 10) : "";
@@ -7911,7 +7911,10 @@ function stepText(s) {
 var levelLabel = (s) => s.level && LEVEL_LABEL[s.level] || "";
 function timingText(times) {
   if (!times) return "n/a";
-  const fmt = (ms) => ms < 6e4 ? "<1m" : ms < 36e5 ? `${Math.round(ms / 6e4)}m` : `${Math.floor(ms / 36e5)}h ${Math.round(ms % 36e5 / 6e4)}m`;
+  const fmt = (ms) => {
+    const m = Math.round(ms / 6e4);
+    return ms < 6e4 ? "<1m" : m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+  };
   return STAGES.filter((st) => times[st] !== void 0).map((st) => `${STAGE_LABEL[st]} ${fmt(times[st])}`).join(" \xB7 ") || "n/a";
 }
 function progress(s, prOpen = false) {
@@ -8596,7 +8599,7 @@ function suggestList(ctx, opts) {
   const lines = [];
   for (const area of SUGGESTION_AREAS)
     for (const x of rows.filter((r) => r.area === area))
-      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` \u2014 ${x.where.join(", ")}` : ""}${x.open ? "" : ` [${x.status}]`}`);
+      lines.push(`- [${area}] ${x.text} (${x.key}, noted ${x.at.slice(0, 10)})${x.where.length ? ` \u2014 ${x.where.join(", ")}` : ""}${x.hardening ? " [hardening]" : ""}${x.open ? "" : ` [${x.status}]`}`);
   return {
     message: lines.length ? lines.join("\n") : opts.open ? "No open suggestions." : "No suggestions.",
     data: { suggestions: rows, open: rows.filter((x) => x.open).length }
@@ -8638,10 +8641,12 @@ function suggestMerge(ctx, keys, opts) {
   const text = typeof opts.text === "string" ? opts.text.trim() : "";
   if (!text) throw new CliError("--text or --text-file is required");
   const targets = openTargets(ctx, [...new Set(keys)]);
+  const hardening = targets.filter((t) => t.hardening).length;
+  if (hardening && hardening < targets.length) throw new Refusal("merge hardening items only with each other", ["merge the ordinary follow-ups in one call and the hardening items in another"]);
   const where = list(opts.where).length ? list(opts.where) : [...new Set(targets.flatMap((t) => t.where))];
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
-    const { id } = pushSuggestion(s, { area, text, where, from: "plan", merges: targets.map((t) => t.key) });
+    const { id } = pushSuggestion(s, { area, text, where, from: "plan", ...hardening ? { kind: "hardening" } : {}, merges: targets.map((t) => t.key) });
     return { message: `Merged ${targets.length} into ${s.slug}:${id}.`, data: { id, key: `${s.slug}:${id}` } };
   });
 }
@@ -8852,17 +8857,12 @@ function cmdLevel(ctx, value, opts, io) {
   if (!isLevel(value)) throw new Refusal(`"${value}" is not a level: use ${LEVELS.join(", ")}`);
   const to = value;
   const pc = planCtx(ctx);
+  const first = levelCheck(loadState(pc.plan.dir), to);
+  if (first.same) return { message: first.message };
+  requireHumanProof(to, opts, io, "level");
   return mutate(pc, "level changed", (s) => {
-    const from = levelOf(s);
-    if (s.track === "fix") throw new Refusal("a fix plan has no level", ["levels apply to feature plans"]);
-    if (s.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
-    if (s.stage === "ship" || s.stage === "learn" || s.stage === "closed") throw new Refusal(`the level can't change once the plan is at ${s.stage}`);
-    if (from === to) return { message: `The plan is already at ${LEVEL_LABEL[to]}.` };
-    const tasks = allTasks(s);
-    const started = tasks.some((t) => t.startedAt);
-    const lowering = LEVELS.indexOf(to) < LEVELS.indexOf(from);
-    if (lowering && started) throw new Refusal("lowering the level is only allowed before any task starts", [`keep ${LEVEL_LABEL[from]}, or raise it`]);
-    requireHumanProof(to, opts, io, "level");
+    const { from, tasks, started, lowering, same, message } = levelCheck(s, to);
+    if (same) return { message };
     s.level = to;
     log(s, "level changed", `${from} -> ${to}`);
     if (lowering) return { message: `Level lowered to ${LEVEL_LABEL[to]}.`, data: { level: to } };
@@ -8875,11 +8875,34 @@ function cmdLevel(ctx, value, opts, io) {
       if (s.stage === "review") setStage(s, "verify");
     }
     delete s.evidence.review;
-    const behind = tasks.filter((t) => t.status === "done" && LEVELS.indexOf(levelOf(t)) < LEVELS.indexOf(to));
-    for (const t of behind)
-      addHardening(s, { area: "tests", text: `Task "${t.id}" was built at ${LEVEL_LABEL[levelOf(t)]}: bring it up to ${LEVEL_LABEL[to]} (the reviews and tests that level adds)`, where: t.scope });
-    return { message: `Level raised to ${LEVEL_LABEL[to]}.${behind.length ? ` ${behind.length} finished task(s) got a hardening item.` : ""}`, data: { level: to, hardening: behind.length } };
+    const behind = tasks.filter((t) => t.startedAt && LEVELS.indexOf(levelOf(t)) < LEVELS.indexOf(to));
+    const taken = new Set((s.suggestions ?? []).flatMap((x) => [x.resolves, ...x.merges ?? []]).filter((k) => !!k));
+    let filed = 0;
+    for (const t of behind) {
+      const prefix = `Task "${t.id}" was built at `;
+      const open = (s.suggestions ?? []).find((x) => x.kind === "hardening" && x.text.startsWith(prefix) && !taken.has(`${s.slug}:${x.id}`));
+      const text = `${prefix}${LEVEL_LABEL[levelOf(t)]}: bring it up to ${LEVEL_LABEL[to]} (the reviews and tests that level adds)`;
+      if (open) open.text = text;
+      else {
+        addHardening(s, { area: "tests", text, where: t.scope });
+        filed++;
+      }
+      t.level = to;
+    }
+    return { message: `Level raised to ${LEVEL_LABEL[to]}.${filed ? ` ${filed} started task(s) got a hardening item.` : ""}`, data: { level: to, hardening: filed } };
   });
+}
+function levelCheck(s, to) {
+  const from = levelOf(s);
+  if (s.track === "fix") throw new Refusal("a fix plan has no level", ["levels apply to feature plans"]);
+  if (s.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
+  if (s.stage === "ship" || s.stage === "learn" || s.stage === "closed") throw new Refusal(`the level can't change once the plan is at ${s.stage}`);
+  const tasks = allTasks(s);
+  const started = tasks.some((t) => t.startedAt);
+  const lowering = LEVELS.indexOf(to) < LEVELS.indexOf(from);
+  const same = from === to;
+  if (!same && lowering && started) throw new Refusal("lowering the level is only allowed before any task starts", [`keep ${LEVEL_LABEL[from]}, or raise it`]);
+  return { from, tasks, started, lowering, same, message: `The plan is already at ${LEVEL_LABEL[to]}.` };
 }
 
 // plugins/cairn/cli/src/plan-parse.ts

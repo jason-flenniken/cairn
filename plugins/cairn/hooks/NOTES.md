@@ -49,7 +49,7 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 
   Inside single or double quotes any character is allowed, because the mod runs the words as argv through `$.process.run`, never a shell.
 
-  That includes `cd <wt> && cairn …`. A command that includes `approve` is never run this way.
+  That includes `cd <wt> && cairn …`. A command that names `approve` or `level` outside prose (`--note`/`--why`/`--override` values, text after `decide`) is never run this way: approvals and level changes never ride an Override. The Bash guard denies the model running `cairn level` as it does `cairn approve`; the CLI's proof stays the real control.
 - A hook can't mark a Bash result as an error. Core ignores `isError` on a hook's Bash result, and a string result fails Bash's output schema (checked in a `-p` probe). So a failed override's stdout starts with `Exit code N`, the way the Bash tool's own does, and its context line names the exit code. The probe also showed that a hook's `{ stdout, stderr, interrupted }` result and its `context` reach the model.
 
 ## Mod commands, pause, and Stop now

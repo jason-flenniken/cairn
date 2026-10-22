@@ -209,6 +209,24 @@ function hasOverride(argv: string[]): boolean {
 }
 
 /**
+ * True when the argv names `approve` or `level` outside prose. Prose is `--note`/`--why`/`--override`
+ * values and everything after `decide`, so a reason that says "level" or "approve" doesn't trip it.
+ */
+function namesUserOnlyCommand(argv: string[]): boolean {
+  let isDeciding = false
+  for (let at = 1; at < argv.length; at++) {
+    const word = argv[at] as string
+    if (isDeciding || /^--(note|why|override)=/.test(word)) continue
+    if (/^--(note|why|override)$/.test(word)) at++
+    else if (word === 'approve' || word === 'level') return true
+    else if (word === 'decide') isDeciding = true
+  }
+  return false
+}
+
+const USER_ONLY = 'approvals and level changes come from the user, so they never run on an override'
+
+/**
  * Runs a plain `cairn … --override` for the plan the user's Override named, spending it: the plan whose
  * worktree the session is in, or the one plan holding an override. `{}` when none is pending;
  * `{ why }` when the override can't be used.
@@ -241,9 +259,11 @@ export function install(on: On): void {
     }
     const argv = plainArgv(command)
     if (argv !== undefined && argv[0] !== 'cairn') return next(e)
-    // `approve` never rides an override: approvals come from the menu (the Bash guard denies it too).
-    const isPlain = argv !== undefined && !argv.includes('approve') && hasOverride(argv)
-    const out = isPlain ? await runOverride($, argv) : { why: NOT_PLAIN }
+    // Neither `approve` nor `level` ever rides an override: approvals and level changes come from the
+    // user (the menu, or /cairn-level). The Bash guard denies both too. Only words outside prose count.
+    const isUserOnly = argv !== undefined && namesUserOnlyCommand(argv)
+    const isPlain = argv !== undefined && !isUserOnly && hasOverride(argv)
+    const out = isPlain ? await runOverride($, argv) : { why: isUserOnly ? USER_ONLY : NOT_PLAIN }
     if (out.ran !== undefined) {
       // Core keeps no is_error from a hook's Bash result, so a failure reads as the Bash tool's does.
       const proof = 'cairn ran this --override itself, with your Override answer as proof'

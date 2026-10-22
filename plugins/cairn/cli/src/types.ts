@@ -107,7 +107,7 @@ export interface DriftEntry {
 }
 
 export const SUGGESTION_AREAS = ['tests', 'security', 'perf', 'quality', 'ux', 'docs'] as const;
-export const SUGGESTION_SOURCES = ['task-review', 'branch-review', 'check', 'implementer', 'plan', 'user', 'mvp'] as const;
+export const SUGGESTION_SOURCES = ['task-review', 'branch-review', 'check', 'implementer', 'plan', 'user', 'mvp', 'security-review'] as const;
 
 /** A recommended piece of future quality work. A suggestion with `resolves` closes another one. */
 export interface Suggestion {

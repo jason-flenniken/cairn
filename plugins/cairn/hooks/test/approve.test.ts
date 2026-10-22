@@ -808,6 +808,26 @@ describe('mod-run overrides (FR-34)', () => {
     expect(got.deny).toMatch(/approvals and plan state come from the user/)
   })
 
+  test('a pending override does not run cairn level with the secret', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns } = world(on, [{ slug: 'lv', stage: 'review', worktree: '/wt/lv' }])
+    const ran = shell(on)
+    await grantOverride($, on, 'lv')
+    const got = await $.tool.call({ tool: 'Bash', command: 'cairn level mvp --override "x"' })
+    expect(cliRuns()).toEqual([])
+    expect(ran).toEqual([])
+    expect(got.deny).toMatch(/approvals and plan state come from the user/)
+  })
+
+  test('a note that says level or approve does not stop an override from running', async ($, on) => {
+    mock.clock(on)
+    const { cliRuns } = world(on, [{ slug: 'nt', stage: 'review', worktree: '/wt/nt' }])
+    shell(on)
+    await grantOverride($, on, 'nt')
+    await $.tool.call({ tool: 'Bash', command: 'cairn advance --override "r" --note "level of approve"' })
+    expect(cliRuns().map(r => r.argv.slice(1))).toEqual([['advance', '--override', 'r', '--note', 'level of approve']])
+  })
+
   test('a session inside another plan\'s worktree runs the command normally', async ($, on) => {
     mock.clock(on)
     const { cliRuns } = world(on, [

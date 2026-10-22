@@ -9,6 +9,8 @@ Run `cairn suggest list --open`. A follow-up is open until it is resolved, merge
 
 **Done when:** the user has seen the open suggestions.
 
+Items marked `[hardening]` are an MVP plan's hardening list. Don't merge them with ordinary follow-ups (cairn refuses), and dismiss one only when the user explicitly chooses to.
+
 ## 2. Choose
 Ask with AskUserQuestion, naming the suggestion (offer the first few when there are many): Start a fix for it (Recommended) / Add it to the current plan / Dismiss it / Nothing now.
 - **Start a fix:** follow `procedures/fix.md` for it, with the suggestion text as the bug or task. After the fix plan exists, run `cairn suggest resolve <slug>:<id> --note "fixed in <new plan slug>"` from the new plan.

@@ -119,3 +119,43 @@ test('advancing a Standard plan to ship files nothing', () => {
   run(['advance'], wt);
   assert.equal(rows(wt).length, 0);
 });
+
+test('suggest add accepts --from security-review', () => {
+  const repo = mkRepo();
+  const wt = newPlan(repo, 'secsrc', 'standard');
+  const r = run(['suggest', 'add', '--area', 'security', '--from', 'security-review', '--text', 'tighten the cookie flags'], wt);
+  assert.equal(r.data!.key, 'secsrc:s1');
+  assert.equal(rows(wt)[0].from, 'security-review');
+});
+
+test('merging hardening items keeps the kind and unions where; they stay out of the open cap', () => {
+  const repo = mkRepo();
+  const wt = newPlan(repo, 'hm');
+  run(['suggest', 'add', '--kind', 'hardening', '--area', 'tests', '--where', 'src/a/**', '--text', 'a untested'], wt);
+  run(['suggest', 'add', '--kind', 'hardening', '--area', 'tests', '--where', 'src/b/**', '--text', 'b untested'], wt);
+  const m = run(['suggest', 'merge', 'hm:s1', 'hm:s2', '--area', 'tests', '--text', 'a and b untested'], wt);
+  const merged = rows(wt).find((r) => r.key === m.data!.key)!;
+  assert.equal(merged.kind, 'hardening');
+  assert.deepEqual(merged.where, ['src/a/**', 'src/b/**']);
+});
+
+test('merging hardening items with an ordinary follow-up refuses', () => {
+  const repo = mkRepo();
+  const wt = newPlan(repo, 'hx');
+  run(['suggest', 'add', '--kind', 'hardening', '--area', 'tests', '--where', 'src/a/**', '--text', 'a untested'], wt);
+  run(['suggest', 'add', '--area', 'tests', '--text', 'ordinary'], wt);
+  assert.throws(
+    () => run(['suggest', 'merge', 'hx:s1', 'hx:s2', '--area', 'tests', '--text', 'mixed'], wt),
+    (e: unknown) => e instanceof Refusal && /merge hardening items only with each other/.test(e.message),
+  );
+});
+
+test('suggest list text marks hardening items', () => {
+  const repo = mkRepo();
+  const wt = newPlan(repo, 'hl');
+  run(['suggest', 'add', '--kind', 'hardening', '--area', 'tests', '--where', 'src/a/**', '--text', 'a untested'], wt);
+  run(['suggest', 'add', '--area', 'tests', '--text', 'ordinary'], wt);
+  const lines = run(['suggest', 'list'], wt).message.split('\n');
+  assert.match(lines.find((l) => l.includes('a untested'))!, /\[hardening\]/);
+  assert.doesNotMatch(lines.find((l) => l.includes('ordinary'))!, /\[hardening\]/);
+});

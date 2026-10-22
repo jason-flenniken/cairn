@@ -19,6 +19,7 @@ Run `cairn status --json`. The stage must be `ship`. Any other stage: say which 
 A plan closes with at most 5 open recommended follow-ups from itself. Run `cairn suggest list --open --json` and look at the ones whose key starts with `<slug>:`.
 - Group related ones into a high-level item (for example many missing-test notes become "add more detailed tests for the pane"): `cairn suggest merge <key> <key>... --area <a> --text "<high-level item>"`. The merged ones show as merged; the new item is the one left open.
 - Duplicates: merge them too. Trivia: `cairn suggest resolve <key> --dismiss --note "<reason>"`.
+- Hardening items (marked `[hardening]`) are not counted toward the 5 and are merged only with each other.
 - Keep a list of what was dropped (merged away or dismissed) for the record.
 Follow-ups declined twice, or older than 60 days, expire on their own and need nothing.
 

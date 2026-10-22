@@ -10,12 +10,12 @@ You stay at the repo root. The session is not locked to a worktree, so your suba
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
-- MVP: skip `task-reviewer`. The floor still applies: a task that touches a trust boundary gets the `security-reviewer` in step 5, and its Critical and Required findings go through step 6. Implementers run one tier below the task's complexity (the MVP table in `references/model-tiers.md`). Tests warn: a red suite at `cairn task done` is not a refusal; the CLI files the hardening item. File each task you merged unreviewed as a hardening item: `cairn suggest add --kind hardening --area quality --where <task scope> --text "task <name> merged without review"`. File Optional and Nit findings from the security reviewer the same way, with `--kind hardening --from security-review`.
+- MVP: skip `task-reviewer`. The floor still applies: a task that touches a trust boundary gets the `security-reviewer` in step 5, and its Critical and Required findings go through step 6. Implementers run one tier below the task's complexity (the MVP table in `references/model-tiers.md`). Tests warn: a red suite at `cairn task done` is not a refusal; the CLI files the hardening item. cairn files the unreviewed-task items itself when the plan reaches ship. File Optional and Nit findings from the security reviewer the same way, with `--kind hardening --from security-review`.
 - Standard: as written below.
 - Polished: test-first for every task. Tell each implementer to write the failing test before the code, and have the task-reviewer check that it did.
 
 ## Changing the level
-`references/levels.md` explains how a raise works. Only suggest one when the MVP shortcuts are visibly costing more than they save; the user decides. After a raise, run `cairn status --json`, read `hardeningItems`, and ask whether to work through them now.
+`references/levels.md` explains how a raise works. Only suggest one when the MVP shortcuts are visibly costing more than they save; the user decides. After a raise, run `cairn suggest list --open --json`, take the entries with `hardening: true` whose `where` overlaps this plan's tasks (or use `--for <path>`), and ask whether to work through them now.
 
 ## 1. Check
 Run `cd <plan worktree> && cairn status --json`. The stage must be `execute`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
