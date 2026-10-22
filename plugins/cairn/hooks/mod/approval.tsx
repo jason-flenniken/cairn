@@ -2,7 +2,7 @@
 // Read all and Approve, and the confirm every pane or /cairn-approve approval goes through (FR-05).
 import type { EngineInterface } from 'claude-code'
 import type { CairnReady } from '../../types/index.d.ts'
-import { approveAs, levelAs, LEVEL_OF_LABEL, type Kind, type Level } from './approve.ts'
+import { approveAs, LABEL_OF, levelAs, LEVEL_OF_LABEL, LEVELS, type Kind, type Level } from './approve.ts'
 import { act, viewPress } from './cards.tsx'
 import { openDoc } from './doc.tsx'
 import type { Ui } from './header.tsx'
@@ -24,9 +24,6 @@ export async function confirmAndApprove($: EngineInterface, slug: string, kind: 
   if (answer !== APPROVE) return 'cairn: not approved; nothing was recorded.'
   return approveAs($, slug, kind)
 }
-
-const LEVELS: readonly Level[] = ['mvp', 'standard', 'polished']
-const LABEL_OF: Record<Level, string> = { mvp: 'MVP', standard: 'Standard', polished: 'Polished' }
 
 /** The labels the CLI would accept as a target: not the level the plan is at, and none lower once a task has started. */
 export function levelChoices(current: Level, hasStarted: boolean): string[] {

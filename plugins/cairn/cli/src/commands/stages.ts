@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { commitPath } from '../git.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
-import { currentPhase } from '../ready.ts';
+import { allTasks, currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
 import { FIX_RECORD_SECTIONS, FIX_RECORD_WORD_BUDGET, PRD_SECTIONS, proseWordCount, sections, uncheckedItems } from '../sections.ts';
 import { levelOf, loadState, log, setStage } from '../state.ts';
@@ -203,7 +203,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
     }
     // An MVP task that was not flagged risky skipped its per-task review: say so, scoped to the task.
     if (to === 'ship' && levelOf(s) === 'mvp')
-      for (const t of s.phases.flatMap((p) => p.tasks))
+      for (const t of allTasks(s))
         if (t.status === 'done' && t.level === 'mvp' && !t.risky) addHardening(s, { area: 'quality', text: `Task "${t.name}" ran at MVP without a per-task review.`, where: t.scope });
     setStage(s, to);
     if (to === 'execute') {

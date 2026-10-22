@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { renderStatus } from './render.ts';
-import { LEVELS, type Level, type Phase, type Stage, type State } from './types.ts';
+import { isLevel, type Level, type Phase, type Stage, type State } from './types.ts';
 import { CliError, now, readText, writeText } from './util.ts';
 
 export const statePath = (dir: string) => join(dir, 'state.json');
@@ -38,7 +38,7 @@ export function log(s: State, event: string, detail?: string, override?: string)
 }
 
 /** The plan's level; plans and the fix track without one read as Standard. */
-export const levelOf = (s: Pick<State, 'level'>): Level => (s.level && LEVELS.includes(s.level) ? s.level : 'standard');
+export const levelOf = (s: Pick<State, 'level'>): Level => (isLevel(s.level) ? s.level : 'standard');
 
 /** Every stage change goes through here, so the stage history is complete. */
 export function setStage(s: State, stage: Stage): void {

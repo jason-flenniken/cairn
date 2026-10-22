@@ -5,6 +5,7 @@ import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartI
 import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
 import { LINGER_MS, readAgents, readFeed, readMain, readTick } from './activity.ts'
 import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel } from './approval.tsx'
+import { levelOrStandard } from './approve.ts'
 import { activeStep, Bar, cells, stageSteps, type BarLine } from './bar.tsx'
 import { act, agentCard, agentLines, mainCard, message, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
@@ -230,8 +231,8 @@ async function approveCommand($: EngineInterface, arg: string): Promise<string> 
 async function levelCommand($: EngineInterface): Promise<string> {
   const found = await plan($)
   if (typeof found === 'string') return 'cairn: this session is not in a plan, so the level was not changed.'
-  const state = found.state as CairnPlanState & { level?: string }
-  const current = state.level === 'mvp' || state.level === 'polished' ? state.level : 'standard'
+  const state = found.state as CairnPlanState
+  const current = levelOrStandard(state.level)
   const hasStarted = tasksOf(state).some(x => typeof x.startedAt === 'string')
   return confirmAndSetLevel($, state.slug, current, hasStarted)
 }

@@ -77,8 +77,10 @@ export function cmdTest(ctx: Ctx, opts: Opts): Result {
       testsGate(tests, s, 'check', opts);
       return { message: 'No test command configured: nothing was run.', data: { ran: false } };
     }
-    if (tests.ok || levelOf(s) === 'mvp') testsGate(tests, s, 'check', opts);
-    const note = !tests.ok && levelOf(s) === 'mvp' ? ' Recorded as a hardening item; the plan continues.' : '';
+    const mvp = levelOf(s) === 'mvp';
+    // A red run below MVP is reported, not gated, on purpose: only a green run or an MVP plan goes through testsGate here.
+    if (tests.ok || mvp) testsGate(tests, s, 'check', opts);
+    const note = !tests.ok && mvp ? ' Recorded as a hardening item; the plan continues.' : '';
     return { message: `Tests ${tests.ok ? 'green' : 'RED'} (\`${tests.cmd}\` → ${tests.tail}).${note}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail } };
   });
 }

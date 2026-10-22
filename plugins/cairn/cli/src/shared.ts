@@ -3,6 +3,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from './config.ts';
 import { commitPath, commonDir } from './git.ts';
+import { allTasks } from './ready.ts';
 import { planRelOf, requirePlan, type Ctx, type PlanRef } from './locate.ts';
 import { humanProof, type ProofIO } from './proof.ts';
 import { emptySections, missingSections, RECORD_SECTIONS, RECORD_WORD_BUDGET, wordCount } from './sections.ts';
@@ -126,15 +127,20 @@ export function runTests(cfg: Config, cwd: string): TestRun | undefined {
 
 /** A hardening item is a follow-up an MVP plan leaves behind; its `where` is never empty. */
 export function addHardening(s: State, item: Pick<Suggestion, 'area' | 'text' | 'where'> & { testCmd?: string }): Suggestion {
+  return pushSuggestion(s, { ...item, from: 'mvp', kind: 'hardening' });
+}
+
+/** Append a suggestion (or marker) to the plan: the next `s<n>` id and the current time are filled in. */
+export function pushSuggestion(s: State, partial: Omit<Suggestion, 'id' | 'at'>): Suggestion {
   const all = (s.suggestions ??= []);
-  const x: Suggestion = { id: `s${all.length + 1}`, ...item, from: 'mvp', at: now(), kind: 'hardening' };
+  const x: Suggestion = { id: `s${all.length + 1}`, ...partial, at: now() };
   all.push(x);
   return x;
 }
 
 /** The union of the plan's task scopes: where a whole-suite failure is said to be. */
 const planScope = (s: State): string[] => {
-  const all = [...new Set(s.phases.flatMap((p) => p.tasks.flatMap((t) => t.scope)))];
+  const all = [...new Set(allTasks(s).flatMap((t) => t.scope))];
   return all.length ? all : ['**'];
 };
 
@@ -156,8 +162,7 @@ export function testsGate(t: TestRun | undefined, s: State, event: string, opts:
   }
   const open = knownFailures(s).find((x) => x.testCmd === t.cmd);
   if (t.ok && open) {
-    const all = s.suggestions!;
-    all.push({ id: `s${all.length + 1}`, area: open.area, text: `Resolved ${s.slug}:${open.id}`, where: open.where, from: 'mvp', at: now(), resolves: `${s.slug}:${open.id}` });
+    pushSuggestion(s, { area: open.area, text: `Resolved ${s.slug}:${open.id}`, where: open.where, from: 'mvp', resolves: `${s.slug}:${open.id}` });
   }
   if (!t.ok && t.ran && levelOf(s) === 'mvp') {
     const text = `Tests failing: \`${t.cmd}\` → ${t.tail}`;

@@ -7,10 +7,16 @@ import { commonDir } from './heartbeat.ts'
 
 export type Kind = 'prd' | 'plan' | 'ship'
 export type Tag = { kind?: Kind; slug: string; question: string; override?: true; level?: true }
-export type Level = 'mvp' | 'standard' | 'polished'
+export const LEVELS = ['mvp', 'standard', 'polished'] as const
+export type Level = (typeof LEVELS)[number]
 
-/** The three level labels the agent's menu and /cairn-level show, and the literal the CLI takes for each. */
-export const LEVEL_OF_LABEL: Record<string, Level> = { MVP: 'mvp', Standard: 'standard', Polished: 'polished' }
+/** The three level labels the agent's menu and /cairn-level show, by the literal the CLI takes. */
+export const LABEL_OF: Record<Level, string> = { mvp: 'MVP', standard: 'Standard', polished: 'Polished' }
+/** The literal the CLI takes for each label. */
+export const LEVEL_OF_LABEL: Record<string, Level> = Object.fromEntries(LEVELS.map(l => [LABEL_OF[l], l]))
+
+/** A plan's stored level as one of the three, `standard` when absent or unrecognised. */
+export const levelOrStandard = (v: unknown): Level => LEVELS.find(l => l === v) ?? 'standard'
 
 const APPROVE_TAG = /\[cairn:approve (prd|plan|ship) ([^\s\]]+)\]/
 const OVERRIDE_TAG = /\[cairn:override ([^\s\]]+)\]/
@@ -91,7 +97,7 @@ function withSecret<T>($: EngineInterface, use: (secret: string) => Promise<T>):
 const quick: ProcessRunInit = { timeoutMs: QUICK_MS }
 
 /** Runs bin/cairn with the secret in its env; the timeout keeps a hung CLI from holding the secret's turn. */
-export function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promise<CairnRun> {
+function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promise<CairnRun> {
   return withSecret($, s => {
     const init: ProcessRunInit = { cwd, env: { CAIRN_APPROVER: s }, timeoutMs: CLI_MS }
     return cairn($, args, init)

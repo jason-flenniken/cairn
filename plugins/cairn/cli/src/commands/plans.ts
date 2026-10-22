@@ -4,7 +4,7 @@ import { CONFIG_REL, loadConfig, worktreeRoot } from '../config.ts';
 import { commitPath, git, gitOk } from '../git.ts';
 import { PLANS_DIR, planBranch, planBranchesFor, planDirName, worktreeName, type Ctx } from '../locate.ts';
 import { log, newState, saveState } from '../state.ts';
-import { LEVELS, type Level } from '../types.ts';
+import { isLevel, LEVELS, type Level } from '../types.ts';
 import { CliError, now, pluginVersion, readText, Refusal, SLUG, writeText } from '../util.ts';
 import { ensureExcluded, planCtx, planFile, runSetup, template, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
@@ -19,9 +19,9 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   const base = typeof opts.from === 'string' ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === 'string' ? opts.title : slug;
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
-  if (typeof opts.level === 'string' && !LEVELS.includes(opts.level as Level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(', ')}`);
-  const badDefault = cfg.defaultLevel !== undefined && !LEVELS.includes(cfg.defaultLevel as Level);
-  const level: Level = typeof opts.level === 'string' ? (opts.level as Level) : badDefault || !cfg.defaultLevel ? 'standard' : (cfg.defaultLevel as Level);
+  if (typeof opts.level === 'string' && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(', ')}`);
+  const badDefault = cfg.defaultLevel !== undefined && !isLevel(cfg.defaultLevel);
+  const level: Level = typeof opts.level === 'string' ? (opts.level as Level) : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : 'standard';
 
   let wt: string;
   if (opts['no-worktree']) {

@@ -8,7 +8,7 @@ import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.
 import type { State } from '../types.ts';
 import { hashText, pluginRoot, readText, withLock, writeText } from '../util.ts';
 import { readyFor } from './stages.ts';
-import { collectSuggestions, openHardeningCount, openSuggestionCount } from './suggest.ts';
+import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
 import { knownFailures, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function listPlans(ctx: Ctx): IndexRow[] {
@@ -70,20 +70,24 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   const w = warnings(pc, s);
   const next = nextFor(s);
   const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
-  const hardeningItems = openHardeningCount(ctx);
+  let listed: ListedSuggestion[] = [];
+  try {
+    listed = collectSuggestions(ctx);
+  } catch {
+    // An unreadable follow-up listing leaves the counts and the grouping empty.
+  }
+  const openSuggestions = listed.filter((x) => x.open && !x.hardening).length;
+  const hardeningItems = listed.filter((x) => x.open && x.hardening).length;
   // This plan's open hardening items by area; `hardeningItems` above spans every plan.
   const hardeningByArea: Record<string, number> = {};
-  try {
-    for (const x of collectSuggestions(ctx)) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
-  } catch {
-    // An unreadable follow-up listing leaves the grouping empty.
-  }
+  for (const x of listed) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
+  const timing = stageTimes(s);
   return {
     message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
       ...(s.level ? [`Level: ${levelLabel(s)}`] : []),
       ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
-      ...(s.stageHistory ? [`Time per stage: ${timingText(stageTimes(s))}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing: stageTimes(s), prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx), hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
+      ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
+    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
   };
 }
 

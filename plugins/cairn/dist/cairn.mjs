@@ -7464,11 +7464,11 @@ function commitPath(cwd, path, message) {
   return true;
 }
 function directCommits(cwd, base, head) {
-  const shas = git(["rev-list", "--first-parent", "--no-merges", `${base}..${head}`], cwd).split("\n").filter(Boolean);
-  return shas.map((sha) => ({
-    sha: sha.slice(0, 7),
-    files: git(["diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "--root", sha], cwd).split("\0").filter(Boolean)
-  }));
+  const out = git(["log", "--first-parent", "--no-merges", "--name-only", "-z", "--format=%x01%H", `${base}..${head}`], cwd);
+  return out.split("").filter(Boolean).map((chunk) => {
+    const [sha = "", ...paths] = chunk.split("\0");
+    return { sha: sha.slice(0, 7), files: paths.map((f, i) => i === 0 ? f.replace(/^\n/, "") : f).filter(Boolean) };
+  });
 }
 var quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: "0", GH_PROMPT_DISABLED: "1" });
 function safeRef(cwd, name) {
@@ -7637,6 +7637,69 @@ function loadConfig(...roots) {
 }
 var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join3(mainRoot, cfg.worktreeRoot) : join3(mainRoot, ".claude", "worktrees");
 
+// plugins/cairn/cli/src/glob.ts
+function globToRegex(glob) {
+  let re = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*") {
+      if (glob[i + 1] === "*") {
+        i++;
+        if (glob[i + 1] === "/") {
+          i++;
+          re += "(?:.*/)?";
+        } else re += ".*";
+      } else re += "[^/]*";
+    } else if (c === "?") re += "[^/]";
+    else re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  if (!/[*?]/.test(glob)) re = re.replace(/\/$/, "") + "(?:/.*)?";
+  return new RegExp(`^${re}$`);
+}
+var matchesAny = (path, globs) => globs.some((g) => globToRegex(g).test(path));
+var staticPrefix = (glob) => glob.split(/[*?[]/)[0];
+function scopesOverlap(a, b) {
+  for (const x of a)
+    for (const y of b) {
+      if (globToRegex(x).test(y) || globToRegex(y).test(x)) return true;
+      const px = staticPrefix(x);
+      const py = staticPrefix(y);
+      if (px.startsWith(py) || py.startsWith(px)) return true;
+    }
+  return false;
+}
+
+// plugins/cairn/cli/src/ready.ts
+var currentPhase = (s) => s.phases.find((p) => p.status !== "done");
+var allTasks = (s) => s.phases.flatMap((p) => p.tasks);
+var findTask = (s, id) => allTasks(s).find((x) => x.id === id);
+function readySet(s, maxParallel) {
+  const phase = currentPhase(s);
+  const done = new Set(allTasks(s).filter((x) => x.status === "done").map((x) => x.id));
+  const inProgress = allTasks(s).filter((x) => x.status === "in_progress");
+  const result = { ready: [], inProgress, waiting: [], phase };
+  if (!phase || s.stage !== "execute" || s.paused) return result;
+  let room = Math.max(0, maxParallel - inProgress.length);
+  const taken = inProgress.map((x) => x.scope);
+  for (const sl of phase.tasks) {
+    if (sl.status !== "pending") continue;
+    const on = sl.blockedBy.filter((b) => !done.has(b));
+    if (on.length) {
+      result.waiting.push({ task: sl, on });
+      continue;
+    }
+    const clash = taken.some((t) => scopesOverlap(t, sl.scope));
+    if (clash || room === 0) {
+      result.waiting.push({ task: sl, on: clash ? ["scope overlap with running work"] : ["parallel cap"] });
+      continue;
+    }
+    result.ready.push(sl);
+    taken.push(sl.scope);
+    room--;
+  }
+  return result;
+}
+
 // plugins/cairn/cli/src/proof.ts
 import { createHash as createHash2, randomBytes, timingSafeEqual } from "node:crypto";
 import { closeSync, constants, fstatSync, linkSync, openSync, readFileSync as readFileSync4, readSync, renameSync, rmSync } from "node:fs";
@@ -7796,6 +7859,7 @@ var STEP_LABEL = {
   "opening-pr": "opening the PR"
 };
 var LEVELS = ["mvp", "standard", "polished"];
+var isLevel = (v) => LEVELS.includes(v);
 var LEVEL_LABEL = { mvp: "MVP", standard: "Standard", polished: "Polished" };
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 var SUGGESTION_AREAS = ["tests", "security", "perf", "quality", "ux", "docs"];
@@ -7962,7 +8026,7 @@ function saveState(dir, s) {
 function log(s, event, detail, override) {
   s.log.push({ at: now(), event, ...detail ? { detail } : {}, ...override ? { override } : {} });
 }
-var levelOf = (s) => s.level && LEVELS.includes(s.level) ? s.level : "standard";
+var levelOf = (s) => isLevel(s.level) ? s.level : "standard";
 function setStage(s, stage) {
   s.stage = stage;
   (s.stageHistory ??= []).push({ stage, at: now() });
@@ -8081,13 +8145,16 @@ ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
   return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
 }
 function addHardening(s, item) {
+  return pushSuggestion(s, { ...item, from: "mvp", kind: "hardening" });
+}
+function pushSuggestion(s, partial) {
   const all = s.suggestions ??= [];
-  const x = { id: `s${all.length + 1}`, ...item, from: "mvp", at: now(), kind: "hardening" };
+  const x = { id: `s${all.length + 1}`, ...partial, at: now() };
   all.push(x);
   return x;
 }
 var planScope = (s) => {
-  const all = [...new Set(s.phases.flatMap((p) => p.tasks.flatMap((t) => t.scope)))];
+  const all = [...new Set(allTasks(s).flatMap((t) => t.scope))];
   return all.length ? all : ["**"];
 };
 function knownFailures(s) {
@@ -8102,8 +8169,7 @@ function testsGate(t, s, event, opts, scope) {
   }
   const open = knownFailures(s).find((x) => x.testCmd === t.cmd);
   if (t.ok && open) {
-    const all = s.suggestions;
-    all.push({ id: `s${all.length + 1}`, area: open.area, text: `Resolved ${s.slug}:${open.id}`, where: open.where, from: "mvp", at: now(), resolves: `${s.slug}:${open.id}` });
+    pushSuggestion(s, { area: open.area, text: `Resolved ${s.slug}:${open.id}`, where: open.where, from: "mvp", resolves: `${s.slug}:${open.id}` });
   }
   if (!t.ok && t.ran && levelOf(s) === "mvp") {
     const text = `Tests failing: \`${t.cmd}\` \u2192 ${t.tail}`;
@@ -8168,9 +8234,9 @@ function cmdNew(ctx, slug, opts) {
   const base = typeof opts.from === "string" ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === "string" ? opts.title : slug;
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
-  if (typeof opts.level === "string" && !LEVELS.includes(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(", ")}`);
-  const badDefault = cfg.defaultLevel !== void 0 && !LEVELS.includes(cfg.defaultLevel);
-  const level = typeof opts.level === "string" ? opts.level : badDefault || !cfg.defaultLevel ? "standard" : cfg.defaultLevel;
+  if (typeof opts.level === "string" && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(", ")}`);
+  const badDefault = cfg.defaultLevel !== void 0 && !isLevel(cfg.defaultLevel);
+  const level = typeof opts.level === "string" ? opts.level : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : "standard";
   let wt;
   if (opts["no-worktree"]) {
     git(["switch", "-q", "-c", branch, base], ctx.top);
@@ -8247,69 +8313,6 @@ _${now().slice(0, 16).replace("T", " ")}_
 
 // plugins/cairn/cli/src/commands/stages.ts
 import { join as join11 } from "node:path";
-
-// plugins/cairn/cli/src/glob.ts
-function globToRegex(glob) {
-  let re = "";
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (c === "*") {
-      if (glob[i + 1] === "*") {
-        i++;
-        if (glob[i + 1] === "/") {
-          i++;
-          re += "(?:.*/)?";
-        } else re += ".*";
-      } else re += "[^/]*";
-    } else if (c === "?") re += "[^/]";
-    else re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  }
-  if (!/[*?]/.test(glob)) re = re.replace(/\/$/, "") + "(?:/.*)?";
-  return new RegExp(`^${re}$`);
-}
-var matchesAny = (path, globs) => globs.some((g) => globToRegex(g).test(path));
-var staticPrefix = (glob) => glob.split(/[*?[]/)[0];
-function scopesOverlap(a, b) {
-  for (const x of a)
-    for (const y of b) {
-      if (globToRegex(x).test(y) || globToRegex(y).test(x)) return true;
-      const px = staticPrefix(x);
-      const py = staticPrefix(y);
-      if (px.startsWith(py) || py.startsWith(px)) return true;
-    }
-  return false;
-}
-
-// plugins/cairn/cli/src/ready.ts
-var currentPhase = (s) => s.phases.find((p) => p.status !== "done");
-var allTasks = (s) => s.phases.flatMap((p) => p.tasks);
-var findTask = (s, id) => allTasks(s).find((x) => x.id === id);
-function readySet(s, maxParallel) {
-  const phase = currentPhase(s);
-  const done = new Set(allTasks(s).filter((x) => x.status === "done").map((x) => x.id));
-  const inProgress = allTasks(s).filter((x) => x.status === "in_progress");
-  const result = { ready: [], inProgress, waiting: [], phase };
-  if (!phase || s.stage !== "execute" || s.paused) return result;
-  let room = Math.max(0, maxParallel - inProgress.length);
-  const taken = inProgress.map((x) => x.scope);
-  for (const sl of phase.tasks) {
-    if (sl.status !== "pending") continue;
-    const on = sl.blockedBy.filter((b) => !done.has(b));
-    if (on.length) {
-      result.waiting.push({ task: sl, on });
-      continue;
-    }
-    const clash = taken.some((t) => scopesOverlap(t, sl.scope));
-    if (clash || room === 0) {
-      result.waiting.push({ task: sl, on: clash ? ["scope overlap with running work"] : ["parallel cap"] });
-      continue;
-    }
-    result.ready.push(sl);
-    taken.push(sl.scope);
-    room--;
-  }
-  return result;
-}
 
 // plugins/cairn/cli/src/commands/fix.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
@@ -8450,32 +8453,36 @@ function cmdStatus(ctx, opts) {
     const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, `${PLANS_DIR}/${basename2(r.dir)}`) }));
     const lines = rows.length ? shown.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state, r.prOpen)}
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
-    const openSuggestions = openSuggestionCount(ctx);
+    const openSuggestions2 = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions } };
+${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions: openSuggestions2, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
   const w = warnings(pc, s);
   const next = nextFor(s);
   const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
-  const hardeningItems = openHardeningCount(ctx);
-  const hardeningByArea = {};
+  let listed = [];
   try {
-    for (const x of collectSuggestions(ctx)) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
+    listed = collectSuggestions(ctx);
   } catch {
   }
+  const openSuggestions = listed.filter((x) => x.open && !x.hardening).length;
+  const hardeningItems = listed.filter((x) => x.open && x.hardening).length;
+  const hardeningByArea = {};
+  for (const x of listed) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
+  const timing = stageTimes(s);
   return {
     message: [
       summary(s, prOpen),
       `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
       ...s.level ? [`Level: ${levelLabel(s)}`] : [],
       ...hardeningItems ? [`Hardening items: ${hardeningItems}`] : [],
-      ...s.stageHistory ? [`Time per stage: ${timingText(stageTimes(s))}`] : [],
+      ...s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : [],
       ...w.map((x) => `! ${x}`),
       ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []
     ].join("\n"),
-    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing: stageTimes(s), prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions: openSuggestionCount(ctx), hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
+    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
   };
 }
 var procedurePath = (name) => join9(pluginRoot(), "procedures", `${name}.md`);
@@ -8558,13 +8565,6 @@ function openSuggestionCount(ctx) {
     return 0;
   }
 }
-function openHardeningCount(ctx) {
-  try {
-    return collectSuggestions(ctx).filter((x) => x.open && x.hardening).length;
-  } catch {
-    return 0;
-  }
-}
 var USAGE = "usage: cairn suggest add --area <a> [--where <glob>]... (--text <t> | --text-file <f>) [--from <f>] [--kind hardening] | list [--open] [--for <glob>]... [--json] | resolve <slug>:<id> [--dismiss] [--note <t>] | merge <key> <key>... --area <a> [--where <glob>]... --text <t> | decline <key>...";
 function cmdSuggest(ctx, action, arg, opts, more = []) {
   if (action === "add") return suggestAdd(ctx, opts);
@@ -8586,9 +8586,7 @@ function suggestAdd(ctx, opts) {
   if (kind && !list(opts.where).length) throw new CliError("--kind hardening needs at least one --where glob: the item is found later by path");
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    const id = `s${all.length + 1}`;
-    all.push({ id, area, text, where: list(opts.where), from, at: now(), ...kind ? { kind: "hardening" } : {} });
+    const { id } = pushSuggestion(s, { area, text, where: list(opts.where), from, ...kind ? { kind: "hardening" } : {} });
     return { message: `${s.slug}:${id}`, data: { id, key: `${s.slug}:${id}` } };
   });
 }
@@ -8610,14 +8608,11 @@ function suggestResolve(ctx, key, opts) {
   if (!target) throw new Refusal(`no suggestion ${key}`, ["cairn suggest list"]);
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    all.push({
-      id: `s${all.length + 1}`,
+    pushSuggestion(s, {
       area: target.area,
       text: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}`,
       where: target.where,
       from: "user",
-      at: now(),
       resolves: key,
       ...opts.dismiss ? { dismissed: true } : {},
       ...opts.note ? { note: String(opts.note) } : {}
@@ -8646,9 +8641,7 @@ function suggestMerge(ctx, keys, opts) {
   const where = list(opts.where).length ? list(opts.where) : [...new Set(targets.flatMap((t) => t.where))];
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    const id = `s${all.length + 1}`;
-    all.push({ id, area, text, where, from: "plan", at: now(), merges: targets.map((t) => t.key) });
+    const { id } = pushSuggestion(s, { area, text, where, from: "plan", merges: targets.map((t) => t.key) });
     return { message: `Merged ${targets.length} into ${s.slug}:${id}.`, data: { id, key: `${s.slug}:${id}` } };
   });
 }
@@ -8656,8 +8649,7 @@ function suggestDecline(ctx, keys) {
   const targets = openTargets(ctx, [...new Set(keys)]);
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
-    const all = s.suggestions ??= [];
-    for (const t of targets) all.push({ id: `s${all.length + 1}`, area: t.area, text: `Declined ${t.key}`, where: t.where, from: "user", at: now(), declines: t.key });
+    for (const t of targets) pushSuggestion(s, { area: t.area, text: `Declined ${t.key}`, where: t.where, from: "user", declines: t.key });
     const expired = targets.filter((t) => t.declined + 1 >= MAX_DECLINES);
     return { message: `Declined ${targets.length}.${expired.length ? ` Now expired: ${expired.map((t) => t.key).join(", ")}.` : ""}` };
   });
@@ -8824,7 +8816,7 @@ function cmdAdvance(ctx, opts) {
         break;
     }
     if (to === "ship" && levelOf(s) === "mvp") {
-      for (const t of s.phases.flatMap((p) => p.tasks))
+      for (const t of allTasks(s))
         if (t.status === "done" && t.level === "mvp" && !t.risky) addHardening(s, { area: "quality", text: `Task "${t.name}" ran at MVP without a per-task review.`, where: t.scope });
     }
     setStage(s, to);
@@ -8857,7 +8849,7 @@ function cmdClose(ctx, opts) {
 var USAGE2 = "usage: cairn level mvp|standard|polished [--human]";
 function cmdLevel(ctx, value, opts, io) {
   if (!value) throw new CliError(USAGE2);
-  if (!LEVELS.includes(value)) throw new Refusal(`"${value}" is not a level: use ${LEVELS.join(", ")}`);
+  if (!isLevel(value)) throw new Refusal(`"${value}" is not a level: use ${LEVELS.join(", ")}`);
   const to = value;
   const pc = planCtx(ctx);
   return mutate(pc, "level changed", (s) => {
@@ -8883,9 +8875,9 @@ function cmdLevel(ctx, value, opts, io) {
       if (s.stage === "review") setStage(s, "verify");
     }
     delete s.evidence.review;
-    const behind = tasks.filter((t) => t.status === "done" && LEVELS.indexOf(t.level ?? "standard") < LEVELS.indexOf(to));
+    const behind = tasks.filter((t) => t.status === "done" && LEVELS.indexOf(levelOf(t)) < LEVELS.indexOf(to));
     for (const t of behind)
-      addHardening(s, { area: "tests", text: `Task "${t.id}" was built at ${LEVEL_LABEL[t.level ?? "standard"]}: bring it up to ${LEVEL_LABEL[to]} (the reviews and tests that level adds)`, where: t.scope });
+      addHardening(s, { area: "tests", text: `Task "${t.id}" was built at ${LEVEL_LABEL[levelOf(t)]}: bring it up to ${LEVEL_LABEL[to]} (the reviews and tests that level adds)`, where: t.scope });
     return { message: `Level raised to ${LEVEL_LABEL[to]}.${behind.length ? ` ${behind.length} finished task(s) got a hardening item.` : ""}`, data: { level: to, hardening: behind.length } };
   });
 }
@@ -9275,8 +9267,9 @@ function cmdTest(ctx, opts) {
       testsGate(tests, s, "check", opts);
       return { message: "No test command configured: nothing was run.", data: { ran: false } };
     }
-    if (tests.ok || levelOf(s) === "mvp") testsGate(tests, s, "check", opts);
-    const note = !tests.ok && levelOf(s) === "mvp" ? " Recorded as a hardening item; the plan continues." : "";
+    const mvp = levelOf(s) === "mvp";
+    if (tests.ok || mvp) testsGate(tests, s, "check", opts);
+    const note = !tests.ok && mvp ? " Recorded as a hardening item; the plan continues." : "";
     return { message: `Tests ${tests.ok ? "green" : "RED"} (\`${tests.cmd}\` \u2192 ${tests.tail}).${note}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail } };
   });
 }

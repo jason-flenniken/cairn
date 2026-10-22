@@ -4,8 +4,8 @@ import { scopesOverlap } from '../glob.ts';
 import { PLANS_DIR, type Ctx } from '../locate.ts';
 import { parseState } from '../state.ts';
 import { SUGGESTION_AREAS, SUGGESTION_SOURCES, type State, type Suggestion } from '../types.ts';
-import { CliError, now, readText, Refusal } from '../util.ts';
-import { mutate, planCtx, type Opts, type Result } from '../shared.ts';
+import { CliError, readText, Refusal } from '../util.ts';
+import { mutate, planCtx, pushSuggestion, type Opts, type Result } from '../shared.ts';
 import { listPlans } from './status.ts';
 
 const list = (v: unknown): string[] => (typeof v === 'string' ? v.split('\n').filter(Boolean) : []);
@@ -109,9 +109,7 @@ function suggestAdd(ctx: Ctx, opts: Opts): Result {
   if (kind && !list(opts.where).length) throw new CliError('--kind hardening needs at least one --where glob: the item is found later by path');
   const pc = planCtx(ctx);
   return mutate(pc, undefined, (s) => {
-    const all = (s.suggestions ??= []);
-    const id = `s${all.length + 1}`;
-    all.push({ id, area: area as Suggestion['area'], text, where: list(opts.where), from: from as Suggestion['from'], at: now(), ...(kind ? { kind: 'hardening' as const } : {}) });
+    const { id } = pushSuggestion(s, { area: area as Suggestion['area'], text, where: list(opts.where), from: from as Suggestion['from'], ...(kind ? { kind: 'hardening' as const } : {}) });
     return { message: `${s.slug}:${id}`, data: { id, key: `${s.slug}:${id}` } };
   });
 }
@@ -135,14 +133,11 @@ function suggestResolve(ctx: Ctx, key: string | undefined, opts: Opts): Result {
   if (!target) throw new Refusal(`no suggestion ${key}`, ['cairn suggest list']);
   const pc = planCtx(ctx);
   return mutate(pc, undefined, (s) => {
-    const all = (s.suggestions ??= []);
-    all.push({
-      id: `s${all.length + 1}`,
+    pushSuggestion(s, {
       area: target.area,
       text: `${opts.dismiss ? 'Dismissed' : 'Resolved'} ${key}`,
       where: target.where,
       from: 'user',
-      at: now(),
       resolves: key,
       ...(opts.dismiss ? { dismissed: true } : {}),
       ...(opts.note ? { note: String(opts.note) } : {}),
@@ -175,9 +170,7 @@ function suggestMerge(ctx: Ctx, keys: string[], opts: Opts): Result {
   const where = list(opts.where).length ? list(opts.where) : [...new Set(targets.flatMap((t) => t.where))];
   const pc = planCtx(ctx);
   return mutate(pc, undefined, (s) => {
-    const all = (s.suggestions ??= []);
-    const id = `s${all.length + 1}`;
-    all.push({ id, area: area as Suggestion['area'], text, where, from: 'plan', at: now(), merges: targets.map((t) => t.key) });
+    const { id } = pushSuggestion(s, { area: area as Suggestion['area'], text, where, from: 'plan', merges: targets.map((t) => t.key) });
     return { message: `Merged ${targets.length} into ${s.slug}:${id}.`, data: { id, key: `${s.slug}:${id}` } };
   });
 }
@@ -186,8 +179,7 @@ function suggestDecline(ctx: Ctx, keys: string[]): Result {
   const targets = openTargets(ctx, [...new Set(keys)]);
   const pc = planCtx(ctx);
   return mutate(pc, undefined, (s) => {
-    const all = (s.suggestions ??= []);
-    for (const t of targets) all.push({ id: `s${all.length + 1}`, area: t.area, text: `Declined ${t.key}`, where: t.where, from: 'user', at: now(), declines: t.key });
+    for (const t of targets) pushSuggestion(s, { area: t.area, text: `Declined ${t.key}`, where: t.where, from: 'user', declines: t.key });
     const expired = targets.filter((t) => t.declined + 1 >= MAX_DECLINES);
     return { message: `Declined ${targets.length}.${expired.length ? ` Now expired: ${expired.map((t) => t.key).join(', ')}.` : ''}` };
   });

@@ -36,6 +36,7 @@ export interface Step {
 export type Track = 'feature' | 'fix';
 export const LEVELS = ['mvp', 'standard', 'polished'] as const;
 export type Level = (typeof LEVELS)[number];
+export const isLevel = (v: unknown): v is Level => (LEVELS as readonly unknown[]).includes(v);
 export const LEVEL_LABEL: Record<Level, string> = { mvp: 'MVP', standard: 'Standard', polished: 'Polished' };
 export type Complexity = 'simple' | 'standard' | 'complex';
 export type TaskStatus = 'pending' | 'in_progress' | 'done';

@@ -2,7 +2,7 @@ import type { Ctx } from '../locate.ts';
 import { allTasks } from '../ready.ts';
 import type { ProofIO } from '../proof.ts';
 import { levelOf, log, setStage } from '../state.ts';
-import { LEVELS, LEVEL_LABEL, type Level } from '../types.ts';
+import { isLevel, LEVELS, LEVEL_LABEL } from '../types.ts';
 import { CliError, Refusal } from '../util.ts';
 import { addHardening, mutate, planCtx, requireHumanProof, type Opts, type Result } from '../shared.ts';
 
@@ -14,8 +14,8 @@ const USAGE = 'usage: cairn level mvp|standard|polished [--human]';
  */
 export function cmdLevel(ctx: Ctx, value: string | undefined, opts: Opts, io?: ProofIO): Result {
   if (!value) throw new CliError(USAGE);
-  if (!LEVELS.includes(value as Level)) throw new Refusal(`"${value}" is not a level: use ${LEVELS.join(', ')}`);
-  const to = value as Level;
+  if (!isLevel(value)) throw new Refusal(`"${value}" is not a level: use ${LEVELS.join(', ')}`);
+  const to = value;
   const pc = planCtx(ctx);
   return mutate(pc, 'level changed', (s) => {
     const from = levelOf(s);
@@ -40,9 +40,9 @@ export function cmdLevel(ctx: Ctx, value: string | undefined, opts: Opts, io?: P
       if (s.stage === 'review') setStage(s, 'verify');
     }
     delete s.evidence.review;
-    const behind = tasks.filter((t) => t.status === 'done' && LEVELS.indexOf(t.level ?? 'standard') < LEVELS.indexOf(to));
+    const behind = tasks.filter((t) => t.status === 'done' && LEVELS.indexOf(levelOf(t)) < LEVELS.indexOf(to));
     for (const t of behind)
-      addHardening(s, { area: 'tests', text: `Task "${t.id}" was built at ${LEVEL_LABEL[t.level ?? 'standard']}: bring it up to ${LEVEL_LABEL[to]} (the reviews and tests that level adds)`, where: t.scope });
+      addHardening(s, { area: 'tests', text: `Task "${t.id}" was built at ${LEVEL_LABEL[levelOf(t)]}: bring it up to ${LEVEL_LABEL[to]} (the reviews and tests that level adds)`, where: t.scope });
     return { message: `Level raised to ${LEVEL_LABEL[to]}.${behind.length ? ` ${behind.length} finished task(s) got a hardening item.` : ''}`, data: { level: to, hardening: behind.length } };
   });
 }
