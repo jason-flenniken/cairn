@@ -69,13 +69,13 @@ function hereSlug(plans: CairnPlanRow[], cwd: string): string | undefined {
 
 const planDir = (r: CairnPlanRow) => r.dir ?? `${r.worktree}/docs/sdlc/plans/${r.state.slug}`
 /**
- * The docked bar's lines: the stage steps, the git line, then the usage lines, with a blank row
- * between the git line and the usage lines when both are there. Empty lines are left out.
+ * The docked bar's lines: the git line, the usage lines, then the stage steps at the bottom, with a
+ * dim rule between each group shown. Empty lines and groups are left out.
  */
-function docked(steps: BarLine[], git: BarLine, usage: BarLine[]): BarLine[] {
-  const shown = usage.filter(line => line.length > 0)
-  const gap: BarLine[] = git.length > 0 && shown.length > 0 ? [[{ text: '' }]] : []
-  return [...steps, ...(git.length > 0 ? [git] : []), ...gap, ...shown]
+function docked(git: BarLine, usage: BarLine[], steps: BarLine[], columns: number): BarLine[] {
+  const rule: BarLine = [{ text: '─'.repeat(columns), dim: true }]
+  const groups = [[git], usage, steps].map(g => g.filter(line => line.length > 0)).filter(g => g.length > 0)
+  return groups.flatMap((g, i) => (i === 0 ? g : [rule, ...g]))
 }
 
 const stateFile = (r: CairnPlanRow) => `${planDir(r)}/state.json`
@@ -349,7 +349,7 @@ export function install(on: On): void {
     const baseline = await readBaseline($)
     const gitState = await readGit($)
     const cx: CardContext = { ui, accent, nowMs: t, columns: e.props.bodyColumns - 6 }
-    // The bar's lines: docked, every stage step, the git line, then the usage lines; inline, the active step with the plan cost, active time and limits.
+    // The bar's lines: docked, the git line, the usage lines, then every stage step; inline, the active step with the plan cost, active time and limits.
     const planSlug = here !== undefined && isActive(here) ? here.state.slug : undefined
     const active = await readActive($)
     const activeMs = planSlug !== undefined && active?.slug === planSlug ? active.ms : undefined
@@ -361,9 +361,10 @@ export function install(on: On): void {
         ? []
         : [[...step, ...inlineUsage(used, baseline, planSlug, activeMs, e.props.bodyColumns - 2 - step.reduce((n, seg) => n + cells(seg.text), 0))]]
       : docked(
-          here === undefined ? [] : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2),
           gitLine(gitState, activeMs, e.props.bodyColumns - 2),
           [modelLine(used, baseline, planSlug, e.props.bodyColumns - 2), limitsLine(used, t, e.props.bodyColumns - 2)],
+          here === undefined ? [] : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2),
+          e.props.bodyColumns - 2,
         )
 
     /**

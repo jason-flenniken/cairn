@@ -1,5 +1,5 @@
 // The pane's bottom bar (FR-01, FR-02, NFR-01): the plan's stage steps, wrapped to the bar's width,
-// and any lines a caller adds below them. pane.tsx pins it to the bottom of the pane's window.
+// and the lines pane.tsx puts with them. pane.tsx pins it to the bottom of the pane's window.
 import type { CairnPlanState } from '../../types/index.d.ts'
 import { phaseAt, phasesOf, STAGE_COLOR, type Ui } from './header.tsx'
 

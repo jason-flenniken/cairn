@@ -7,10 +7,14 @@ type Limit = { kind: string; percentUsed: number; resetsAt?: string }
 const textOf = (n: El | string): string => (typeof n === 'string' ? n : n.children.map(textOf).join(''))
 const width = (text: string) => [...text].reduce((n, ch) => n + (/\p{Emoji_Presentation}/u.test(ch) ? 2 : 1), 0)
 
-async function barRows(ui: any): Promise<string[]> {
+/** Every row of the bar, as drawn. */
+async function allRows(ui: any): Promise<string[]> {
   const bar = (await ui.find({ type: 'Box', key: 'statusbar' })) as El | undefined
   return bar === undefined ? [] : bar.children.map(textOf).map(r => r.trimEnd())
 }
+
+/** The bar's usage rows (model, then limits), apart from the git line and the stage steps around them. */
+const barRows = async (ui: any): Promise<string[]> => (await allRows(ui)).filter(r => /^(🧠|⏳|📅)/.test(r))
 
 const BUILD = plan({ stage: 'execute' })
 const measure = (cost: number | undefined, over: { percent?: number; tokens?: number; rateLimits?: Limit[] } = {}) => ({
@@ -152,7 +156,7 @@ describe('inline (FR-06)', () => {
     await start($, WT)
     const ui = await mountAs($, { placement: 'inline' })
     await $.session.measure(measure(14.1, { rateLimits: [{ kind: 'five_hour', percentUsed: 5 }, { kind: 'seven_day', percentUsed: 39 }] }) as never)
-    const rows = await barRows(ui)
+    const rows = await allRows(ui)
     expect(rows).toEqual(['● Build  $4.10  5h 5%  7d 39%'])
     const rowsOf = (n: El): number => n.type === 'Box' && n.props.flexDirection === 'column' ? n.children.reduce((k: number, c) => k + (typeof c === 'string' ? 1 : rowsOf(c)), 0) : 1
     expect(rowsOf((await ui.findAll({ type: 'Box' }))[0] as El)).toBeLessThanOrEqual(7)

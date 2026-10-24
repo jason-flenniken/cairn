@@ -79,7 +79,7 @@ describe('git line', () => {
 })
 
 describe('git in the pane', () => {
-  test('docked, the git line sits between the stage steps and the model line, with 🌳 in a linked worktree', async ($, on) => {
+  test('docked, the bar runs git, then usage, then the stage steps, a rule between each, with 🌳 in a linked worktree', async ($, on) => {
     const { w, clock } = world(on, { rows: [row(plan({ stage: 'execute' }), WT)] })
     on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 24_000, window: 200_000, percent: 12 }, rateLimits: [], cost: { usd: 1 } } as never }))
     on('session.model', () => ({ value: 'claude-opus-5-5' as never }))
@@ -89,12 +89,14 @@ describe('git in the pane', () => {
     const ui = await mount($, 'terminal')
     await clock.advance(2_000)
     const rows = await barRows(ui)
-    const at = rows.findIndex(r => r.startsWith('⎇ 🌳 sdlc-shop'))
-    expect(at).toBeGreaterThan(rows.findIndex(r => r.includes('● Build')))
-    // One blank row keeps the git line apart from the usage lines.
-    expect(rows[at + 1]).toBe('')
-    expect(rows[at + 2]).toMatch(/^🧠/)
-    expect(rows[at]).toContain('●4 +1 !1 ↑2 ↓1')
+    const rule = '─'.repeat(58)
+    expect(rows[0]).toMatch(/^⎇ 🌳 sdlc-shop/)
+    expect(rows[0]).toContain('●4 +1 !1 ↑2 ↓1')
+    expect(rows[1]).toBe(rule)
+    expect(rows[2]).toMatch(/^🧠/)
+    expect(rows[3]).toBe(rule)
+    expect(rows.slice(4).join(' ')).toContain('● Build')
+    expect(rows.slice(4)).not.toContain(rule)
     await ui.unmount()
   })
 
