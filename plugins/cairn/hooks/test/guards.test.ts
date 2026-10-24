@@ -67,6 +67,17 @@ describe('bashVerdict', () => {
     'bash <<< "cairn approve prd"',
     'cat <<EOF | sh\ncairn approve prd\nEOF',
     'cat <<EOF | tee /tmp/x | bash\ncairn approve prd\nEOF',
+    // A quoted heredoc read by a shell is still shell, backticks and all.
+    "bash <<'EOF'\n`cairn approve prd`\nEOF",
+    "cat <<'EOF' | sh\necho `cairn approve prd`\nEOF",
+    // An unquoted heredoc expands its substitutions before anything reads it.
+    'python3 - <<EOF\nnote = "`cairn approve prd`"\nEOF',
+    'cat <<EOF > notes.md\nsee $(cairn approve prd)\nEOF',
+    'cat <<"EOF" > a.md\nok\nEOF\ncat <<EOF > b.md\n`cairn approve prd`\nEOF',
+    // A heredoc body is data to cat and tee, but where they save it is still guarded.
+    "cat <<'EOF' > docs/sdlc/plans/x/state.json\n{}\nEOF",
+    "tee docs/sdlc/plans/x/state.json <<'EOF'\n{}\nEOF",
+    "cat <<'EOF' > .git/cairn/mod-secret.sha256\nabc\nEOF",
     'echo cairn approve prd | bash',
     'printf "cairn approve prd" | zsh',
     // A real approve in any position, whatever prose surrounds it.
@@ -133,6 +144,12 @@ describe('bashVerdict', () => {
     'cat /repo/.git/cairn/mod-heartbeat',
     'cat .git/cairn/mod-heartbeat 2>/dev/null',
     'npm test 2>&1 | tail -5',
+    // Live false positive: a quoted heredoc expands nothing, so backticked prose in it runs nothing.
+    "python3 - <<'PYEOF'\nnew = '| `cairn approve plan` | also accepts PRD edits; `cairn approve prd` works only at prd |'\nPYEOF",
+    "cat <<'EOF' > notes.md\nRun `cairn approve plan --human` and $(cairn level polished) in your terminal.\nEOF",
+    'cat <<"EOF" > notes.md\n`cairn approve prd`\nEOF',
+    'cat <<\\EOF > notes.md\n`cairn approve prd`\nEOF',
+    "cat <<-'EOF' > notes.md\n\t`cairn approve prd`\n\tEOF",
     // Live false positives: an interpreter's heredoc body is code, not shell.
     `python3 - <<'EOF'\npath = 'docs/sdlc/plans/x/plan.md'\ntext = open(path).read()\nnote = """\ncairn approve prd\n"""\nopen(path, 'w').write(text + note)\nEOF`,
     'python3 <<EOF\nprint(1)\ncairn approve prd\nEOF',

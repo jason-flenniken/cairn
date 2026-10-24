@@ -17,15 +17,18 @@ const INTERPRETERS = /^(python[\d.]*|node|nodejs|bun|deno|perl|ruby|php|osascrip
 const DECLARERS = new Set(['export', 'declare', 'typeset', 'readonly', 'local', 'read'])
 // A pseudo-terminal around cairn would fake the CLI's terminal proof (FR-01).
 const PTY_WRAPPERS = new Set(['script', 'expect', 'unbuffer', 'tmux', 'screen'])
+// Readers that only print or save their input, never run it.
+const DATA_READERS = new Set(['cat', 'tee'])
 const RECURSIVE_READERS = new Set(['rg', 'ag', 'ack', 'find', 'tar', 'zip', 'rsync', 'rgrep'])
 const CAIRN_DIR_WORD = /(^|\/)\.git\/cairn(\/|$)/i
 const HEARTBEAT_WORD = /(^|\/)\.git\/cairn\/mod-heartbeat$/i
 
 /**
  * A simple command: its words (quotes removed) with where each sits in the line, its redirect
- * targets, the heredoc and here-string bodies fed to it, and whether it pipes into the next one.
+ * targets, the heredoc and here-string bodies fed to it, where in the line the bodies of its
+ * quoted heredocs (`<<'EOF'`, which the shell never expands) sit, and whether it pipes into the next one.
  */
-type Command = { words: string[]; spans: [number, number][]; redirects: string[]; bodies: string[]; pipesOut: boolean }
+type Command = { words: string[]; spans: [number, number][]; redirects: string[]; bodies: string[]; inert: [number, number][]; pipesOut: boolean }
 
 /** The FR-03 verdict on a Bash command: `{ deny }` with the reason, or `{}`. */
 export function bashVerdict(cmd: string): { deny?: string } {
@@ -68,19 +71,22 @@ function commands(cmd: string): Command[] {
   let spans: [number, number][] = []
   let redirects: string[] = []
   let bodies: string[] = []
+  let inert: [number, number][] = []
   let word = ''
   let wordAt = 0
   let hasWord = false
+  // A delimiter with any quoting (`'EOF'`, `"EOF"`, `\EOF`) leaves its body unexpanded.
+  let isQuoted = false
   let quote = ''
   // What the word being read is: an argument, a redirect target, a heredoc delimiter, or a here-string.
   let role: 'word' | 'redirect' | 'delimiter' | 'string' = 'word'
   let isIndented = false
-  let waiting: { delimiter: string; isIndented: boolean; bodies: string[] }[] = []
+  let waiting: { delimiter: string; isIndented: boolean; isQuoted: boolean; bodies: string[]; inert: [number, number][] }[] = []
   const endWord = (at: number) => {
     if (hasWord) {
       if (role === 'redirect') redirects.push(word)
       else if (role === 'string') bodies.push(word)
-      else if (role === 'delimiter') waiting.push({ delimiter: word, isIndented, bodies })
+      else if (role === 'delimiter') waiting.push({ delimiter: word, isIndented, isQuoted, bodies, inert })
       else {
         words.push(word)
         spans.push([wordAt, at])
@@ -89,29 +95,36 @@ function commands(cmd: string): Command[] {
     }
     word = ''
     hasWord = false
+    isQuoted = false
   }
   const endCommand = (at: number, pipesOut = false) => {
     endWord(at)
-    if (words.length > 0 || redirects.length > 0) out.push({ words, spans, redirects, bodies, pipesOut })
+    if (words.length > 0 || redirects.length > 0) out.push({ words, spans, redirects, bodies, inert, pipesOut })
     words = []
     spans = []
     redirects = []
     bodies = []
+    inert = []
     role = 'word'
   }
   // The lines after a newline up to the heredoc's delimiter line; returns where the next line starts.
   const readBodies = (from: number): number => {
     let at = from
-    for (const { delimiter, isIndented: strip, bodies: into } of waiting) {
+    for (const { delimiter, isIndented: strip, isQuoted: isLiteral, bodies: into, inert: literal } of waiting) {
       const lines: string[] = []
+      const bodyAt = at
+      let bodyEnd = at
       while (at <= cmd.length) {
         const end = cmd.indexOf('\n', at)
         const line = cmd.slice(at, end < 0 ? cmd.length : end)
+        const lineEnd = end < 0 ? cmd.length : end
         at = end < 0 ? cmd.length + 1 : end + 1
         if ((strip ? line.replace(/^\t+/, '') : line) === delimiter) break
         lines.push(line)
+        bodyEnd = lineEnd
       }
       into.push(lines.join('\n'))
+      if (isLiteral) literal.push([bodyAt, bodyEnd])
     }
     waiting = []
     return at
@@ -125,6 +138,7 @@ function commands(cmd: string): Command[] {
       continue
     }
     if (c === '\\' && next !== '') {
+      if (role === 'delimiter') isQuoted = true
       if (!hasWord) wordAt = i
       word += next
       hasWord = true
@@ -138,6 +152,7 @@ function commands(cmd: string): Command[] {
     }
     if (c === "'" || c === '"') {
       quote = c
+      if (role === 'delimiter') isQuoted = true
       if (!hasWord) wordAt = i
       hasWord = true
     } else if (c === '>' || (c === '&' && next === '>')) {
@@ -224,12 +239,17 @@ function proseWords(command: Command): Set<number> {
 }
 
 /**
- * The line with the backticks and `$` blanked inside single-quoted parts of prose words: a shell
- * expands nothing there. Double-quoted and bare prose is expanded, so it is still scanned.
+ * The line with the backticks and `$` blanked where a shell expands nothing: single-quoted parts
+ * of prose words, and quoted heredoc bodies. Double-quoted and bare prose is expanded, so it is
+ * still scanned. A quoted heredoc's body is still judged as input by whoever reads it (readsDeniedInput).
  */
 function withoutInertProse(cmd: string, list: Command[]): string {
-  const chars = [...cmd]
+  // UTF-16 units, the same units the spans count in.
+  const chars = cmd.split('')
   for (const command of list) {
+    for (const [from, to] of command.inert) {
+      for (let i = from; i < to; i++) if (chars[i] === '`' || chars[i] === '$') chars[i] = ' '
+    }
     for (const at of proseWords(command)) {
       const [from, to] = command.spans[at] ?? [0, 0]
       let quote = ''
@@ -342,14 +362,16 @@ function runsCodeNamingStateFile(command: Command): boolean {
 
 /**
  * What a command is fed on stdin, judged by who reads it. A heredoc body or here-string is code
- * for an interpreter (denied only if it could write a state.json) and shell for anything else.
- * Text piped into a bare shell is shell too.
+ * for an interpreter (denied only if it could write a state.json), data for `cat` or `tee` that
+ * pipe nowhere (they only print or save it), and shell for anything else. Text piped into a bare
+ * shell is shell too.
  */
 function readsDeniedInput(list: Command[], at: number): boolean {
   const command = list[at] as Command
   const reader = command.pipesOut && list[at + 1] !== undefined ? (list[at + 1] as Command) : command
   const [name, args] = split(reader)
-  if (command.bodies.length > 0) {
+  const isData = reader === command && DATA_READERS.has(name)
+  if (command.bodies.length > 0 && !isData) {
     const isCode = INTERPRETERS.test(name)
     if (command.bodies.some(body => (isCode ? writesStateFile(body) : isDenied(body)))) return true
   }
