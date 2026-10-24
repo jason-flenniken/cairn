@@ -4,7 +4,7 @@ import type { EngineInterface } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
 import { fmtDuration } from './activity.ts'
 import { cells } from './bar.tsx'
-import type { Ui } from './header.tsx'
+import { STAGE_LABEL, type Ui } from './header.tsx'
 
 export const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
@@ -32,8 +32,34 @@ function usage(tokens: number | undefined, usd: number | undefined): string {
 /** The docked pane's 48 columns less the pane's padding (2), the card's border (2) and its padding (2). */
 const CARD_COLUMNS = 42
 
-/** What every card draws with: the elements, the stage color, the time now, and the card's inner width. */
-export type CardContext = { ui: Ui; accent: string; nowMs: number; columns?: number }
+/**
+ * What every card draws with: the elements, the stage color, the time now, the card's inner width, and the
+ * shown plan's stage and task names, which place an agent in the process.
+ */
+export type CardContext = { ui: Ui; accent: string; nowMs: number; columns?: number; stage?: string; taskNames?: string[] }
+
+/** What a role in an agent's "<Role> · <what>" description does; a review of a task or for security says which. */
+const ROLE_STEP: Record<string, string> = { Build: 'building', Review: 'review', Fix: 'fixing', Check: 'checking', Record: 'writing the record' }
+
+/**
+ * Where an agent is in the process, from its description ("Review · Cart (security)", per reporting.md):
+ * the title without the role, and the step with the plan's stage ("Build · security review"). Undefined
+ * for a description that names no role, which keeps its title and reads "working".
+ */
+export function agentRole(title: string, stage?: string, taskNames: string[] = []): { title: string; step: string } | undefined {
+  const m = /^(\w+) · (.+)$/.exec(title)
+  const role = m?.[1]
+  if (m === null || role === undefined || ROLE_STEP[role] === undefined) return undefined
+  const isSecurity = / \(security\)$/.test(m[2] ?? '')
+  const what = (m[2] ?? '').replace(/ \(security\)$/, '')
+  const isTask = taskNames.includes(what)
+  const step = role === 'Review' && isSecurity ? 'security review' : role === 'Review' && isTask ? 'task review' : (ROLE_STEP[role] as string)
+  const where = stage === undefined ? undefined : STAGE_LABEL[stage]
+  return { title: what.charAt(0).toUpperCase() + what.slice(1), step: where === undefined ? step : `${where} · ${step}` }
+}
+
+/** The first of the texts that fits `columns`; the last one when none does. */
+const fitting = (columns: number, texts: string[]) => texts.find(x => cells(x) <= columns) ?? (texts.at(-1) as string)
 
 /** The main session's action while a turn runs; null while it waits for the person. */
 export type Main = { action: string; since: number } | null
@@ -80,15 +106,20 @@ function card($: EngineInterface, cx: CardContext, key: string, border: string, 
 
 export function agentCard($: EngineInterface, cx: CardContext, c: AgentCard) {
   const { accent, nowMs } = cx
+  const role = agentRole(c.title, cx.stage, cx.taskNames)
+  const title = role?.title ?? c.title
   if (c.status === 'working') {
-    // Steps lead the activity line: the status line holds the tokens and cost, and both must fit the card's width.
+    // Steps lead the activity line: the status line holds where the agent is, its time, tokens and cost; the cost,
+    // then the tokens, give way before the card's width cuts the line.
+    const lead = `● ${role?.step ?? 'working'} · ${fmtDuration(nowMs - c.startedAt)}`
+    const tokens = usage(c.tokensLive, undefined)
     const used = usage(c.tokensLive, c.usd)
-    const status = `● working · ${fmtDuration(nowMs - c.startedAt)}${used === '' ? '' : ` · ${used}`}`
-    return card($, cx, `agent:${c.agentId}`, accent, c.title, c.model, status, c.action === undefined ? steps(c.steps) : `${steps(c.steps)} · ${c.action}`, c.agentId)
+    const status = fitting(cx.columns ?? CARD_COLUMNS, [used === '' ? lead : `${lead} · ${used}`, tokens === '' ? lead : `${lead} · ${tokens}`, lead])
+    return card($, cx, `agent:${c.agentId}`, accent, title, c.model, status, c.action === undefined ? steps(c.steps) : `${steps(c.steps)} · ${c.action}`, c.agentId)
   }
   const used = usage(c.tokens, c.usd)
   const took = fmtDuration(c.durationMs ?? 0)
-  return card($, cx, `agent:${c.agentId}`, c.status === 'done' ? 'green' : 'red', c.title, c.model, `${c.status === 'done' ? '✓ finished' : '✗ stopped'} · ${took}${used === '' ? '' : ` · ${used}`}`, steps(c.steps), c.agentId)
+  return card($, cx, `agent:${c.agentId}`, c.status === 'done' ? 'green' : 'red', title, c.model, `${c.status === 'done' ? '✓ finished' : '✗ stopped'} · ${took}${used === '' ? '' : ` · ${used}`}`, steps(c.steps), c.agentId)
 }
 
 export function mainCard($: EngineInterface, cx: CardContext, main: Main) {
@@ -107,7 +138,11 @@ export function agentLines(cx: CardContext, main: Main, cards: AgentCard[], max 
   const { Text } = ui
   const lines = [
     <Text key="main" wrap="truncate-end">{main === null ? '● Main session · waiting for you' : `● Main session · ${main.action} · ${fmtDuration(nowMs - main.since)}`}</Text>,
-    ...cards.filter(c => c.status === 'working').map(c => <Text key={c.agentId} wrap="truncate-end">{`● ${c.title} · ${c.action ?? 'working'} · ${fmtDuration(nowMs - c.startedAt)}`}</Text>),
+    ...cards.filter(c => c.status === 'working').map(c => {
+      const role = agentRole(c.title, cx.stage, cx.taskNames)
+      const doing = [role?.step, c.action ?? (role === undefined ? 'working' : undefined)].filter(Boolean).join(' · ')
+      return <Text key={c.agentId} wrap="truncate-end">{`● ${role?.title ?? c.title} · ${doing} · ${fmtDuration(nowMs - c.startedAt)}`}</Text>
+    }),
   ]
   if (lines.length <= max) return lines
   if (max < 1) return []

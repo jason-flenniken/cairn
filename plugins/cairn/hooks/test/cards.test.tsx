@@ -54,6 +54,71 @@ describe('agent card presses (FR-11)', () => {
   })
 })
 
+describe('where an agent is in the process', () => {
+  const TWO = plan({
+    phases: [{ id: 'p1', name: 'Core', status: 'in_progress', tasks: [task('cart', 'Cart', { status: 'in_progress', substep: 'reviewing' }), task('pay', 'Payments')] }],
+  })
+
+  test('a task\'s two reviewers read Build · task review and Build · security review, under the task\'s name', async ($, on) => {
+    const { clock } = world(on, { rows: [row(TWO, WT)] })
+    let n = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++n}` }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Review · Cart', subagentType: 'cairn:task-reviewer' })
+    await $.agent.spawn({ prompt: 'p', description: 'Review · Cart (security)', subagentType: 'cairn:security-reviewer' })
+    await clock.advance(1_000)
+    const text = await drawn(ui)
+    expect(text).toContain('● Build · task review · 1s')
+    expect(text).toContain('● Build · security review · 1s')
+    expect(text).not.toContain('Review · Cart')
+    expect(text).not.toContain('● working')
+    await ui.unmount()
+  })
+
+  test('implementer, fixer and a branch review each name their step; a description with no role stays as it was', async ($, on) => {
+    const { clock } = world(on, { rows: [row(TWO, WT)] })
+    let n = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++n}` }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Payments', subagentType: 'cairn:implementer' })
+    await $.agent.spawn({ prompt: 'p', description: 'Fix · Cart', subagentType: 'cairn:implementer' })
+    await $.agent.spawn({ prompt: 'p', description: 'Look around the repo', subagentType: 'Explore' })
+    await clock.advance(1_000)
+    const text = await drawn(ui)
+    expect(text).toContain('● Build · building')
+    expect(text).toContain('● Build · fixing')
+    expect(text).toContain('Look around the repo')
+    expect(text).toContain('● working · 1s')
+    await ui.unmount()
+  })
+
+  test('at the Review stage a whole-branch reviewer reads Review · review under "Whole branch"', async ($, on) => {
+    const { clock } = world(on, { rows: [row(plan({ stage: 'review' }), WT)] })
+    on('agent.spawn', () => ({ model: 'opus', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Review · whole branch', subagentType: 'cairn:branch-reviewer' })
+    await clock.advance(1_000)
+    const text = await drawn(ui)
+    expect(text).toContain('Whole branch')
+    expect(text).toContain('● Review · review · 1s')
+    await ui.unmount()
+  })
+
+  test('inline, the agent line carries the step', async ($, on) => {
+    const { clock } = world(on, { rows: [row(TWO, WT)] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    await $.agent.spawn({ prompt: 'p', description: 'Review · Cart (security)', subagentType: 'cairn:security-reviewer' })
+    await clock.advance(1_000)
+    expect(await drawn(ui)).toContain('● Cart · Build · security review · 1s')
+    await ui.unmount()
+  })
+})
+
 describe('card rows follow the body width', () => {
   for (const [columns, width] of [[60, 54], [40, 34]] as const) {
     test(`at ${columns} columns every row is ${width} cells and the card stays 3 lines`, async ($, on) => {

@@ -348,7 +348,11 @@ export function install(on: On): void {
     const used = await readUsage($)
     const baseline = await readBaseline($)
     const gitState = await readGit($)
-    const cx: CardContext = { ui, accent, nowMs: t, columns: e.props.bodyColumns - 6 }
+    const cx: CardContext = {
+      ui, accent, nowMs: t, columns: e.props.bodyColumns - 6,
+      stage: here !== undefined && isActive(here) ? here.state.stage : undefined,
+      taskNames: here === undefined ? [] : tasksOf(here.state).map(x => x.name ?? x.id ?? ''),
+    }
     // The bar's lines: docked, the git line, the usage lines, then every stage step; inline, the active step with the plan cost, active time and limits.
     const planSlug = here !== undefined && isActive(here) ? here.state.slug : undefined
     const active = await readActive($)
