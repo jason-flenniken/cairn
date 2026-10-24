@@ -58,7 +58,8 @@ export type WorldInit = { rows?: Row[]; cwd?: string; placed?: true | string; an
 /**
  * The world beneath the mod: git names /repo/.git; `cairn status --all --json` answers `w.rows`
  * (or `w.raw` when set); stat answers the mtimes in `w.mtimes`; `cairn approve` checks the secret's
- * hash as the CLI does; the dialog answers `w.answer`, or is dismissed when it is undefined.
+ * hash as the CLI does; the dialog answers `w.answer`, or is dismissed when it is undefined. With
+ * `w.holdAsks` set, a dialog stays open until its `w.release` entry is called.
  */
 export function world(on: On, init: WorldInit = {}) {
   const w = {
@@ -76,6 +77,8 @@ export function world(on: On, init: WorldInit = {}) {
     opens: [] as string[],
     registered: [] as string[],
     asked: [] as { question: string; options: string[] }[],
+    holdAsks: false,
+    release: [] as (() => void)[],
     commands: [] as string[],
     aborts: [] as string[],
     secrets: [] as string[],
@@ -176,8 +179,11 @@ export function world(on: On, init: WorldInit = {}) {
   })
   on('tool.call', { tool: 'AskUserQuestion' }, (_$, e) => {
     for (const q of e.questions) w.asked.push({ question: q.question, options: q.options.map((o: { label: string }) => o.label) })
-    if (w.answer === undefined) return { deny: 'The user dismissed the question.' }
-    return { result: { questions: e.questions, answers: Object.fromEntries(e.questions.map((q: { question: string }) => [q.question, w.answer])) } as never }
+    const answered = w.answer === undefined
+      ? { deny: 'The user dismissed the question.' }
+      : { result: { questions: e.questions, answers: Object.fromEntries(e.questions.map((q: { question: string }) => [q.question, w.answer])) } as never }
+    if (w.holdAsks) return new Promise<typeof answered>(resolve => w.release.push(() => resolve(answered)))
+    return answered
   })
   on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'shell ran it', stderr: '', interrupted: false } }))
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))

@@ -122,6 +122,14 @@ function isApproved(rows: PlanRow[], slug: string, kind: Kind): boolean {
 // Open tagged dialogs, by `${kind} ${slug}`: each entry is told when its stop is approved from elsewhere.
 const watchers = new Map<string, Set<() => void>>()
 
+// AskUserQuestion dialogs open now. One dialog shows at a time, so a confirm asked meanwhile waits until they close.
+let openDialogs = 0
+
+export const isDialogOpen = () => openDialogs > 0
+
+/** True while an open dialog asks for exactly this stop's approval. */
+export const isAskedInChat = (kind: Kind, slug: string) => watchers.has(`${kind} ${slug}`)
+
 /** Tells every open dialog waiting on this stop that it has an approval on record. */
 function fireApproved(kind: Kind, slug: string): void {
   for (const tell of [...(watchers.get(`${kind} ${slug}`) ?? [])]) tell()
@@ -317,6 +325,7 @@ export function install(on: On): void {
     // Answers the model wrote into its own call are not the user's: read them before the dialog runs.
     const prefilled = { ...(e as { answers?: Record<string, unknown> }).answers }
     let ran: Awaited<ReturnType<typeof next>>
+    openDialogs++
     try {
       const shown = next(e)
       if (early === undefined) ran = await shown
@@ -337,6 +346,7 @@ export function install(on: On): void {
         ran = won
       }
     } finally {
+      openDialogs--
       stopWatching()
     }
     // A dismissed or failed dialog answered nothing; a subagent's is not the user's menu.

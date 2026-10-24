@@ -270,6 +270,20 @@ describe('polling (FR-10, NFR-01)', () => {
     await ui.unmount()
   })
 
+  test('a document written with no state.json change is noticed: the PRD card shows within one poll', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(plan({ stage: 'prd' }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect(await drawn(ui)).not.toContain('Waiting on you')
+    // The agent writes prd.md; nothing in the plan's state changes until the approval.
+    w.rows = [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))]
+    w.mtimes.set(`${WT}/docs/sdlc/plans/shop/prd.md`, 1)
+    await clock.advance(2_000)
+    expect(await drawn(ui)).toContain('Waiting on you: prd approval')
+    expect((await buttonKeys(ui)).filter(k => k === 'readall' || k === 'approve')).toEqual(['readall', 'approve'])
+    await ui.unmount()
+  })
+
   test('a partial state.json keeps the last good view and is read again on the next poll (Review focus 3)', async ($, on) => {
     const { w, clock, statusReads } = world(on, { rows: [row(plan({ stage: 'discover' }), WT)] })
     await start($, WT)
@@ -441,6 +455,51 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
     expect(new Set(w.secrets).size).toBe(2)
     expect(menu.context?.join()).toMatch(/prd approved/)
     expect(w.toasts.join('\n')).toMatch(/ship approved/)
+    await ui.unmount()
+  })
+
+  test('Approve while the chat asks for this same stop approves with no second dialog, and the chat question closes', async ($, on) => {
+    const { w, ran, clock } = world(on, { rows: [shipRow()] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    w.holdAsks = true
+    const q = 'Approve the record? [cairn:approve ship shop]'
+    const menu = $.tool.call({
+      tool: 'AskUserQuestion',
+      questions: [{ question: q, header: 'cairn', multiSelect: false, options: [{ label: 'Approve', description: 'ok' }, { label: 'Revise', description: 'no' }] }],
+    } as never)
+    await until(clock, () => w.asked.length > 0)
+    await ui.press({ key: 'approve' })
+    await until(clock, () => ran('approve').length > 0 && w.toasts.some(t => /ship approved/.test(t)))
+    expect(w.asked.map(a => a.question)).toEqual([q])
+    expect(ran('approve')).toEqual([['approve', 'ship']])
+    expect(((await menu).result as { answers: Record<string, string> }).answers[q]).toBe('Already approved from the pane')
+    await ui.unmount()
+  })
+
+  test('Approve while the chat asks something else asks nothing and says to answer that first', async ($, on) => {
+    const { w, ran, clock } = world(on, { rows: [shipRow()] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    w.holdAsks = true
+    const other = $.tool.call({
+      tool: 'AskUserQuestion',
+      questions: [{ question: 'Which template first?', header: 'Pick', multiSelect: false, options: [{ label: 'Clinical', description: 'a' }, { label: 'Modern', description: 'b' }] }],
+    } as never)
+    await until(clock, () => w.asked.length > 0)
+    await ui.press({ key: 'approve' })
+    await until(clock, () => w.toasts.length > 0)
+    expect(w.asked).toHaveLength(1)
+    expect(ran('approve')).toEqual([])
+    expect(w.toasts.join('\n')).toMatch(/answer the open question first/)
+    // Once that question is answered, the button confirms as usual.
+    w.holdAsks = false
+    w.release.forEach(r => r())
+    await other
+    await ui.press({ key: 'approve' })
+    await until(clock, () => ran('approve').length > 0)
+    expect(w.asked.at(-1)?.question).toBe('Approve the ship stop of plan shop?')
+    expect(ran('approve')).toEqual([['approve', 'ship']])
     await ui.unmount()
   })
 

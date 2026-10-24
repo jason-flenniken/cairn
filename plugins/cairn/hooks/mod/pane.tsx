@@ -1,5 +1,5 @@
 // The live pane and status line (FR-08..FR-12, FR-05, FR-17). Every 2 s the mod stats the plans'
-// state files and re-reads `cairn status --all --json` only when one changed (NFR-01).
+// state files and stop documents and re-reads `cairn status --all --json` only when one changed (NFR-01).
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
@@ -65,7 +65,10 @@ function hereSlug(plans: CairnPlanRow[], cwd: string): string | undefined {
   return best?.slug
 }
 
-const stateFile = (r: CairnPlanRow) => `${r.dir ?? `${r.worktree}/docs/sdlc/plans/${r.state.slug}`}/state.json`
+const planDir = (r: CairnPlanRow) => r.dir ?? `${r.worktree}/docs/sdlc/plans/${r.state.slug}`
+const stateFile = (r: CairnPlanRow) => `${planDir(r)}/state.json`
+// The documents a stop waits on: writing one makes it ready with no change to state.json.
+const STOP_DOCS = ['prd.md', 'plan.md', 'RECORD.md']
 
 // Poll bookkeeping. Nothing here is drawn, and a reload's session.start sets it up again.
 let ticking: Timer | undefined
@@ -90,10 +93,11 @@ async function fetchRecords($: EngineInterface): Promise<void> {
   await update($, records, () => found)
 }
 
-/** The files whose modification times say a plan changed: live state files, plan branches, worktrees. */
+/** The files whose modification times say a plan changed: live state files and stop documents, plan branches, worktrees. */
 function watched(plans: CairnPlanRow[]): string[] {
   return [
     ...plans.filter(r => r.worktree).map(stateFile),
+    ...plans.filter(r => r.worktree && isActive(r)).flatMap(r => STOP_DOCS.map(doc => `${planDir(r)}/${doc}`)),
     ...['sdlc', 'feature', 'fix'].map(prefix => `${common}/refs/heads/${prefix}`),
     `${common}/worktrees`,
   ]
