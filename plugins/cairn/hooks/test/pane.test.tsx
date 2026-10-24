@@ -376,6 +376,22 @@ describe('opening the pane (FR-08)', () => {
     expect(w.runs).toEqual([])
     expect(w.opens).toEqual(['cairn'])
   })
+
+  test('a repo made after the session started is found on a later poll, and its approval shows', async ($, on) => {
+    const init = { rows: [row(plan({ stage: 'plan' }), WT, undefined, ready('plan'))], cwd: WT, isGitRepo: false }
+    const { w, clock } = world(on, init)
+    await start($, WT)
+    await clock.advance(2_000)
+    expect(w.runs).toEqual([])
+
+    // `git init` ran in the session's folder.
+    init.isGitRepo = true
+    await clock.advance(2_000)
+    await until(clock, () => w.runs.length > 0)
+    const ui = await mount($, 'terminal')
+    expect(await drawn(ui)).toContain('Waiting on you: plan approval')
+    await ui.unmount()
+  })
 })
 
 const SHIP_STOP = plan({ stage: 'ship' })

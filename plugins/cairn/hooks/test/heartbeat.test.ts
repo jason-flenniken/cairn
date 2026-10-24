@@ -43,6 +43,24 @@ test('outside a git repo the heartbeat is skipped and the session starts', async
   expect(writes).toEqual([])
 })
 
+test('a repo made after the session started gets its heartbeat on the next beat', async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000 })
+  const git = { exitCode: 128, stdout: '' }
+  const { writes } = engine(on, git)
+  await $.session.start({ cwd: '/proj', surface: null, isInteractive: false })
+  await clock.advance(2_000)
+  expect(writes).toEqual([])
+
+  // `git init` ran in the session's folder.
+  Object.assign(git, { exitCode: 0, stdout: '/proj/.git\n' })
+  await clock.advance(2_000)
+  await clock.advance(2_000)
+  expect(writes).toEqual([
+    { path: '/proj/.git/cairn/mod-heartbeat', text: '5000' },
+    { path: '/proj/.git/cairn/mod-heartbeat', text: '7000' },
+  ])
+})
+
 test('a beat that cannot be written is skipped and the next one still lands', async ($, on) => {
   const clock = mock.clock(on, { now: 1_000 })
   const writes: string[] = []

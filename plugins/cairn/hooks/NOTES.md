@@ -7,7 +7,7 @@
 
 ## Heartbeat format (FR-06)
 
-`<git common dir>/cairn/mod-heartbeat` holds one value: epoch milliseconds as plain decimal text, with no newline (for example `1792532987012`). The mod writes it at `session.start` and every 2 s after that. It finds the common dir with `git rev-parse --path-format=absolute --git-common-dir`. Outside a git repo the heartbeat is skipped. An unwritable folder skips that beat. The CLI treats the mod as active while the value is under 10 s old.
+`<git common dir>/cairn/mod-heartbeat` holds one value: epoch milliseconds as plain decimal text, with no newline (for example `1792532987012`). The mod writes it at `session.start` and every 2 s after that. It finds the common dir with `git rev-parse --path-format=absolute --git-common-dir`. Outside a git repo a beat writes nothing and looks again next time, so a session started before `git init` picks the repo up within one beat. The pane's poll does the same. An unwritable folder skips that beat. The CLI treats the mod as active while the value is under 10 s old.
 
 A hot reload drops the old timer. `session.start` fires again for a changed module, so the beat restarts.
 

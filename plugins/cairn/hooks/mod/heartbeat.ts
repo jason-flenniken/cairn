@@ -15,12 +15,13 @@ export async function commonDir($: EngineInterface): Promise<string> {
 
 /** Called by register.tsx's single session.start: writes the first beat and starts the timer. */
 export async function onSessionStart($: EngineInterface, _e: SessionStartInput): Promise<void> {
-  const dir = await commonDir($).catch(() => undefined)
-  if (dir === undefined) return
-  const file = `${dir}/cairn/mod-heartbeat`
+  // A session can start before `git init`, so a beat with no repo yet looks again rather than stopping the timer.
+  let dir: string | undefined
   // An unwritable folder skips the beat; the CLI then reports modActive false (NFR-07).
   const beat = async () => {
-    await $.fs.write(file, String(await $.clock.now())).catch(() => undefined)
+    dir ??= await commonDir($).catch(() => undefined)
+    if (dir === undefined) return
+    await $.fs.write(`${dir}/cairn/mod-heartbeat`, String(await $.clock.now())).catch(() => undefined)
   }
   await beat()
   ticking?.cancel()

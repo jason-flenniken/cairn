@@ -142,9 +142,14 @@ async function trackCost($: EngineInterface, v: CairnView): Promise<void> {
 
 /** One poll: stats only, and one read when something changed. A failed read is retried once, next poll. */
 async function poll($: EngineInterface): Promise<void> {
-  if (isPolling || common === undefined) return
+  if (isPolling) return
   isPolling = true
   try {
+    // A session can start before `git init`: until the repo shows up, each poll only looks for it.
+    if (common === undefined) {
+      await findRepo($)
+      return
+    }
     // Stop now follows the main loop's turn, which pause.ts tracks; a change redraws the pane.
     const isRunning = turnRunning()
     if ((await read($, isTurnRunning)) !== isRunning) await update($, isTurnRunning, () => isRunning)
@@ -179,18 +184,22 @@ async function openPane($: EngineInterface): Promise<string> {
   return said
 }
 
-/** Called by register.tsx's single session.start: commands, the first read, the pane, the poll. */
-export async function onSessionStart($: EngineInterface, _e: SessionStartInput): Promise<void> {
-  for (const spec of COMMANDS) await $.command.register(spec).catch(() => undefined)
-  common = await commonDir($).catch(() => undefined)
-  // Outside a git repo there are no plans, but the agent cards still apply: the pane opens anyway.
-  if (common === undefined) {
-    if (!(await isOff($))) await openPane($)
-    return
-  }
+/** Looks up the git common dir; the first time it is found, does the first plan read. */
+async function findRepo($: EngineInterface): Promise<void> {
+  const found = await commonDir($).catch(() => undefined)
+  if (found === undefined) return
+  common = found
   isRetrying = !(await refresh($))
   const v = await read($, view)
   seen = await signature($, watched(v?.plans ?? []))
+}
+
+/** Called by register.tsx's single session.start: commands, the first read, the pane, the poll. */
+export async function onSessionStart($: EngineInterface, _e: SessionStartInput): Promise<void> {
+  for (const spec of COMMANDS) await $.command.register(spec).catch(() => undefined)
+  common = undefined
+  // Outside a git repo there are no plans, but the agent cards still apply: the pane opens anyway.
+  await findRepo($)
   ticking?.cancel()
   ticking = $.clock.every(EVERY_MS, () => void poll($).catch(() => undefined))
   // Open unless the user turned it off: the engine seats an unasked pane once the terminal is wide enough (144 columns, 110 after the user has opened it once).
