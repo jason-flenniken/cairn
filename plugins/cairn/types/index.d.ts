@@ -90,6 +90,21 @@ export type AgentCard = {
   usd?: number
 }
 
+/** `git status --porcelain=v2 --branch` in the session folder, and the linked worktree it is in, if any. */
+export type CairnGit = {
+  branch: string
+  isDetached: boolean
+  hasUpstream: boolean
+  ahead: number
+  behind: number
+  staged: number
+  changed: number
+  untracked: number
+  conflicts: number
+  /** The linked worktree's folder name; absent in the main checkout. */
+  worktree?: string
+}
+
 /** The session's usage as `session.measure` last reported it, and the model in use. */
 export type CairnUsage = { cost?: SessionCost; context: SessionContextUsage; rateLimits: SessionRateLimit[]; model?: string }
 
@@ -113,6 +128,10 @@ declare module 'claude-code' {
       planBaseline: { slug: string; usd: number } | null
       /** The document the pane's viewer shows; null while closed. */
       docOpen: { file: string; title: string; kind?: string } | null
+      /** The shown plan's active time so far; null until a plan is shown. */
+      activeTime: { slug: string; ms: number } | null
+      /** The session folder's git state; null outside a repo or before the first read. */
+      git: CairnGit | null
     }
   }
 }

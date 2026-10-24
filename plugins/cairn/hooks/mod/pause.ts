@@ -3,6 +3,7 @@ import type { EngineInterface, On, ProcessRunInit, SessionStartInput } from 'cla
 import { turnComplete, turnStart } from './activity.ts'
 import type { CairnReady as Ready } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
+import { markGitStale } from './git.ts'
 
 type Task = { id: string; status?: string; substep?: string; worktree?: string }
 export type PlanState = {
@@ -212,6 +213,7 @@ export function install(on: On): void {
     const done = await next(e)
     await turnComplete($, e)
     if (e.agentId === undefined) {
+      markGitStale()
       if (e.turnId === mainTurn) mainTurn = undefined
       if (e.turnId === stopMessageFor) {
         stopMessageFor = undefined

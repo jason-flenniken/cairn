@@ -58,7 +58,7 @@ export type WorldInit = { rows?: Row[]; cwd?: string; placed?: true | string; an
 /**
  * The world beneath the mod: git names /repo/.git; `cairn status --all --json` answers `w.rows`
  * (or `w.raw` when set); stat answers the mtimes in `w.mtimes`; `cairn approve` checks the secret's
- * hash as the CLI does; the dialog answers `w.answer`, or is dismissed when it is undefined. With
+ * hash as the CLI does; `git status` answers `w.git`; the dialog answers `w.answer`, or is dismissed when it is undefined. With
  * `w.holdAsks` set, a dialog stays open until its `w.release` entry is called.
  */
 export function world(on: On, init: WorldInit = {}) {
@@ -78,6 +78,11 @@ export function world(on: On, init: WorldInit = {}) {
     registered: [] as string[],
     asked: [] as { question: string; options: string[] }[],
     holdAsks: false,
+    /** `git status --porcelain=v2 --branch` output; unset, git answers as it does for the common dir. */
+    git: undefined as string | undefined,
+    /** `git rev-parse --absolute-git-dir --show-toplevel` output: the git dir, then the top folder. */
+    gitDirs: '/repo/.git\n/repo',
+    gitReads: 0,
     release: [] as (() => void)[],
     commands: [] as string[],
     aborts: [] as string[],
@@ -92,7 +97,15 @@ export function world(on: On, init: WorldInit = {}) {
   on('process.run', async (_$, e) => {
     const [bin, ...args] = e.argv
     const answer = (exitCode: number, stdout: string, stderr = '') => ({ value: { ...RAN, exitCode, stdout, stderr } })
-    if (bin === 'git') return init.isGitRepo === false ? answer(128, '', 'fatal: not a git repository') : answer(0, '/repo/.git\n')
+    if (bin === 'git') {
+      if (init.isGitRepo === false) return answer(128, '', 'fatal: not a git repository')
+      if (args.includes('status')) {
+        w.gitReads++
+        if (w.git !== undefined) return answer(0, w.git)
+      }
+      if (args.includes('--absolute-git-dir')) return answer(0, `${w.gitDirs}\n`)
+      return answer(0, '/repo/.git\n')
+    }
     if (bin === 'chmod') return answer(0, '')
     w.runs.push(args)
     if (args.join(' ') === 'status --all --json') {

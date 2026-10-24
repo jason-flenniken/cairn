@@ -6,10 +6,12 @@ import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../..
 import { LINGER_MS, readAgents, readFeed, readMain, readTick } from './activity.ts'
 import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel } from './approval.tsx'
 import { levelOrStandard } from './approve.ts'
+import { isWorking, readActive, startActive, trackActive } from './active.ts'
 import { activeStep, Bar, cells, stageSteps, type BarLine } from './bar.tsx'
 import { act, agentCard, agentLines, mainCard, message, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
 import { docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
+import { gitLine, readGit, startGit, trackGit } from './git.ts'
 import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
@@ -163,6 +165,11 @@ async function poll($: EngineInterface): Promise<void> {
       await showStatus($, current)
       await trackCost($, current)
     }
+    // The active time and the git line move with the clock and the work, not with any file the poll watches.
+    const shown = current?.plans.find(r => r.state.slug === current.here)
+    const slug = shown !== undefined && isActive(shown) ? shown.state.slug : undefined
+    await trackActive($, common, slug, !!shown?.state.paused).catch(() => undefined)
+    await trackGit($, common, await isWorking($)).catch(() => undefined)
     const before = watched(current?.plans ?? [])
     const stamp = await signature($, before)
     if (stamp === seen && !isRetrying) return
@@ -202,6 +209,8 @@ async function findRepo($: EngineInterface): Promise<void> {
 export async function onSessionStart($: EngineInterface, _e: SessionStartInput): Promise<void> {
   for (const spec of COMMANDS) await $.command.register(spec).catch(() => undefined)
   common = undefined
+  await startActive($)
+  startGit()
   // Outside a git repo there are no plans, but the agent cards still apply: the pane opens anyway.
   await findRepo($)
   ticking?.cancel()
@@ -328,18 +337,22 @@ export function install(on: On): void {
     const main = await readMain($)
     const used = await readUsage($)
     const baseline = await readBaseline($)
+    const gitState = await readGit($)
     const cx: CardContext = { ui, accent, nowMs: t, columns: e.props.bodyColumns - 6 }
-    // The bar's lines: docked, every stage step, then the usage lines; inline, the active step with the plan cost and limits.
+    // The bar's lines: docked, every stage step, the git line, then the usage lines; inline, the active step with the plan cost, active time and limits.
     const planSlug = here !== undefined && isActive(here) ? here.state.slug : undefined
+    const active = await readActive($)
+    const activeMs = planSlug !== undefined && active?.slug === planSlug ? active.ms : undefined
     const step = here === undefined ? [] : activeStep(here.state, here.prOpen)
     // Inline, the other plans fold into one line, so the budget below counts one row for them.
     const othersRows = isInline && others.length > 0 ? 1 : 0
     const barLines: BarLine[] = isInline
       ? step.length === 0
         ? []
-        : [[...step, ...inlineUsage(used, baseline, planSlug, e.props.bodyColumns - 2 - step.reduce((n, seg) => n + cells(seg.text), 0))]]
+        : [[...step, ...inlineUsage(used, baseline, planSlug, activeMs, e.props.bodyColumns - 2 - step.reduce((n, seg) => n + cells(seg.text), 0))]]
       : [
           ...(here === undefined ? [] : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2)),
+          gitLine(gitState, activeMs, e.props.bodyColumns - 2),
           modelLine(used, baseline, planSlug, e.props.bodyColumns - 2),
           limitsLine(used, t, e.props.bodyColumns - 2),
         ].filter(line => line.length > 0)

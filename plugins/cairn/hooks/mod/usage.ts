@@ -3,7 +3,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On } from 'claude-code'
 import type { CairnUsage } from '../../types/index.d.ts'
-import { BAR_COLUMNS, cells, type BarLine, type BarSeg } from './bar.tsx'
+import { fmtDuration } from './activity.ts'
+import { BAR_COLUMNS, firstFit, lineCells, type BarLine, type BarSeg } from './bar.tsx'
 
 // What the bar draws lives in $.state, so a hot reload keeps it. A restart starts both over.
 const usage = atom({ plugin: 'cairn', key: 'usage' } as const, null as CairnUsage | null)
@@ -75,13 +76,6 @@ export function tokensText(n: number): string {
 const meter = (percent: number, width: number) => {
   const filled = Math.min(width, Math.max(0, Math.round((percent / 100) * width)))
   return '█'.repeat(filled) + '░'.repeat(width - filled)
-}
-
-const sum = (segs: BarSeg[]) => segs.reduce((n, s) => n + cells(s.text), 0)
-
-/** The first of the candidates that fits `columns`; the last one when none does. */
-function firstFit(candidates: BarSeg[][], columns: number): BarLine {
-  return candidates.find(c => sum(c) <= columns) ?? candidates[candidates.length - 1]!
 }
 
 /** The cost the bar shows and its label: the plan's since its baseline, else the session's total; undefined when there is none. */
@@ -158,21 +152,23 @@ export function limitsLine(usage: CairnUsage | null, nowMs: number, columns = BA
   return firstFit([build(BAR_SHORT + 2, true), build(BAR_SHORT, true), build(BAR_SHORT, false), build(0, false)], columns)
 }
 
-/** The inline pane's one usage run: the plan cost and the limit percents, to follow the active step. */
+/** The inline pane's one usage run: the plan cost, the active time and the limit percents, to follow the active step. */
 export function inlineUsage(
   usage: CairnUsage | null,
   baseline: { slug: string; usd: number } | null,
   slug: string | undefined,
+  activeMs: number | undefined,
   room: number,
 ): BarSeg[] {
   const cost = costShown(usage, baseline, slug)
+  const timer = activeMs !== undefined && activeMs > 0 ? [{ text: `⏱ ${fmtDuration(activeMs, true)}`, dim: true }] : []
   const limits = (usage?.rateLimits ?? []).flatMap(l => {
     const w = WINDOWS[l.kind]
     return w === undefined ? [] : [{ text: `${w.label} ${Math.round(l.percentUsed)}%`, color: colorOf(l.percentUsed) }]
   })
-  const all = [...(cost === undefined ? [] : [{ text: money(cost.usd) }]), ...limits]
+  const all = [...(cost === undefined ? [] : [{ text: money(cost.usd) }]), ...timer, ...limits]
   // Drop from the right until the run fits the room left after the step.
-  while (all.length > 0 && sum(all.flatMap(s => [{ text: GAP }, s])) > room) all.pop()
+  while (all.length > 0 && lineCells(all.flatMap(s => [{ text: GAP }, s])) > room) all.pop()
   return all.flatMap(s => [{ text: GAP }, s])
 }
 

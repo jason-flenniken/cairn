@@ -30,7 +30,13 @@ export function cells(text: string): number {
   return n
 }
 
-const lineCells = (line: BarLine) => line.reduce((n, seg) => n + cells(seg.text), 0)
+/** Terminal cells a line of runs takes. */
+export const lineCells = (line: BarLine) => line.reduce((n, seg) => n + cells(seg.text), 0)
+
+/** The first of the candidates that fits `columns`; the last one when none does. */
+export function firstFit(candidates: BarLine[], columns: number): BarLine {
+  return candidates.find(c => lineCells(c) <= columns) ?? candidates[candidates.length - 1]!
+}
 
 const PR_OPEN: BarSeg = { text: 'PR open', color: 'yellow' }
 
