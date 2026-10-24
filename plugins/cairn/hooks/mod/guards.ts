@@ -6,6 +6,8 @@ import { after, before } from './activity.ts'
 
 const WHY = 'approvals and plan state come from the user and the CLI, not from tool calls.'
 const REASON = `cairn: ${WHY}`
+// Where to send the agent instead, so a denied approval is not followed by guessing at the CLI.
+const ASK_REASON = `${REASON} Ask the user: read modActive from cairn status --json. When it is true, ask with AskUserQuestion tagged [cairn:approve <kind> <slug>] (or [cairn:level <slug>]); the mod records the answer. When it is false, give them the full --human command to run in their own terminal.`
 
 // Words run before the real command: `env FOO=1 cairn`, `timeout 5 cairn`.
 const PREFIXES = new Set(['env', 'exec', 'command', 'nohup', 'nice', 'time', 'sudo', 'xargs', 'timeout'])
@@ -27,7 +29,8 @@ type Command = { words: string[]; spans: [number, number][]; redirects: string[]
 
 /** The FR-03 verdict on a Bash command: `{ deny }` with the reason, or `{}`. */
 export function bashVerdict(cmd: string): { deny?: string } {
-  return isDenied(cmd) ? { deny: REASON } : {}
+  if (!isDenied(cmd)) return {}
+  return { deny: commands(cmd).some(c => approves(c) || changesLevel(c)) ? ASK_REASON : REASON }
 }
 
 function isDenied(cmd: string): boolean {

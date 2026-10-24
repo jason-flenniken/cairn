@@ -283,7 +283,13 @@ describe('path guard (FR-04)', () => {
 describe('Bash guard (FR-03)', () => {
   test('denies cairn approve and lets cairn status run', async ($, on) => {
     engine(on)
-    expect((await $.tool.call({ tool: 'Bash', command: 'cairn approve prd' })).deny).toMatch(REASON)
+    const denied = (await $.tool.call({ tool: 'Bash', command: 'cairn approve prd' })).deny
+    expect(denied).toMatch(REASON)
+    // The denial says where an approval comes from, so the agent does not go probing the CLI.
+    expect(denied).toMatch(/\[cairn:approve <kind> <slug>\]/)
+    expect(denied).toMatch(/--human command/)
+    expect(bashVerdict('cairn level polished').deny).toMatch(/\[cairn:level <slug>\]/)
+    expect(bashVerdict('echo x > .git/cairn/mod-secret.sha256').deny).not.toMatch(/AskUserQuestion/)
     expect((await $.tool.call({ tool: 'Bash', command: 'cairn status' })).result).toBe('ran')
   })
 })
