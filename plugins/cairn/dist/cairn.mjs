@@ -8438,7 +8438,7 @@ var modIsActive = (ctx) => modActive(commonDir(ctx.mainRoot));
 function warnings(pc, s) {
   const w = [];
   const prd = readText(planFile(pc, "prd.md"));
-  if (s.approvals.prd?.hash && prd && hashText(prd) !== s.approvals.prd.hash) w.push("prd.md changed after it was approved");
+  if (prdEditedSinceApproval(s, prd)) w.push(s.stage === "plan" ? "prd.md changed after it was approved: approving the plan accepts the edits" : "prd.md changed after it was approved");
   const plan = readText(planFile(pc, "plan.md"));
   if (s.planHash && plan && hashText(plan) !== s.planHash) w.push("plan.md changed after it was loaded: run `cairn plan load --replan` or revert it");
   const open = s.drift.filter((d) => !d.acked);
@@ -8706,6 +8706,10 @@ function prdSummary(md) {
 function planSummary(s) {
   return s.phases.flatMap((ph, i) => [`${i + 1}. **${ph.name}**`, ...ph.tasks.map((t) => `   - ${t.name} (${t.complexity})${t.risky ? " risky" : ""}`)]).join("\n");
 }
+function prdEditedSinceApproval(s, prd) {
+  return !!s.approvals.prd?.hash && !!prd && hashText(prd) !== s.approvals.prd.hash;
+}
+var PRD_EDITED_NOTE = "**prd.md changed after you approved it; approving the plan also accepts those edits.**";
 function readyFor(pc) {
   try {
     const s = loadState(pc.plan.dir);
@@ -8717,7 +8721,11 @@ function readyFor(pc) {
     }
     if (s.stage === "plan" && !s.approvals.plan) {
       const md = readText(file("plan.md"));
-      return s.phases.length && md && s.planHash === hashText(md) ? { kind: "plan", file: file("plan.md"), summary: planSummary(s) } : void 0;
+      if (!s.phases.length || !md || s.planHash !== hashText(md)) return void 0;
+      const note = prdEditedSinceApproval(s, readText(file("prd.md"))) ? `${PRD_EDITED_NOTE}
+
+` : "";
+      return { kind: "plan", file: file("plan.md"), summary: note + planSummary(s) };
     }
     if (s.stage === "ship" && !s.approvals.ship && s.evidence.review?.result === "pass") {
       if (recordCheck(pcLike, fastLane(s) ? "fix" : "feature").problems.length) return void 0;
@@ -8761,6 +8769,12 @@ function cmdApprove(ctx, kind, opts, io) {
         s.approvals.plan = { ...approval(), hash: s.planHash };
         s.configHash = configHash(pc.cfg);
         log(s, "plan approved", source);
+        const prd = readText(planFile(pc, "prd.md"));
+        if (prdEditedSinceApproval(s, prd)) {
+          s.approvals.prd = { ...approval(), hash: hashText(prd) };
+          log(s, "PRD edits accepted with the plan", source);
+          return { message: "Plan approved, and the PRD edits with it. Next: `cairn advance` to execution." };
+        }
         return { message: "Plan approved. Next: `cairn advance` to execution." };
       });
     }

@@ -55,12 +55,12 @@ Phase 2: Checkout
   - Checkout form (standard)     blocked by: Cart API
 ```
 
-Run `cairn status --json`. If `state.approvals.plan` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
+Run `cairn status --json`. If `state.approvals.plan` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. If `warnings` says prd.md changed after it was approved, approving the plan also accepts those PRD edits: say so in the question and name what changed in the PRD in plain words. There is no separate PRD re-approval. Otherwise read `modActive`.
 - True: ask with AskUserQuestion, with the tree as the preview on the first option. The question text includes `[cairn:approve plan <slug>]`, with the plan slug from the status output:
   - Approve (Recommended)
   - Revise: ask what to change; edit `plan.md`; rerun step 4
   - Pause: go to the pause procedure
-- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve plan --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
+- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve plan --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed; it also accepts any PRD edits), then wait for them to say it's done.
 
 Do not approve on the user's behalf.
 

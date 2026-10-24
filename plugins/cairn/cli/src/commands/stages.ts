@@ -78,6 +78,13 @@ function planSummary(s: State): string {
     .join('\n');
 }
 
+/** True when prd.md no longer matches the text the user approved. */
+export function prdEditedSinceApproval(s: State, prd: string | undefined): boolean {
+  return !!s.approvals.prd?.hash && !!prd && hashText(prd) !== s.approvals.prd.hash;
+}
+
+const PRD_EDITED_NOTE = '**prd.md changed after you approved it; approving the plan also accepts those edits.**';
+
 /** The stop the plan is waiting on, when approving it now would pass its checks. Never throws. */
 export function readyFor(pc: { plan: { dir: string } }): Ready | undefined {
   try {
@@ -90,7 +97,9 @@ export function readyFor(pc: { plan: { dir: string } }): Ready | undefined {
     }
     if (s.stage === 'plan' && !s.approvals.plan) {
       const md = readText(file('plan.md'));
-      return s.phases.length && md && s.planHash === hashText(md) ? { kind: 'plan', file: file('plan.md'), summary: planSummary(s) } : undefined;
+      if (!s.phases.length || !md || s.planHash !== hashText(md)) return undefined;
+      const note = prdEditedSinceApproval(s, readText(file('prd.md'))) ? `${PRD_EDITED_NOTE}\n\n` : '';
+      return { kind: 'plan', file: file('plan.md'), summary: note + planSummary(s) };
     }
     if (s.stage === 'ship' && !s.approvals.ship && s.evidence.review?.result === 'pass') {
       if (recordCheck(pcLike, fastLane(s) ? 'fix' : 'feature').problems.length) return undefined;
@@ -138,6 +147,13 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         s.approvals.plan = { ...approval(), hash: s.planHash };
         s.configHash = configHash(pc.cfg);
         log(s, 'plan approved', source);
+        // PRD edits made while planning ride this approval: the user sees the note on the card and in the question.
+        const prd = readText(planFile(pc, 'prd.md'));
+        if (prdEditedSinceApproval(s, prd)) {
+          s.approvals.prd = { ...approval(), hash: hashText(prd as string) };
+          log(s, 'PRD edits accepted with the plan', source);
+          return { message: 'Plan approved, and the PRD edits with it. Next: `cairn advance` to execution.' };
+        }
         return { message: 'Plan approved. Next: `cairn advance` to execution.' };
       });
     }

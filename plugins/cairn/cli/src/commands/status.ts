@@ -7,7 +7,7 @@ import { levelLabel, nextFor, renderIndex, stepText, summary, timingText, type I
 import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.ts';
 import type { State } from '../types.ts';
 import { hashText, pluginRoot, readText, withLock, writeText } from '../util.ts';
-import { readyFor } from './stages.ts';
+import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
 import { knownFailures, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
@@ -37,7 +37,7 @@ const modIsActive = (ctx: Ctx): boolean => modActive(commonDir(ctx.mainRoot));
 export function warnings(pc: PlanCtx, s: State): string[] {
   const w: string[] = [];
   const prd = readText(planFile(pc, 'prd.md'));
-  if (s.approvals.prd?.hash && prd && hashText(prd) !== s.approvals.prd.hash) w.push('prd.md changed after it was approved');
+  if (prdEditedSinceApproval(s, prd)) w.push(s.stage === 'plan' ? 'prd.md changed after it was approved: approving the plan accepts the edits' : 'prd.md changed after it was approved');
   const plan = readText(planFile(pc, 'plan.md'));
   if (s.planHash && plan && hashText(plan) !== s.planHash) w.push('plan.md changed after it was loaded: run `cairn plan load --replan` or revert it');
   const open = s.drift.filter((d) => !d.acked);

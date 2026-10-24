@@ -69,7 +69,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 | `cairn approve prd` | stage is prd, `prd.md` has the five required sections (Problem, Solution, Requirements, Non-goals, Open questions), and Open questions has no unchecked `- [ ]` items |
 | `cairn advance` (to plan) | PRD approved |
 | `cairn plan load` | `plan.md` has Goal, Architecture and Phases and a valid `cairn-tasks` YAML block: unique ids, `blocked_by` only to the same or an earlier phase, no cycles, non-empty `scope`, `covers` ids exist in the PRD, and every PRD `FR-` id is covered or listed under `## Deferred requirements` |
-| `cairn approve plan` | the plan is loaded and `plan.md` is unchanged since it was loaded |
+| `cairn approve plan` | the plan is loaded and `plan.md` is unchanged since it was loaded. If `prd.md` changed after the PRD was approved, this approval also accepts those edits (the PRD approval takes the new text's hash), and the plan's approval card and the `status` warning say so. `cairn approve prd` works only at the prd stage |
 | `cairn advance` (to execute) | plan approved |
 | `cairn task start <id>` | the task is in the ready set (`cairn ready`), and the config lock holds |
 | `cairn task done <id>` | the task branch is merged into the plan branch, the config `test` command passes in the plan worktree (a missing test command is a warning, not a refusal; at MVP a red suite is a warning plus a hardening item), the config lock holds, and on feature plans no non-merge commit made directly on the plan branch since the task started changes files in the task's scope (outside `docs/sdlc/`). That refusal lists the short SHAs: move them onto the task branch and merge it with `--no-ff` |
