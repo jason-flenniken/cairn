@@ -91,7 +91,9 @@ describe('git in the pane', () => {
     const rows = await barRows(ui)
     const at = rows.findIndex(r => r.startsWith('⎇ 🌳 sdlc-shop'))
     expect(at).toBeGreaterThan(rows.findIndex(r => r.includes('● Build')))
-    expect(at).toBeLessThan(rows.findIndex(r => r.startsWith('🧠')))
+    // One blank row keeps the git line apart from the usage lines.
+    expect(rows[at + 1]).toBe('')
+    expect(rows[at + 2]).toMatch(/^🧠/)
     expect(rows[at]).toContain('●4 +1 !1 ↑2 ↓1')
     await ui.unmount()
   })

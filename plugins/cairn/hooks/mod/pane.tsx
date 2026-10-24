@@ -68,6 +68,16 @@ function hereSlug(plans: CairnPlanRow[], cwd: string): string | undefined {
 }
 
 const planDir = (r: CairnPlanRow) => r.dir ?? `${r.worktree}/docs/sdlc/plans/${r.state.slug}`
+/**
+ * The docked bar's lines: the stage steps, the git line, then the usage lines, with a blank row
+ * between the git line and the usage lines when both are there. Empty lines are left out.
+ */
+function docked(steps: BarLine[], git: BarLine, usage: BarLine[]): BarLine[] {
+  const shown = usage.filter(line => line.length > 0)
+  const gap: BarLine[] = git.length > 0 && shown.length > 0 ? [[{ text: '' }]] : []
+  return [...steps, ...(git.length > 0 ? [git] : []), ...gap, ...shown]
+}
+
 const stateFile = (r: CairnPlanRow) => `${planDir(r)}/state.json`
 // The documents a stop waits on: writing one makes it ready with no change to state.json.
 const STOP_DOCS = ['prd.md', 'plan.md', 'RECORD.md']
@@ -350,12 +360,11 @@ export function install(on: On): void {
       ? step.length === 0
         ? []
         : [[...step, ...inlineUsage(used, baseline, planSlug, activeMs, e.props.bodyColumns - 2 - step.reduce((n, seg) => n + cells(seg.text), 0))]]
-      : [
-          ...(here === undefined ? [] : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2)),
+      : docked(
+          here === undefined ? [] : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2),
           gitLine(gitState, activeMs, e.props.bodyColumns - 2),
-          modelLine(used, baseline, planSlug, e.props.bodyColumns - 2),
-          limitsLine(used, t, e.props.bodyColumns - 2),
-        ].filter(line => line.length > 0)
+          [modelLine(used, baseline, planSlug, e.props.bodyColumns - 2), limitsLine(used, t, e.props.bodyColumns - 2)],
+        )
 
     /**
      * A tab's root with the bar at the bottom (FR-01). Docked, the engine scrolls the body, so the bar is
