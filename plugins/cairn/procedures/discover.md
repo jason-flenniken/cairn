@@ -78,7 +78,7 @@ Constraint:   <the binding limit>
 Out of scope: <what we will not do>
 ```
 
-Ask "Is this right?" with AskUserQuestion: Yes, or fix a line. Record the card with `cairn decide "Read-back" "<the card>" --why "confirmed by the user"` only after an explicit yes. A fix means update the card and ask again. Silence or "sure, whatever" is not a yes.
+Print the card in your reply, then ask "Is this right?" with AskUserQuestion. The card goes with the question, never only before it: the question text includes `[cairn:readback <slug>]`, with the plan slug from `cairn status --json`, and the options are `Yes (Recommended)`, with the whole card as its preview, then `Fix a line`. The pane shows the same card while the question is open, and a press there answers it. Record the card with `cairn decide "Read-back" "<the card>" --why "confirmed by the user"` only after an explicit yes. A fix means update the card and ask again. Silence or "sure, whatever" is not a yes.
 
 After two revisions with no explicit yes, say plainly that something foundational seems to be missing, and ask with AskUserQuestion whether to step back: Step back to the goal questions (Recommended), Keep refining the card, or Pause.
 

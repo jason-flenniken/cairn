@@ -40,6 +40,9 @@ test('discover.md ends with a read-back card recorded only after an explicit yes
   const step7 = src.slice(src.indexOf('## 7. Read-back card'), src.indexOf('## 8.'));
   assert.match(step7, /two revisions/);
   assert.match(step7, /step back/);
+  // The card rides the question as the Yes option's preview, tagged so the pane can show it too.
+  assert.match(step7, /\[cairn:readback <slug>\]/);
+  assert.match(step7, /`Yes \(Recommended\)`, with the whole card as its preview/);
 });
 
 test('discover.md keeps the follow-up step and drops the old completeness wording', () => {

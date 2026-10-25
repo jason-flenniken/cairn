@@ -1,7 +1,8 @@
 // FR-02 menu approval and FR-34 mod-run overrides. The secret that proves the user to
 // the CLI lives only here, in memory; only its SHA-256 is on disk, and each use spends it.
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit } from 'claude-code'
-import type { CairnRun } from '../../types/index.d.ts'
+import type { CairnReadBack, CairnRun } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
 
@@ -21,6 +22,7 @@ export const levelOrStandard = (v: unknown): Level => LEVELS.find(l => l === v) 
 const APPROVE_TAG = /\[cairn:approve (prd|plan|ship) ([^\s\]]+)\]/
 const OVERRIDE_TAG = /\[cairn:override ([^\s\]]+)\]/
 const LEVEL_TAG = /\[cairn:level ([^\s\]]+)\]/
+const READBACK_TAG = /\[cairn:readback ([^\s\]]+)\]/
 // How long a child may run: quick reads, and the commands that hold the secret.
 const QUICK_MS = 60_000
 const CLI_MS = 10 * 60_000
@@ -52,6 +54,36 @@ export function isApproveLabel(s: unknown): boolean {
 }
 
 type Asked = { question?: unknown; options?: readonly { label?: unknown }[]; multiSelect?: unknown }
+
+// The read-back question open in the chat, which the pane shows while it is open; null otherwise.
+const readBack = atom({ plugin: 'cairn', key: 'readBack' } as const, null as CairnReadBack | null)
+
+/** The open read-back question, for the pane. */
+export function readReadBack($: EngineInterface): Promise<CairnReadBack | null> {
+  return read($, readBack)
+}
+
+/**
+ * A one-question dialog tagged `[cairn:readback <slug>]`: its slug, its question, the card (the first option
+ * preview, empty when none has one) and its own option labels. Anything else is not a read-back.
+ */
+export function readBackOf(questions: readonly { question?: unknown; options?: readonly { label?: unknown; preview?: unknown }[] }[]): CairnReadBack | undefined {
+  const [q] = questions
+  if (questions.length !== 1 || typeof q?.question !== 'string') return undefined
+  const tag = READBACK_TAG.exec(q.question)
+  if (tag === null) return undefined
+  const options = (q.options ?? []).map(o => o.label).filter((l): l is string => typeof l === 'string')
+  const card = (q.options ?? []).map(o => o.preview).find((p): p is string => typeof p === 'string' && p !== '') ?? ''
+  return { slug: tag[1] as string, question: q.question, card, options }
+}
+
+// The open read-back's answer, which a pane press gives; undefined while none is open.
+let pressReadBack: ((label: string) => void) | undefined
+
+/** A pane press on the open read-back: answers it with that label when the question offers it. */
+export function answerReadBack(label: string): void {
+  pressReadBack?.(label)
+}
 
 /** A clicked option approves only when its label starts with "Approve" (the model wrote the labels); typed text by isApproveLabel; a multi-select never. */
 export function isApproval(answer: unknown, asked: Asked | undefined): boolean {
@@ -322,32 +354,53 @@ export function install(on: On): void {
         }
       })
     }
+    // A read-back question in the main session shows in the pane while it is open, and a press there answers it
+    // with one of the question's own labels. It records nothing: the model records the card after a yes.
+    const rb = e.agentId === undefined ? readBackOf(e.questions) : undefined
+    let mine: ((label: string) => void) | undefined
+    const pressed = rb === undefined
+      ? undefined
+      : new Promise<string>(resolve => {
+          mine = label => {
+            if (rb.options.includes(label)) resolve(label)
+          }
+          pressReadBack = mine
+        })
+    if (rb !== undefined) await update($, readBack, () => rb)
     // Answers the model wrote into its own call are not the user's: read them before the dialog runs.
     const prefilled = { ...(e as { answers?: Record<string, unknown> }).answers }
     let ran: Awaited<ReturnType<typeof next>>
     openDialogs++
     try {
       const shown = next(e)
-      if (early === undefined) ran = await shown
+      const elsewhere = [early?.then(() => ({ by: 'approval' }) as const), pressed?.then(label => ({ by: 'press', label }) as const)]
+        .filter(p => p !== undefined)
+      if (elsewhere.length === 0) ran = await shown
       else {
-        // If the stop is approved elsewhere first, the open dialog is abandoned: its later outcome is not ours.
+        // If the stop is approved, or the read-back answered, elsewhere first, the open dialog is abandoned: its
+        // later outcome is not ours.
         shown.catch(() => undefined)
-        const won = await Promise.race([shown, early.then(() => undefined)])
-        if (won === undefined) {
-          // The dialog is still open under its question: say where the approval came from. A dialog that has
+        const won = await Promise.race([shown, ...elsewhere])
+        if ('by' in won) {
+          // The dialog is still open under its question: say where the answer came from. A dialog that has
           // already closed refuses the line; that is no reason to fail the answer.
           try {
-            await $.ui.toast('Approved in the pane')
+            await $.ui.toast(won.by === 'approval' ? 'Approved in the pane' : 'Answered in the pane')
           } catch {
             // The question closed first; the answer below still stands.
           }
-          return answeredEarly()
+          if (won.by === 'approval') return answeredEarly()
+          return { result: { questions: e.questions, answers: { [(rb as CairnReadBack).question]: won.label } } as never }
         }
         ran = won
       }
     } finally {
       openDialogs--
       stopWatching()
+      if (rb !== undefined) {
+        if (pressReadBack === mine) pressReadBack = undefined
+        await update($, readBack, cur => (cur?.question === rb.question ? null : cur))
+      }
     }
     // A dismissed or failed dialog answered nothing; a subagent's is not the user's menu.
     if (ran.deny !== undefined || ran.isError || e.agentId !== undefined) return ran

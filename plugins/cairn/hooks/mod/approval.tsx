@@ -1,8 +1,9 @@
 // The approval card (FR-11..FR-14): shown only while the CLI says the document is ready, with
 // Read all and Approve, and the confirm every pane or /cairn-approve approval goes through (FR-05).
+// Also the read-back card, shown while the read-back question is open in the chat.
 import type { EngineInterface } from 'claude-code'
-import type { CairnReady } from '../../types/index.d.ts'
-import { approveAs, isAskedInChat, isDialogOpen, LABEL_OF, levelAs, LEVEL_OF_LABEL, LEVELS, type Kind, type Level } from './approve.ts'
+import type { CairnReadBack, CairnReady } from '../../types/index.d.ts'
+import { answerReadBack, approveAs, isAskedInChat, isDialogOpen, LABEL_OF, levelAs, LEVEL_OF_LABEL, LEVELS, type Kind, type Level } from './approve.ts'
 import { act, viewPress } from './cards.tsx'
 import { openDoc } from './doc.tsx'
 import type { Ui } from './header.tsx'
@@ -73,6 +74,28 @@ export async function approvalCard($: EngineInterface, ui: Ui, slug: string, rea
         )}
         <Button key="approve" label="Approve" variant="primary" onPress={() => act($, () => approvePress($, slug, ready.kind))} />
       </Box>
+    </Box>
+  )
+}
+
+/**
+ * The read-back question open in the chat: the card and one button per option of the question, each answering
+ * it with that label; inline, one row with the buttons.
+ */
+export function readBackCard(ui: Ui, rb: CairnReadBack, isInline: boolean) {
+  const { Box, Button, Text } = ui
+  const buttons = (
+    <Box key="readback:buttons" flexDirection="row" gap={1}>
+      {rb.options.map((label, i) => (
+        <Button key={`readback:${i}`} label={label} variant={i === 0 ? 'primary' : undefined} onPress={() => answerReadBack(label)} />
+      ))}
+    </Box>
+  )
+  return (
+    <Box key="readback" flexDirection={isInline ? 'row' : 'column'} gap={1} borderStyle={isInline ? undefined : 'round'} borderColor="yellow" paddingX={isInline ? 0 : 1}>
+      <Text bold color="yellow">Waiting on you: read-back</Text>
+      {!isInline && <Text key="card">{rb.card === '' ? 'The card is in the chat question.' : rb.card}</Text>}
+      {buttons}
     </Box>
   )
 }

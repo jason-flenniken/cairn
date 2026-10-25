@@ -4,8 +4,8 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
 import { LINGER_MS, readAgents, readFeed, readMain, readTick } from './activity.ts'
-import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel } from './approval.tsx'
-import { levelOrStandard } from './approve.ts'
+import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel, readBackCard } from './approval.tsx'
+import { levelOrStandard, readReadBack } from './approve.ts'
 import { isWorking, readActive, startActive, trackActive } from './active.ts'
 import { activeStep, Bar, cells, stageSteps, type BarLine } from './bar.tsx'
 import { act, agentCard, agentLines, mainCard, message, type CardContext } from './cards.tsx'
@@ -416,7 +416,11 @@ export function install(on: On): void {
         </Box>
       )
       const header = planHeader(ui, row, accent, e.props.bodyColumns, t, v?.isFallback ? v.plans.filter(isActive).length : undefined, cards.filter(c => c.status === 'working').length)
-      const approve = ready !== undefined && (await approvalCard($, ui, s.slug, ready, isInline))
+      // The stop waiting on the person: a document to approve, or the read-back question open in the chat.
+      const rb = await readReadBack($)
+      const approve = ready !== undefined
+        ? await approvalCard($, ui, s.slug, ready, isInline)
+        : rb !== null && rb.slug === s.slug && readBackCard(ui, rb, isInline)
 
       if (isInline) {
         // One budget over every inline row: title and progress, the fallback and paused notes, the approval, the

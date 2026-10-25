@@ -108,6 +108,9 @@ export type CairnGit = {
 /** The session's usage as `session.measure` last reported it, and the model in use. */
 export type CairnUsage = { cost?: SessionCost; context: SessionContextUsage; rateLimits: SessionRateLimit[]; model?: string }
 
+/** A read-back question open in the chat: its plan, question, card and the dialog's own option labels. */
+export type CairnReadBack = { slug: string; question: string; card: string; options: string[] }
+
 declare module 'claude-code' {
   interface PluginState {
     cairn: {
@@ -132,6 +135,8 @@ declare module 'claude-code' {
       activeTime: { slug: string; ms: number } | null
       /** The session folder's git state; null outside a repo or before the first read. */
       git: CairnGit | null
+      /** The read-back question open in the chat; null while none is. */
+      readBack: CairnReadBack | null
     }
   }
 }
