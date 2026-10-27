@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:39:06.483Z",
+  "updated": "2026-10-27T20:40:45.859Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -121,16 +121,19 @@
             "plugins/cairn/cli/test/lifecycle.test.ts"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
           "riskReason": "changes the public CLI and must never touch user-owned area or decision files",
-          "substep": "implementing",
           "branch": "task/trustworthy-project-memory/cli-removals",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--cli-removals",
           "base": "1d96c5f124df497142ba8c029bf6deafe9896bf4",
           "startedAt": "2026-10-27T20:33:28.296Z",
-          "level": "standard"
+          "level": "standard",
+          "doneAt": "2026-10-27T20:40:45.858Z",
+          "tip": "03bf08d",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "548070b4867075c08dd8e06040943e01f803cc3d"
         },
         {
           "id": "changelog-tab",
@@ -408,6 +411,21 @@
       "at": "2026-10-27T20:39:06.483Z",
       "event": "task done",
       "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:39:25.219Z",
+      "event": "task reviewing",
+      "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:40:15.237Z",
+      "event": "task merging",
+      "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:40:45.858Z",
+      "event": "task done",
+      "detail": "Remove recall, area check and lasting decisions"
     }
   ],
   "cairnVersion": "0.6.0",
