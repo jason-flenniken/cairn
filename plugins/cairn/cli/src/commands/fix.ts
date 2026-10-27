@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { CONFIG_REL } from '../config.ts';
 import { branchExists, git } from '../git.ts';
 import { planRelIn, planRelOf, type Ctx } from '../locate.ts';
 import type { Config, State } from '../types.ts';
@@ -26,7 +27,7 @@ export function configGate(s: State, cfg: Config, event: string, opts: Opts): vo
     s,
     event,
     opts,
-    'the setup, test, or build command in .sdlc/config.json changed since the user approved it',
+    `the setup, test, or build command in ${CONFIG_REL} changed since the user approved it`,
     ['the user re-approves the commands by running, in their own terminal: cairn approve plan --human', 'or the user chooses Override in the menu'],
   );
 }

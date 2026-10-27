@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { DOCS_DIR, isCairnPath } from '../paths.ts';
 import { matchesAny } from '../glob.ts';
 import { context } from '../locate.ts';
 import { allTasks, currentPhase, findTask } from '../ready.ts';
@@ -25,7 +26,7 @@ export function hookSessionStart(input: HookInput): string {
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     if (ctx.task) {
       const sl = findTask(s, ctx.task);
-      if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit docs/sdlc/.`);
+      if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit ${DOCS_DIR}/.`);
     }
     return hookOut('SessionStart', lines.join('\n'));
   }
@@ -46,7 +47,7 @@ export function hookPostEdit(input: HookInput): string {
   if (!ctx.plan?.dir || !existsSync(join(ctx.plan.dir, 'state.json'))) return '';
   const rel = relative(ctx.top, abs);
   if (rel.startsWith('..') || isAbsolute(rel)) return '';
-  if (rel.startsWith('docs/sdlc/') || rel.startsWith('.sdlc/') || rel.startsWith('.claude/')) return '';
+  if (isCairnPath(rel)) return '';
   const pc = planCtx(ctx);
   const logged = withLock(pc.plan.dir, () => {
     const s = loadState(pc.plan.dir);

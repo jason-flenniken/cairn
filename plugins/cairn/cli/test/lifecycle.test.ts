@@ -187,7 +187,7 @@ test('full lifecycle with every checkpoint', () => {
   refused(wt, /not merged/, 'task', 'done', 'charge');
   g(wt, 'merge', '-q', '--no-ff', '-m', 'merge charge', 'task/billing/charge');
   write(join(wt, 'stray.ts'), 'x');
-  refused(wt, /uncommitted changes outside docs\/sdlc/, 'task', 'done', 'charge');
+  refused(wt, /uncommitted changes outside cairn's files/, 'task', 'done', 'charge');
   rmSync(join(wt, 'stray.ts'));
   write(join(wt, '../cairn-test-FAIL'), 'x');
   refused(wt, /tests are not green/, 'task', 'done', 'charge');
@@ -279,6 +279,16 @@ test('edits before the plan is approved are drift', () => {
   const swt = join(repo, '.claude/worktrees/feature-spike');
   assert.match(ctxOf(hookPostEdit({ cwd: swt, tool_input: { file_path: join(swt, 'src/app.ts') } })), /before the plan was approved/);
   assert.equal(hookPostEdit({ cwd: swt, tool_input: { file_path: join(swt, 'docs/notes.md') } }), '');
+});
+
+test('post-edit ignores both docs roots and the config folders', () => {
+  const swt = join(repo, '.claude/worktrees/feature-spike');
+  const drift = () => JSON.parse(readFileSync(join(pd(swt, 'spike'), 'state.json'), 'utf8')).drift.length;
+  const before = drift();
+  for (const f of ['docs/cairn/system/a.md', 'docs/sdlc/x.md', '.cairn/config.json', '.sdlc/config.json']) {
+    assert.equal(hookPostEdit({ cwd: swt, tool_input: { file_path: join(swt, f) } }), '', f);
+  }
+  assert.equal(drift(), before);
 });
 
 test('re-plan from verify adds fix tasks, keeps progress, and re-runs verification', () => {

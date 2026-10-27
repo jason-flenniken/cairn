@@ -7515,6 +7515,11 @@ var LEGACY_CAIRN_DIR = ".sdlc";
 var DOCS_DIR = "docs/cairn";
 var LEGACY_DOCS_DIR = "docs/sdlc";
 var DOCS_DIRS = [DOCS_DIR, LEGACY_DOCS_DIR];
+var under = (rel, dir) => rel === dir || rel.startsWith(`${dir}/`);
+function isCairnPath(rel) {
+  return [...DOCS_DIRS, CAIRN_DIR, LEGACY_CAIRN_DIR, ".claude"].some((d) => under(rel, d));
+}
+var cairnPathspecExcludes = () => DOCS_DIRS.map((d) => `:!${d}`);
 
 // plugins/cairn/cli/src/locate.ts
 var PLANS_DIR = `${DOCS_DIR}/plans`;
@@ -8351,7 +8356,7 @@ function configGate(s, cfg, event, opts) {
     s,
     event,
     opts,
-    "the setup, test, or build command in .sdlc/config.json changed since the user approved it",
+    `the setup, test, or build command in ${CONFIG_REL} changed since the user approved it`,
     ["the user re-approves the commands by running, in their own terminal: cairn approve plan --human", "or the user chooses Override in the menu"]
   );
 }
@@ -8538,7 +8543,7 @@ function cmdRender(ctx) {
     withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
     return { message: `Rendered ${join9(pc.plan.dir, "STATUS.md")}.` };
   }
-  const out = join9(ctx.top, "docs/sdlc/INDEX.md");
+  const out = join9(ctx.top, `${DOCS_DIR}/INDEX.md`);
   writeText(out, renderIndex(listPlans(ctx)));
   return { message: `Rendered ${out}.` };
 }
@@ -9208,14 +9213,14 @@ function taskDone(pc, id, opts) {
   const heads = [pb, ...tip ? [sl.branch] : []];
   const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base, h))).size : 0;
   const outside = tip && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
-  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !DOCS_DIRS.some((d) => f.startsWith(`${d}/`)) && matchesAny(f, sl.scope))) : [];
+  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !isCairnPath(f) && matchesAny(f, sl.scope))) : [];
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `task done: ${sl.name}`, (s) => {
     const cur = findTask(s, id);
     configGate(s, pc.cfg, "task done", opts);
     gate(!dirty, s, "task done", opts, `the task worktree has uncommitted changes`, [`commit or discard them in ${cur.worktree}`]);
     gate(commits > 0, s, "task done", opts, `${cur.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
-    gate(!planDirty, s, "task done", opts, `the plan worktree has uncommitted changes outside docs/sdlc: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
+    gate(!planDirty, s, "task done", opts, `the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
     gate(!stray.length, s, "task done", opts, `commits for task "${cur.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(", ")}`, [`move these commits to the task branch (git cherry-pick them onto ${cur.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
     gate(merged, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
     testsGate(tests ?? (checkable ? void 0 : { ok: false, ran: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts, cur.scope);
@@ -9286,10 +9291,10 @@ function cmdPhase(ctx, action, opts) {
   const blocked = phase.tasks.filter((x) => x.substep === "blocked");
   if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(", ")}`);
   const dirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan)}`], plan.worktree);
-  if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside docs/sdlc: ${dirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
+  if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${dirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
   const head = git(["rev-parse", "HEAD"], plan.worktree);
   const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? "").localeCompare(b.doneAt ?? "")).pop();
-  const reused = !!(last?.testedCommit && last.tests && gitOk(["diff", "--quiet", last.testedCommit, head, "--", ".", ":!docs/sdlc"], plan.worktree));
+  const reused = !!(last?.testedCommit && last.tests && gitOk(["diff", "--quiet", last.testedCommit, head, "--", ".", ...cairnPathspecExcludes()], plan.worktree));
   const tests = reused ? void 0 : runTests(pc.cfg, plan.worktree);
   return mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s);
@@ -9563,7 +9568,7 @@ function hookSessionStart(input) {
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     if (ctx.task) {
       const sl = findTask(s, ctx.task);
-      if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(", ")}. Never edit docs/sdlc/.`);
+      if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(", ")}. Never edit ${DOCS_DIR}/.`);
     }
     return hookOut("SessionStart", lines.join("\n"));
   }
@@ -9581,7 +9586,7 @@ function hookPostEdit(input) {
   if (!ctx.plan?.dir || !existsSync8(join15(ctx.plan.dir, "state.json"))) return "";
   const rel = relative3(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
-  if (rel.startsWith("docs/sdlc/") || rel.startsWith(".sdlc/") || rel.startsWith(".claude/")) return "";
+  if (isCairnPath(rel)) return "";
   const pc = planCtx(ctx);
   const logged = withLock(pc.plan.dir, () => {
     const s = loadState(pc.plan.dir);

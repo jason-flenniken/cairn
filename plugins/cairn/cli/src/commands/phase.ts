@@ -1,4 +1,5 @@
 import { git, gitOk } from '../git.ts';
+import { cairnPathspecExcludes } from '../paths.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { levelOf, loadState, log, setStage } from '../state.ts';
@@ -30,12 +31,12 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
   const blocked = phase.tasks.filter((x) => x.substep === 'blocked');
   if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(', ')}`);
   const dirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
-  if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside docs/sdlc: ${dirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
+  if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${dirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
 
   // Reuse the last task's green test run when no code changed since; otherwise run the tests once.
   const head = git(['rev-parse', 'HEAD'], plan.worktree);
   const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? '').localeCompare(b.doneAt ?? '')).pop();
-  const reused = !!(last?.testedCommit && last.tests && gitOk(['diff', '--quiet', last.testedCommit, head, '--', '.', ':!docs/sdlc'], plan.worktree));
+  const reused = !!(last?.testedCommit && last.tests && gitOk(['diff', '--quiet', last.testedCommit, head, '--', '.', ...cairnPathspecExcludes()], plan.worktree));
   const tests: TestRun | undefined = reused ? undefined : runTests(pc.cfg, plan.worktree);
 
   return mutate(pc, `phase finished: ${phase.name}`, (s) => {

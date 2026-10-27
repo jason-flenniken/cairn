@@ -3,6 +3,7 @@ import { join, relative } from 'node:path';
 import { configWarning } from '../config.ts';
 import { commonDir, git, landedState } from '../git.ts';
 import { PLAN_PREFIXES, parseBranch, planRef, planRelIn, planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
+import { DOCS_DIR } from '../paths.ts';
 import { modActive } from '../proof.ts';
 import { levelLabel, nextFor, renderIndex, stepText, summary, timingText, type IndexRow } from '../render.ts';
 import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.ts';
@@ -120,7 +121,7 @@ export function cmdRender(ctx: Ctx): Result {
     withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
     return { message: `Rendered ${join(pc.plan.dir, 'STATUS.md')}.` };
   }
-  const out = join(ctx.top, 'docs/sdlc/INDEX.md');
+  const out = join(ctx.top, `${DOCS_DIR}/INDEX.md`);
   writeText(out, renderIndex(listPlans(ctx)));
   return { message: `Rendered ${out}.` };
 }
