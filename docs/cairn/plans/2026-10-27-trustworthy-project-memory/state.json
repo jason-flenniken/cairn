@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "slug": "trustworthy-project-memory",
+  "title": "Trustworthy project memory",
+  "track": "feature",
+  "branch": "feature/trustworthy-project-memory",
+  "base": "main",
+  "created": "2026-10-27T19:15:12.077Z",
+  "updated": "2026-10-27T19:15:12.078Z",
+  "stage": "discover",
+  "stageHistory": [
+    {
+      "stage": "discover",
+      "at": "2026-10-27T19:15:12.077Z"
+    }
+  ],
+  "paused": null,
+  "approvals": {},
+  "phases": [],
+  "evidence": {},
+  "drift": [],
+  "log": [
+    {
+      "at": "2026-10-27T19:15:12.077Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-10-27T19:15:12.078Z",
+      "event": "level",
+      "detail": "standard"
+    }
+  ],
+  "cairnVersion": "0.6.0",
+  "level": "standard"
+}
