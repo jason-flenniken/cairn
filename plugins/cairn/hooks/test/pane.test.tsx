@@ -277,7 +277,7 @@ describe('polling (FR-10, NFR-01)', () => {
     expect(await drawn(ui)).not.toContain('Waiting on you')
     // The agent writes prd.md; nothing in the plan's state changes until the approval.
     w.rows = [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))]
-    w.mtimes.set(`${WT}/docs/sdlc/plans/shop/prd.md`, 1)
+    w.mtimes.set(`${WT}/docs/cairn/plans/shop/prd.md`, 1)
     await clock.advance(2_000)
     expect(await drawn(ui)).toContain('Waiting on you: prd approval')
     expect((await buttonKeys(ui)).filter(k => k === 'readall' || k === 'approve')).toEqual(['readall', 'approve'])
@@ -620,7 +620,7 @@ describe('/cairn-approve (FR-05)', () => {
 })
 
 describe('approval card and pressable cards (FR-11..FR-14)', () => {
-  const PRD_FILE = `${WT}/docs/sdlc/plans/shop/prd.md`
+  const PRD_FILE = `${WT}/docs/cairn/plans/shop/prd.md`
 
   test('Approve on a ready card approves once through the secret path', async ($, on) => {
     const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })

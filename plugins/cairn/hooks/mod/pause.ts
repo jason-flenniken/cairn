@@ -93,7 +93,7 @@ const ageText = (minutes: number): string =>
 
 const said = (r: { stdout: string; stderr: string }): string => (r.stderr.trim() || r.stdout.trim())
 
-type Plan = { state: PlanState; worktree: string; ready?: Ready }
+type Plan = { state: PlanState; worktree: string; ready?: Ready; dir?: string }
 
 /** The plan a session at the repo root works on: the one active plan, else the most recently updated. */
 export function pickCurrent<R extends { state: { stage?: string; updated?: string }; worktree?: string }>(rows: R[]): R | undefined {
@@ -110,10 +110,10 @@ export async function plan($: EngineInterface): Promise<Plan | string> {
     return { state: json.state, worktree: json.planWorktree, ready: json.ready }
   }
   const all = await cairn($, ['status', '--all', '--json'], quick)
-  const rows = Array.isArray(all.json?.plans) ? (all.json.plans as { state: PlanState; worktree?: string; ready?: Ready }[]) : []
+  const rows = Array.isArray(all.json?.plans) ? (all.json.plans as { state: PlanState; worktree?: string; ready?: Ready; dir?: string }[]) : []
   const picked = all.exitCode === 0 ? pickCurrent(rows.filter(p => typeof p.state?.slug === 'string')) : undefined
   if (picked?.worktree === undefined) return `no active plan here: ${said(r) || 'open Claude Code in a plan worktree'}`
-  return { state: picked.state, worktree: picked.worktree, ready: picked.ready }
+  return { state: picked.state, worktree: picked.worktree, ready: picked.ready, dir: picked.dir }
 }
 
 const fail = ($: EngineInterface, message: string): Outcome => {
@@ -125,9 +125,9 @@ const fail = ($: EngineInterface, message: string): Outcome => {
 export async function pause($: EngineInterface, mode: 'drain' | 'now'): Promise<Outcome> {
   const found = await plan($)
   if (typeof found === 'string') return fail($, found)
-  const { state, worktree } = found
+  const { state, worktree, dir } = found
   if (state.paused) return fail($, 'the plan is already paused')
-  const file = `${worktree}/docs/sdlc/plans/${state.slug}/handoff.md`
+  const file = `${dir ?? `${worktree}/docs/cairn/plans/${state.slug}`}/handoff.md`
   const existing = await $.fs.read(file).catch(() => undefined)
   await $.fs.write(file, handoffFromState(state, existing))
   const r = await cairn($, mode === 'now' ? ['pause', '--now'] : ['pause'], { ...quick, cwd: worktree })
@@ -137,9 +137,14 @@ export async function pause($: EngineInterface, mode: 'drain' | 'now'): Promise<
   return { ok: true, message: r.stdout.trim() }
 }
 
+/** The repo's config text: `.cairn/config.json`, else the legacy `.sdlc/config.json`. */
+async function readConfig($: EngineInterface, worktree: string): Promise<string> {
+  return await $.fs.read(`${worktree}/.cairn/config.json`).catch(() => $.fs.read(`${worktree}/.sdlc/config.json`))
+}
+
 async function freshMinutes($: EngineInterface, worktree: string): Promise<number> {
   try {
-    const n = (JSON.parse(await $.fs.read(`${worktree}/.sdlc/config.json`)) as { resumeFreshAfterMinutes?: unknown }).resumeFreshAfterMinutes
+    const n = (JSON.parse(await readConfig($, worktree)) as { resumeFreshAfterMinutes?: unknown }).resumeFreshAfterMinutes
     return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : FRESH_MINUTES
   } catch {
     return FRESH_MINUTES

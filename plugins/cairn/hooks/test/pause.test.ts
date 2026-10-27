@@ -4,7 +4,7 @@ import { handoffFromState, pauseAge, pickCurrent } from '../mod/pause.ts'
 
 const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const WT = '/repo/.claude/worktrees/sdlc-shop'
-const HANDOFF = `${WT}/docs/sdlc/plans/shop/handoff.md`
+const HANDOFF = `${WT}/docs/cairn/plans/shop/handoff.md`
 const NOW = Date.parse('2026-03-01T12:00:00.000Z')
 const minutesAgo = (m: number) => new Date(NOW - m * 60_000).toISOString()
 
@@ -24,6 +24,7 @@ type World = {
   tasks?: unknown[]
   handoff?: string
   config?: string
+  configAt?: string
   refusePause?: string
   failAbort?: boolean
   failRegister?: boolean
@@ -64,7 +65,7 @@ function world(on: On, w: World = {}) {
   })
   on('fs.read', (_$, e) => {
     if (e.path === HANDOFF && w.handoff !== undefined) return { value: w.handoff }
-    if (e.path === `${WT}/.sdlc/config.json` && w.config !== undefined) return { value: w.config }
+    if (e.path === `${WT}/${w.configAt ?? '.cairn/config.json'}` && w.config !== undefined) return { value: w.config }
     return { deny: 'ENOENT: no such file' }
   })
   on('fs.write', (_$, e) => {
@@ -313,8 +314,16 @@ test('a pause with no paused.at is treated as long', async ($, on) => {
   expect(w.ran('resume')).toEqual([])
 })
 
-test('resumeFreshAfterMinutes in .sdlc/config.json moves the threshold', async ($, on) => {
+test('resumeFreshAfterMinutes in .cairn/config.json moves the threshold', async ($, on) => {
   const w = world(on, { paused: { at: minutesAgo(30), mode: 'drain' }, config: '{"resumeFreshAfterMinutes": 10}' })
+  await start($)
+  await $.command.run({ command: 'cairn-resume-mod' })
+  expect(w.asked).toHaveLength(1)
+  expect(w.ran('resume')).toEqual([])
+})
+
+test('resumeFreshAfterMinutes in legacy .sdlc/config.json still moves the threshold', async ($, on) => {
+  const w = world(on, { paused: { at: minutesAgo(30), mode: 'drain' }, config: '{"resumeFreshAfterMinutes": 10}', configAt: '.sdlc/config.json' })
   await start($)
   await $.command.run({ command: 'cairn-resume-mod' })
   expect(w.asked).toHaveLength(1)

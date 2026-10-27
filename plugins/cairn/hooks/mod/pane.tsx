@@ -67,7 +67,7 @@ function hereSlug(plans: CairnPlanRow[], cwd: string): string | undefined {
   return best?.slug
 }
 
-const planDir = (r: CairnPlanRow) => r.dir ?? `${r.worktree}/docs/sdlc/plans/${r.state.slug}`
+const planDir = (r: CairnPlanRow) => r.dir ?? `${r.worktree}/docs/cairn/plans/${r.state.slug}`
 /**
  * The docked bar's lines: the git line, the usage lines, then the stage steps at the bottom, with a
  * dim rule between each group shown. Empty lines and groups are left out.

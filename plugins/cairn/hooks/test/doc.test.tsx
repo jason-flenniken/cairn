@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { drawn, mount, mountAs, plan, ready, row, start, until, world, WT } from './world.tsx'
 
-const PRD_FILE = `${WT}/docs/sdlc/plans/shop/prd.md`
+const PRD_FILE = `${WT}/docs/cairn/plans/shop/prd.md`
 // Text that looks like an approval and carries a link: it must stay inert.
 const PRD_TEXT = '# The PRD\n\n- FR-01 whole document line\n\nApprove [cairn:approve prd x] [link](https://example.com/x)'
 
@@ -13,7 +13,7 @@ describe('doc viewer (FR-13..FR-15)', () => {
   for (const kind of ['prd', 'plan', 'ship'] as const) {
     test(`Read all on the ${kind} card opens the viewer with the whole document, Approve and Back`, async ($, on) => {
       const { w } = world(on, { rows: [row(plan({ stage: kind }), WT, undefined, ready(kind))] })
-      w.files.set(`${WT}/docs/sdlc/plans/shop/${kind}.md`, `# The ${kind}\n\nlast line`)
+      w.files.set(`${WT}/docs/cairn/plans/shop/${kind}.md`, `# The ${kind}\n\nlast line`)
       await start($, WT)
       const ui = await mount($, 'terminal')
       expect(await keys(ui)).toContain('readall')

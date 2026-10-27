@@ -417,9 +417,10 @@ function wrapsInPty(command: Command): boolean {
   return PTY_WRAPPERS.has(name) || (/^(python[\d.]*|perl)$/.test(name) && command.words.some(word => /pty/.test(word)))
 }
 
-// A plan's state.json or STATUS.md, and the <git common dir>/cairn/ folder. Case-insensitive:
-// on APFS a case alias keeps its own spelling in realPath.
-const PLAN_FILE = /\/docs\/sdlc\/plans\/[^/]+\/(state\.json|status\.md)$/i
+// A plan's state.json or STATUS.md under docs/cairn/plans (current) or docs/sdlc/plans (legacy), and
+// the <git common dir>/cairn/ folder. Case-insensitive: on APFS a case alias keeps its own spelling
+// in realPath.
+const PLAN_FILE = /\/docs\/(?:cairn|sdlc)\/plans\/[^/]+\/(state\.json|status\.md)$/i
 const CAIRN_DIR = /\/\.git\/cairn(\/|$)/i
 const PATH_KEYS = ['file_path', 'path', 'notebook_path'] as const
 // Tools that only read: they may read plan state, never the cairn folder (the secret).

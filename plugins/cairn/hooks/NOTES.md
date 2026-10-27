@@ -116,8 +116,8 @@ In a throwaway git repo, `claude -p --plugin-dir plugins/cairn --permission-mode
 | Call | Result |
 | --- | --- |
 | The model's `bin/cairn approve prd` | Denied with the FR-03 reason |
-| `cat docs/sdlc/plans/x/state.json` | Ran |
+| `cat docs/cairn/plans/x/state.json` | Ran |
 | A Write to a new file in a new folder | Ran |
-| A Write to `docs/sdlc/plans/x/state.json` | Denied |
+| A Write to `docs/cairn/plans/x/state.json` (legacy `docs/sdlc/plans/x/state.json` too) | Denied |
 
 The heartbeat file held the current epoch ms.

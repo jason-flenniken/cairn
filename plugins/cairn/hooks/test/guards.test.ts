@@ -4,6 +4,9 @@ import { bashVerdict, pathProtected } from '../mod/guards.ts'
 
 const REASON = /approvals and plan state come from the user and the CLI/
 
+/** Each command that names a legacy docs/sdlc plan, plus the same command against docs/cairn. */
+const bothRoots = (cmds: string[]): string[] => [...cmds, ...cmds.filter(c => c.includes('docs/sdlc/')).map(c => c.replaceAll('docs/sdlc/', 'docs/cairn/'))]
+
 describe('bashVerdict', () => {
   // FR-03 deny table, plus the spellings a model would try next.
   const denied = [
@@ -102,7 +105,7 @@ describe('bashVerdict', () => {
     `python3 - <<'EOF'\nopen('docs/sdlc/plans/x/state.json', 'w').write('{}')\nEOF`,
     `node - <<EOF\nrequire('fs').writeFileSync('docs/sdlc/plans/x/state.json', '{}')\nEOF`,
   ]
-  for (const cmd of denied) {
+  for (const cmd of bothRoots(denied)) {
     test(`denies: ${cmd}`, () => {
       expect(bashVerdict(cmd).deny).toMatch(REASON)
     })
@@ -173,7 +176,7 @@ describe('bashVerdict', () => {
     'cairn --json decide "q" "approve"',
     'echo cairn approve prd | cat',
   ]
-  for (const cmd of allowed) {
+  for (const cmd of bothRoots(allowed)) {
     test(`allows: ${cmd}`, () => {
       expect(bashVerdict(cmd)).toEqual({})
     })
@@ -188,8 +191,14 @@ describe('pathProtected', () => {
     ['/repo/.git/cairn/mod-secret', true],
     ['/repo/.git/cairn/grants/x.json', true],
     ['/repo/.git/cairn', true],
+    ['/repo/docs/cairn/plans/x/state.json', true],
+    ['/repo/docs/cairn/plans/2026-10-27-x/STATUS.md', true],
+    ['/repo/Docs/CAIRN/plans/x/STATE.JSON', true],
     ['/repo/docs/sdlc/plans/x/plan.md', false],
     ['/repo/docs/sdlc/plans/x/sub/state.json', false],
+    ['/repo/docs/cairn/plans/x/plan.md', false],
+    ['/repo/docs/cairn/plans/x/sub/state.json', false],
+    ['/repo/docs/other/plans/x/state.json', false],
     ['/repo/src/state.json', false],
     ['/repo/.git/config', false],
   ]
@@ -205,11 +214,16 @@ describe('pathProtected', () => {
 // (a `{ deny }` beneath the plugin is how the kit rejects a `$` call).
 const DIRS = ['/', '/repo', '/repo/src', '/repo/docs', '/repo/docs/sdlc', '/repo/docs/sdlc/plans',
   '/repo/docs/sdlc/plans/x', '/repo/.git', '/repo/.git/cairn', '/repo/.git/cairn/grants', '/repo/Docs',
-  '/repo/Docs/SDLC', '/repo/Docs/SDLC/plans', '/repo/Docs/SDLC/plans/x']
+  '/repo/Docs/SDLC', '/repo/Docs/SDLC/plans', '/repo/Docs/SDLC/plans/x',
+  '/repo/docs/cairn', '/repo/docs/cairn/plans', '/repo/docs/cairn/plans/x']
 const FILES = ['/repo/docs/sdlc/plans/x/state.json', '/repo/docs/sdlc/plans/x/STATUS.md',
   '/repo/docs/sdlc/plans/x/plan.md', '/repo/.git/cairn/mod-secret', '/repo/Docs/SDLC/plans/x/STATE.JSON',
+  '/repo/docs/cairn/plans/x/state.json', '/repo/docs/cairn/plans/x/STATUS.md', '/repo/docs/cairn/plans/x/plan.md',
   '/repo/src/app.ts']
-const LINKS: Record<string, string> = { '/repo/src/link.json': '/repo/docs/sdlc/plans/x/state.json' }
+const LINKS: Record<string, string> = {
+  '/repo/src/link.json': '/repo/docs/sdlc/plans/x/state.json',
+  '/repo/src/cairn-link.json': '/repo/docs/cairn/plans/x/state.json',
+}
 
 type Answer = { value: never } | { deny: string }
 
@@ -248,6 +262,13 @@ describe('path guard (FR-04)', () => {
     ['Write', { file_path: '/repo/Docs/SDLC/plans/x/STATE.JSON', content: '{}' }],
     ['Write', { file_path: '/repo/docs/sdlc/plans/new-plan/state.json', content: '{}' }],
     ['Edit', { file_path: '/repo/docs/sdlc/plans/x/STATUS.md', old_string: 'a', new_string: 'b' }],
+    ['Write', { file_path: '/repo/docs/cairn/plans/x/state.json', content: '{}' }],
+    ['Write', { file_path: '/repo/newdir/../docs/cairn/plans/x/state.json', content: '{}' }],
+    ['Write', { file_path: '/repo/src/cairn-link.json', content: '{}' }],
+    ['Write', { file_path: '/repo/docs/cairn/plans/new-plan/state.json', content: '{}' }],
+    ['Edit', { file_path: '/repo/docs/cairn/plans/x/STATUS.md', old_string: 'a', new_string: 'b' }],
+    ['mcp__files__write_file', { path: '/repo/docs/cairn/plans/x/state.json', content: '{}' }],
+    ['NotebookEdit', { notebook_path: '/repo/docs/cairn/plans/x/state.json', new_source: '' }],
     ['Write', { file_path: '/repo/.git/cairn/grants/x.json', content: '{}' }],
     ['mcp__files__write_file', { path: '/repo/docs/sdlc/plans/x/state.json', content: '{}' }],
     ['NotebookEdit', { notebook_path: '/repo/docs/sdlc/plans/x/state.json', new_source: '' }],
@@ -284,6 +305,9 @@ describe('path guard (FR-04)', () => {
     ['Write', { file_path: '/repo/src/new-file.ts', content: 'x' }],
     ['Edit', { file_path: '/repo/src/app.ts', old_string: 'a', new_string: 'b' }],
     ['Write', { file_path: '/repo/docs/sdlc/plans/x/plan.md', content: 'x' }],
+    ['Read', { file_path: '/repo/docs/cairn/plans/x/state.json' }],
+    ['Write', { file_path: '/repo/docs/cairn/plans/x/plan.md', content: 'x' }],
+    ['Grep', { pattern: 'stage', path: '/repo/docs/cairn/plans/x' }],
     ['Grep', { pattern: 'stage', path: '/repo/docs/sdlc/plans/x' }],
     ['Read', { file_path: '/repo/.git/config' }],
   ]

@@ -5,7 +5,7 @@ import type { On } from 'claude-code'
 export const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 export const MAIN = '/repo'
 export const WT = '/repo/.claude/worktrees/sdlc-shop'
-export const STATE = `${WT}/docs/sdlc/plans/shop/state.json`
+export const STATE = `${WT}/docs/cairn/plans/shop/state.json`
 export const HASH_FILE = '/repo/.git/cairn/mod-secret.sha256'
 export const NOW = Date.parse('2026-03-01T12:00:00.000Z')
 export const SURFACES = ['terminal', 'desktop'] as const
@@ -46,7 +46,7 @@ function stepTextOf(state: Record<string, unknown>): string | undefined {
 }
 
 /** What the CLI reports for a document waiting on the human. */
-export const ready = (kind: Ready['kind'], summary = `- **FR-01** the ${kind} summary`): Ready => ({ kind, file: `${WT}/docs/sdlc/plans/shop/${kind}.md`, summary })
+export const ready = (kind: Ready['kind'], summary = `- **FR-01** the ${kind} summary`): Ready => ({ kind, file: `${WT}/docs/cairn/plans/shop/${kind}.md`, summary })
 
 export async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
