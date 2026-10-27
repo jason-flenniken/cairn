@@ -167,6 +167,10 @@ export interface State {
   suggestions?: Suggestion[];
   /** Decisions flagged as lasting; close publishes them to the repo-wide log. */
   lasting?: PendingDecision[];
+  /** Area docs a plan chose not to update, with why. `(uncovered)` stands for files no area covers. */
+  areaSkips?: { area: string; note: string; at: string }[];
+  /** Ids of the area docs that cover code this plan changed; set at close. */
+  areasTouched?: string[];
   log: LogEntry[];
 }
 

@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import {
   cmdAdvance,
   cmdApprove,
+  cmdAreaSkip,
   cmdClose,
   cmdDecide,
   cmdDriftAck,
@@ -34,7 +35,7 @@ import {
 } from './commands.ts';
 import { CliError, Refusal } from './util.ts';
 
-const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting']);
+const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'uncovered']);
 /** Flags that may repeat; the values are joined with newlines. */
 const REPEATABLE = new Set(['where', 'for']);
 
@@ -80,7 +81,7 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
-  pause [--now] | resume [<slug>] | close | render | records | migrate
+  area skip <id>|--uncovered --note "..." | pause [--now] | resume [<slug>] | close | render | records | migrate
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 
@@ -134,6 +135,9 @@ export function run(argv: string[], cwd = process.cwd()): Result {
       return cmdPause(ctx(), opts);
     case 'resume':
       return cmdResume(ctx(), a, opts);
+    case 'area':
+      if (a !== 'skip') throw new CliError('usage: cairn area skip <id>|--uncovered --note "<why>"');
+      return cmdAreaSkip(ctx(), b, opts);
     case 'close':
       return cmdClose(ctx(), opts);
     case 'records':

@@ -51,6 +51,14 @@ export function commitPath(cwd: string, path: string, message: string): boolean 
   return true;
 }
 
+/** Like `commitPath`, over several paths. */
+export function commitPaths(cwd: string, paths: string[], message: string): boolean {
+  git(['add', '-A', '--', ...paths], cwd);
+  if (gitOk(['diff', '--cached', '--quiet', '--', ...paths], cwd)) return false;
+  git(['commit', '-q', '-m', message, '--', ...paths], cwd);
+  return true;
+}
+
 /**
  * Non-merge commits on `head`'s first-parent history since `base`, each with the files it changed. A task branch
  * merged with `--no-ff` hangs off the second parent, so only work committed directly on `head` (or merged by

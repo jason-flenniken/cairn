@@ -7463,6 +7463,12 @@ function commitPath(cwd, path, message) {
   git(["commit", "-q", "-m", message, "--", path], cwd);
   return true;
 }
+function commitPaths(cwd, paths, message) {
+  git(["add", "-A", "--", ...paths], cwd);
+  if (gitOk(["diff", "--cached", "--quiet", "--", ...paths], cwd)) return false;
+  git(["commit", "-q", "-m", message, "--", ...paths], cwd);
+  return true;
+}
 function directCommits(cwd, base, head) {
   const out = git(["log", "--first-parent", "--no-merges", "--name-only", "-z", "--format=%x01%H", `${base}..${head}`], cwd);
   return out.split("").filter(Boolean).map((chunk) => {
@@ -8300,6 +8306,7 @@ function loadAreas(root) {
   }
   return { areas: areas.sort((a, b) => a.id.localeCompare(b.id)), problems };
 }
+var areasForFile = (file, areas) => areas.filter((a) => matchesAny(file, a.paths));
 
 // plugins/cairn/cli/src/decision-log.ts
 var import_yaml2 = __toESM(require_dist(), 1);
@@ -8562,6 +8569,66 @@ _${now().slice(0, 16).replace("T", " ")}_
 
 // plugins/cairn/cli/src/commands/stages.ts
 import { join as join13 } from "node:path";
+
+// plugins/cairn/cli/src/commands/memory.ts
+var UNCOVERED = "(uncovered)";
+var some = (xs, n) => xs.slice(0, n).join(", ");
+function areaCheck(worktree, s) {
+  const none = { problems: [], fixes: [], touched: [] };
+  let changed;
+  try {
+    if (!safeRef(worktree, s.base)) throw new Error("unsafe base");
+    const base = git(["merge-base", s.base, "HEAD"], worktree);
+    changed = git(["diff", "--name-only", base, "HEAD"], worktree).split("\n").filter(Boolean);
+  } catch {
+    return { ...none, warning: `could not compare with ${s.base}; area docs were not checked` };
+  }
+  const { areas, problems } = loadAreas(worktree);
+  if (!areas.length && !problems.length) return { ...none, warning: `no area docs under ${SYSTEM_DIR}; run /cairn:map to set them up` };
+  const code = changed.filter((f) => !isCairnPath(f));
+  const skipped = new Set((s.areaSkips ?? []).map((x) => x.area));
+  const touched = [];
+  const out = [...problems];
+  let stale = false;
+  for (const a of areas) {
+    const files = code.filter((f) => areasForFile(f, [a]).length);
+    if (!files.length) continue;
+    touched.push(a.id);
+    if (changed.includes(a.file) || skipped.has(a.id)) continue;
+    stale = true;
+    out.push(`${a.file} covers files this plan changed (${some(files, 5)}) but was not updated`);
+  }
+  const orphans = code.filter((f) => !areasForFile(f, areas).length);
+  const orphan = orphans.length > 0 && !skipped.has(UNCOVERED);
+  if (orphan) out.push(`changed files belong to no area: ${some(orphans, 10)}`);
+  const fixes = [];
+  if (stale) {
+    fixes.push("update each named area doc (Rules, How it works, Gotchas) for what this plan changed, and commit it on the plan branch");
+    fixes.push('or, when a doc needs no change: cairn area skip <area> --note "<why>"');
+  }
+  if (orphan) {
+    fixes.push("for files no area covers: add them to an area doc's paths, or create one from templates/area.md");
+    fixes.push('or: cairn area skip --uncovered --note "<why>"');
+  }
+  return { problems: out, fixes, touched };
+}
+function cmdAreaSkip(ctx, area, opts) {
+  const id = opts.uncovered === true ? UNCOVERED : area;
+  if (!id) throw new CliError('usage: cairn area skip <id> --note "<why>" | cairn area skip --uncovered --note "<why>"');
+  const note = typeof opts.note === "string" ? opts.note.trim() : "";
+  if (!note) throw new Refusal("an area skip needs a note saying why", [`cairn area skip ${id === UNCOVERED ? "--uncovered" : id} --note "<why>"`]);
+  const pc = planCtx(ctx);
+  if (id !== UNCOVERED) {
+    const { areas } = loadAreas(pc.plan.worktree);
+    if (!areas.some((a) => a.id === id)) throw new Refusal(`no area "${id}"`, [areas.length ? `use one of: ${areas.map((a) => a.id).join(", ")}` : `there are no area docs under ${SYSTEM_DIR}`]);
+  }
+  mutate(pc, void 0, (s) => {
+    (s.areaSkips ??= []).push({ area: id, note, at: now() });
+    log(s, "area skip", `${id}: ${note}`);
+  });
+  if (pc.cfg.autoCommit) commitPaths(pc.plan.worktree, [planRelOf(pc.plan)], `area skip: ${id}`);
+  return { message: `Skipped the area doc check for ${id}: ${note}` };
+}
 
 // plugins/cairn/cli/src/commands/fix.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
@@ -8924,7 +8991,7 @@ function fixRecordProblems(pc) {
   return p;
 }
 var recordCheck = (pc, track) => track === "fix" ? { problems: fixRecordProblems(pc), fix: "write RECORD.md from templates/record-fix.md" } : { problems: recordProblems(pc), fix: "write RECORD.md from templates/record.md" };
-function closeGates(pc, s, opts, record, tests) {
+function closeGates(pc, s, opts, record, tests, areas) {
   configGate(s, pc.cfg, "close", opts);
   const open = collectSuggestions(pc.ctx).filter((x) => x.open && !x.hardening && x.slug === s.slug);
   gate(
@@ -8936,6 +9003,9 @@ function closeGates(pc, s, opts, record, tests) {
     ['group related ones: cairn suggest merge <key>... --area <a> --text "<high-level item>"', 'drop trivia: cairn suggest resolve <key> --dismiss --note "<reason>"', "then list what was dropped in the record"]
   );
   gate(!record.problems.length, s, "close", opts, record.problems.join("; "), [record.fix]);
+  gate(!areas.problems.length, s, "close", opts, areas.problems.join("; "), areas.fixes);
+  if (areas.warning) log(s, "warning: close", areas.warning);
+  s.areasTouched = areas.touched;
   testsGate(tests, s, "close", opts);
 }
 function prdProblems(md) {
@@ -9047,6 +9117,7 @@ function cmdAdvance(ctx, opts) {
   if (closing) configGate(pre, pc.cfg, "close", opts);
   const record = closing ? recordCheck(pc, "fix") : void 0;
   const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : void 0;
+  const areas = closing ? areaCheck(pc.plan.worktree, pre) : void 0;
   let to;
   const r = mutate(pc, void 0, (s) => {
     to = nextStage(s);
@@ -9078,7 +9149,7 @@ function cmdAdvance(ctx, opts) {
         break;
       case "ship":
         gate(!!s.approvals.ship, s, "advance", opts, "shipping is not approved", ["cairn approve ship"]);
-        if (record) closeGates(pc, s, opts, record, tests);
+        if (record && areas) closeGates(pc, s, opts, record, tests, areas);
         break;
     }
     if (to === "ship" && levelOf(s) === "mvp") {
@@ -9102,9 +9173,10 @@ function cmdClose(ctx, opts) {
   configGate(loadState(pc.plan.dir), pc.cfg, "close", opts);
   const record = recordCheck(pc, "feature");
   const tests = runTests(pc.cfg, pc.plan.worktree);
+  const areas = areaCheck(pc.plan.worktree, loadState(pc.plan.dir));
   return mutate(pc, "closed", (s) => {
     gate(s.stage === "learn", s, "close", opts, `the plan is in ${s.stage}, not learn`);
-    closeGates(pc, s, opts, record, tests);
+    closeGates(pc, s, opts, record, tests, areas);
     setStage(s, "closed");
     log(s, "closed");
     return { message: `Closed "${s.title}". The record is ${join13(pc.plan.dir, "RECORD.md")}.` };
@@ -9896,7 +9968,7 @@ function hookPostEdit(input) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "uncovered"]);
 var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];
@@ -9940,7 +10012,7 @@ var USAGE3 = `cairn: plan state for the agent-driven lifecycle. See references/c
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
-  pause [--now] | resume [<slug>] | close | render | records | migrate
+  area skip <id>|--uncovered --note "..." | pause [--now] | resume [<slug>] | close | render | records | migrate
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 function run(argv, cwd = process.cwd()) {
@@ -9993,6 +10065,9 @@ function run(argv, cwd = process.cwd()) {
       return cmdPause(ctx(), opts);
     case "resume":
       return cmdResume(ctx(), a, opts);
+    case "area":
+      if (a !== "skip") throw new CliError('usage: cairn area skip <id>|--uncovered --note "<why>"');
+      return cmdAreaSkip(ctx(), b, opts);
     case "close":
       return cmdClose(ctx(), opts);
     case "records":
