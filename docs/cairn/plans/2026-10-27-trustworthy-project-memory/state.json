@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:18:12.816Z",
+  "updated": "2026-10-27T20:19:43.133Z",
   "stage": "prd",
   "stageHistory": [
     {
@@ -19,7 +19,14 @@
     }
   ],
   "paused": null,
-  "approvals": {},
+  "approvals": {
+    "prd": {
+      "at": "2026-10-27T20:19:43.133Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "23d8f314037eabbc"
+    }
+  },
   "phases": [],
   "evidence": {},
   "drift": [],
@@ -37,6 +44,11 @@
       "at": "2026-10-27T20:18:12.816Z",
       "event": "advanced",
       "detail": "prd"
+    },
+    {
+      "at": "2026-10-27T20:19:43.133Z",
+      "event": "PRD approved",
+      "detail": "mod"
     }
   ],
   "cairnVersion": "0.6.0",
