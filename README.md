@@ -175,34 +175,53 @@ The idea comes from Dave Rensin's essay [Elephants, Goldfish and the New Golden 
 
 ## The live pane
 
-The pane opens on its own at the start of every session, docked on the right in fullscreen. Turn it off or on with `/cairn-pane`. From top to bottom:
+<img src="docs/images/pane.png" alt="The cairn pane docked beside the chat: Now, History and Records tabs; the plan header and progress; the main session card; a running build agent with its time, tokens and cost; the next tasks; Pause, Stop now and Status; and the bar with the stage steps, git state, model, plan cost, context, and usage limits." width="460">
 
-```
-cairn v0.3 · Build · phase 2 of 4
-████████████░░░░░░░░ 9/19 tasks · ~40m left
-NOW
-┌ Build · CSV export ───────── sonnet ┐
-│ ● working · 6m 12s                  │
-│   editing src/reports/export.ts     │
-│   14 steps                          │
-└─────────────────────────────────────┘
-┌ Main session ───────────────────────┐
-│ ● running tests · 1m 40s            │
-└─────────────────────────────────────┘
-UP NEXT  Download button · Empty state (waits)
-✓ 1 Data layer         4 tasks · 38m
-◐ 2 Export             2 of 5
-○ 3 Polish             0 of 3
-12:03 merged Report query · 214 tests pass
-[Pause] [Stop now] [Status]
-```
+The pane opens on its own at the start of every session, docked on the right in fullscreen (`/tui fullscreen`). In the normal layout it sits above the prompt as a compact summary. `/cairn-pane on|off` shows or hides it, and the choice sticks across sessions; closing it by hand turns it off too. Everything in it is read from the plan's state, so it's right even after a pause, a crash, or a new session.
 
-- **Header:** the plan, the stage and phase, a progress bar, and a rough time left. The estimate uses how long tasks of each size have taken so far, split across the parallel slots.
-- **Waiting on you:** a yellow box with an **Approve** button, shown only when a stop needs you.
-- **NOW:** one card per running agent, showing its role and task, model, timer, current action, and step count. The **Main session** card shows what the orchestrator itself is doing, such as running tests or merging. A finished card turns green and briefly shows its time and token use.
-- **Below the cards:** what's up next, the phases (finished ones fold to one line), recent events, and buttons for Pause, Stop now, Resume, and Status.
+It has three tabs, **Now**, **History**, and **Records**, and the same bar along the bottom of each.
 
-With no plan running, the pane still shows the agent cards and a line telling you how to start a plan. The status line under the prompt carries the short version: `cairn · Build 9/19 tasks · 3 working · ~40m left`.
+### Now
+
+- **Header:** the plan, its stage and phase, its level, and how long the current stage has run. Below it, a progress bar of tasks done and a rough time left, estimated from how long tasks of each size have taken so far, split across the parallel slots.
+- **Waiting on you:** a yellow box, only when something needs you.
+  - At the PRD, plan, and ship stops it shows the document's summary with **Read all**, which opens the full document in the pane, and **Approve**. Approve asks you to confirm, then records the approval the same way answering in the chat does. The model can't approve for you: the mod blocks it from running the approval itself.
+  - During discovery it shows the read-back card while "Is this right?" is open in the chat, with buttons that answer it.
+- **Main session:** what the orchestrating session is doing (running tests, merging, starting agents) and for how long. It turns yellow and says **waiting for you** only while it has asked you something in the chat; between turns it reads **idle**, with how many agents are still working.
+- **Agent cards:** one per running agent: its role and task (Build, Review, Fix, Check, Record), model, time, tokens and estimated cost, current action, and step count. A finished card turns green (red if it stopped early) and stays a few seconds with its totals.
+- **UP NEXT** lists the next tasks in the phase, marking those still waiting on another task. Files edited outside every task's scope show as **out-of-scope edits**.
+- **Buttons:** **Pause** lets running work reach a safe point and stops, **Stop now** cuts the running turn and saves work in progress, **Resume** continues a paused plan, and **Status** prints where the plan stands.
+- Other plans active in the repo are listed with a **Resume** button each.
+
+### History
+
+The plan's timeline, newest first, each line stamped with its time: stage moves, approvals, tasks done, phases finished, the check and review steps (reviewing, fixing, rechecking), escalations, level changes, pauses and resumes, and each agent that finished. Use it to see what happened while you were away.
+
+### Records
+
+Every plan in the repo: those still in progress at the top, then finished ones newest first, each with its date, title, and one-line why. Select a finished one to read its `RECORD.md` in the pane, with its open recommended follow-ups listed under it.
+
+### The bar
+
+Along the bottom of every tab:
+
+- **Stage steps:** ✓ done, ● the current stage (with the phase during Build), ○ still to come.
+- **Git:** the branch (🌳 when the session is in a worktree), `✓ clean` or the count of changed files, commits ahead ↑ and behind ↓, and the plan's active time ⏱: time counts only while the session or an agent is working, not while a question waits on you, the plan is paused, or the session sits idle.
+- **Usage:** the model, what the plan has cost so far (or the session's total when no plan is active), how full the context window is, and the session's tokens.
+- **Limits:** your 5-hour and 7-day usage. They change color as they get close, and show when they reset.
+
+### Commands
+
+| Command | What it does |
+|---|---|
+| `/cairn-pane [on\|off]` | Show, hide, or toggle the pane |
+| `/cairn-approve [prd\|plan\|ship]` | Approve the stop the plan is waiting on, after a confirm |
+| `/cairn-level` | Change the plan's depth level from a menu |
+| `/cairn-pause-mod` | Pause once running work reaches a safe point |
+| `/cairn-pause-now` | Stop the running turn and pause now |
+| `/cairn-resume-mod [plan]` | Resume a paused plan, here or after `/clear` |
+
+With no plan running, the pane still shows the agent cards and how to start a plan. The status line under the prompt carries a one-line version.
 
 ## Recommended follow-ups
 
