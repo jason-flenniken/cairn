@@ -262,7 +262,7 @@ test('full lifecycle with every checkpoint', () => {
   const status = readFileSync(join(planDir(), 'STATUS.md'), 'utf8');
   assert.match(status, /\*\*Where we are:\*\* Closed/);
   assert.match(g(wt, 'log', '--oneline'), /cairn\(billing\): closed/);
-  assert.equal(g(wt, 'status', '--porcelain', '--', 'docs/sdlc'), '');
+  assert.equal(g(wt, 'status', '--porcelain', '--', 'docs/cairn'), '');
 });
 
 test('override lets a refused step through and logs the reason', () => {

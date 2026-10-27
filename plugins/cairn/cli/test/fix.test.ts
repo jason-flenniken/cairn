@@ -193,7 +193,7 @@ test('the full fix track runs repro, execute, review, ship, closed', () => {
   s = stateOf(wt, 'full');
   assert.equal(s.stage, 'closed');
   assert.ok(!s.log.some((l: { detail?: string }) => l.detail === 'learn'), 'no learn stage');
-  assert.equal(g(wt, 'status', '--porcelain', '--', 'docs/sdlc'), '');
+  assert.equal(g(wt, 'status', '--porcelain', '--', 'docs/cairn'), '');
 });
 
 test('task done refuses while the repro still fails', () => {
@@ -317,7 +317,7 @@ test('escalate turns a fix plan into a feature plan at prd, keeping the task and
   assert.ok(decisions.includes('Fix grows'), 'the bug is recorded');
   assert.ok(decisions.includes(REPRO), 'the repro is recorded');
   assert.match(ok(wt, 'next').data!.procedure as string, /procedures\/prd\.md$/);
-  assert.equal(g(wt, 'status', '--porcelain', '--', 'docs/sdlc'), '');
+  assert.equal(g(wt, 'status', '--porcelain', '--', 'docs/cairn'), '');
 });
 
 test('escalate after the fix task is done narrows its scope from the recorded tip', () => {
