@@ -80,6 +80,10 @@ A new release reaches you when its version changes. Auto-update is off for marke
 
 or `claude plugin update cairn@cairn` from your shell, then `/reload-plugins`. To get releases automatically, open `/plugin`, go to **Marketplaces**, select `cairn`, and choose **Enable auto-update**.
 
+### Upgrading from 0.5
+
+0.6 keeps its files in `.cairn/` and `docs/cairn/` instead of `.sdlc/` and `docs/sdlc/`. On main, with no plan in flight, run `cairn migrate` once: it moves cairn's folders in one commit (and leaves any other tool's `docs/sdlc/` alone). Until you do, the old paths still read and plans already in flight finish where they are, but session start will remind you.
+
 ## Quick start
 
 1. **Start a plan.** Inside the repo you want to work on, run:

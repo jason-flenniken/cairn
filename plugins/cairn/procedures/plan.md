@@ -17,7 +17,7 @@ Run `cairn status --json`. The stage must be `plan`. Any other stage: say which 
 **Done when:** the stage is `plan`. If `plan.md` exists, read it and treat step 3 as a revision.
 
 ## 2. Explore
-Dispatch Explore agents (`model: sonnet`, `description` per `references/reporting.md`) in parallel, split by area the PRD touches. Each returns: existing modules and their interfaces, patterns to follow, test layout and runner, files likely to change, and refactors that would make the change easier (prefactoring). Use `path:line` evidence. Then run `cairn recall` on the candidate task scopes. The plan must not contradict a decision in force without a replacing lasting decision (`cairn decide ... --lasting --replaces <id>`).
+Dispatch Explore agents (`model: sonnet`, `description` per `references/reporting.md`) in parallel, split by area the PRD touches. Each returns: existing modules and their interfaces, patterns to follow, test layout and runner, files likely to change, and refactors that would make the change easier (prefactoring). Use `path:line` evidence. Then run `cairn recall` on the candidate task scopes. The plan must not contradict a decision in force without a replacing lasting decision (`cairn decide "<question>" "<answer>" --why "…" --lasting --replaces <id>`; it inherits the replaced decision's areas and paths).
 
 **Done when:** you can name, for each FR, the files and seams it lands in.
 

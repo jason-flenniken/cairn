@@ -17,11 +17,11 @@ Ask with AskUserQuestion: "What are we building?" Offer 2-3 short title options 
 **Done when:** you have a title and a kebab-case slug of at most 40 characters.
 
 ## 3. Repo config
-Check for `.cairn/config.json`.
-- Present: read it and move on.
-- Missing: detect commands from `package.json` scripts, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `app.json` (Expo), and similar. Fill the shape of `${CLAUDE_PLUGIN_ROOT}/templates/config.json` (`test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `autoCommit`). Ask with AskUserQuestion, one question per uncertain field (test command first), recommended detection first, with the proposed JSON as a preview. Write `.cairn/config.json`, then commit it on the current branch: `git add .cairn/config.json && git commit -m "chore: add cairn config"`.
+Check for `.cairn/config.json`, then for the legacy `.sdlc/config.json`.
+- Either present: read it and move on; never write a second config. When only `.sdlc/config.json` exists, say once that `cairn migrate` (on main, with no plan in flight) moves the repo to `.cairn/` and `docs/cairn/`.
+- Neither present: detect commands from `package.json` scripts, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `app.json` (Expo), and similar. Fill the shape of `${CLAUDE_PLUGIN_ROOT}/templates/config.json` (`test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `autoCommit`). Ask with AskUserQuestion, one question per uncertain field (test command first), recommended detection first, with the proposed JSON as a preview. Write `.cairn/config.json`, then commit it on the current branch: `git add .cairn/config.json && git commit -m "chore: add cairn config"`.
 
-**Done when:** `.cairn/config.json` exists and is committed, and its `test` command is non-empty.
+**Done when:** `.cairn/config.json` (or the legacy `.sdlc/config.json`) exists and is committed, and its `test` command is non-empty.
 
 ## 4. Level
 Ask once with AskUserQuestion, a plain choice and not an approval: "How much effort should this build spend?" Options, with the repo's default first and marked "(Recommended)" (`defaultLevel` in `.cairn/config.json`, Standard when unset):

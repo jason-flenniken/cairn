@@ -1,8 +1,8 @@
 ---
 area: Area name
-summary: One line on what this part of the system does.
+summary: "One line on what this part of the system does."
 paths: [src/example/**]
-updated: YYYY-MM-DD
+updated: "YYYY-MM-DD"
 ---
 
 ## Rules

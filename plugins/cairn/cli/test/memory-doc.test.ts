@@ -54,3 +54,30 @@ test('map skill and procedure bootstrap area docs and the decision log', () => {
   for (let n = 1; n <= 6; n++) assert.match(src, new RegExp(`^## ${n}\\. `, 'm'), `map.md is missing step ${n}`);
   has('procedures/map.md', 'templates/area.md', 'cairn decide', '--lasting', 'cairn render', 'cairn recall', 'AskUserQuestion', 'Record · area');
 });
+
+test('area template and recorder keep summary and updated quoted, and only RECORD.md has a word cap', () => {
+  has('templates/area.md', 'summary: "', 'updated: "');
+  has('agents/recorder.md', 'double quotes', 'For RECORD.md: run `wc -w`', 'Area docs have no word cap');
+});
+
+test('replace instructions give the full decide form', () => {
+  const full = 'cairn decide "<question>" "<answer>" --why "…" --lasting --replaces <id>';
+  for (const f of ['agents/task-reviewer.md', 'agents/branch-reviewer.md', 'procedures/plan.md', 'procedures/discover.md']) has(f, full);
+  has('references/cli.md', 'inherits the replaced one');
+});
+
+test('new treats the legacy config as present, and the README explains upgrading', () => {
+  has('procedures/new.md', '.sdlc/config.json', 'cairn migrate');
+  const src = readFileSync(join(root, '..', '..', 'README.md'), 'utf8');
+  assert.match(src, /^### Upgrading from 0\.5/m);
+  assert.ok(src.includes('cairn migrate'));
+});
+
+test('ship and fix skip only the recorder without area docs, and promote from the plan worktree', () => {
+  for (const f of ['procedures/ship.md', 'procedures/fix.md']) has(f, 'skip the recorder dispatch', 'cd <plan worktree> && cairn decide --promote');
+});
+
+test('map checks for a plan with cairn next, not status', () => {
+  has('procedures/map.md', 'cairn next --json');
+  assert.ok(!read('procedures/map.md').includes('cairn status --json'));
+});

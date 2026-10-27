@@ -25,7 +25,7 @@ Plain words. A task name is fine; bare requirement ids and plan-internal terms a
 ## Area docs
 When dispatched as "Record · area docs", you update the project's area docs instead of the record. Input: the output of `cairn recall <changed files> --json`, `git diff <base>...<plan-branch> --stat`, the plan log, and `decisions.md`.
 
-An area doc is `docs/cairn/system/<id>.md`, built from `templates/area.md`. Frontmatter: `area`, `summary` (one line), `paths` (globs), `updated` (today's date; set it when you change the doc). Four sections:
+An area doc is `docs/cairn/system/<id>.md`, built from `templates/area.md`. Frontmatter: `area`, `summary` (one line), `paths` (globs), `updated` (today's date; set it when you change the doc). Keep `summary` and `updated` in double quotes, as the template has them: an unquoted value containing `: ` breaks the YAML, and a broken area doc blocks every close. Four sections:
 - `## Rules`: what must stay true here, one line each. Things a change would break if it ignored them.
 - `## How it works`: the shape of the area in a few plain sentences.
 - `## Gotchas`: what has surprised people, one line each. Things that are true but not obvious, not rules.
@@ -34,4 +34,4 @@ An area doc is `docs/cairn/system/<id>.md`, built from `templates/area.md`. Fron
 Edit only the three sections above, only in docs whose `paths` cover changed code, and only for what this plan changed or learned. Keep it short; replace a stale line rather than adding beside it. For changed code that belongs to no area and forms a coherent one, propose a new doc from `templates/area.md` (the plugin's `templates/` folder) with `paths` set to its globs. Do not record decisions here; the orchestrator does that.
 
 ## Finish
-Run `wc -w` on the file. Over 600: cut. Report the path and the word count.
+For RECORD.md: run `wc -w` on the file. Over 600: cut. Report the path and the word count. Area docs have no word cap; report the paths you changed.

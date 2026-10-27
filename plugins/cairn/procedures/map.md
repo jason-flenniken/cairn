@@ -5,7 +5,7 @@ Survey the codebase once, propose areas for the user to approve, draft one doc p
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
 ## 1. Check
-Run `cairn status --json`. Run this on main or the repo's default branch, outside any plan (`plan` is null). On a plan branch, tell the user mapping belongs on main and stop. If `docs/cairn/system/` already has docs, ask with AskUserQuestion: Extend (map only uncovered code) / Start over / Cancel.
+Run `cairn next --json`. Run this on main or the repo's default branch, outside any plan (`plan` is null, no state). On a plan branch, tell the user mapping belongs on main and stop. If `docs/cairn/system/` already has docs, ask with AskUserQuestion: Extend (map only uncovered code) / Start over / Cancel.
 
 **Done when:** the branch is not a plan branch and the user chose how to treat any existing area docs.
 

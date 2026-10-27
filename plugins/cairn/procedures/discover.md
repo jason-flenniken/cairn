@@ -21,7 +21,7 @@ Dispatch these in parallel, each with `model: sonnet`, each returning facts with
 - Explore agent: codebase facts relevant to the request (stack, existing modules, patterns, tests, conventions), plus `docs/cairn/product/PRD.md` (non-goals, must-not-trade-off). Before dispatching it, run `cairn index` and `cairn recall <paths the request touches>`, and give both outputs to the Explore agent.
 - Web research (general-purpose agent, `model: sonnet`) only when the request touches an external API, standard, or competitor.
 
-Read `decisions.md` in the plan directory; it may hold earlier answers. Decisions in force from `cairn recall` are facts: the interview does not re-ask them, unless the request would change one. A new decision that overturns one is recorded with `cairn decide ... --lasting --replaces <id>`. When an answer sets a rule that later plans must follow, flag it `--lasting` (with `--areas <a,b>` or `--paths "<globs>"`).
+Read `decisions.md` in the plan directory; it may hold earlier answers. Decisions in force from `cairn recall` are facts: the interview does not re-ask them, unless the request would change one. A new decision that overturns one is recorded with `cairn decide "<question>" "<answer>" --why "…" --lasting --replaces <id>` (it inherits the replaced decision's areas and paths). When an answer sets a rule that later plans must follow, flag it `--lasting` (with `--areas <a,b>` or `--paths "<globs>"`).
 
 **Done when:** you hold a short fact list and can name the open decisions.
 
