@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:40:45.859Z",
+  "updated": "2026-10-27T20:41:19.975Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -88,7 +88,7 @@
     {
       "id": "switch-over",
       "name": "Remove the old memory and wire the changelog everywhere",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "cli-removals",
@@ -190,15 +190,18 @@
             "plugins/cairn/cli/test/skills.test.ts"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": false,
-          "substep": "reviewing",
           "branch": "task/trustworthy-project-memory/procedures-and-agents",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--procedures-and-agents",
           "base": "1d96c5f124df497142ba8c029bf6deafe9896bf4",
           "startedAt": "2026-10-27T20:33:29.512Z",
-          "level": "standard"
+          "level": "standard",
+          "doneAt": "2026-10-27T20:41:19.974Z",
+          "tip": "3b15258",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "4622a9bfc32e769f1a4ff28d5964fe123c0a456e"
         }
       ]
     },
@@ -426,6 +429,16 @@
       "at": "2026-10-27T20:40:45.858Z",
       "event": "task done",
       "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:40:49.266Z",
+      "event": "task merging",
+      "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:41:19.975Z",
+      "event": "task done",
+      "detail": "Procedures and agents write the changelog, drop recall"
     }
   ],
   "cairnVersion": "0.6.0",
