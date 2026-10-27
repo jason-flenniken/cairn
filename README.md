@@ -14,19 +14,21 @@ A small CLI owns each plan's state, so you always know three things: where a pla
 
 ## Why it exists
 
-Workflow plugins such as Compound Engineering and Superpowers describe their stages in prose that the model may or may not follow. That leads to four problems:
+Workflow plugins such as Compound Engineering and Superpowers describe their stages in prose that the model may or may not follow, and they let the session that shaped a plan also judge it. That leads to five problems:
 
 - Long plans drift.
 - Steps get skipped.
 - There's no single view of where a plan stands.
 - Every run costs a lot of tests, reviews, and gates, whether or not the change needs them.
+- The session that shaped a plan is the one judging it, so a wrong direction goes unchallenged.
 
-cairn fixes this in four ways:
+cairn fixes this in five ways:
 
 - **A script owns the state.** The stage, phases, tasks, approvals, and test results live in a `state.json` that only the `cairn` CLI writes. The CLI refuses a move when its proof is missing, and it names the fix.
 - **Effort you choose.** Each plan starts at a **level**: MVP to prototype fast, Standard for normal work, or Polished for the deepest checks. At Standard every task gets tests for its core logic and a reviewer, the full test suite runs before each merge, and **risky** tasks (auth, money, deleting data, migrations, public APIs) also get thorough tests and a security review. Everything else worth doing later goes into a list of **recommended follow-ups**, and cairn offers them back when you next touch the same code.
 - **You can see it working.** A live pane beside the chat shows a card for every running agent: what it's doing, how long it's taken, and roughly how long is left.
 - **Parallel, isolated work.** Each plan runs on its own branch and worktree, and each task on its own branch and worktree. Tasks that don't touch the same files run in parallel, up to 3 at a time.
+- **Fresh eyes before you commit.** Before you approve the PRD, agents that never saw the interview challenge the direction and check that the PRD stands on its own. See Fresh eyes.
 
 ## Requirements
 
@@ -100,8 +102,8 @@ The mod adds these commands, which run instantly without a Claude turn:
 
 | Stage | What happens | Stops for you? |
 |---|---|---|
-| **Discover** | An interview, one decision at a time, covering users, the core flow, non-goals, and anything risky. Facts come from the codebase first, so the questions are only real decisions. | No |
-| **PRD** | A short PRD: Problem, Solution, Requirements (each with a one-line check), Non-goals, Open questions. Unhappy paths, security, and performance sections appear only when they matter. | **Yes: approve the PRD** |
+| **Discover** | An interview, one decision at a time, covering users, the core flow, non-goals, and anything risky. Facts come from the codebase first, so the questions are only real decisions. A fresh agent that never saw cairn's guess offers other approaches and the strongest objection, and anything it raises that's yours to decide becomes a question. | No |
+| **PRD** | A short PRD: Problem, Solution, Requirements (each with a one-line check), Non-goals, Open questions. Unhappy paths, security, and performance sections appear only when they matter. Before you see it, a fresh agent reads only the PRD and lists what a builder would have to guess. | **Yes: approve the PRD** |
 | **Plan** | The PRD is broken into phases of small vertical **tasks**. Each task lists its files, what it waits on, its size (which picks the model), and whether it's risky. Recommended follow-ups that touch the same files are offered as extra tasks. | **Yes: approve the plan** |
 | **Build** | Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic and gets a reviewer. Risky tasks also get thorough tests and a security review, with at most two fix attempts before cairn asks you. Every task is merged and the full test suite runs. A finished phase continues on its own when tests pass. | Only if tests fail or something is blocked |
 | **Check** | Tests and build, then one pass over the PRD's checks. A requirement that isn't met gets fixed. One that works but has no test becomes a recommended follow-up. | Only if something is broken |
@@ -119,15 +121,34 @@ The table above is the Standard level. See Depth levels for how MVP and Polished
 
 | Level | For | What changes |
 |---|---|---|
-| **MVP** | Prototyping fast, finding out if something is worth building | A short interview and thin PRD, a few large tasks, no per-task review, tests that warn instead of block, one light branch review, and a short record. What it skips goes on a **hardening list**. |
+| **MVP** | Prototyping fast, finding out if something is worth building | A short interview and thin PRD with no fresh-eyes agents, a few large tasks, no per-task review, tests that warn instead of block, one light branch review, and a short record. What it skips goes on a **hardening list**. |
 | **Standard** | Normal work | The lifecycle above, as is. |
-| **Polished** | Hardening what you'll keep | Test cases and test-first for every task, a fresh-agent review of the plan, an automatic on-track check at each phase end, and every requirement met and tested. |
+| **Polished** | Hardening what you'll keep | Three approaches compared before the PRD, test cases and test-first for every task, a fresh-agent review of the plan, an automatic on-track check at each phase end, and every requirement met and tested. |
 
 Some things never change with the level: Check always runs the secret scan and dependency audit, any task touching a trust boundary gets a security review, the whole-branch security review always runs, and you still approve the PRD, the plan, and the ship.
 
 The hardening list doesn't count toward the 5 follow-ups a plan may close with. When a later Standard or Polished plan touches the same code, cairn offers those items as scope, so moving past an MVP is one deliberate run.
 
 You can raise the level any time before ship with `/cairn-level` in the pane, and lower it only before any task starts. The pane header shows the level and how long the current stage has taken. Only you change the level; cairn can suggest a raise, but the change needs your pick in a menu or `cairn level <level> --human` in a terminal.
+
+## Fresh eyes
+
+The session that runs your interview builds up a lot of context: your answers, the codebase facts, and its own guess at what you want. That context is what makes the plan good, and it's also what makes the session a poor judge of it. Once it has argued for one approach, it struggles to see past it. cairn's other reviewers check work against the PRD, so none of them can catch a PRD that points the wrong way, and the start of a plan is where a wrong direction costs the most.
+
+So at Standard and Polished, two agents that start with no memory of the conversation look at the plan before you approve the PRD. What makes each one useful is what it's *not* given:
+
+| Agent | When | Sees | Doesn't see | Looks for |
+|---|---|---|---|---|
+| Challenger | Discover, after the goal questions | Your goal answers and the research facts | cairn's guess, or the outcome it's heading toward | Other approaches (including not building it, or reusing what exists), the strongest objection to the obvious one, and assumptions nobody stated |
+| Builder check | PRD, before you approve it | `prd.md` alone | The interview and `decisions.md` | Whether the PRD stands on its own: it restates the PRD in its own words and lists what a builder would have to guess |
+
+Both return a list, not a pass or fail, because a reviewer asked for a verdict tends to talk itself into approving. Both are told to skip style and anything already decided, and to rank what they find by whether it would change what gets built, because a reviewer asked to find problems always finds something. At Polished the challenger compares three approaches, each with its cost and risk.
+
+**What you see.** Neither adds a stop. What's yours to decide comes to you as ordinary interview questions, or as questions while the PRD is drafted. Everything cairn sets aside (already answered, or a minor call it made itself) gets a one-line reason in `decisions.md` and is listed under the read-back card or at the PRD approval, so you can pull any of it back. cairn may skip the challenger when a plan has one obvious approach (a one-line change), but the card then says so and why, and you can ask for it. That rule is what makes this work: the main session sorts the findings, and without it, the bias the fresh agent was there to counter could quietly drop the inconvenient ones.
+
+**Cost and limits.** About two Sonnet passes per plan; MVP skips both. A fresh agent gives you a second view, not a smarter one: it's the same kind of model without your backstory. Fresh eyes on the finished code (a reader that sees the diff but not the PRD) are planned next.
+
+The idea comes from Dave Rensin's essay [Elephants, Goldfish and the New Golden Age of Software Engineering](https://medium.com/@drensin/elephants-goldfish-and-the-new-golden-age-of-software-engineering-c33641a48874) and Google's [Elephant-Goldfish Model](https://github.com/google/elephant-goldfish-model) plugin: design with an elephant that never forgets, test with a goldfish that remembers nothing. cairn takes the theory, not the plugin. It adds no review rounds or stops, and it splits agents by what they aren't told rather than by persona, following Anthropic's advice to [split subagents by context, not by problem type](https://claude.com/blog/building-agents-when-to-fold-subagents-into-your-main-agent-loop). Anthropic's [harness design post](https://www.anthropic.com/engineering/harness-design-long-running-apps) makes the same case for keeping the agent that judges separate from the one that built.
 
 ## The live pane
 
@@ -290,3 +311,5 @@ plugins/cairn/
 ## Credits
 
 cairn adapts ideas, prompts, and procedures from [Compound Engineering](https://github.com/everyinc/compound-engineering-plugin), [Superpowers](https://github.com/obra/superpowers), and [Matt Pocock's skills](https://github.com/mattpocock/skills), all MIT-licensed. Their notices are in `plugins/cairn/NOTICE`, and the upstream commits are in `plugins/cairn/UPSTREAM.md`.
+
+The fresh-eyes agents draw on the ideas in Dave Rensin's [essay](https://medium.com/@drensin/elephants-goldfish-and-the-new-golden-age-of-software-engineering-c33641a48874) and Google's [Elephant-Goldfish Model](https://github.com/google/elephant-goldfish-model) (Apache-2.0); their prompts are written for cairn, not copied.

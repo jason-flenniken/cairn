@@ -21,6 +21,7 @@ Every `Agent` dispatch passes an explicit `model`. An omitted model inherits the
 | acceptance-checker, recorder | sonnet |
 | branch-reviewer | opus |
 | plan-reviewer (Polished plans only) | sonnet |
+| challenger, prd-checker (Standard and Polished) | sonnet |
 
 ## Start low, escalate on evidence
 - Start one tier lower than instinct says when a task sits between two tiers.
@@ -37,3 +38,4 @@ Plans at MVP (`level` in `cairn status --json`; see `references/levels.md`) use 
 | implementer | one tier below the task's complexity (simple: haiku, standard: haiku, complex: sonnet) |
 | branch-reviewer | sonnet, set at dispatch |
 | task-reviewer | not dispatched |
+| challenger, prd-checker | not dispatched |
