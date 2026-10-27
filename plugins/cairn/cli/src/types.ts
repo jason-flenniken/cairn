@@ -165,6 +165,8 @@ export interface State {
   evidence: { verify?: Evidence; review?: Evidence };
   drift: DriftEntry[];
   suggestions?: Suggestion[];
+  /** Decisions flagged as lasting; close publishes them to the repo-wide log. */
+  lasting?: PendingDecision[];
   log: LogEntry[];
 }
 

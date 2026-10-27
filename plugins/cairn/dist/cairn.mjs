@@ -978,13 +978,13 @@ var require_Collection = __commonJS({
 var require_stringifyComment = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
-    var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
+    var stringifyComment = (str2) => str2.replace(/^(?!$)(?: $)?/gm, "#");
     function indentComment(comment, indent) {
       if (/^\n+$/.test(comment))
         return comment.substring(1);
       return indent ? comment.replace(/^(?! *$)/gm, indent) : comment;
     }
-    var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
+    var lineComment = (str2, indent, comment) => str2.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str2.endsWith(" ") ? "" : " ") + comment;
     exports.indentComment = indentComment;
     exports.lineComment = lineComment;
     exports.stringifyComment = stringifyComment;
@@ -1138,16 +1138,16 @@ var require_stringifyString = __commonJS({
       lineWidth: ctx.options.lineWidth,
       minContentWidth: ctx.options.minContentWidth
     });
-    var containsDocumentMarker = (str) => /^(%|---|\.\.\.)/m.test(str);
-    function lineLengthOverLimit(str, lineWidth, indentLength) {
+    var containsDocumentMarker = (str2) => /^(%|---|\.\.\.)/m.test(str2);
+    function lineLengthOverLimit(str2, lineWidth, indentLength) {
       if (!lineWidth || lineWidth < 0)
         return false;
       const limit = lineWidth - indentLength;
-      const strLen = str.length;
+      const strLen = str2.length;
       if (strLen <= limit)
         return false;
       for (let i = 0, start = 0; i < strLen; ++i) {
-        if (str[i] === "\n") {
+        if (str2[i] === "\n") {
           if (i - start > limit)
             return true;
           start = i + 1;
@@ -1164,11 +1164,11 @@ var require_stringifyString = __commonJS({
       const { implicitKey } = ctx;
       const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
       const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
-      let str = "";
+      let str2 = "";
       let start = 0;
       for (let i = 0, ch = json[i]; ch; ch = json[++i]) {
         if (ch === " " && json[i + 1] === "\\" && json[i + 2] === "n") {
-          str += json.slice(start, i) + "\\ ";
+          str2 += json.slice(start, i) + "\\ ";
           i += 1;
           start = i;
           ch = "\\";
@@ -1177,38 +1177,38 @@ var require_stringifyString = __commonJS({
           switch (json[i + 1]) {
             case "u":
               {
-                str += json.slice(start, i);
+                str2 += json.slice(start, i);
                 const code = json.substr(i + 2, 4);
                 switch (code) {
                   case "0000":
-                    str += "\\0";
+                    str2 += "\\0";
                     break;
                   case "0007":
-                    str += "\\a";
+                    str2 += "\\a";
                     break;
                   case "000b":
-                    str += "\\v";
+                    str2 += "\\v";
                     break;
                   case "001b":
-                    str += "\\e";
+                    str2 += "\\e";
                     break;
                   case "0085":
-                    str += "\\N";
+                    str2 += "\\N";
                     break;
                   case "00a0":
-                    str += "\\_";
+                    str2 += "\\_";
                     break;
                   case "2028":
-                    str += "\\L";
+                    str2 += "\\L";
                     break;
                   case "2029":
-                    str += "\\P";
+                    str2 += "\\P";
                     break;
                   default:
                     if (code.substr(0, 2) === "00")
-                      str += "\\x" + code.substr(2);
+                      str2 += "\\x" + code.substr(2);
                     else
-                      str += json.substr(i, 6);
+                      str2 += json.substr(i, 6);
                 }
                 i += 5;
                 start = i + 1;
@@ -1218,14 +1218,14 @@ var require_stringifyString = __commonJS({
               if (implicitKey || json[i + 2] === '"' || json.length < minMultiLineLength) {
                 i += 1;
               } else {
-                str += json.slice(start, i) + "\n\n";
+                str2 += json.slice(start, i) + "\n\n";
                 while (json[i + 2] === "\\" && json[i + 3] === "n" && json[i + 4] !== '"') {
-                  str += "\n";
+                  str2 += "\n";
                   i += 2;
                 }
-                str += indent;
+                str2 += indent;
                 if (json[i + 2] === " ")
-                  str += "\\";
+                  str2 += "\\";
                 i += 1;
                 start = i + 1;
               }
@@ -1234,8 +1234,8 @@ var require_stringifyString = __commonJS({
               i += 1;
           }
       }
-      str = start ? str + json.slice(start) : json;
-      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
+      str2 = start ? str2 + json.slice(start) : json;
+      return implicitKey ? str2 : foldFlowLines.foldFlowLines(str2, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
     }
     function singleQuotedString(value, ctx) {
       if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
@@ -1363,15 +1363,15 @@ ${indent}${start}${value}${end}`;
           return quotedString(value, ctx);
         }
       }
-      const str = value.replace(/\n+/g, `$&
+      const str2 = value.replace(/\n+/g, `$&
 ${indent}`);
       if (actualString) {
-        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
+        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str2);
         const { compat, tags } = ctx.doc.schema;
         if (tags.some(test) || compat?.some(test))
           return quotedString(value, ctx);
       }
-      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+      return implicitKey ? str2 : foldFlowLines.foldFlowLines(str2, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
     }
     function stringifyString(item, ctx, onComment, onChompKeep) {
       const { implicitKey, inFlow } = ctx;
@@ -1501,7 +1501,7 @@ var require_stringify = __commonJS({
         props.push(doc.directives.tagString(tag));
       return props.join(" ");
     }
-    function stringify(item, ctx, onComment, onChompKeep) {
+    function stringify2(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -1523,14 +1523,14 @@ var require_stringify = __commonJS({
       const props = stringifyProps(node, tagObj, ctx);
       if (props.length > 0)
         ctx.indentAtStart = (ctx.indentAtStart ?? 0) + props.length + 1;
-      const str = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
+      const str2 = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
       if (!props)
-        return str;
-      return identity.isScalar(node) || str[0] === "{" || str[0] === "[" ? `${props} ${str}` : `${props}
-${ctx.indent}${str}`;
+        return str2;
+      return identity.isScalar(node) || str2[0] === "{" || str2[0] === "[" ? `${props} ${str2}` : `${props}
+${ctx.indent}${str2}`;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -1540,7 +1540,7 @@ var require_stringifyPair = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
@@ -1562,8 +1562,8 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
-      if (!explicitKey && !ctx.inFlow && str.length > 1024) {
+      let str2 = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      if (!explicitKey && !ctx.inFlow && str2.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
         explicitKey = true;
@@ -1572,27 +1572,27 @@ var require_stringifyPair = __commonJS({
         if (allNullValues || value == null) {
           if (keyCommentDone && onComment)
             onComment();
-          return str === "" ? "?" : explicitKey ? `? ${str}` : str;
+          return str2 === "" ? "?" : explicitKey ? `? ${str2}` : str2;
         }
       } else if (allNullValues && !simpleKeys || value == null && explicitKey) {
-        str = `? ${str}`;
+        str2 = `? ${str2}`;
         if (keyComment && !keyCommentDone) {
-          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
         } else if (chompKeep && onChompKeep)
           onChompKeep();
-        return str;
+        return str2;
       }
       if (keyCommentDone)
         keyComment = null;
       if (explicitKey) {
         if (keyComment)
-          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
-        str = `? ${str}
+          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
+        str2 = `? ${str2}
 ${indent}:`;
       } else {
-        str = `${str}:`;
+        str2 = `${str2}:`;
         if (keyComment)
-          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
       }
       let vsb, vcb, valueComment;
       if (identity.isNode(value)) {
@@ -1608,13 +1608,13 @@ ${indent}:`;
       }
       ctx.implicitKey = false;
       if (!explicitKey && !keyComment && identity.isScalar(value))
-        ctx.indentAtStart = str.length + 1;
+        ctx.indentAtStart = str2.length + 1;
       chompKeep = false;
       if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor) {
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
-      const valueStr = stringify.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
       let ws = " ";
       if (keyComment || vsb || vcb) {
         ws = vsb ? "\n" : "";
@@ -1652,16 +1652,16 @@ ${ctx.indent}`;
       } else if (valueStr === "" || valueStr[0] === "\n") {
         ws = "";
       }
-      str += ws + valueStr;
+      str2 += ws + valueStr;
       if (ctx.inFlow) {
         if (valueCommentDone && onComment)
           onComment();
       } else if (valueComment && !valueCommentDone) {
-        str += stringifyComment.lineComment(str, ctx.indent, commentString(valueComment));
+        str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(valueComment));
       } else if (chompKeep && onChompKeep) {
         onChompKeep();
       }
-      return str;
+      return str2;
     }
     exports.stringifyPair = stringifyPair;
   }
@@ -1755,7 +1755,7 @@ var require_addPairToJSMap = __commonJS({
     "use strict";
     var log2 = require_log();
     var merge = require_merge();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map, { key, value }) {
@@ -1791,7 +1791,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey !== "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        const strCtx = stringify.createStringifyContext(ctx.doc, {});
+        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -1858,12 +1858,12 @@ var require_stringifyCollection = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       const flow = ctx.inFlow ?? collection.flow;
-      const stringify2 = flow ? stringifyFlowCollection : stringifyBlockCollection;
-      return stringify2(collection, ctx, options);
+      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify3(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
       const { indent, options: { commentString } } = ctx;
@@ -1888,31 +1888,31 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str2 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str3 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
-          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
+          str3 += stringifyComment.lineComment(str3, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
           chompKeep = false;
-        lines.push(blockItemPrefix + str2);
+        lines.push(blockItemPrefix + str3);
       }
-      let str;
+      let str2;
       if (lines.length === 0) {
-        str = flowChars.start + flowChars.end;
+        str2 = flowChars.start + flowChars.end;
       } else {
-        str = lines[0];
+        str2 = lines[0];
         for (let i = 1; i < lines.length; ++i) {
           const line = lines[i];
-          str += line ? `
+          str2 += line ? `
 ${indent}${line}` : "\n";
         }
       }
       if (comment) {
-        str += "\n" + stringifyComment.indentComment(commentString(comment), indent);
+        str2 += "\n" + stringifyComment.indentComment(commentString(comment), indent);
         if (onComment)
           onComment();
       } else if (chompKeep && onChompKeep)
         onChompKeep();
-      return str;
+      return str2;
     }
     function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
       const { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
@@ -1955,21 +1955,21 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str = stringify.stringify(item, itemCtx, () => comment = null);
-        reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
+        let str2 = stringify2.stringify(item, itemCtx, () => comment = null);
+        reqNewline || (reqNewline = lines.length > linesAtValue || str2.includes("\n"));
         if (i < items.length - 1) {
-          str += ",";
+          str2 += ",";
         } else if (ctx.options.trailingComma) {
           if (ctx.options.lineWidth > 0) {
-            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str2.length + 2) > ctx.options.lineWidth);
           }
           if (reqNewline) {
-            str += ",";
+            str2 += ",";
           }
         }
         if (comment)
-          str += stringifyComment.lineComment(str, itemIndent, commentString(comment));
-        lines.push(str);
+          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment));
+        lines.push(str2);
         linesAtValue = lines.length;
       }
       const { start, end } = flowChars;
@@ -1981,11 +1981,11 @@ ${indent}${line}` : "\n";
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
-          let str = start;
+          let str2 = start;
           for (const line of lines)
-            str += line ? `
+            str2 += line ? `
 ${indentStep}${indent}${line}` : "\n";
-          return `${str}
+          return `${str2}
 ${indent}${end}`;
         } else {
           return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
@@ -2317,7 +2317,7 @@ var require_string = __commonJS({
       identify: (value) => typeof value === "string",
       default: true,
       tag: "tag:yaml.org,2002:str",
-      resolve: (str) => str,
+      resolve: (str2) => str2,
       stringify(item, ctx, onComment, onChompKeep) {
         ctx = Object.assign({ actualString: true }, ctx);
         return stringifyString.stringifyString(item, ctx, onComment, onChompKeep);
@@ -2355,7 +2355,7 @@ var require_bool = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:bool",
       test: /^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$/,
-      resolve: (str) => new Scalar.Scalar(str[0] === "t" || str[0] === "T"),
+      resolve: (str2) => new Scalar.Scalar(str2[0] === "t" || str2[0] === "T"),
       stringify({ source, value }, ctx) {
         if (source && boolTag.test.test(source)) {
           const sv = source[0] === "t" || source[0] === "T";
@@ -2407,7 +2407,7 @@ var require_float = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
-      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      resolve: (str2) => str2.slice(-3).toLowerCase() === "nan" ? NaN : str2[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
       stringify: stringifyNumber.stringifyNumber
     };
     var floatExp = {
@@ -2416,7 +2416,7 @@ var require_float = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "EXP",
       test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
-      resolve: (str) => parseFloat(str),
+      resolve: (str2) => parseFloat(str2),
       stringify(node) {
         const num = Number(node.value);
         return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
@@ -2427,11 +2427,11 @@ var require_float = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/,
-      resolve(str) {
-        const node = new Scalar.Scalar(parseFloat(str));
-        const dot = str.indexOf(".");
-        if (dot !== -1 && str[str.length - 1] === "0")
-          node.minFractionDigits = str.length - dot - 1;
+      resolve(str2) {
+        const node = new Scalar.Scalar(parseFloat(str2));
+        const dot = str2.indexOf(".");
+        if (dot !== -1 && str2[str2.length - 1] === "0")
+          node.minFractionDigits = str2.length - dot - 1;
         return node;
       },
       stringify: stringifyNumber.stringifyNumber
@@ -2448,7 +2448,7 @@ var require_int = __commonJS({
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
-    var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
+    var intResolve = (str2, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str2) : parseInt(str2.substring(offset), radix);
     function intStringify(node, radix, prefix) {
       const { value } = node;
       if (intIdentify(value) && value >= 0)
@@ -2461,7 +2461,7 @@ var require_int = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "OCT",
       test: /^0o[0-7]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 2, 8, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 2, 8, opt),
       stringify: (node) => intStringify(node, 8, "0o")
     };
     var int = {
@@ -2469,7 +2469,7 @@ var require_int = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:int",
       test: /^[-+]?[0-9]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 0, 10, opt),
       stringify: stringifyNumber.stringifyNumber
     };
     var intHex = {
@@ -2478,7 +2478,7 @@ var require_int = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "HEX",
       test: /^0x[0-9a-fA-F]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 2, 16, opt),
       stringify: (node) => intStringify(node, 16, "0x")
     };
     exports.int = int;
@@ -2531,7 +2531,7 @@ var require_schema2 = __commonJS({
         identify: (value) => typeof value === "string",
         default: true,
         tag: "tag:yaml.org,2002:str",
-        resolve: (str) => str,
+        resolve: (str2) => str2,
         stringify: stringifyJSON
       },
       {
@@ -2548,7 +2548,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:bool",
         test: /^true$|^false$/,
-        resolve: (str) => str === "true",
+        resolve: (str2) => str2 === "true",
         stringify: stringifyJSON
       },
       {
@@ -2556,7 +2556,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:int",
         test: /^-?(?:0|[1-9][0-9]*)$/,
-        resolve: (str, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str, 10),
+        resolve: (str2, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str2) : parseInt(str2, 10),
         stringify: ({ value }) => intIdentify(value) ? value.toString() : JSON.stringify(value)
       },
       {
@@ -2564,7 +2564,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:float",
         test: /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?$/,
-        resolve: (str) => parseFloat(str),
+        resolve: (str2) => parseFloat(str2),
         stringify: stringifyJSON
       }
     ];
@@ -2572,9 +2572,9 @@ var require_schema2 = __commonJS({
       default: true,
       tag: "",
       test: /^/,
-      resolve(str, onError) {
-        onError(`Unresolved plain scalar ${JSON.stringify(str)}`);
-        return str;
+      resolve(str2, onError) {
+        onError(`Unresolved plain scalar ${JSON.stringify(str2)}`);
+        return str2;
       }
     };
     var schema = [map.map, seq.seq].concat(jsonScalars, jsonError);
@@ -2606,10 +2606,10 @@ var require_binary = __commonJS({
         if (typeof node_buffer.Buffer === "function") {
           return node_buffer.Buffer.from(src, "base64");
         } else if (typeof atob === "function") {
-          const str = atob(src.replace(/[\n\r]/g, ""));
-          const buffer = new Uint8Array(str.length);
-          for (let i = 0; i < str.length; ++i)
-            buffer[i] = str.charCodeAt(i);
+          const str2 = atob(src.replace(/[\n\r]/g, ""));
+          const buffer = new Uint8Array(str2.length);
+          for (let i = 0; i < str2.length; ++i)
+            buffer[i] = str2.charCodeAt(i);
           return buffer;
         } else {
           onError("This environment does not support reading binary tags; either Buffer or atob is required");
@@ -2620,28 +2620,28 @@ var require_binary = __commonJS({
         if (!value)
           return "";
         const buf = value;
-        let str;
+        let str2;
         if (typeof node_buffer.Buffer === "function") {
-          str = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
+          str2 = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
         } else if (typeof btoa === "function") {
           let s = "";
           for (let i = 0; i < buf.length; ++i)
             s += String.fromCharCode(buf[i]);
-          str = btoa(s);
+          str2 = btoa(s);
         } else {
           throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
         }
         type ?? (type = Scalar.Scalar.BLOCK_LITERAL);
         if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
           const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
-          const n = Math.ceil(str.length / lineWidth);
+          const n = Math.ceil(str2.length / lineWidth);
           const lines = new Array(n);
           for (let i = 0, o = 0; i < n; ++i, o += lineWidth) {
-            lines[i] = str.substr(o, lineWidth);
+            lines[i] = str2.substr(o, lineWidth);
           }
-          str = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
+          str2 = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
         }
-        return stringifyString.stringifyString({ comment, type, value: str }, ctx, onComment, onChompKeep);
+        return stringifyString.stringifyString({ comment, type, value: str2 }, ctx, onComment, onChompKeep);
       }
     };
     exports.binary = binary;
@@ -2847,7 +2847,7 @@ var require_float2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
-      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      resolve: (str2) => str2.slice(-3).toLowerCase() === "nan" ? NaN : str2[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
       stringify: stringifyNumber.stringifyNumber
     };
     var floatExp = {
@@ -2856,7 +2856,7 @@ var require_float2 = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "EXP",
       test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
-      resolve: (str) => parseFloat(str.replace(/_/g, "")),
+      resolve: (str2) => parseFloat(str2.replace(/_/g, "")),
       stringify(node) {
         const num = Number(node.value);
         return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
@@ -2867,11 +2867,11 @@ var require_float2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*$/,
-      resolve(str) {
-        const node = new Scalar.Scalar(parseFloat(str.replace(/_/g, "")));
-        const dot = str.indexOf(".");
+      resolve(str2) {
+        const node = new Scalar.Scalar(parseFloat(str2.replace(/_/g, "")));
+        const dot = str2.indexOf(".");
         if (dot !== -1) {
-          const f = str.substring(dot + 1).replace(/_/g, "");
+          const f = str2.substring(dot + 1).replace(/_/g, "");
           if (f[f.length - 1] === "0")
             node.minFractionDigits = f.length;
         }
@@ -2891,34 +2891,34 @@ var require_int2 = __commonJS({
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
-    function intResolve(str, offset, radix, { intAsBigInt }) {
-      const sign = str[0];
+    function intResolve(str2, offset, radix, { intAsBigInt }) {
+      const sign = str2[0];
       if (sign === "-" || sign === "+")
         offset += 1;
-      str = str.substring(offset).replace(/_/g, "");
+      str2 = str2.substring(offset).replace(/_/g, "");
       if (intAsBigInt) {
         switch (radix) {
           case 2:
-            str = `0b${str}`;
+            str2 = `0b${str2}`;
             break;
           case 8:
-            str = `0o${str}`;
+            str2 = `0o${str2}`;
             break;
           case 16:
-            str = `0x${str}`;
+            str2 = `0x${str2}`;
             break;
         }
-        const n2 = BigInt(str);
+        const n2 = BigInt(str2);
         return sign === "-" ? BigInt(-1) * n2 : n2;
       }
-      const n = parseInt(str, radix);
+      const n = parseInt(str2, radix);
       return sign === "-" ? -1 * n : n;
     }
     function intStringify(node, radix, prefix) {
       const { value } = node;
       if (intIdentify(value)) {
-        const str = value.toString(radix);
-        return value < 0 ? "-" + prefix + str.substr(1) : prefix + str;
+        const str2 = value.toString(radix);
+        return value < 0 ? "-" + prefix + str2.substr(1) : prefix + str2;
       }
       return stringifyNumber.stringifyNumber(node);
     }
@@ -2928,7 +2928,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "BIN",
       test: /^[-+]?0b[0-1_]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 2, 2, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 2, 2, opt),
       stringify: (node) => intStringify(node, 2, "0b")
     };
     var intOct = {
@@ -2937,7 +2937,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "OCT",
       test: /^[-+]?0[0-7_]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 1, 8, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 1, 8, opt),
       stringify: (node) => intStringify(node, 8, "0")
     };
     var int = {
@@ -2945,7 +2945,7 @@ var require_int2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:int",
       test: /^[-+]?[0-9][0-9_]*$/,
-      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 0, 10, opt),
       stringify: stringifyNumber.stringifyNumber
     };
     var intHex = {
@@ -2954,7 +2954,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "HEX",
       test: /^[-+]?0x[0-9a-fA-F_]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 2, 16, opt),
       stringify: (node) => intStringify(node, 16, "0x")
     };
     exports.int = int;
@@ -3058,9 +3058,9 @@ var require_timestamp = __commonJS({
   "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
-    function parseSexagesimal(str, asBigInt) {
-      const sign = str[0];
-      const parts = sign === "-" || sign === "+" ? str.substring(1) : str;
+    function parseSexagesimal(str2, asBigInt) {
+      const sign = str2[0];
+      const parts = sign === "-" || sign === "+" ? str2.substring(1) : str2;
       const num = (n) => asBigInt ? BigInt(n) : Number(n);
       const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
       return sign === "-" ? num(-1) * res : res;
@@ -3097,7 +3097,7 @@ var require_timestamp = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "TIME",
       test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+$/,
-      resolve: (str, _onError, { intAsBigInt }) => parseSexagesimal(str, intAsBigInt),
+      resolve: (str2, _onError, { intAsBigInt }) => parseSexagesimal(str2, intAsBigInt),
       stringify: stringifySexagesimal
     };
     var floatTime = {
@@ -3106,7 +3106,7 @@ var require_timestamp = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "TIME",
       test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*$/,
-      resolve: (str) => parseSexagesimal(str, false),
+      resolve: (str2) => parseSexagesimal(str2, false),
       stringify: stringifySexagesimal
     };
     var timestamp = {
@@ -3117,8 +3117,8 @@ var require_timestamp = __commonJS({
       // may be omitted altogether, resulting in a date format. In such a case, the time part is
       // assumed to be 00:00:00Z (start of day, UTC).
       test: RegExp("^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:t|T|[ \\t]+)([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}(\\.[0-9]+)?)(?:[ \\t]*(Z|[-+][012]?[0-9](?::[0-9]{2})?))?)?$"),
-      resolve(str) {
-        const match = str.match(timestamp.test);
+      resolve(str2) {
+        const match = str2.match(timestamp.test);
         if (!match)
           throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
         const [, year, month, day2, hour, minute, second] = match.map(Number);
@@ -3316,7 +3316,7 @@ var require_stringifyDocument = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       const lines = [];
@@ -3331,7 +3331,7 @@ var require_stringifyDocument = __commonJS({
       }
       if (hasDirectives)
         lines.push("---");
-      const ctx = stringify.createStringifyContext(doc, options);
+      const ctx = stringify2.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
         if (lines.length !== 1)
@@ -3353,7 +3353,7 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
         if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
@@ -3361,7 +3361,7 @@ var require_stringifyDocument = __commonJS({
         } else
           lines.push(body);
       } else {
-        lines.push(stringify.stringify(doc.contents, ctx));
+        lines.push(stringify2.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
@@ -5497,7 +5497,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -5550,7 +5550,7 @@ var require_cst_stringify = __commonJS({
         res += stringifyToken(value);
       return res;
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -7261,7 +7261,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse3(src, reviver, options) {
+    function parse4(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7280,7 +7280,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify(value, replacer, options) {
+    function stringify2(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer === "function" || Array.isArray(replacer)) {
         _replacer = replacer;
@@ -7302,10 +7302,10 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse3;
+    exports.parse = parse4;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -8249,8 +8249,159 @@ function template(name) {
 }
 
 // plugins/cairn/cli/src/commands/plans.ts
-import { existsSync as existsSync3, readFileSync as readFileSync5 } from "node:fs";
-import { join as join7, resolve } from "node:path";
+import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
+import { join as join9, resolve } from "node:path";
+
+// plugins/cairn/cli/src/areas.ts
+var import_yaml = __toESM(require_dist(), 1);
+import { existsSync as existsSync3, readdirSync as readdirSync2 } from "node:fs";
+import { join as join7 } from "node:path";
+var SYSTEM_DIR = `${DOCS_DIR}/system`;
+function parseFrontmatter(md) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(md);
+  if (!m) return void 0;
+  const data = (0, import_yaml.parse)(m[1]);
+  return { data: data && typeof data === "object" && !Array.isArray(data) ? data : {}, body: m[2] };
+}
+var nonEmpty = (v) => typeof v === "string" && v.trim() !== "";
+function loadAreas(root) {
+  const areas = [];
+  const problems = [];
+  const dir = join7(root, SYSTEM_DIR);
+  if (!existsSync3(dir)) return { areas, problems };
+  for (const name of readdirSync2(dir).filter((f) => f.endsWith(".md")).sort()) {
+    const file = `${SYSTEM_DIR}/${name}`;
+    const id = name.slice(0, -3);
+    if (!SLUG.test(id)) {
+      problems.push(`${file} file name must be kebab-case`);
+      continue;
+    }
+    let fm;
+    try {
+      fm = parseFrontmatter(readText(join7(dir, name)) ?? "");
+    } catch (e) {
+      problems.push(`${file} frontmatter is not valid YAML: ${e.message.split("\n")[0]}`);
+      continue;
+    }
+    if (!fm) {
+      problems.push(`${file} has no frontmatter`);
+      continue;
+    }
+    const { area, summary: summary2, paths } = fm.data;
+    if (!Array.isArray(paths) || paths.length === 0 || !paths.every(nonEmpty)) {
+      problems.push(`${file} needs a non-empty paths list`);
+      continue;
+    }
+    if (!nonEmpty(area) || !nonEmpty(summary2)) {
+      problems.push(`${file} needs area and summary`);
+      continue;
+    }
+    areas.push({ id, name: area, summary: summary2, paths, file });
+  }
+  return { areas: areas.sort((a, b) => a.id.localeCompare(b.id)), problems };
+}
+
+// plugins/cairn/cli/src/decision-log.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+import { existsSync as existsSync4, mkdirSync as mkdirSync3, readdirSync as readdirSync3, writeFileSync as writeFileSync3 } from "node:fs";
+import { join as join8 } from "node:path";
+var DECISIONS_DIR = `${DOCS_DIR}/decisions`;
+var strings = (v) => Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+var str = (v) => typeof v === "string" && v !== "" ? v : v instanceof Date ? v.toISOString().slice(0, 10) : void 0;
+function parseDecision(name, text) {
+  let fm;
+  try {
+    fm = parseFrontmatter(text);
+  } catch {
+    return void 0;
+  }
+  if (!fm) return void 0;
+  const { id, status, replaced_by, replaces, areas, paths, plan: plan2, date } = fm.data;
+  const q = /^# (.+)$/m.exec(fm.body);
+  const a = /\*\*Decision:\*\* ([\s\S]*?)(?:\n\n\*\*Why:\*\* |\s*$)/.exec(fm.body);
+  const w = /\n\n\*\*Why:\*\* ([\s\S]*?)\s*$/.exec(fm.body);
+  if (!str(id) || status !== "active" && status !== "replaced" || !q || !a || !str(plan2) || !str(date)) return void 0;
+  return {
+    body: fm.body,
+    d: {
+      id: str(id),
+      question: q[1],
+      answer: a[1],
+      why: w?.[1],
+      status,
+      replacedBy: str(replaced_by),
+      replaces: str(replaces),
+      areas: strings(areas),
+      paths: strings(paths),
+      plan: str(plan2),
+      date: str(date),
+      file: `${DECISIONS_DIR}/${name}`
+    }
+  };
+}
+function render(d, body) {
+  const fm = { id: d.id, status: d.status };
+  if (d.replacedBy) fm.replaced_by = d.replacedBy;
+  if (d.replaces) fm.replaces = d.replaces;
+  if (d.areas.length) fm.areas = d.areas;
+  if (d.paths.length) fm.paths = d.paths;
+  fm.plan = d.plan;
+  fm.date = d.date;
+  return `---
+${(0, import_yaml2.stringify)(fm)}---
+${body}`;
+}
+var bodyOf = (p) => `
+# ${p.question}
+
+**Decision:** ${p.answer}
+${p.why ? `
+**Why:** ${p.why}
+` : ""}`;
+function readAll(root) {
+  const dir = join8(root, DECISIONS_DIR);
+  if (!existsSync4(dir)) return [];
+  const out = [];
+  for (const name of readdirSync3(dir).filter((f) => f.endsWith(".md")).sort()) {
+    const parsed = parseDecision(name, readText(join8(dir, name)) ?? "");
+    if (parsed) out.push(parsed);
+  }
+  return out;
+}
+var loadDecisions = (root) => readAll(root).map((x) => x.d);
+function decisionId(date, question, taken) {
+  const words = question.toLowerCase().replace(/[^a-z0-9]+/g, "-").split("-").filter(Boolean).slice(0, 6).join("-");
+  const base = `${date}-${words}`.replace(/^-+|-+$/g, "");
+  let id = base;
+  for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+  return id;
+}
+function publishDecisions(root, plan2, date, pending) {
+  const existing = readAll(root);
+  const taken = new Set(existing.map((x) => x.d.id));
+  const written = [];
+  const dir = join8(root, DECISIONS_DIR);
+  for (const p of pending) {
+    if (existing.some((x) => x.d.plan === plan2 && x.d.question === p.question)) continue;
+    mkdirSync3(dir, { recursive: true });
+    const id = decisionId(date, p.question, taken);
+    taken.add(id);
+    const d = { id, question: p.question, answer: p.answer, why: p.why, status: "active", replaces: p.replaces, areas: p.areas, paths: p.paths, plan: plan2, date, file: `${DECISIONS_DIR}/${id}.md` };
+    writeFileSync3(join8(root, d.file), render(d, bodyOf(p)));
+    written.push(d.file);
+    const old = p.replaces ? existing.find((x) => x.d.id === p.replaces) : void 0;
+    if (old) {
+      old.d.status = "replaced";
+      old.d.replacedBy = id;
+      writeFileSync3(join8(root, old.d.file), render(old.d, old.body));
+      written.push(old.d.file);
+    }
+    existing.push({ d, body: bodyOf(p) });
+  }
+  return written;
+}
+
+// plugins/cairn/cli/src/commands/plans.ts
 function cmdNew(ctx, slug, opts) {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "\u2026"');
   const track = opts.track === "fix" ? "fix" : "feature";
@@ -8272,12 +8423,12 @@ function cmdNew(ctx, slug, opts) {
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-    wt = join7(root, worktreeName(branch));
+    wt = join9(root, worktreeName(branch));
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
   const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
-  const dir = join7(wt, rel);
-  writeText(join7(dir, "decisions.md"), `# Decisions: ${title}
+  const dir = join9(wt, rel);
+  writeText(join9(dir, "decisions.md"), `# Decisions: ${title}
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
@@ -8301,18 +8452,86 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   };
 }
 function cmdProductInit(ctx) {
-  const dir = join7(ctx.top, `${DOCS_DIR}/product`);
-  const prd = join7(dir, "PRD.md");
-  if (existsSync3(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
+  const dir = join9(ctx.top, `${DOCS_DIR}/product`);
+  const prd = join9(dir, "PRD.md");
+  if (existsSync5(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
   writeText(prd, template("product-prd.md") ?? "# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n");
-  writeText(join7(dir, "decisions", ".gitkeep"), "");
+  writeText(join9(dir, "decisions", ".gitkeep"), "");
   return { message: `Created ${DOCS_DIR}/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
 }
+var csv = (v) => typeof v === "string" ? v.split(",").map((x) => x.trim()).filter(Boolean) : [];
+var today = () => planDirName("", /* @__PURE__ */ new Date()).slice(0, 10);
+function checkLasting(root, l) {
+  if (!l.areas.length && !l.paths.length) throw new Refusal("a lasting decision needs --areas or --paths, so recall can find it", ['add --areas <area-id>[,\u2026] or --paths "<glob>[,\u2026]"']);
+  const { areas } = loadAreas(root);
+  const bad = areas.length ? l.areas.filter((a) => !areas.some((x) => x.id === a)) : [];
+  if (bad.length) throw new Refusal(`unknown area ${bad.join(", ")}`, [`use one of: ${areas.map((x) => x.id).join(", ")}`]);
+  if (l.replaces && !loadDecisions(root).some((d) => d.id === l.replaces))
+    throw new Refusal(`no logged decision "${l.replaces}" to replace`, ["cairn recall lists logged decisions with their ids"]);
+}
 function cmdDecide(ctx, question, answer, opts) {
-  const d = typeof opts.file === "string" ? readDecisionFile(ctx.cwd, opts.file) : { question, answer, why: typeof opts.why === "string" ? opts.why : void 0 };
-  if (!d.question || !d.answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "\u2026"] | cairn decide --file <path>');
-  const n = appendDecision(planCtx(ctx), d.question, d.answer, d.why);
-  return { message: `Recorded decision ${n}: ${d.answer}`, data: { number: n } };
+  const f = typeof opts.file === "string" ? readDecisionFile(ctx.cwd, opts.file) : {};
+  const d = typeof opts.file === "string" ? f : { question, answer, why: typeof opts.why === "string" ? opts.why : void 0 };
+  const lasting = {
+    areas: [...csv(opts.areas), ...f.areas ?? []],
+    paths: [...csv(opts.paths), ...f.paths ?? []],
+    replaces: typeof opts.replaces === "string" ? opts.replaces : f.replaces
+  };
+  const promote = opts.promote !== void 0;
+  const isLasting = opts.lasting === true || f.lasting === true;
+  if (promote) {
+    const n2 = Number(opts.promote);
+    if (!Number.isInteger(n2) || n2 < 1) throw new CliError("usage: cairn decide --promote <n> --areas a,b [--paths g1,g2] [--replaces <id>]");
+    return promoteDecision(planCtx(ctx), n2, lasting);
+  }
+  if (!d.question || !d.answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "\u2026"] [--lasting --areas a,b] | cairn decide --file <path> | cairn decide --promote <n> --areas a,b');
+  if (!ctx.plan) {
+    if (!isLasting) planCtx(ctx);
+    checkLasting(ctx.top, lasting);
+    const p = { n: 0, question: d.question, answer: d.answer, why: d.why, ...lasting, at: now() };
+    const files = publishDecisions(ctx.top, typeof opts.plan === "string" ? opts.plan : "map", typeof opts.date === "string" ? opts.date : today(), [p]);
+    return { message: files.length ? `Logged decision: ${d.answer}` : `Already logged: ${d.question}`, data: { files } };
+  }
+  const pc = planCtx(ctx);
+  if (isLasting) checkLasting(pc.plan.worktree, lasting);
+  const n = appendDecision(pc, d.question, d.answer, d.why, isLasting ? lasting : void 0);
+  if (isLasting) mutate(pc, void 0, (s) => void (s.lasting ??= []).push({ n, question: d.question, answer: d.answer, why: d.why, ...lasting, at: now() }));
+  return { message: `Recorded decision ${n}${isLasting ? " as lasting" : ""}: ${d.answer}`, data: { number: n } };
+}
+function promoteDecision(pc, n, lasting) {
+  checkLasting(pc.plan.worktree, lasting);
+  const file = planFile(pc, "decisions.md");
+  const cur = readText(file) ?? "";
+  const found = parseDecisions(cur).find((x) => x.n === n);
+  if (!found) throw new Refusal(`no decision ${n} in decisions.md`, ['cairn decide "<question>" "<answer>" --lasting records a new one']);
+  if (loadState(pc.plan.dir).lasting?.some((x) => x.n === n)) throw new Refusal(`decision ${n} is already lasting`);
+  writeText(file, withLastingLine(cur, n, lasting));
+  mutate(pc, void 0, (s) => void (s.lasting ??= []).push({ ...found, ...lasting, at: now() }));
+  return { message: `Flagged decision ${n} as lasting: ${found.answer}`, data: { number: n } };
+}
+function parseDecisions(md) {
+  const out = [];
+  for (const block of md.split(/^(?=### \d+\. )/m)) {
+    const h = /^### (\d+)\. (.*)\n/.exec(block);
+    if (!h) continue;
+    const rest = block.slice(h[0].length);
+    const a = /^\*\*Decision:\*\* ([\s\S]*?)(?=\n\*\*Why:\*\* |\n\*\*Lasting:\*\* |\n_[^\n]*_\s*$|\s*$)/.exec(rest);
+    if (!a) continue;
+    const w = /\n\*\*Why:\*\* ([\s\S]*?)(?=\n\*\*Lasting:\*\* |\n_[^\n]*_\s*$|\s*$)/.exec(rest);
+    out.push({ n: Number(h[1]), question: h[2], answer: a[1], ...w ? { why: w[1] } : {} });
+  }
+  return out;
+}
+var lastingLine = (l) => `**Lasting:** ${[l.areas.length ? `areas: ${l.areas.join(", ")}` : "", l.paths.length ? `paths: ${l.paths.join(", ")}` : "", l.replaces ? `replaces: ${l.replaces}` : ""].filter(Boolean).join("; ")}`;
+function withLastingLine(md, n, l) {
+  return md.split(/^(?=### \d+\. )/m).map((block) => {
+    if (!block.startsWith(`### ${n}. `)) return block;
+    const lines = block.replace(/\n*$/, "").split("\n");
+    const at = /^_.*_$/.test(lines[lines.length - 1]) ? lines.length - 1 : lines.length;
+    lines.splice(at, 0, lastingLine(l));
+    return `${lines.join("\n")}
+`;
+  }).join("");
 }
 function readDecisionFile(cwd, file) {
   let data;
@@ -8322,31 +8541,33 @@ function readDecisionFile(cwd, file) {
     throw new CliError(`cannot read decision file ${file}: ${e.message}`);
   }
   const obj = data;
-  if (!obj || typeof obj !== "object" || Array.isArray(obj) || typeof obj.question !== "string" || typeof obj.answer !== "string" || obj.why !== void 0 && typeof obj.why !== "string")
-    throw new CliError(`decision file ${file} must be a JSON object {"question": "\u2026", "answer": "\u2026", "why": "\u2026"} (why optional)`);
-  return { question: obj.question, answer: obj.answer, why: obj.why };
+  const list2 = (v) => v === void 0 || Array.isArray(v) && v.every((x) => typeof x === "string");
+  if (!obj || typeof obj !== "object" || Array.isArray(obj) || typeof obj.question !== "string" || typeof obj.answer !== "string" || obj.why !== void 0 && typeof obj.why !== "string" || !list2(obj.areas) || !list2(obj.paths) || obj.replaces !== void 0 && typeof obj.replaces !== "string" || obj.lasting !== void 0 && typeof obj.lasting !== "boolean")
+    throw new CliError(`decision file ${file} must be a JSON object {"question": "\u2026", "answer": "\u2026", "why": "\u2026"} (why optional; lasting, areas, paths, replaces optional)`);
+  return { question: obj.question, answer: obj.answer, why: obj.why, lasting: obj.lasting, areas: obj.areas, paths: obj.paths, replaces: obj.replaces };
 }
-function appendDecision(pc, question, answer, why) {
+function appendDecision(pc, question, answer, why, lasting) {
   const file = planFile(pc, "decisions.md");
   const cur = readText(file) ?? "# Decisions\n";
   const n = (cur.match(/^### /gm)?.length ?? 0) + 1;
   writeText(file, `${cur.replace(/\n*$/, "\n")}
 ### ${n}. ${question}
 **Decision:** ${answer}${why ? `
-**Why:** ${why}` : ""}
+**Why:** ${why}` : ""}${lasting ? `
+${lastingLine(lasting)}` : ""}
 _${now().slice(0, 16).replace("T", " ")}_
 `);
   return n;
 }
 
 // plugins/cairn/cli/src/commands/stages.ts
-import { join as join11 } from "node:path";
+import { join as join13 } from "node:path";
 
 // plugins/cairn/cli/src/commands/fix.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
-import { existsSync as existsSync4, mkdtempSync, rmSync as rmSync2 } from "node:fs";
+import { existsSync as existsSync6, mkdtempSync, rmSync as rmSync2 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join as join8 } from "node:path";
+import { join as join10 } from "node:path";
 var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
 var fastLane = (s) => s.track === "fix" && (s.stage === "repro" || !!s.repro);
 var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build }));
@@ -8365,8 +8586,8 @@ var GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
 var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
 function runRepro(cmd, cwd, cfg) {
   const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
-  const tmp = mkdtempSync(join8(tmpdir(), "cairn-repro-"));
-  const pidFile = join8(tmp, "pgid");
+  const tmp = mkdtempSync(join10(tmpdir(), "cairn-repro-"));
+  const pidFile = join10(tmp, "pgid");
   const r = spawnSync3("sh", ["-c", GROUP_WRAPPER, "sh", cmd, pidFile], { cwd, encoding: "utf8", env: childEnv(), timeout: minutes * 6e4, maxBuffer: 64 * 1024 * 1024 });
   const timedOut = r.error?.code === "ETIMEDOUT";
   const pgid = Number(readText(pidFile));
@@ -8416,7 +8637,7 @@ function cmdEscalate(ctx, opts) {
     const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
     if (!sl.base || !head) continue;
     const files = changedFiles(pc.plan.worktree, pre.slug, sl.base, head);
-    if (sl.status === "in_progress" && sl.worktree && existsSync4(sl.worktree))
+    if (sl.status === "in_progress" && sl.worktree && existsSync6(sl.worktree))
       for (const args of [["diff", "--name-only", "-z", "HEAD"], ["ls-files", "--others", "--exclude-standard", "-z"]])
         files.push(...git(args, sl.worktree).split("\0").filter((f) => f && !f.startsWith(own)));
     changed.set(sl.id, [...new Set(files.map((f) => f.replace(/[*?]/g, "?")))].sort());
@@ -8435,12 +8656,12 @@ function cmdEscalate(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/suggest.ts
-import { readdirSync as readdirSync2 } from "node:fs";
-import { join as join10 } from "node:path";
+import { readdirSync as readdirSync4 } from "node:fs";
+import { join as join12 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync5, readFileSync as readFileSync6 } from "node:fs";
-import { join as join9, relative as relative2 } from "node:path";
+import { existsSync as existsSync7, readFileSync as readFileSync6 } from "node:fs";
+import { join as join11, relative as relative2 } from "node:path";
 function listPlans(ctx) {
   const refs = git(["for-each-ref", "--format=%(refname:short)", ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split("\n").filter(Boolean);
   const rows = [];
@@ -8450,10 +8671,10 @@ function listPlans(ctx) {
     const ref = planRef(slug, ctx.worktrees, b);
     try {
       const rel = resolvePlanDir(slug, { ref: b, cwd: ctx.top });
-      const raw = ref.dir && existsSync5(join9(ref.dir, "state.json")) ? readFileSync6(join9(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
+      const raw = ref.dir && existsSync7(join11(ref.dir, "state.json")) ? readFileSync6(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
       const state = parseState(raw);
       if (state.branch !== b) continue;
-      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join9(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join11(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
     } catch {
     }
   }
@@ -8474,7 +8695,7 @@ function warnings(pc, s) {
 }
 function waitingOnMerge(ctx, s, cwd, planRel2) {
   if (s.stage !== "learn" && s.stage !== "closed") return false;
-  return landedState(cwd, s.branch, s.base, planRel2, join9(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
+  return landedState(cwd, s.branch, s.base, planRel2, join11(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
 }
 function cmdStatus(ctx, opts) {
   if (opts.all || !ctx.plan) {
@@ -8515,7 +8736,7 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.s
     data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
   };
 }
-var procedurePath = (name) => join9(pluginRoot(), "procedures", `${name}.md`);
+var procedurePath = (name) => join11(pluginRoot(), "procedures", `${name}.md`);
 function cmdNext(ctx) {
   if (!ctx.plan) {
     const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
@@ -8541,9 +8762,9 @@ function cmdRender(ctx) {
   if (ctx.plan) {
     const pc = planCtx(ctx);
     withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
-    return { message: `Rendered ${join9(pc.plan.dir, "STATUS.md")}.` };
+    return { message: `Rendered ${join11(pc.plan.dir, "STATUS.md")}.` };
   }
-  const out = join9(ctx.top, `${DOCS_DIR}/INDEX.md`);
+  const out = join11(ctx.top, `${DOCS_DIR}/INDEX.md`);
   writeText(out, renderIndex(listPlans(ctx)));
   return { message: `Rendered ${out}.` };
 }
@@ -8558,8 +8779,8 @@ function allStates(ctx) {
   const out = /* @__PURE__ */ new Map();
   for (const r of listPlans(ctx)) out.set(r.state.slug, r.state);
   for (const dir of plansDirsIn(ctx.top))
-    for (const name of readdirSync2(dir)) {
-      const raw = readText(join10(dir, name, "state.json"));
+    for (const name of readdirSync4(dir)) {
+      const raw = readText(join12(dir, name, "state.json"));
       if (raw === void 0) continue;
       try {
         const s = parseState(raw);
@@ -8739,7 +8960,7 @@ var PRD_EDITED_NOTE = "**prd.md changed after you approved it; approving the pla
 function readyFor(pc) {
   try {
     const s = loadState(pc.plan.dir);
-    const file = (name) => join11(pc.plan.dir, name);
+    const file = (name) => join13(pc.plan.dir, name);
     const pcLike = pc;
     if (s.stage === "prd" && !s.approvals.prd) {
       const md = readText(file("prd.md"));
@@ -8870,7 +9091,7 @@ function cmdAdvance(ctx, opts) {
       if (p && p.status === "pending") p.status = "in_progress";
     }
     log(s, "advanced", to);
-    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join11(pc.plan.dir, "RECORD.md")}.` };
+    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join13(pc.plan.dir, "RECORD.md")}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
@@ -8886,7 +9107,7 @@ function cmdClose(ctx, opts) {
     closeGates(pc, s, opts, record, tests);
     setStage(s, "closed");
     log(s, "closed");
-    return { message: `Closed "${s.title}". The record is ${join11(pc.plan.dir, "RECORD.md")}.` };
+    return { message: `Closed "${s.title}". The record is ${join13(pc.plan.dir, "RECORD.md")}.` };
   });
 }
 
@@ -8946,7 +9167,7 @@ function levelCheck(s, to) {
 }
 
 // plugins/cairn/cli/src/plan-parse.ts
-var import_yaml = __toESM(require_dist(), 1);
+var import_yaml3 = __toESM(require_dist(), 1);
 var BLOCK = /```ya?ml\s+cairn-tasks\s*\n([\s\S]*?)```/;
 var COMPLEXITY = ["simple", "standard", "complex"];
 var KINDS = ["prefactor"];
@@ -8959,7 +9180,7 @@ function parsePlan(planMd, prdMd) {
   if (!block) return { phases: [], problems: [...problems, "plan.md has no ```yaml cairn-tasks block under ## Phases"] };
   let doc;
   try {
-    doc = (0, import_yaml.parse)(block);
+    doc = (0, import_yaml3.parse)(block);
   } catch (e) {
     return { phases: [], problems: [...problems, `cairn-tasks YAML does not parse: ${e.message}`] };
   }
@@ -9103,8 +9324,8 @@ function cmdPlanLoad(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/tasks.ts
-import { existsSync as existsSync6 } from "node:fs";
-import { basename as basename2, join as join12 } from "node:path";
+import { existsSync as existsSync8 } from "node:fs";
+import { basename as basename2, join as join14 } from "node:path";
 var MAX_FIX_ROUNDS = 2;
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
@@ -9143,7 +9364,7 @@ function taskStart(pc, id, opts) {
   const { plan: plan2, ctx, cfg } = pc;
   const r = mutate(pc, void 0, (s) => {
     const branch = taskBranch(plan2.slug, id);
-    const path = join12(worktreeRoot(cfg, ctx.mainRoot), `${basename2(plan2.worktree)}--${id}`);
+    const path = join14(worktreeRoot(cfg, ctx.mainRoot), `${basename2(plan2.worktree)}--${id}`);
     const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
@@ -9163,7 +9384,7 @@ function taskStart(pc, id, opts) {
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base = git(["rev-parse", pb], plan2.worktree);
     let setup = "";
-    if (!existsSync6(path)) {
+    if (!existsSync8(path)) {
       if (branchExists(branch, plan2.worktree)) git(["worktree", "add", "-q", path, branch], plan2.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan2.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
@@ -9201,7 +9422,7 @@ function taskDone(pc, id, opts) {
   const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
   const merged = branchExists(sl.branch, plan2.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree);
-  const dirty = sl.worktree && existsSync6(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync8(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan2.worktree) ? git(["rev-parse", "--short", sl.branch], plan2.worktree) : void 0;
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
@@ -9244,7 +9465,7 @@ function taskDone(pc, id, opts) {
       data: { phaseComplete: !left }
     };
   });
-  if (merged && sl.worktree && existsSync6(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
+  if (merged && sl.worktree && existsSync8(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
   if (merged) gitOk(["branch", "-d", sl.branch], plan2.worktree);
   return r;
 }
@@ -9338,22 +9559,22 @@ function cmdTest(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/migrate.ts
-import { existsSync as existsSync7, mkdirSync as mkdirSync3, readdirSync as readdirSync3, renameSync as renameSync2, rmdirSync as rmdirSync2, statSync as statSync2 } from "node:fs";
-import { dirname as dirname3, join as join13 } from "node:path";
+import { existsSync as existsSync9, mkdirSync as mkdirSync4, readdirSync as readdirSync5, renameSync as renameSync2, rmdirSync as rmdirSync2, statSync as statSync2 } from "node:fs";
+import { dirname as dirname3, join as join15 } from "node:path";
 var PAIRS = [
   [LEGACY_CAIRN_DIR, CAIRN_DIR],
   [LEGACY_DOCS_DIR, DOCS_DIR]
 ];
-var legacyLayout = (root) => PAIRS.map(([old]) => old).filter((p) => existsSync7(join13(root, p)));
+var legacyLayout = (root) => PAIRS.map(([old]) => old).filter((p) => existsSync9(join15(root, p)));
 var tracked = (root, rel) => git(["ls-files", "--", rel], root) !== "";
 function move(root, from, to) {
-  mkdirSync3(dirname3(join13(root, to)), { recursive: true });
+  mkdirSync4(dirname3(join15(root, to)), { recursive: true });
   if (tracked(root, from)) git(["mv", from, to], root);
-  else renameSync2(join13(root, from), join13(root, to));
+  else renameSync2(join15(root, from), join15(root, to));
 }
-var isDir = (root, rel) => statSync2(join13(root, rel)).isDirectory();
+var isDir = (root, rel) => statSync2(join15(root, rel)).isDirectory();
 function plan(root, old, next, out) {
-  if (!existsSync7(join13(root, next))) {
+  if (!existsSync9(join15(root, next))) {
     out.moves.push([old, next]);
     return;
   }
@@ -9362,15 +9583,15 @@ function plan(root, old, next, out) {
     return;
   }
   out.dirs.push(old);
-  for (const n of readdirSync3(join13(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
+  for (const n of readdirSync5(join15(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
 }
 var prune = (root, dirs) => {
-  for (const d of [...dirs].reverse()) if (existsSync7(join13(root, d)) && !readdirSync3(join13(root, d)).length) rmdirSync2(join13(root, d));
+  for (const d of [...dirs].reverse()) if (existsSync9(join15(root, d)) && !readdirSync5(join15(root, d)).length) rmdirSync2(join15(root, d));
 };
 function cmdMigrate(ctx) {
   if (ctx.plan) throw new Refusal("run cairn migrate on the main branch, outside any plan");
   const root = ctx.top;
-  const found = PAIRS.filter(([old]) => existsSync7(join13(root, old)));
+  const found = PAIRS.filter(([old]) => existsSync9(join15(root, old)));
   if (!found.length) return { message: `Nothing to migrate: this repo already uses ${CAIRN_DIR}/ and ${DOCS_DIR}/.` };
   const open = listPlans(ctx).filter((r) => r.state.stage !== "closed");
   if (open.length) throw new Refusal(`these plans are still open: ${open.map((r) => r.state.slug).join(", ")}`, ["finish or close them first"]);
@@ -9392,8 +9613,8 @@ function cmdMigrate(ctx) {
 }
 
 // plugins/cairn/cli/src/commands/records.ts
-import { existsSync as existsSync8, readdirSync as readdirSync4 } from "node:fs";
-import { basename as basename3, dirname as dirname4, join as join14 } from "node:path";
+import { existsSync as existsSync10, readdirSync as readdirSync6 } from "node:fs";
+import { basename as basename3, dirname as dirname4, join as join16 } from "node:path";
 var DATE_PREFIX = /^(\d{4}-\d{2}-\d{2})-/;
 function whyLine(md) {
   const body = (md ? sections(md).get("why") ?? "" : "").replace(/<!--[\s\S]*?-->/g, "").trim();
@@ -9407,20 +9628,20 @@ function listRecords(ctx) {
   for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
   const bases = plansDirsIn(main2);
   for (const base of bases)
-    for (const name of readdirSync4(base)) {
-      const raw = readText(join14(base, name, "state.json"));
+    for (const name of readdirSync6(base)) {
+      const raw = readText(join16(base, name, "state.json"));
       if (raw === void 0) continue;
       try {
         const state = parseState(raw);
-        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join14(base, name) });
+        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join16(base, name) });
       } catch {
       }
     }
   const followUps = /* @__PURE__ */ new Map();
   for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status, ...x.hardening ? { hardening: true } : {} }]);
   const entries = [...found.values()].map(({ state, dir }) => {
-    let recordPath = join14(dir, "RECORD.md");
-    if (!existsSync8(recordPath)) recordPath = bases.map((b) => join14(b, basename3(dir), "RECORD.md")).find((p) => existsSync8(p)) ?? recordPath;
+    let recordPath = join16(dir, "RECORD.md");
+    if (!existsSync10(recordPath)) recordPath = bases.map((b) => join16(b, basename3(dir), "RECORD.md")).find((p) => existsSync10(p)) ?? recordPath;
     const text = readText(recordPath);
     return {
       slug: state.slug,
@@ -9450,7 +9671,7 @@ function cmdRecords(ctx) {
 }
 
 // plugins/cairn/cli/src/direction.ts
-var import_yaml2 = __toESM(require_dist(), 1);
+var import_yaml4 = __toESM(require_dist(), 1);
 var BLOCK2 = /```ya?ml[ \t]+cairn-direction[ \t]*\r?\n([\s\S]*?)```/g;
 var VERDICTS = ["aligned", "partial", "missing", "contradicted"];
 var CLASSES = ["pulled-forward", "unplanned", "non-goal-breach", "supporting"];
@@ -9462,7 +9683,7 @@ function parseScorecard(md) {
   if (blocks.length > 1) return { rows: empty(), problems: ["the report has more than one cairn-direction block; keep exactly one"] };
   let doc;
   try {
-    doc = (0, import_yaml2.parse)(blocks[0][1]);
+    doc = (0, import_yaml4.parse)(blocks[0][1]);
   } catch (e) {
     return { rows: empty(), problems: [`cairn-direction YAML does not parse: ${e.message}`] };
   }
@@ -9553,7 +9774,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join15 } from "node:path";
+import { join as join17 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -9577,7 +9798,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join15(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join17(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -9610,12 +9831,12 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync9 } from "node:fs";
-import { dirname as dirname5, isAbsolute, join as join16, relative as relative3, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync11 } from "node:fs";
+import { dirname as dirname5, isAbsolute, join as join18, relative as relative3, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync9(join16(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync11(join18(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return "";
@@ -9638,9 +9859,9 @@ function hookPostEdit(input) {
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
   let dir = dirname5(abs);
-  while (!existsSync9(dir) && dirname5(dir) !== dir) dir = dirname5(dir);
+  while (!existsSync11(dir) && dirname5(dir) !== dir) dir = dirname5(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync9(join16(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync11(join18(ctx.plan.dir, "state.json"))) return "";
   const rel = relative3(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (isCairnPath(rel)) return "";
@@ -9675,7 +9896,7 @@ function hookPostEdit(input) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human", "open", "dismiss"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting"]);
 var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];
@@ -9715,7 +9936,7 @@ ${v}` : v;
   return { pos, opts };
 }
 var USAGE3 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
-  next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
+  next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] [--lasting --areas a,b --paths g1,g2 --replaces <id>] | decide --file <path> | decide --promote <n> --areas a,b
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
