@@ -8,6 +8,8 @@ import { nextFor, summary } from '../render.ts';
 import { loadState, log, saveState } from '../state.ts';
 import { now, withLock } from '../util.ts';
 import { planCtx } from '../shared.ts';
+import { memoryIndex } from '../memory.ts';
+import { planEntries } from './records.ts';
 import { legacyLayout } from './migrate.ts';
 import { listPlans, warnings } from './status.ts';
 
@@ -18,25 +20,39 @@ interface HookInput {
 
 const hookOut = (event: string, text: string) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 
+/** The memory index, or '' when there is none or it cannot be read; a broken memory never blocks a session. */
+function indexFor(ctx: ReturnType<typeof context>): string {
+  try {
+    return memoryIndex(ctx.top, planEntries(ctx));
+  } catch {
+    return '';
+  }
+}
+
+const startOut = (...parts: string[]) => {
+  const text = parts.filter(Boolean).join('\n');
+  return text ? hookOut('SessionStart', text) : '';
+};
+
 export function hookSessionStart(input: HookInput): string {
   const ctx = context(input.cwd ?? process.cwd());
   if (ctx.plan?.dir && existsSync(join(ctx.plan.dir, 'state.json'))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === 'closed') return '';
+    if (s.stage === 'closed') return startOut(indexFor(ctx));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     if (ctx.task) {
       const sl = findTask(s, ctx.task);
       if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit ${DOCS_DIR}/.`);
     }
-    return hookOut('SessionStart', lines.join('\n'));
+    return startOut(lines.join('\n'), indexFor(ctx));
   }
   const active = listPlans(ctx).filter((r) => r.state.stage !== 'closed');
   if (!active.length) {
     const legacy = legacyLayout(ctx.mainRoot);
-    return legacy.length ? hookOut('SessionStart', `cairn: this repo still uses ${legacy.join(' and ')}; run \`cairn migrate\` on main to move them.`) : '';
+    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(' and ')}; run \`cairn migrate\` on main to move them.` : '', indexFor(ctx));
   }
-  return hookOut('SessionStart', [`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), 'The user can resume one with /cairn:resume <slug> or start another with /cairn:new.'].join('\n'));
+  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), 'The user can resume one with /cairn:resume <slug> or start another with /cairn:new.'].join('\n'), indexFor(ctx));
 }
 
 export function hookPostEdit(input: HookInput): string {

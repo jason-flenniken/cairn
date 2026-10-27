@@ -33,7 +33,13 @@ export function loadAreas(root: string): { areas: Area[]; problems: string[] } {
   const problems: string[] = [];
   const dir = join(root, SYSTEM_DIR);
   if (!existsSync(dir)) return { areas, problems };
-  for (const name of readdirSync(dir).filter((f) => f.endsWith('.md')).sort()) {
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
+  } catch {
+    return { areas, problems: [`${SYSTEM_DIR} is not a folder`] };
+  }
+  for (const name of names) {
     const file = `${SYSTEM_DIR}/${name}`;
     const id = name.slice(0, -3);
     if (!SLUG.test(id)) {

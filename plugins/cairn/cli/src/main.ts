@@ -11,6 +11,7 @@ import {
   cmdLevel,
   cmdMigrate,
   cmdEvidence,
+  cmdIndex,
   cmdNew,
   cmdNext,
   cmdPause,
@@ -21,6 +22,7 @@ import {
   cmdPlanLoad,
   cmdProductInit,
   cmdReady,
+  cmdRecall,
   cmdRecords,
   cmdRepro,
   cmdRender,
@@ -81,6 +83,7 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
+  recall <path or glob>... | index
   area skip <id>|--uncovered --note "..." | pause [--now] | resume [<slug>] | close | render | records | migrate
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
@@ -138,6 +141,10 @@ export function run(argv: string[], cwd = process.cwd()): Result {
     case 'area':
       if (a !== 'skip') throw new CliError('usage: cairn area skip <id>|--uncovered --note "<why>"');
       return cmdAreaSkip(ctx(), b, opts);
+    case 'recall':
+      return cmdRecall(ctx(), pos.slice(1), opts);
+    case 'index':
+      return cmdIndex(ctx());
     case 'close':
       return cmdClose(ctx(), opts);
     case 'records':

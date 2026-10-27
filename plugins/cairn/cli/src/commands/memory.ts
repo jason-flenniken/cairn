@@ -4,7 +4,7 @@ import { areasForFile, loadAreas, SYSTEM_DIR } from '../areas.ts';
 import { DECISIONS_DIR, loadDecisions, publishDecisions } from '../decision-log.ts';
 import { commitPaths, git, safeRef } from '../git.ts';
 import { planDirName, planRelOf, type Ctx } from '../locate.ts';
-import { historyLines, OVERVIEW_REL, renderOverview, withHistory } from '../memory.ts';
+import { historyLines, memoryIndex, OVERVIEW_REL, recall, renderOverview, withHistory } from '../memory.ts';
 import { isCairnPath } from '../paths.ts';
 import { loadState, log } from '../state.ts';
 import type { State } from '../types.ts';
@@ -122,4 +122,23 @@ export function closeMemory(pc: PlanCtx, r: Result): Result {
   } catch (e) {
     return { ...r, message: `${r.message}\nWarning: the decision log and area history were not updated (${(e as Error).message.split('\n')[0]}); run cairn render on main.` };
   }
+}
+
+/** `cairn recall <path or glob>...`: the area docs, decisions in force, and past plans that cover these paths. */
+export function cmdRecall(ctx: Ctx, globs: string[], _opts: Opts): Result {
+  if (!globs.length) throw new CliError('usage: cairn recall <path or glob>...');
+  const r = recall(ctx.top, globs, planEntries(ctx));
+  const { problems } = loadAreas(ctx.top);
+  const out: string[] = [];
+  if (r.areas.length) out.push('Areas:', ...r.areas.map((a) => `  ${a.id}: ${a.summary} (${a.file})`));
+  if (r.decisions.length) out.push('Decisions in force:', ...r.decisions.map((d) => `  ${d.id}: ${d.answer} (${d.file})`));
+  if (r.plans.length) out.push('Past plans:', ...r.plans.map((p) => `  ${p.date} ${p.title}${p.record ? `: ${p.record}` : ''}`));
+  if (r.uncovered.length) out.push(`Not covered by any area: ${r.uncovered.join(', ')}`);
+  if (problems.length) out.push(`Area docs with problems: ${problems.join('; ')}`);
+  return { message: out.length ? out.join('\n') : 'Nothing recorded for these paths yet.', data: { ...r, problems } };
+}
+
+/** `cairn index`: the short memory index that session start injects. */
+export function cmdIndex(ctx: Ctx): Result {
+  return { message: memoryIndex(ctx.top, planEntries(ctx)) || 'Nothing recorded yet. Run /cairn:map to set up area docs.' };
 }

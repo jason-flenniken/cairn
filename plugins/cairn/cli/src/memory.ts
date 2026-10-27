@@ -1,6 +1,6 @@
 import { posix } from 'node:path';
-import type { Area } from './areas.ts';
-import type { LoggedDecision } from './decision-log.ts';
+import { areasForScopes, loadAreas, type Area } from './areas.ts';
+import { activeDecisionsFor, loadDecisions, type LoggedDecision } from './decision-log.ts';
 import { scopesOverlap } from './glob.ts';
 import { whyLine, type PlanEntry } from './commands/records.ts';
 import { DOCS_DIR } from './paths.ts';
@@ -75,4 +75,49 @@ export function renderOverview(_root: string, areas: Area[], decisions: LoggedDe
   });
   out.push(...(lines.length ? lines : [NONE]));
   return `${out.join('\n')}\n`;
+}
+
+export interface RecallResult {
+  areas: Area[];
+  decisions: LoggedDecision[];
+  plans: { slug: string; title: string; date: string; record?: string }[];
+  /** Globs that no area doc covers. */
+  uncovered: string[];
+}
+
+const RECALL_PLANS = 5;
+
+/** What the memory holds about these paths: area docs, decisions in force, and the closed plans that touched them. */
+export function recall(root: string, globs: string[], plans: PlanEntry[]): RecallResult {
+  const areas = areasForScopes(globs, loadAreas(root).areas);
+  const decisions = activeDecisionsFor(globs, areas.map((a) => a.id), loadDecisions(root));
+  const found = new Map<string, PlanEntry>();
+  for (const a of areas) for (const p of plansTouching(a, plans)) found.set(p.state.slug, p);
+  for (const p of plans) {
+    if (p.state.stage !== 'closed') continue;
+    const scopes = allTasks(p.state).flatMap((t) => t.scope).filter((g) => g !== '**');
+    if (scopes.length > 0 && scopesOverlap(globs, scopes)) found.set(p.state.slug, p);
+  }
+  const top = [...found.values()].sort(byNewest).slice(0, RECALL_PLANS).map((p) => ({ slug: p.state.slug, title: p.state.title, date: p.date, ...(recordRel(p) ?? p.record ? { record: recordRel(p) ?? p.record } : {}) }));
+  const uncovered = areas.length ? globs.filter((g) => !areas.some((a) => scopesOverlap([g], a.paths))) : [];
+  return { areas, decisions, plans: top, uncovered };
+}
+
+const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
+/** The short index injected at session start. Plans go first when it runs long, then the decision list collapses to ids. '' when there are no areas or decisions (plans alone are not an index). */
+export function memoryIndex(root: string, plans: PlanEntry[], maxLines = 60): string {
+  const { areas } = loadAreas(root);
+  const decisions = loadDecisions(root).filter((d) => d.status === 'active');
+  const recent = plans.filter((p) => p.state.stage === 'closed').sort(byNewest).slice(0, 5);
+  if (!areas.length && !decisions.length) return '';
+  const head = `cairn memory (full picture: ${OVERVIEW_REL}). Before changing code, run \`cairn recall <paths>\`.`;
+  const areaLines = areas.length ? ['Areas:', ...areas.map((a) => `- ${a.id}: ${a.summary}`)] : [];
+  const decisionLines = decisions.length ? ['Decisions in force:', ...decisions.map((d) => `- ${d.id}: ${cut(d.answer, 100)}`)] : [];
+  const planLines = recent.length ? ['Recent plans:', ...recent.map((p) => `- ${p.date} ${p.state.title}`)] : [];
+  const build = (d: string[], p: string[]) => [head, ...areaLines, ...d, ...p];
+  let out = build(decisionLines, planLines);
+  if (out.length > maxLines) out = build(decisionLines, []);
+  if (out.length > maxLines && decisions.length) out = build([`Decisions in force: ${decisions.map((d) => d.id).join(', ')}`], []);
+  return out.join('\n');
 }

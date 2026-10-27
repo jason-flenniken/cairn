@@ -8269,7 +8269,13 @@ function loadAreas(root) {
   const problems = [];
   const dir = join7(root, SYSTEM_DIR);
   if (!existsSync3(dir)) return { areas, problems };
-  for (const name of readdirSync2(dir).filter((f) => f.endsWith(".md")).sort()) {
+  let names;
+  try {
+    names = readdirSync2(dir).filter((f) => f.endsWith(".md")).sort();
+  } catch {
+    return { areas, problems: [`${SYSTEM_DIR} is not a folder`] };
+  }
+  for (const name of names) {
     const file = `${SYSTEM_DIR}/${name}`;
     const id = name.slice(0, -3);
     if (!SLUG.test(id)) {
@@ -8301,6 +8307,7 @@ function loadAreas(root) {
   return { areas: areas.sort((a, b) => a.id.localeCompare(b.id)), problems };
 }
 var areasForFile = (file, areas) => areas.filter((a) => matchesAny(file, a.paths));
+var areasForScopes = (globs, areas) => areas.filter((a) => scopesOverlap(globs, a.paths));
 
 // plugins/cairn/cli/src/decision-log.ts
 var import_yaml2 = __toESM(require_dist(), 1);
@@ -8376,6 +8383,9 @@ function decisionId(date, question, taken) {
   let id = base;
   for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
   return id;
+}
+function activeDecisionsFor(globs, areaIds, all) {
+  return all.filter((d) => d.status === "active" && (d.areas.some((a) => areaIds.includes(a)) || d.paths.length > 0 && scopesOverlap(globs, d.paths)));
 }
 function publishDecisions(root, plan2, date, pending) {
   const existing = readAll(root);
@@ -8946,6 +8956,37 @@ function renderOverview(_root, areas, decisions, plans) {
   return `${out.join("\n")}
 `;
 }
+var RECALL_PLANS = 5;
+function recall(root, globs, plans) {
+  const areas = areasForScopes(globs, loadAreas(root).areas);
+  const decisions = activeDecisionsFor(globs, areas.map((a) => a.id), loadDecisions(root));
+  const found = /* @__PURE__ */ new Map();
+  for (const a of areas) for (const p of plansTouching(a, plans)) found.set(p.state.slug, p);
+  for (const p of plans) {
+    if (p.state.stage !== "closed") continue;
+    const scopes = allTasks(p.state).flatMap((t) => t.scope).filter((g) => g !== "**");
+    if (scopes.length > 0 && scopesOverlap(globs, scopes)) found.set(p.state.slug, p);
+  }
+  const top = [...found.values()].sort(byNewest).slice(0, RECALL_PLANS).map((p) => ({ slug: p.state.slug, title: p.state.title, date: p.date, ...recordRel(p) ?? p.record ? { record: recordRel(p) ?? p.record } : {} }));
+  const uncovered = areas.length ? globs.filter((g) => !areas.some((a) => scopesOverlap([g], a.paths))) : [];
+  return { areas, decisions, plans: top, uncovered };
+}
+var cut = (s, n) => s.length > n ? `${s.slice(0, n - 1)}\u2026` : s;
+function memoryIndex(root, plans, maxLines = 60) {
+  const { areas } = loadAreas(root);
+  const decisions = loadDecisions(root).filter((d) => d.status === "active");
+  const recent = plans.filter((p) => p.state.stage === "closed").sort(byNewest).slice(0, 5);
+  if (!areas.length && !decisions.length) return "";
+  const head = `cairn memory (full picture: ${OVERVIEW_REL}). Before changing code, run \`cairn recall <paths>\`.`;
+  const areaLines = areas.length ? ["Areas:", ...areas.map((a) => `- ${a.id}: ${a.summary}`)] : [];
+  const decisionLines = decisions.length ? ["Decisions in force:", ...decisions.map((d) => `- ${d.id}: ${cut(d.answer, 100)}`)] : [];
+  const planLines = recent.length ? ["Recent plans:", ...recent.map((p) => `- ${p.date} ${p.state.title}`)] : [];
+  const build = (d, p) => [head, ...areaLines, ...d, ...p];
+  let out = build(decisionLines, planLines);
+  if (out.length > maxLines) out = build(decisionLines, []);
+  if (out.length > maxLines && decisions.length) out = build([`Decisions in force: ${decisions.map((d) => d.id).join(", ")}`], []);
+  return out.join("\n");
+}
 
 // plugins/cairn/cli/src/commands/memory.ts
 var UNCOVERED = "(uncovered)";
@@ -9039,6 +9080,21 @@ function closeMemory(pc, r) {
     return { ...r, message: `${r.message}
 Warning: the decision log and area history were not updated (${e.message.split("\n")[0]}); run cairn render on main.` };
   }
+}
+function cmdRecall(ctx, globs, _opts) {
+  if (!globs.length) throw new CliError("usage: cairn recall <path or glob>...");
+  const r = recall(ctx.top, globs, planEntries(ctx));
+  const { problems } = loadAreas(ctx.top);
+  const out = [];
+  if (r.areas.length) out.push("Areas:", ...r.areas.map((a) => `  ${a.id}: ${a.summary} (${a.file})`));
+  if (r.decisions.length) out.push("Decisions in force:", ...r.decisions.map((d) => `  ${d.id}: ${d.answer} (${d.file})`));
+  if (r.plans.length) out.push("Past plans:", ...r.plans.map((p) => `  ${p.date} ${p.title}${p.record ? `: ${p.record}` : ""}`));
+  if (r.uncovered.length) out.push(`Not covered by any area: ${r.uncovered.join(", ")}`);
+  if (problems.length) out.push(`Area docs with problems: ${problems.join("; ")}`);
+  return { message: out.length ? out.join("\n") : "Nothing recorded for these paths yet.", data: { ...r, problems } };
+}
+function cmdIndex(ctx) {
+  return { message: memoryIndex(ctx.top, planEntries(ctx)) || "Nothing recorded yet. Run /cairn:map to set up area docs." };
 }
 
 // plugins/cairn/cli/src/commands/fix.ts
@@ -10008,25 +10064,36 @@ function cmdResume(ctx, slug, opts) {
 import { existsSync as existsSync12 } from "node:fs";
 import { dirname as dirname5, isAbsolute, join as join19, relative as relative3, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
+function indexFor(ctx) {
+  try {
+    return memoryIndex(ctx.top, planEntries(ctx));
+  } catch {
+    return "";
+  }
+}
+var startOut = (...parts) => {
+  const text = parts.filter(Boolean).join("\n");
+  return text ? hookOut("SessionStart", text) : "";
+};
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
   if (ctx.plan?.dir && existsSync12(join19(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === "closed") return "";
+    if (s.stage === "closed") return startOut(indexFor(ctx));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     if (ctx.task) {
       const sl = findTask(s, ctx.task);
       if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(", ")}. Never edit ${DOCS_DIR}/.`);
     }
-    return hookOut("SessionStart", lines.join("\n"));
+    return startOut(lines.join("\n"), indexFor(ctx));
   }
   const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
   if (!active.length) {
     const legacy = legacyLayout(ctx.mainRoot);
-    return legacy.length ? hookOut("SessionStart", `cairn: this repo still uses ${legacy.join(" and ")}; run \`cairn migrate\` on main to move them.`) : "";
+    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(" and ")}; run \`cairn migrate\` on main to move them.` : "", indexFor(ctx));
   }
-  return hookOut("SessionStart", [`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), "The user can resume one with /cairn:resume <slug> or start another with /cairn:new."].join("\n"));
+  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), "The user can resume one with /cairn:resume <slug> or start another with /cairn:new."].join("\n"), indexFor(ctx));
 }
 function hookPostEdit(input) {
   const file = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
@@ -10114,6 +10181,7 @@ var USAGE3 = `cairn: plan state for the agent-driven lifecycle. See references/c
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
+  recall <path or glob>... | index
   area skip <id>|--uncovered --note "..." | pause [--now] | resume [<slug>] | close | render | records | migrate
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
@@ -10170,6 +10238,10 @@ function run(argv, cwd = process.cwd()) {
     case "area":
       if (a !== "skip") throw new CliError('usage: cairn area skip <id>|--uncovered --note "<why>"');
       return cmdAreaSkip(ctx(), b, opts);
+    case "recall":
+      return cmdRecall(ctx(), pos.slice(1), opts);
+    case "index":
+      return cmdIndex(ctx());
     case "close":
       return cmdClose(ctx(), opts);
     case "records":
