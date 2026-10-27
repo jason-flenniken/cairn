@@ -116,9 +116,9 @@ In a throwaway git repo, `claude -p --plugin-dir plugins/cairn --permission-mode
 | Call | Result |
 | --- | --- |
 | The model's `bin/cairn approve prd` | Denied with the FR-03 reason |
-| `cat docs/cairn/plans/x/state.json` | Ran |
+| `cat docs/sdlc/plans/x/state.json` | Ran |
 | A Write to a new file in a new folder | Ran |
-| A Write to `docs/cairn/plans/x/state.json` | Denied |
+| A Write to `docs/sdlc/plans/x/state.json` | Denied |
 
 The same guard regex now also covers `docs/cairn/plans`, verified by `guards.test.ts`, not by a live run.
 
