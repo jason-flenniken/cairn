@@ -26,13 +26,13 @@ A record of what was done is history, so nothing in memory claims "how it works 
 ## Requirements
 
 **Changelog entry**
-- **FR-01** At ship, the recorder writes the plan's changelog entry alongside `RECORD.md`. The entry is one paragraph of at most 120 words covering what was built, why, and the big rocks (API, data model, security or dependency changes a developer must know). It is committed on the plan branch before the ship approval. Check: after the ship step of a plan, the plan folder contains the entry on the plan branch, and a test asserts the ship procedure and recorder instructions require it.
+- **FR-01** At ship, the recorder writes the plan's changelog entry to `changelog.md` in the plan folder, alongside `RECORD.md`. The entry is one paragraph of at most 120 words covering what was built, why, and the big rocks (API, data model, security or dependency changes a developer must know). It is committed on the plan branch before the ship approval. After that the user owns it: `cairn close` and `cairn render` read it and never rewrite it, so a wrong entry is corrected by editing `changelog.md` and rerunning `cairn render`. Check: after the ship step of a plan, `changelog.md` exists on the plan branch, and a test asserts the ship procedure and recorder instructions require it.
 - **FR-02** Fix plans get a changelog entry too, written at the same point in the fix lane. Check: a test asserts the fix procedure asks the recorder for the entry.
 - **FR-03** A plan whose folder has no changelog entry (older plans, other repos) still appears in the changelog, using the first sentence of its record's Why section. Check: a CLI test renders the changelog for a closed plan with a RECORD.md but no entry, and shows that sentence.
 
 **OVERVIEW.md and the session start**
-- **FR-04** `cairn render`, and closing a plan, write `docs/cairn/OVERVIEW.md` as the changelog. It has one entry per closed plan, newest first. Each entry has the date, the title, the paragraph and a link to the record. There are no areas or decisions tables. Check: a CLI test renders three closed plans and asserts their order, contents and links, and the absence of Areas and Decisions sections.
-- **FR-05** The session-start hook and `cairn index` print the five most recent changelog entries in full. They end with a line pointing to `docs/cairn/OVERVIEW.md` for older work. They print nothing when there are no closed plans. Check: a CLI test with seven closed plans shows exactly the five newest entries plus the pointer line, and shows empty output with none.
+- **FR-04** `cairn render`, and closing a plan, write `docs/cairn/OVERVIEW.md` as the changelog. It has one entry per plan in the `closed` stage (feature and fix plans; open and paused plans are left out), newest first by plan folder date. Each entry has the date, the title, the paragraph and a relative link to the record. There are no areas or decisions tables. Check: a CLI test renders three closed plans and asserts their order, contents and links, and the absence of Areas and Decisions sections.
+- **FR-05** The session-start hook and `cairn index` print the five most recent changelog entries: the five newest closed plans, whether their text is an entry or the fallback sentence, each cut to 120 words if longer. An over-long entry never blocks ship or close. They end with a line pointing to `docs/cairn/OVERVIEW.md` for older work. They print nothing when there are no closed plans. Check: a CLI test with seven closed plans shows exactly the five newest entries plus the pointer line, and shows empty output with none.
 
 **Pane**
 - **FR-06** The pane has a Changelog tab beside Now, History and Records. It lists the changelog newest first, with each entry's date and title emphasized and its paragraph wrapped to the pane width, and it scrolls. Check: a mod test switches to the Changelog tab and finds the entries in order with their text.
@@ -55,12 +55,12 @@ A record of what was done is history, so nothing in memory claims "how it works 
   - `cairn decide --lasting`, `--promote` and `--replaces`
   - `/cairn:map`
 
-  Each removed command or flag, when used, refuses with a plain message saying it was removed and that the changelog replaces it. Check: CLI tests run each removed command or flag and assert the refusal text. `claude plugin validate plugins/cairn` passes with the map skill gone.
+  Each removed command or flag, when used, refuses with a plain message saying it was removed and that the changelog replaces it. `cairn decide` without those flags still records decisions in the plan's `decisions.md`, which stays part of every plan folder. Check: CLI tests run each removed command or flag and assert the refusal text. `claude plugin validate plugins/cairn` passes with the map skill gone.
 - **FR-12** `cairn close` no longer checks area docs or uncovered code, publishes decision files, or writes History sections. A repo that still has `docs/cairn/system/` or `docs/cairn/decisions/` closes plans without errors or warnings about them, and cairn never modifies or deletes those files. Check: a CLI test closes a plan in a repo containing area docs and decision files. The close succeeds, and the files are byte-identical afterwards.
 
 **This repo**
-- **FR-13** In this repo, `docs/cairn/system/` and `docs/cairn/decisions/` are deleted. The six earlier closed plans each get a changelog entry written from their `RECORD.md`. Check: both folders are absent on the branch, and `cairn render` shows a paragraph entry, not a fallback sentence, for all six plans.
-- **FR-14** None of this plan's own decisions are published as decision files when it closes. Check: after this plan closes, `docs/cairn/decisions/` does not exist on main.
+- **FR-13** In this repo, `docs/cairn/system/` and `docs/cairn/decisions/` are deleted. The six earlier closed plans each get a `changelog.md` written from their `RECORD.md` by a build task, reviewed in this plan's PR like any other change. Check: both folders are absent on the branch, and `cairn render` shows a paragraph entry, not a fallback sentence, for all six plans.
+- **FR-14** No `docs/cairn/decisions/` folder is created by closing any plan, including this one (which must close with this branch's CLI, not the installed 0.6.0). Check: a CLI test closes a plan in a repo with no decisions folder and none appears; after this plan closes, `docs/cairn/decisions/` does not exist on main.
 
 **Docs and release**
 - **FR-15** The README's Project memory section is rewritten. It describes:
@@ -100,7 +100,7 @@ A record of what was done is history, so nothing in memory claims "how it works 
   - the user's terminal display
 - STRIDE:
   - **Model-written entries.** Tampering, through a misleading or instruction-like entry steering later agents, is controlled by the entry landing in the PR the user approves at ship. Information disclosure is controlled the same way: the user sees the entry before merge.
-  - **Pane rendering.** Tampering through terminal control sequences in an entry is controlled by stripping control characters before display.
+  - **Pane rendering.** Tampering through terminal control sequences in an entry is controlled by stripping control characters (keeping newlines and tabs) before display in the pane and in the session-start text.
   - **User-owned files.** Tampering or destruction is controlled by FR-12: cairn never modifies or deletes them.
 - Misuse cases:
   - An entry contains terminal escape codes that rewrite the pane. Control: strip control characters. Security test: render an entry with an escape sequence and assert it is not emitted.

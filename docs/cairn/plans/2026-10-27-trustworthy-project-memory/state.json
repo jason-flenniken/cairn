@@ -6,8 +6,8 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:19:43.133Z",
-  "stage": "prd",
+  "updated": "2026-10-27T20:21:02.568Z",
+  "stage": "plan",
   "stageHistory": [
     {
       "stage": "discover",
@@ -16,6 +16,10 @@
     {
       "stage": "prd",
       "at": "2026-10-27T20:18:12.816Z"
+    },
+    {
+      "stage": "plan",
+      "at": "2026-10-27T20:21:02.567Z"
     }
   ],
   "paused": null,
@@ -49,6 +53,11 @@
       "at": "2026-10-27T20:19:43.133Z",
       "event": "PRD approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-27T20:21:02.568Z",
+      "event": "advanced",
+      "detail": "plan"
     }
   ],
   "cairnVersion": "0.6.0",

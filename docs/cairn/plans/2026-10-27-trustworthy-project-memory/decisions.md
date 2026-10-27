@@ -154,3 +154,28 @@ _2026-10-27 20:17_
 **Decision:** Outcome: Plan history plus a developer-friendly, detailed changelog. At ship the recorder writes RECORD.md and the plan's changelog entry (what, why, big rocks: API changes, new models, reworked encryption), both in the PR. OVERVIEW.md is the changelog, newest first. A new Changelog tab in the pane shows it formatted, any time, each entry linking to its record. Session start: last 5 entries + pointer; discovery reads the full changelog when work touches older plans. Area docs, /cairn:map, close-time doc check, area skip, lasting-decision files and recall removed. This repo's area/decision files deleted; past plans get backfilled entries. | User: Developers using cairn on their projects: humans skimming what was done, agents needing background. | Why now: Memory is small; fix the shape before plans pile up. | Success: Any plan's what/why in one paragraph, in repo or pane; agents start with a fixed-size summary; nothing claims 'how it works now', so nothing goes stale. | Constraint: No new stops for the user. | Out of scope: Roll-up (later); deleting files in other repos; breaking-release announcement; checking docs vs code. | Fresh-eyes challenge ran on the earlier goal; its points don't apply after the reframe.
 **Why:** confirmed by the user
 _2026-10-27 20:18_
+
+### 31. Set aside: date tie-break order
+**Decision:** Builder's call; keep today's records order (date, then slug).
+**Why:** PRD builder check
+_2026-10-27 20:20_
+
+### 32. Set aside: exact refusal wording and exit code
+**Decision:** Builder's call; refusals use the CLI's usual exit code 2.
+**Why:** PRD builder check
+_2026-10-27 20:20_
+
+### 33. Set aside: fallback sentence splitting
+**Decision:** Reuse the existing whyLine helper; a plan with no Why gets date and title only.
+**Why:** PRD builder check
+_2026-10-27 20:20_
+
+### 34. Set aside: new version number
+**Decision:** Builder's call under the normal bump (minor, 0.7.0).
+**Why:** PRD builder check
+_2026-10-27 20:20_
+
+### 35. Set aside: index layout, pointer wording, pane emphasis and tab key
+**Decision:** Builder's call, matching the existing pane and index style.
+**Why:** PRD builder check
+_2026-10-27 20:20_
