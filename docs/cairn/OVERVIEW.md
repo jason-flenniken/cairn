@@ -48,8 +48,8 @@ None yet.
 ## Plans
 
 - 2026-10-21 **Cleaner pane and records**: The pane was hard to read: cards changed height on every tool call, and a follow-up count nobody could act on kept growing. [record](plans/2026-10-21-cleaner-pane-and-records/RECORD.md)
-- 2026-10-21 **Pane status bar and polish**: The pane said "all phases done" while review was still running, hid spend and usage limits, ignored clicks on agent cards, and could not scroll to the end of long documents. [record](../sdlc/plans/2026-10-21-pane-status-bar-and-polish/RECORD.md)
-- 2026-10-21 **Roomier pane visuals**: The cairn pane was hard to scan: text sat flush against the left edge, tabs stacked lines with no gaps, and the body was drawn black. [record](../sdlc/plans/2026-10-21-roomier-pane-visuals/RECORD.md)
-- 2026-10-21 **Sharper interview and review**: cairn's interview never asked what a build was for, review looked only at risky tasks and said little about readability or architecture, and security showed up only at review time. [record](../sdlc/plans/2026-10-21-sharper-interview-and-review/RECORD.md)
+- 2026-10-21 **Pane status bar and polish**: The pane said "all phases done" while review was still running, hid spend and usage limits, ignored clicks on agent cards, and could not scroll to the end of long documents. [record](plans/2026-10-21-pane-status-bar-and-polish/RECORD.md)
+- 2026-10-21 **Roomier pane visuals**: The cairn pane was hard to scan: text sat flush against the left edge, tabs stacked lines with no gaps, and the body was drawn black. [record](plans/2026-10-21-roomier-pane-visuals/RECORD.md)
+- 2026-10-21 **Sharper interview and review**: cairn's interview never asked what a build was for, review looked only at risky tasks and said little about readability or architecture, and security showed up only at review time. [record](plans/2026-10-21-sharper-interview-and-review/RECORD.md)
 - 2026-10-21 **Standard branch names**: cairn named its branches `sdlc/<slug>` and `sdlc-task/<slug>/<task>`, which read as tool plumbing in a branch list or PR. [record](plans/2026-10-21-standard-branch-names/RECORD.md)
 - 2026-10-20 **cairn v0.2**: In cairn v0.1 the model relayed approvals itself, and plan state was visible only on request. [record](plans/2026-10-20-cairn-v0-2/RECORD.md)

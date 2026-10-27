@@ -23,7 +23,7 @@ updated: 2026-10-27 (map)
 
 Every command starts in `context()` in `locate.ts`. It finds the repo top, lists worktrees with `git.ts`, reads the current branch, and turns the branch name into a plan slug (and a task name for task branches). It then checks that the branch really is that plan's recorded branch. If so, it points at the plan's worktree and the plan folder inside it.
 
-The plan folder lives under `docs/cairn/plans/`. `resolvePlanDir` looks for `<date>-<slug>` first, then the old bare `<slug>`, and tries the legacy `docs/sdlc/plans/` root after the new one. It can read from a checkout or from a committed branch tree, so old branches still find their records through the main checkout.
+The plan folder lives under `docs/cairn/plans/`. `resolvePlanDir` looks for `<date>-<slug>` first, then the old bare `<slug>`, and tries the legacy plans root under `docs/sdlc` after the new one. It can read from a checkout or from a committed branch tree, so old branches still find their records through the main checkout.
 
 `cairn new` (`commands/plans.ts`) creates the plan and its branch. `commands/fix.ts` runs the fix fast lane, and `commands/migrate.ts` moves old `.sdlc` and `docs/sdlc` layouts to the new names. `paths.ts` holds the folder names, and `git.ts` wraps git calls, including merge detection.
 
@@ -47,7 +47,7 @@ The plan folder lives under `docs/cairn/plans/`. `resolvePlanDir` looks for `<da
 - Decision [2026-10-21-how-are-plan-and-task-branches](../decisions/2026-10-21-how-are-plan-and-task-branches.md): Plans use feature/<slug> or fix/<slug>, tasks use task/<slug>/<task>, worktree folders are the branch with / as -, only a plan's recorded branch counts as the plan, and legacy sdlc/ branches still resolve. (in force)
 - Decision [2026-10-21-how-are-plan-folders-named-and](../decisions/2026-10-21-how-are-plan-folders-named-and.md): Plan folders are <local-date>-<slug> under docs/cairn/plans; lookup prefers the dated folder, falls back to the undated one, and resolves through the main checkout. (in force)
 - 2026-10-21 [Cleaner pane and records](../plans/2026-10-21-cleaner-pane-and-records/RECORD.md)
-- 2026-10-21 [Pane status bar and polish](../../sdlc/plans/2026-10-21-pane-status-bar-and-polish/RECORD.md)
-- 2026-10-21 [Sharper interview and review](../../sdlc/plans/2026-10-21-sharper-interview-and-review/RECORD.md)
+- 2026-10-21 [Pane status bar and polish](../plans/2026-10-21-pane-status-bar-and-polish/RECORD.md)
+- 2026-10-21 [Sharper interview and review](../plans/2026-10-21-sharper-interview-and-review/RECORD.md)
 - 2026-10-21 [Standard branch names](../plans/2026-10-21-standard-branch-names/RECORD.md)
 - 2026-10-20 [cairn v0.2](../plans/2026-10-20-cairn-v0-2/RECORD.md)

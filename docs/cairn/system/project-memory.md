@@ -42,7 +42,7 @@ Decisions are logged in the plan as before. A decision marked `cairn decide --la
 
 - Decision [2026-10-21-how-are-follow-ups-and-findings](../decisions/2026-10-21-how-are-follow-ups-and-findings.md): At most 5 open follow-ups per plan, expiring after 2 declines or 60 days; the recorder writes the record's Findings from the plan log, learn asks nothing, and close requires Findings. (in force)
 - 2026-10-21 [Cleaner pane and records](../plans/2026-10-21-cleaner-pane-and-records/RECORD.md)
-- 2026-10-21 [Pane status bar and polish](../../sdlc/plans/2026-10-21-pane-status-bar-and-polish/RECORD.md)
-- 2026-10-21 [Sharper interview and review](../../sdlc/plans/2026-10-21-sharper-interview-and-review/RECORD.md)
+- 2026-10-21 [Pane status bar and polish](../plans/2026-10-21-pane-status-bar-and-polish/RECORD.md)
+- 2026-10-21 [Sharper interview and review](../plans/2026-10-21-sharper-interview-and-review/RECORD.md)
 - 2026-10-21 [Standard branch names](../plans/2026-10-21-standard-branch-names/RECORD.md)
 - 2026-10-20 [cairn v0.2](../plans/2026-10-20-cairn-v0-2/RECORD.md)

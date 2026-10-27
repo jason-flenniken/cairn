@@ -14,7 +14,7 @@ updated: 2026-10-27 (map)
 - Only the secret's SHA-256 is stored on disk. The secret itself lives only in the mod's memory and is replaced after every use. There are no grant files. `hooks/mod/approve.ts:104` (`rotate`).
 - Refusals come before the proof is spent. `cli/src/commands/level.ts:12`.
 - The mod denies the model: running `cairn approve` or `cairn level`, setting `CAIRN_APPROVER`, writing `state.json`, `STATUS.md` or `.git/cairn/`, and wrapping cairn in a pty. `hooks/mod/guards.ts:34` (`bashVerdict`), `guards.ts:433` (`pathProtected`).
-- Keep the plan-file guard covering both `docs/cairn/plans` and `docs/sdlc/plans`. `guards.ts:423`.
+- Keep the plan-file guard covering both `docs/cairn/plans` and the legacy `docs/sdlc` plans folder. `guards.ts:423`.
 - An answer approves only if the question is tagged for this plan and stop, the CLI reports the stop ready, and the label reads as approving. `approve.ts:52` (`isApproveLabel`), `approve.ts:88`.
 - Approvals and level changes never ride an override. `hooks/NOTES.md` ("Menu approval and overrides").
 - The mod counts as active only when its heartbeat is under 10 s old. If you change the heartbeat format, update `proof.ts:107` and `hooks/NOTES.md` together.
@@ -43,8 +43,8 @@ In the mod, `approve.ts` watches the user's answer to a tagged approval or level
 - Decision [2026-10-20-which-menu-answers-count-as-an](../decisions/2026-10-20-which-menu-answers-count-as-an.md): Only an answer to the question tagged for this plan and stop, while the CLI reports that stop ready, with a label that reads as approving; a Revise-then-Approve is recorded. (in force)
 - Decision [2026-10-21-when-does-the-pane-show-the](../decisions/2026-10-21-when-does-the-pane-show-the.md): Only when cairn status reports the stop ready; the card summarizes what is being approved with Read all, and approving there answers the open chat question early. (in force)
 - 2026-10-21 [Cleaner pane and records](../plans/2026-10-21-cleaner-pane-and-records/RECORD.md)
-- 2026-10-21 [Pane status bar and polish](../../sdlc/plans/2026-10-21-pane-status-bar-and-polish/RECORD.md)
-- 2026-10-21 [Roomier pane visuals](../../sdlc/plans/2026-10-21-roomier-pane-visuals/RECORD.md)
-- 2026-10-21 [Sharper interview and review](../../sdlc/plans/2026-10-21-sharper-interview-and-review/RECORD.md)
+- 2026-10-21 [Pane status bar and polish](../plans/2026-10-21-pane-status-bar-and-polish/RECORD.md)
+- 2026-10-21 [Roomier pane visuals](../plans/2026-10-21-roomier-pane-visuals/RECORD.md)
+- 2026-10-21 [Sharper interview and review](../plans/2026-10-21-sharper-interview-and-review/RECORD.md)
 - 2026-10-21 [Standard branch names](../plans/2026-10-21-standard-branch-names/RECORD.md)
 - 2026-10-20 [cairn v0.2](../plans/2026-10-20-cairn-v0-2/RECORD.md)
