@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { DOCS_DIR } from './paths.ts';
 import { CliError } from './util.ts';
 
 /**
@@ -73,6 +74,9 @@ export function directCommits(cwd: string, base: string, head: string): { sha: s
   });
 }
 
+/** What a close writes outside the plan folder: the decision log, area docs' History, and the OVERVIEW. They do not count as new work after a merge. */
+const CLOSE_PUBLISHED = [`${DOCS_DIR}/decisions`, `${DOCS_DIR}/system`, `${DOCS_DIR}/OVERVIEW.md`];
+
 export type MergeState = 'merged' | 'open' | 'unknown';
 
 /** Nothing here may prompt for credentials. */
@@ -95,7 +99,8 @@ export function mergeState(cwd: string, branch: string, base: string, planRel: s
   if (gitOk(['show-ref', '--verify', '--quiet', `refs/remotes/origin/${base}`], cwd)) ref = `origin/${base}`;
   else if (branchExists(base, cwd)) ref = base;
   else return 'unknown';
-  const args = ['rev-list', '-n', '1', '--end-of-options', `${ref}..${branch}`, '--', ':/', `:(exclude,top,literal)${planRel}`];
+  const quiet = [planRel, ...CLOSE_PUBLISHED].map((p) => `:(exclude,top,literal)${p}`);
+  const args = ['rev-list', '-n', '1', '--end-of-options', `${ref}..${branch}`, '--', ':/', ...quiet];
   const r = spawnSync('git', [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: 'utf8', env: quietEnv() });
   if (r.status !== 0) return 'unknown';
   return r.stdout.trim() === '' ? 'merged' : 'open';

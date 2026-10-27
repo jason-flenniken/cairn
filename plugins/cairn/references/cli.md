@@ -134,7 +134,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn resume`: clears the pause and prints a recap: status, the handoff, and the next procedure.
   - `cairn close`
 - **Generated docs and hooks**
-  - `cairn render`: regenerates `STATUS.md`, plus `docs/cairn/INDEX.md` when on main.
+  - `cairn render`: regenerates `STATUS.md`, plus `docs/cairn/OVERVIEW.md` and each area doc's History when on main.
   - `cairn records [--json]`: lists every plan, in-progress first then closed newest first, with date, title, why line, record path and follow-ups. Works from any worktree.
   - `cairn hook session-start|post-edit`: used by `hooks/hooks.json`. Reads hook JSON on stdin.
 

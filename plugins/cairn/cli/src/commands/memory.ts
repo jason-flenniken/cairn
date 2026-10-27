@@ -1,11 +1,16 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { areasForFile, loadAreas, SYSTEM_DIR } from '../areas.ts';
+import { DECISIONS_DIR, loadDecisions, publishDecisions } from '../decision-log.ts';
 import { commitPaths, git, safeRef } from '../git.ts';
-import { planRelOf, type Ctx } from '../locate.ts';
+import { planDirName, planRelOf, type Ctx } from '../locate.ts';
+import { historyLines, OVERVIEW_REL, renderOverview, withHistory } from '../memory.ts';
 import { isCairnPath } from '../paths.ts';
-import { log } from '../state.ts';
+import { loadState, log } from '../state.ts';
 import type { State } from '../types.ts';
-import { CliError, now, Refusal } from '../util.ts';
-import { mutate, planCtx, type Opts, type Result } from '../shared.ts';
+import { CliError, now, readText, Refusal, writeText } from '../util.ts';
+import { mutate, planCtx, type Opts, type PlanCtx, type Result } from '../shared.ts';
+import { planEntries } from './records.ts';
 
 /** The skip id for changed files that no area doc covers. */
 export const UNCOVERED = '(uncovered)';
@@ -78,4 +83,43 @@ export function cmdAreaSkip(ctx: Ctx, area: string | undefined, opts: Opts): Res
   });
   if (pc.cfg.autoCommit) commitPaths(pc.plan.worktree, [planRelOf(pc.plan)], `area skip: ${id}`);
   return { message: `Skipped the area doc check for ${id}: ${note}` };
+}
+
+/** Rewrite every area doc's History and the OVERVIEW from the checkout at `root`. Returns the repo-relative files that changed. */
+export function refreshMemory(root: string, ctx: Ctx): string[] {
+  const { areas } = loadAreas(root);
+  const decisions = loadDecisions(root);
+  const plans = planEntries(ctx);
+  const changed: string[] = [];
+  const put = (rel: string, before: string | undefined, after: string) => {
+    if (before === after) return;
+    writeText(join(root, rel), after);
+    changed.push(rel);
+  };
+  for (const a of areas) {
+    const md = readText(join(root, a.file)) ?? '';
+    put(a.file, md, withHistory(md, historyLines(root, a, decisions, plans)));
+  }
+  put(OVERVIEW_REL, readText(join(root, OVERVIEW_REL)), renderOverview(root, areas, decisions, plans));
+  return changed;
+}
+
+/** At close: publish the plan's lasting decisions, refresh area History and the OVERVIEW, and commit them. Returns the files changed. */
+export function writeMemory(pc: PlanCtx, s: State): string[] {
+  const root = pc.plan.worktree;
+  const today = planDirName('', new Date()).slice(0, 10);
+  const changed = [...new Set([...publishDecisions(root, s.slug, today, s.lasting ?? []), ...refreshMemory(root, pc.ctx)])];
+  if (pc.cfg.autoCommit && changed.length)
+    commitPaths(root, [DECISIONS_DIR, SYSTEM_DIR, OVERVIEW_REL].filter((p) => existsSync(join(root, p))), `cairn(${s.slug}): publish decisions and area history`);
+  return changed;
+}
+
+/** `writeMemory` for a plan that just closed; a failure becomes a warning on the close message, never a failed close. */
+export function closeMemory(pc: PlanCtx, r: Result): Result {
+  try {
+    writeMemory(pc, loadState(pc.plan.dir));
+    return r;
+  } catch (e) {
+    return { ...r, message: `${r.message}\nWarning: the decision log and area history were not updated (${(e as Error).message.split('\n')[0]}); run cairn render on main.` };
+  }
 }

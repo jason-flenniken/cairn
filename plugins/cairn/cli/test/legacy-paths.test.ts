@@ -86,7 +86,7 @@ test('product init writes docs/cairn/product/PRD.md', () => {
   }
 });
 
-test('render writes docs/cairn/INDEX.md on main', () => {
+test('render writes docs/cairn/OVERVIEW.md on main', () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-render-')));
   try {
     g(dir, 'init', '-q', '-b', 'main');
@@ -94,8 +94,8 @@ test('render writes docs/cairn/INDEX.md on main', () => {
     g(dir, 'add', '-A');
     g(dir, 'commit', '-q', '-m', 'init');
     run(['render'], dir);
-    assert.ok(existsSync(join(dir, 'docs/cairn/INDEX.md')));
-    assert.ok(!existsSync(join(dir, 'docs/sdlc/INDEX.md')));
+    assert.ok(existsSync(join(dir, 'docs/cairn/OVERVIEW.md')));
+    assert.ok(!existsSync(join(dir, 'docs/sdlc/OVERVIEW.md')));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

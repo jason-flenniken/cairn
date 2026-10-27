@@ -9,7 +9,7 @@ import { STAGES, type Stage, type State, type Track } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
 import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
-import { areaCheck, type AreaCheck } from './memory.ts';
+import { areaCheck, closeMemory, type AreaCheck } from './memory.ts';
 import { configGate, configHash, fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
 
@@ -236,7 +236,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
-  return r;
+  return to === 'closed' ? closeMemory(pc, r) : r;
 }
 
 export function cmdClose(ctx: Ctx, opts: Opts): Result {
@@ -245,11 +245,12 @@ export function cmdClose(ctx: Ctx, opts: Opts): Result {
   const record = recordCheck(pc, 'feature');
   const tests = runTests(pc.cfg, pc.plan.worktree);
   const areas = areaCheck(pc.plan.worktree, loadState(pc.plan.dir));
-  return mutate(pc, 'closed', (s) => {
+  const r = mutate(pc, 'closed', (s) => {
     gate(s.stage === 'learn', s, 'close', opts, `the plan is in ${s.stage}, not learn`);
     closeGates(pc, s, opts, record, tests, areas);
     setStage(s, 'closed');
     log(s, 'closed');
     return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };
   });
+  return closeMemory(pc, r);
 }

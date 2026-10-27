@@ -4,7 +4,7 @@ import { commonDir } from '../git.ts';
 import { plansDirsIn, type Ctx } from '../locate.ts';
 import { sections } from '../sections.ts';
 import { parseState } from '../state.ts';
-import type { Suggestion } from '../types.ts';
+import type { State, Suggestion } from '../types.ts';
 import { readText } from '../util.ts';
 import type { Result } from '../shared.ts';
 import { listPlans } from './status.ts';
@@ -29,11 +29,18 @@ export function whyLine(md: string | undefined): string {
   return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
 }
 
-/** Every plan, in-progress ones first, then closed ones newest first. Works from any worktree of the repository. */
-export function listRecords(ctx: Ctx): RecordEntry[] {
+export interface PlanEntry {
+  state: State;
+  dir: string;
+  date: string;
+  /** Absolute path of the plan's RECORD.md when it exists (in its folder, else in the main checkout). */
+  record?: string;
+}
+
+/** Every plan found from any worktree of the repository, with its date and record path. */
+export function planEntries(ctx: Ctx): PlanEntry[] {
   const main = dirname(commonDir(ctx.top));
-  const byMain: Ctx = { ...ctx, top: main };
-  const found = new Map<string, { state: ReturnType<typeof parseState>; dir: string }>();
+  const found = new Map<string, { state: State; dir: string }>();
   for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
   const bases = plansDirsIn(main);
   for (const base of bases)
@@ -47,24 +54,29 @@ export function listRecords(ctx: Ctx): RecordEntry[] {
         // Not a readable plan record.
       }
     }
-  const followUps = new Map<string, RecordEntry['followUps']>();
-  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...(followUps.get(x.slug) ?? []), { text: x.text, area: x.area, status: x.status, ...(x.hardening ? { hardening: true as const } : {}) }]);
-
-  const entries = [...found.values()].map(({ state, dir }): RecordEntry => {
+  return [...found.values()].map(({ state, dir }): PlanEntry => {
     let recordPath = join(dir, 'RECORD.md');
     // A plan found on its branch may have its record only in the main checkout.
     if (!existsSync(recordPath)) recordPath = bases.map((b) => join(b, basename(dir), 'RECORD.md')).find((p) => existsSync(p)) ?? recordPath;
-    const text = readText(recordPath);
-    return {
-      slug: state.slug,
-      title: state.title,
-      date: basename(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
-      stage: state.stage,
-      why: whyLine(text),
-      ...(text !== undefined ? { record: recordPath } : {}),
-      followUps: followUps.get(state.slug) ?? [],
-    };
+    return { state, dir, date: basename(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10), ...(existsSync(recordPath) ? { record: recordPath } : {}) };
   });
+}
+
+/** Every plan, in-progress ones first, then closed ones newest first. Works from any worktree of the repository. */
+export function listRecords(ctx: Ctx): RecordEntry[] {
+  const byMain: Ctx = { ...ctx, top: dirname(commonDir(ctx.top)) };
+  const followUps = new Map<string, RecordEntry['followUps']>();
+  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...(followUps.get(x.slug) ?? []), { text: x.text, area: x.area, status: x.status, ...(x.hardening ? { hardening: true as const } : {}) }]);
+
+  const entries = planEntries(ctx).map(({ state, date, record }): RecordEntry => ({
+    slug: state.slug,
+    title: state.title,
+    date,
+    stage: state.stage,
+    why: whyLine(record ? readText(record) : undefined),
+    ...(record ? { record } : {}),
+    followUps: followUps.get(state.slug) ?? [],
+  }));
   const open = (e: RecordEntry) => (e.stage === 'closed' ? 1 : 0);
   return entries.sort((a, b) => open(a) - open(b) || b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
 }
