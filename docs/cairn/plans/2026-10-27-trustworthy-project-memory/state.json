@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:26:55.640Z",
+  "updated": "2026-10-27T20:33:14.111Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -45,7 +45,7 @@
     {
       "id": "changelog-core",
       "name": "Changelog in the CLI",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "changelog-engine",
@@ -69,10 +69,19 @@
             "plugins/cairn/cli/test/legacy-paths.test.ts"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "model-written entry text reaches every session start and the pane"
+          "riskReason": "model-written entry text reaches every session start and the pane",
+          "branch": "task/trustworthy-project-memory/changelog-engine",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--changelog-engine",
+          "base": "29e91896ab625bdd47f7d61540d32a767d91a08b",
+          "startedAt": "2026-10-27T20:27:02.764Z",
+          "level": "standard",
+          "doneAt": "2026-10-27T20:33:14.111Z",
+          "tip": "af2de98",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2dc3134a8f89045fbb274028393abd8703817611"
         }
       ]
     },
@@ -225,7 +234,20 @@
     }
   ],
   "evidence": {},
-  "drift": [],
+  "drift": [
+    {
+      "path": "plugins/cairn/cli/src/main.ts",
+      "at": "2026-10-27T20:33:14.111Z",
+      "reason": "changed outside task \"Changelog engine\" scope (found at task done)",
+      "task": "changelog-engine"
+    },
+    {
+      "path": "plugins/cairn/cli/test/migrate.test.ts",
+      "at": "2026-10-27T20:33:14.111Z",
+      "reason": "changed outside task \"Changelog engine\" scope (found at task done)",
+      "task": "changelog-engine"
+    }
+  ],
   "log": [
     {
       "at": "2026-10-27T19:15:12.077Z",
@@ -275,6 +297,41 @@
       "at": "2026-10-27T20:26:55.640Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-10-27T20:27:02.765Z",
+      "event": "task started",
+      "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:27:40.623Z",
+      "event": "task implementing",
+      "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:31:25.997Z",
+      "event": "task reviewing",
+      "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:32:42.675Z",
+      "event": "task merging",
+      "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:33:14.111Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/src/main.ts"
+    },
+    {
+      "at": "2026-10-27T20:33:14.111Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/migrate.test.ts"
+    },
+    {
+      "at": "2026-10-27T20:33:14.111Z",
+      "event": "task done",
+      "detail": "Changelog engine"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -315,5 +372,37 @@
     }
   ],
   "planHash": "d7fb8dccb89efc27",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "security",
+      "text": "Skip changelog.md or RECORD.md when it is a symlink or resolves outside the plan folder, so a cloned repo can't inject an outside file into the session start or OVERVIEW",
+      "where": [
+        "plugins/cairn/cli/src/commands/records.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T20:32:39.318Z"
+    },
+    {
+      "id": "s2",
+      "area": "security",
+      "text": "Collapse newlines in index entries and titles, add a per-entry character cap (one huge unspaced token passes the 120-word cut), and strip Unicode bidi and line-separator characters",
+      "where": [
+        "plugins/cairn/cli/src/memory.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T20:32:39.392Z"
+    },
+    {
+      "id": "s3",
+      "area": "security",
+      "text": "Pass follow-up text in records --json through stripControl before the pane shows it",
+      "where": [
+        "plugins/cairn/cli/src/commands/records.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T20:32:39.467Z"
+    }
+  ]
 }
