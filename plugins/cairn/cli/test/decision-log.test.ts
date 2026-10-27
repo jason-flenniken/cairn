@@ -18,6 +18,13 @@ const pend = (over: Partial<PendingDecision> = {}): PendingDecision => ({
   ...over,
 });
 
+test('publishDecisions refuses an id that could leave the decisions folder', () => {
+  const root = tmp();
+  assert.throws(() => publishDecisions(root, 'p', '../../evil', [pend()]), /not a usable decision id/);
+  assert.throws(() => publishDecisions(root, 'p', '2026/10/21', [pend()]), /not a usable decision id/);
+  assert.deepEqual(readdirSync(root), []);
+});
+
 test('decisionId slugs the question and avoids taken ids', () => {
   const q = 'How should plan branches be named?';
   assert.equal(decisionId('2026-10-21', q, new Set()), '2026-10-21-how-should-plan-branches-be-named');

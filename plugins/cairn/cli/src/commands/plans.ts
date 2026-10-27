@@ -89,6 +89,16 @@ function checkLasting(root: string, l: Lasting): void {
     throw new Refusal(`no logged decision "${l.replaces}" to replace`, ['cairn recall lists logged decisions with their ids']);
 }
 
+/** A decision that replaces another and names no scope takes the replaced one's areas and paths. */
+function inheritScope(root: string, l: Lasting): void {
+  if (!l.replaces || l.areas.length || l.paths.length) return;
+  const old = loadDecisions(root).find((d) => d.id === l.replaces);
+  if (old) {
+    l.areas = old.areas;
+    l.paths = old.paths;
+  }
+}
+
 export function cmdDecide(ctx: Ctx, question: string | undefined, answer: string | undefined, opts: Opts): Result {
   const f: Partial<ReturnType<typeof readDecisionFile>> = typeof opts.file === 'string' ? readDecisionFile(ctx.cwd, opts.file) : {};
   const d = typeof opts.file === 'string' ? f : { question, answer, why: typeof opts.why === 'string' ? opts.why : undefined };
@@ -102,19 +112,29 @@ export function cmdDecide(ctx: Ctx, question: string | undefined, answer: string
   if (promote) {
     const n = Number(opts.promote);
     if (!Number.isInteger(n) || n < 1) throw new CliError('usage: cairn decide --promote <n> --areas a,b [--paths g1,g2] [--replaces <id>]');
-    return promoteDecision(planCtx(ctx), n, lasting);
+    const pc = planCtx(ctx);
+    inheritScope(pc.plan.worktree, lasting);
+    return promoteDecision(pc, n, lasting);
   }
   if (!d.question || !d.answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "…"] [--lasting --areas a,b] | cairn decide --file <path> | cairn decide --promote <n> --areas a,b');
   if (!ctx.plan) {
-    // Off a plan only a backfill makes sense: publish straight to the log.
-    if (!isLasting) planCtx(ctx);
+    // Off a plan only a backfill (`--lasting --plan <name>`, as map passes) publishes straight to the log.
+    if (!isLasting || typeof opts.plan !== 'string') planCtx(ctx);
+    const plan = String(opts.plan);
+    const date = typeof opts.date === 'string' ? opts.date : today();
+    if (!SLUG.test(plan)) throw new Refusal(`"${plan}" is not a plan name`, ['use a kebab-case name, e.g. --plan map']);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Refusal(`"${date}" is not a date`, ['use --date YYYY-MM-DD']);
+    inheritScope(ctx.top, lasting);
     checkLasting(ctx.top, lasting);
     const p: PendingDecision = { n: 0, question: d.question, answer: d.answer, why: d.why, ...lasting, at: now() };
-    const files = publishDecisions(ctx.top, typeof opts.plan === 'string' ? opts.plan : 'map', typeof opts.date === 'string' ? opts.date : today(), [p]);
+    const files = publishDecisions(ctx.top, plan, date, [p]);
     return { message: files.length ? `Logged decision: ${d.answer}` : `Already logged: ${d.question}`, data: { files } };
   }
   const pc = planCtx(ctx);
-  if (isLasting) checkLasting(pc.plan.worktree, lasting);
+  if (isLasting) {
+    inheritScope(pc.plan.worktree, lasting);
+    checkLasting(pc.plan.worktree, lasting);
+  }
   const n = appendDecision(pc, d.question, d.answer, d.why, isLasting ? lasting : undefined);
   if (isLasting) mutate(pc, undefined, (s) => void (s.lasting ??= []).push({ n, question: d.question!, answer: d.answer!, why: d.why, ...lasting, at: now() }));
   return { message: `Recorded decision ${n}${isLasting ? ' as lasting' : ''}: ${d.answer}`, data: { number: n } };

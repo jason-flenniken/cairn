@@ -5,7 +5,7 @@ import { parseFrontmatter } from './areas.ts';
 import { scopesOverlap } from './glob.ts';
 import { DOCS_DIR } from './paths.ts';
 import type { PendingDecision } from './types.ts';
-import { readText } from './util.ts';
+import { readText, Refusal } from './util.ts';
 
 export const DECISIONS_DIR = `${DOCS_DIR}/decisions`;
 
@@ -111,8 +111,9 @@ export function publishDecisions(root: string, plan: string, date: string, pendi
   const dir = join(root, DECISIONS_DIR);
   for (const p of pending) {
     if (existing.some((x) => x.d.plan === plan && x.d.question === p.question)) continue;
-    mkdirSync(dir, { recursive: true });
     const id = decisionId(date, p.question, taken);
+    if (/[/\\]|\.\./.test(id)) throw new Refusal(`"${id}" is not a usable decision id`, ['use a date like 2026-10-27']);
+    mkdirSync(dir, { recursive: true });
     taken.add(id);
     const d: LoggedDecision = { id, question: p.question, answer: p.answer, why: p.why, status: 'active', replaces: p.replaces, areas: p.areas, paths: p.paths, plan, date, file: `${DECISIONS_DIR}/${id}.md` };
     writeFileSync(join(root, d.file), render(d, bodyOf(p)));

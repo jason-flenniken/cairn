@@ -1,7 +1,7 @@
 import './no-auto-gc.ts';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -80,6 +80,28 @@ test('backfill off a plan publishes directly', () => {
   assert.match(f, /plan: old/);
   assert.match(f, /\*\*Decision:\*\* A3/);
   assert.throws(() => run(['decide', 'Q', 'A'], repo), /not on a plan branch/);
+});
+
+test('off a plan, --lasting needs --plan, and --plan and --date are checked', () => {
+  assert.throws(() => run(['decide', 'Q6', 'A6', '--lasting', '--paths', 'src/**'], repo), /not on a plan branch/);
+  refused(repo, /not a plan name/, 'decide', 'Q6', 'A6', '--lasting', '--paths', 'src/**', '--plan', '../x');
+  refused(repo, /not a date/, 'decide', 'Q6', 'A6', '--lasting', '--paths', 'src/**', '--plan', 'old', '--date', '../../../x');
+  refused(repo, /not a date/, 'decide', 'Q6', 'A6', '--lasting', '--paths', 'src/**', '--plan', 'old', '--date', '2026-1-1');
+  assert.ok(!existsSync(join(repo, 'docs/cairn/decisions/2026-10-01-q6.md')));
+});
+
+test('--replaces alone inherits the replaced decision\'s areas and paths', () => {
+  run(['decide', 'Q7', 'A7', '--lasting', '--paths', 'src/**', '--plan', 'old', '--date', '2026-10-03'], repo);
+  const r = run(['decide', 'Q7 again', 'A7 new', '--lasting', '--replaces', '2026-10-03-q7', '--plan', 'old', '--date', '2026-10-04'], repo);
+  assert.ok(r.data!.files);
+  assert.match(readFileSync(join(repo, 'docs/cairn/decisions/2026-10-04-q7-again.md'), 'utf8'), /replaces: 2026-10-03-q7\n(?:.*\n)*?paths:\n {2}- src\/\*\*/);
+  assert.match(readFileSync(join(repo, 'docs/cairn/decisions/2026-10-03-q7.md'), 'utf8'), /status: replaced/);
+  // On a plan the same shorthand fills the lasting entry in plan state.
+  mkdirSync(join(wt, 'docs/cairn/decisions'), { recursive: true });
+  writeFileSync(join(wt, 'docs/cairn/decisions/2026-10-04-q7-again.md'), readFileSync(join(repo, 'docs/cairn/decisions/2026-10-04-q7-again.md'), 'utf8'));
+  run(['decide', 'Q8', 'A8', '--lasting', '--replaces', '2026-10-04-q7-again'], wt);
+  assert.deepEqual(state().lasting.at(-1).paths, ['src/**']);
+  assert.equal(state().lasting.at(-1).replaces, '2026-10-04-q7-again');
 });
 
 test('parseDecisions reads appendDecision output', () => {
