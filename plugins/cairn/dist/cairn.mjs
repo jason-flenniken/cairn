@@ -7563,7 +7563,7 @@ function pickInRef(slug, plans, ref, cwd) {
   return pickPlanDir(slug, names, (n) => gitOk(["cat-file", "-e", `${ref}:${plans}/${n}/state.json`], cwd));
 }
 var planRelIn = (slug, root) => resolvePlanDir(slug, { root }) ?? planRel(slug);
-var planRelOf = (plan) => relative(plan.worktree, plan.dir);
+var planRelOf = (plan2) => relative(plan2.worktree, plan2.dir);
 function recordedBranch(ref, slug, cwd) {
   try {
     const rel = resolvePlanDir(slug, { ref, cwd });
@@ -8143,9 +8143,9 @@ function gate(ok, s, event, opts, message, fixes = []) {
   throw new Refusal(message, [...fixes, `or, if the user chose to skip this: add --override "<reason>"`]);
 }
 function planCtx(ctx) {
-  const plan = requirePlan(ctx);
+  const plan2 = requirePlan(ctx);
   current = { ctx };
-  return { ctx, plan, cfg: loadConfig(plan.worktree, ctx.mainRoot) };
+  return { ctx, plan: plan2, cfg: loadConfig(plan2.worktree, ctx.mainRoot) };
 }
 function mutate(pc, commitMsg, fn) {
   const r = withLock(pc.plan.dir, () => {
@@ -8464,8 +8464,8 @@ function warnings(pc, s) {
   const w = [];
   const prd = readText(planFile(pc, "prd.md"));
   if (prdEditedSinceApproval(s, prd)) w.push(s.stage === "plan" ? "prd.md changed after it was approved: approving the plan accepts the edits" : "prd.md changed after it was approved");
-  const plan = readText(planFile(pc, "plan.md"));
-  if (s.planHash && plan && hashText(plan) !== s.planHash) w.push("plan.md changed after it was loaded: run `cairn plan load --replan` or revert it");
+  const plan2 = readText(planFile(pc, "plan.md"));
+  if (s.planHash && plan2 && hashText(plan2) !== s.planHash) w.push("plan.md changed after it was loaded: run `cairn plan load --replan` or revert it");
   const open = s.drift.filter((d) => !d.acked);
   if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
   const cw = configWarning(pc.plan.worktree);
@@ -9140,10 +9140,10 @@ function cmdTask(ctx, action, id, rest, opts) {
   throw new CliError("usage: cairn task start|step|done <task-id>");
 }
 function taskStart(pc, id, opts) {
-  const { plan, ctx, cfg } = pc;
+  const { plan: plan2, ctx, cfg } = pc;
   const r = mutate(pc, void 0, (s) => {
-    const branch = taskBranch(plan.slug, id);
-    const path = join12(worktreeRoot(cfg, ctx.mainRoot), `${basename2(plan.worktree)}--${id}`);
+    const branch = taskBranch(plan2.slug, id);
+    const path = join12(worktreeRoot(cfg, ctx.mainRoot), `${basename2(plan2.worktree)}--${id}`);
     const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
@@ -9161,11 +9161,11 @@ function taskStart(pc, id, opts) {
     const ready = readySet(s, cfg.maxParallel);
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
-    const base = git(["rev-parse", pb], plan.worktree);
+    const base = git(["rev-parse", pb], plan2.worktree);
     let setup = "";
     if (!existsSync6(path)) {
-      if (branchExists(branch, plan.worktree)) git(["worktree", "add", "-q", path, branch], plan.worktree);
-      else git(["worktree", "add", "-q", "-b", branch, path, pb], plan.worktree);
+      if (branchExists(branch, plan2.worktree)) git(["worktree", "add", "-q", path, branch], plan2.worktree);
+      else git(["worktree", "add", "-q", "-b", branch, path, pb], plan2.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
     }
     Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level });
@@ -9193,27 +9193,27 @@ function taskStep(pc, id, step, opts) {
   });
 }
 function taskDone(pc, id, opts) {
-  const { plan } = pc;
-  const pre = loadState(plan.dir);
+  const { plan: plan2 } = pc;
+  const pre = loadState(plan2.dir);
   const sl = findTask(pre, id);
   if (!sl) throw new Refusal(`no task "${id}" in this plan`);
   if (sl.status !== "in_progress" || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`);
   const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
-  const merged = branchExists(sl.branch, plan.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan.worktree);
+  const merged = branchExists(sl.branch, plan2.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree);
   const dirty = sl.worktree && existsSync6(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
-  const tip = branchExists(sl.branch, plan.worktree) ? git(["rev-parse", "--short", sl.branch], plan.worktree) : void 0;
-  const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
-  const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan)}`], plan.worktree);
+  const tip = branchExists(sl.branch, plan2.worktree) ? git(["rev-parse", "--short", sl.branch], plan2.worktree) : void 0;
+  const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
+  const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
   const checkable = merged && !dirty && !planDirty;
-  const tests = checkable ? runTests(pc.cfg, plan.worktree) : void 0;
-  const testedCommit = tests ? git(["rev-parse", "HEAD"], plan.worktree) : void 0;
+  const tests = checkable ? runTests(pc.cfg, plan2.worktree) : void 0;
+  const testedCommit = tests ? git(["rev-parse", "HEAD"], plan2.worktree) : void 0;
   const fix = fastLane(pre);
-  const repro = fix && merged && pre.repro ? runRepro(pre.repro.cmd, plan.worktree, pc.cfg) : void 0;
+  const repro = fix && merged && pre.repro ? runRepro(pre.repro.cmd, plan2.worktree, pc.cfg) : void 0;
   const heads = [pb, ...tip ? [sl.branch] : []];
-  const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base, h))).size : 0;
-  const outside = tip && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
-  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !isCairnPath(f) && matchesAny(f, sl.scope))) : [];
+  const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan2.worktree, plan2.slug, sl.base, h))).size : 0;
+  const outside = tip && sl.base ? changedFiles(plan2.worktree, plan2.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
+  const stray = sl.base && !fix ? directCommits(plan2.worktree, sl.base, pb).filter((c) => c.files.some((f) => !isCairnPath(f) && matchesAny(f, sl.scope))) : [];
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `task done: ${sl.name}`, (s) => {
     const cur = findTask(s, id);
@@ -9222,7 +9222,7 @@ function taskDone(pc, id, opts) {
     gate(commits > 0, s, "task done", opts, `${cur.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
     gate(!planDirty, s, "task done", opts, `the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
     gate(!stray.length, s, "task done", opts, `commits for task "${cur.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(", ")}`, [`move these commits to the task branch (git cherry-pick them onto ${cur.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
-    gate(merged, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
+    gate(merged, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan2.worktree} merge --no-ff ${cur.branch}`]);
     testsGate(tests ?? (checkable ? void 0 : { ok: false, ran: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts, cur.scope);
     if (fix) {
       gate(repro?.outcome === "passes", s, "task done", opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` \u2192 ${repro.detail})` : "the repro was not run: the task is not merged", ["fix the bug so the repro command exits 0"]);
@@ -9244,8 +9244,8 @@ function taskDone(pc, id, opts) {
       data: { phaseComplete: !left }
     };
   });
-  if (merged && sl.worktree && existsSync6(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan.worktree);
-  if (merged) gitOk(["branch", "-d", sl.branch], plan.worktree);
+  if (merged && sl.worktree && existsSync6(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
+  if (merged) gitOk(["branch", "-d", sl.branch], plan2.worktree);
   return r;
 }
 
@@ -9281,8 +9281,8 @@ function newSuggestionsText(s) {
 function cmdPhase(ctx, action, opts) {
   if (action !== "finish") throw new CliError("usage: cairn phase finish");
   const pc = planCtx(ctx);
-  const { plan } = pc;
-  const pre = loadState(plan.dir);
+  const { plan: plan2 } = pc;
+  const pre = loadState(plan2.dir);
   const phase = currentPhase(pre);
   if (pre.stage !== "execute" || !phase) throw new Refusal(`the plan is in ${pre.stage}, with no phase to finish`, ["cairn next"]);
   if (pre.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
@@ -9290,12 +9290,12 @@ function cmdPhase(ctx, action, opts) {
   if (unfinished.length) throw new Refusal(`phase "${phase.name}" still has unfinished tasks: ${unfinished.map((x) => x.name).join(", ")}`, ["cairn ready"]);
   const blocked = phase.tasks.filter((x) => x.substep === "blocked");
   if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(", ")}`);
-  const dirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan)}`], plan.worktree);
+  const dirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
   if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${dirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
-  const head = git(["rev-parse", "HEAD"], plan.worktree);
+  const head = git(["rev-parse", "HEAD"], plan2.worktree);
   const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? "").localeCompare(b.doneAt ?? "")).pop();
-  const reused = !!(last?.testedCommit && last.tests && gitOk(["diff", "--quiet", last.testedCommit, head, "--", ".", ...cairnPathspecExcludes()], plan.worktree));
-  const tests = reused ? void 0 : runTests(pc.cfg, plan.worktree);
+  const reused = !!(last?.testedCommit && last.tests && gitOk(["diff", "--quiet", last.testedCommit, head, "--", ".", ...cairnPathspecExcludes()], plan2.worktree));
+  const tests = reused ? void 0 : runTests(pc.cfg, plan2.worktree);
   return mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s);
     gate(cur.verdict?.result !== "red", s, "phase finish", opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"]);
@@ -9338,7 +9338,7 @@ function cmdTest(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/migrate.ts
-import { existsSync as existsSync7, mkdirSync as mkdirSync3, readdirSync as readdirSync3, renameSync as renameSync2 } from "node:fs";
+import { existsSync as existsSync7, mkdirSync as mkdirSync3, readdirSync as readdirSync3, renameSync as renameSync2, rmdirSync as rmdirSync2, statSync as statSync2 } from "node:fs";
 import { dirname as dirname3, join as join13 } from "node:path";
 var PAIRS = [
   [LEGACY_CAIRN_DIR, CAIRN_DIR],
@@ -9351,12 +9351,22 @@ function move(root, from, to) {
   if (tracked(root, from)) git(["mv", from, to], root);
   else renameSync2(join13(root, from), join13(root, to));
 }
-function moveRoot(root, old, next) {
-  if (!existsSync7(join13(root, next))) return move(root, old, next);
-  const clash = readdirSync3(join13(root, old)).filter((n) => existsSync7(join13(root, next, n)));
-  if (clash.length) throw new Refusal(`${next}/ already has ${clash.join(", ")}, which ${old}/ also has`, [`merge or remove them by hand, then run cairn migrate again`]);
-  for (const n of readdirSync3(join13(root, old))) move(root, `${old}/${n}`, `${next}/${n}`);
+var isDir = (root, rel) => statSync2(join13(root, rel)).isDirectory();
+function plan(root, old, next, out) {
+  if (!existsSync7(join13(root, next))) {
+    out.moves.push([old, next]);
+    return;
+  }
+  if (!isDir(root, old) || !isDir(root, next)) {
+    out.clashes.push(next);
+    return;
+  }
+  out.dirs.push(old);
+  for (const n of readdirSync3(join13(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
 }
+var prune = (root, dirs) => {
+  for (const d of [...dirs].reverse()) if (existsSync7(join13(root, d)) && !readdirSync3(join13(root, d)).length) rmdirSync2(join13(root, d));
+};
 function cmdMigrate(ctx) {
   if (ctx.plan) throw new Refusal("run cairn migrate on the main branch, outside any plan");
   const root = ctx.top;
@@ -9365,7 +9375,14 @@ function cmdMigrate(ctx) {
   const open = listPlans(ctx).filter((r) => r.state.stage !== "closed");
   if (open.length) throw new Refusal(`these plans are still open: ${open.map((r) => r.state.slug).join(", ")}`, ["finish or close them first"]);
   if (git(["status", "--porcelain"], root)) throw new Refusal("the working tree has uncommitted changes", ["commit or stash your changes first"]);
-  for (const [old, next] of found) moveRoot(root, old, next);
+  const p = { moves: [], clashes: [], dirs: [] };
+  for (const [old, next] of found) plan(root, old, next, p);
+  if (p.clashes.length) {
+    const shown = p.clashes.slice(0, 10).join(", ");
+    throw new Refusal(`both layouts have ${shown}${p.clashes.length > 10 ? ` and ${p.clashes.length - 10} more` : ""}`, ["merge or remove the duplicates by hand, then run cairn migrate again"]);
+  }
+  for (const [from, to] of p.moves) move(root, from, to);
+  prune(root, p.dirs);
   const msg = "cairn: move .sdlc to .cairn and docs/sdlc to docs/cairn";
   if (loadConfig(ctx.top, ctx.mainRoot).autoCommit) {
     git(["add", "-A", "--", ...found.map(([, n]) => n)], root);

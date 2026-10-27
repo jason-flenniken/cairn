@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, renameSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, renameSync, rmdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadConfig } from '../config.ts';
 import { git, gitOk } from '../git.ts';
@@ -25,12 +25,32 @@ function move(root: string, from: string, to: string): void {
   else renameSync(join(root, from), join(root, to));
 }
 
-function moveRoot(root: string, old: string, next: string): void {
-  if (!existsSync(join(root, next))) return move(root, old, next);
-  const clash = readdirSync(join(root, old)).filter((n) => existsSync(join(root, next, n)));
-  if (clash.length) throw new Refusal(`${next}/ already has ${clash.join(', ')}, which ${old}/ also has`, [`merge or remove them by hand, then run cairn migrate again`]);
-  for (const n of readdirSync(join(root, old))) move(root, `${old}/${n}`, `${next}/${n}`);
+interface Plan {
+  moves: [string, string][];
+  clashes: string[];
+  dirs: string[];
 }
+
+const isDir = (root: string, rel: string) => statSync(join(root, rel)).isDirectory();
+
+/** Walk `old` against `next`: whole entries move where the target is free, directories present in both are merged. */
+function plan(root: string, old: string, next: string, out: Plan): void {
+  if (!existsSync(join(root, next))) {
+    out.moves.push([old, next]);
+    return;
+  }
+  if (!isDir(root, old) || !isDir(root, next)) {
+    out.clashes.push(next);
+    return;
+  }
+  out.dirs.push(old);
+  for (const n of readdirSync(join(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
+}
+
+/** Remove the emptied legacy directories, deepest first. */
+const prune = (root: string, dirs: string[]) => {
+  for (const d of [...dirs].reverse()) if (existsSync(join(root, d)) && !readdirSync(join(root, d)).length) rmdirSync(join(root, d));
+};
 
 export function cmdMigrate(ctx: Ctx): Result {
   if (ctx.plan) throw new Refusal('run cairn migrate on the main branch, outside any plan');
@@ -40,7 +60,14 @@ export function cmdMigrate(ctx: Ctx): Result {
   const open = listPlans(ctx).filter((r) => r.state.stage !== 'closed');
   if (open.length) throw new Refusal(`these plans are still open: ${open.map((r) => r.state.slug).join(', ')}`, ['finish or close them first']);
   if (git(['status', '--porcelain'], root)) throw new Refusal('the working tree has uncommitted changes', ['commit or stash your changes first']);
-  for (const [old, next] of found) moveRoot(root, old, next);
+  const p: Plan = { moves: [], clashes: [], dirs: [] };
+  for (const [old, next] of found) plan(root, old, next, p);
+  if (p.clashes.length) {
+    const shown = p.clashes.slice(0, 10).join(', ');
+    throw new Refusal(`both layouts have ${shown}${p.clashes.length > 10 ? ` and ${p.clashes.length - 10} more` : ''}`, ['merge or remove the duplicates by hand, then run cairn migrate again']);
+  }
+  for (const [from, to] of p.moves) move(root, from, to);
+  prune(root, p.dirs);
   const msg = 'cairn: move .sdlc to .cairn and docs/sdlc to docs/cairn';
   if (loadConfig(ctx.top, ctx.mainRoot).autoCommit) {
     git(['add', '-A', '--', ...found.map(([, n]) => n)], root);

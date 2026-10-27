@@ -88,3 +88,39 @@ test('merges into an existing new root, refusing on a name clash', () => {
     rmSync(r2, { recursive: true, force: true });
   }
 });
+
+function scratch(files: Record<string, string>): { r: string; done: () => void } {
+  const r = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-migrate3-')));
+  g(r, 'init', '-q', '-b', 'main');
+  for (const [rel, c] of Object.entries(files)) {
+    mkdirSync(join(r, rel, '..'), { recursive: true });
+    writeFileSync(join(r, rel), c);
+  }
+  g(r, 'add', '-A');
+  g(r, 'commit', '-q', '-m', 'init');
+  return { r, done: () => rmSync(r, { recursive: true, force: true }) };
+}
+
+test('a clash under docs/ refuses before anything moves', () => {
+  const { r, done } = scratch({ '.sdlc/config.json': '{}', 'docs/sdlc/plans/a/prd.md': '1', 'docs/cairn/plans/a/prd.md': '2' });
+  try {
+    assert.throws(() => run(['migrate'], r), (e: unknown) => e instanceof Refusal && /docs\/cairn\/plans\/a\/prd\.md/.test(e.message));
+    assert.ok(existsSync(join(r, '.sdlc/config.json')) && !existsSync(join(r, '.cairn')));
+    assert.equal(g(r, 'status', '--porcelain'), '');
+  } finally {
+    done();
+  }
+});
+
+test('plans from both layouts merge under docs/cairn/plans in one commit', () => {
+  const { r, done } = scratch({ 'docs/sdlc/plans/2026-10-01-old/prd.md': '1', 'docs/cairn/plans/2026-10-27-new/prd.md': '2' });
+  try {
+    run(['migrate'], r);
+    assert.ok(existsSync(join(r, 'docs/cairn/plans/2026-10-01-old/prd.md')) && existsSync(join(r, 'docs/cairn/plans/2026-10-27-new/prd.md')));
+    assert.ok(!existsSync(join(r, 'docs/sdlc')));
+    assert.equal(g(r, 'rev-list', '--count', 'HEAD'), '2');
+    assert.equal(g(r, 'status', '--porcelain'), '');
+  } finally {
+    done();
+  }
+});
