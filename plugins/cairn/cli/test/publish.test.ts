@@ -81,6 +81,53 @@ test('close writes area History, and doing it again changes nothing', () => {
   assert.equal(g(wt, 'rev-parse', 'HEAD'), before);
 });
 
+test('every History and OVERVIEW record link resolves under the rendered root, even with an old-layout worktree', () => {
+  const r = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-links-')));
+  try {
+    g(r, 'init', '-q', '-b', 'main');
+    write(join(r, SYSTEM, 'core.md'), CORE);
+    commitAll(r, 'init');
+    const plan = (slug: string, areasTouched: string[]) => ({ ...mkState(slug, { areasTouched }), branch: `feature/${slug}`, base: 'main' });
+    const put = (root: string, layout: string, slug: string, withRecord: boolean) => {
+      const dir = join(root, layout, `2026-10-01-${slug}`);
+      write(join(dir, 'state.json'), JSON.stringify(plan(slug, ['core'])));
+      if (withRecord) write(join(dir, 'RECORD.md'), `# ${slug}\n\n## Why\n\nBecause ${slug}.\n`);
+    };
+    // "both": its record is on main under docs/cairn, but an old worktree still holds it under docs/sdlc.
+    // "only-old": the record exists only in the old worktree, so the checkout being rendered has no file to link.
+    put(r, 'docs/cairn/plans', 'both', true);
+    commitAll(r, 'main plans');
+    for (const slug of ['both', 'only-old']) {
+      const wt = join(r, '..', `${slug}-${process.pid}`);
+      g(r, 'worktree', 'add', '-q', '-b', `feature/${slug}`, wt, 'main');
+      put(wt, 'docs/sdlc/plans', slug, true);
+      g(wt, 'rm', '-rq', 'docs/cairn/plans');
+      commitAll(wt, 'old layout');
+    }
+    run(['render'], r);
+    const check = (rel: string) => {
+      const md = readFileSync(join(r, rel), 'utf8');
+      const links = [...md.matchAll(/\]\(([^)]+)\)/g)].map((m) => m[1]);
+      for (const l of links) assert.ok(existsSync(join(r, rel, '..', l)), `${rel} links to ${l}, which does not exist`);
+      assert.doesNotMatch(md, /docs\/sdlc/);
+      return md;
+    };
+    const hist = check(`${SYSTEM}/core.md`);
+    check('docs/cairn/OVERVIEW.md');
+    assert.match(hist, /\[Plan both\]\(\.\.\/plans\/2026-10-01-both\/RECORD\.md\)/);
+    assert.match(hist, /- 2026-10-01 Plan only-old\n/);
+  } finally {
+    for (const slug of ['both', 'only-old']) {
+      try {
+        g(r, 'worktree', 'remove', '--force', join(r, '..', `${slug}-${process.pid}`));
+      } catch {
+        // already gone
+      }
+    }
+    rmSync(r, { recursive: true, force: true });
+  }
+});
+
 test('withHistory replaces only History', () => {
   const md = '---\na: 1\n---\n\n## Rules\n\n- one\n- two  \n\n## History\n\nold stuff\n\n## Gotchas\n\n- g\n';
   const out = withHistory(md, ['- x']);
@@ -94,11 +141,11 @@ test('withHistory replaces only History', () => {
 
 test('renderOverview sections', () => {
   const dec = (id: string, over: Partial<LoggedDecision>): LoggedDecision => ({ id, question: 'Q', answer: `A ${id}`, status: 'active', areas: ['core'], paths: [], plan: 'p1', date: '2026-02-01', file: `docs/cairn/decisions/${id}.md`, ...over });
-  const md = renderOverview(repo, [area], [dec('d-new', { replaces: 'd-old' }), dec('d-old', { status: 'replaced', replacedBy: 'd-new' })], [entry('older', '2026-01-01'), entry('newer', '2026-03-01', { stage: 'learn' })]);
+  const md = renderOverview(repo, [area], [dec('d-new', { replaces: 'd-old' }), dec('d-old', { status: 'replaced', replacedBy: 'd-new' })], [entry('older', '2026-01-01'), entry('newer', '2026-03-01', { stage: 'learn' }), entry('newest', '2026-04-01')]);
   for (const h of ['# System overview', '## Areas', '## Decisions in force', '## Replaced decisions', '## Plans']) assert.ok(md.includes(h), h);
   assert.ok(md.includes('d-new') && md.includes('d-old'));
-  assert.ok(md.indexOf('Plan newer') < md.indexOf('Plan older'));
-  assert.match(md, /Plan newer\*\* \(in progress: learn\)/);
+  assert.ok(md.indexOf('Plan newest') < md.indexOf('Plan older'));
+    assert.ok(!md.includes('Plan newer'), 'open plans are left out');
   assert.match(renderOverview(repo, [], [], []), /## Areas\n\nNone yet\./);
 });
 

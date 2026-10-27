@@ -44,6 +44,7 @@ before(() => {
 after(() => rmSync(repo, { recursive: true, force: true }));
 
 test('recall finds area, decision, and plan', () => {
+  write(join(repo, 'docs/cairn/plans/2026-01-03-old/RECORD.md'), '# Old\n');
   const plans = [entry('old', '2026-01-03', { areasTouched: ['core'] })];
   const r = recall(repo, ['src/core/a.ts'], plans);
   assert.deepEqual(r.areas.map((a) => a.id), ['core']);
@@ -58,11 +59,11 @@ test('recall finds area, decision, and plan', () => {
 });
 
 test('recall reports uncovered globs', () => {
-  assert.deepEqual(recall(repo, ['lib/**'], []).uncovered, []);
+  assert.deepEqual(recall(repo, ['lib/**'], []).uncovered, ['lib/**']);
   assert.deepEqual(recall(repo, ['src/core/a.ts', 'lib/**'], []).uncovered, ['lib/**']);
   const out = run(['recall', 'src/core/a.ts', 'lib/**'], repo);
   assert.match(out.message, /^Not covered by any area: lib\/\*\*$/m);
-  assert.match(run(['recall', 'lib/x.ts'], repo).message, /^Nothing recorded for these paths yet\.$/);
+  assert.match(run(['recall', 'lib/x.ts'], repo).message, /^Not covered by any area: lib\/x\.ts$/m);
 });
 
 test('recall with no args is a usage error', () => {
