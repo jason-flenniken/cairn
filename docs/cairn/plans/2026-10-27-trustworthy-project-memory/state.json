@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T21:23:52.964Z",
+  "updated": "2026-10-27T21:26:19.199Z",
   "stage": "ship",
   "stageHistory": [
     {
@@ -51,6 +51,11 @@
       "via": "human",
       "source": "mod",
       "hash": "d7fb8dccb89efc27"
+    },
+    "ship": {
+      "at": "2026-10-27T21:26:19.198Z",
+      "via": "human",
+      "source": "mod"
     }
   },
   "phases": [
@@ -601,6 +606,16 @@
       "at": "2026-10-27T21:23:52.964Z",
       "event": "advanced",
       "detail": "ship"
+    },
+    {
+      "at": "2026-10-27T21:25:15.759Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-10-27T21:26:19.199Z",
+      "event": "ship approved",
+      "detail": "mod"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -722,6 +737,45 @@
       ],
       "from": "branch-review",
       "at": "2026-10-27T21:23:52.762Z"
+    },
+    {
+      "id": "s9",
+      "area": "security",
+      "text": "Harden changelog text handling: reject symlinked or out-of-folder changelog.md and RECORD.md, cap each entry by characters and collapse newlines in titles, strip control characters from follow-up text and the openDoc title, and label the session-start changelog as reference only",
+      "where": [
+        "plugins/cairn/cli/src/commands/records.ts",
+        "plugins/cairn/cli/src/memory.ts",
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "trustworthy-project-memory:s1",
+        "trustworthy-project-memory:s2",
+        "trustworthy-project-memory:s3",
+        "trustworthy-project-memory:s4",
+        "trustworthy-project-memory:s6"
+      ],
+      "at": "2026-10-27T21:24:07.326Z"
+    },
+    {
+      "id": "s10",
+      "area": "ux",
+      "text": "Changelog pane polish: one keyboard stop per entry, and show the changelog entry on the ship approval card",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/cli/src/commands/stages.ts"
+      ],
+      "from": "plan",
+      "merges": [
+        "trustworthy-project-memory:s5",
+        "trustworthy-project-memory:s7"
+      ],
+      "at": "2026-10-27T21:24:07.623Z"
     }
-  ]
+  ],
+  "step": {
+    "stage": "ship",
+    "name": "approving",
+    "at": "2026-10-27T21:25:15.759Z"
+  }
 }
