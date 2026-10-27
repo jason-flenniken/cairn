@@ -60,7 +60,7 @@ describe('the bar on every tab (FR-01)', () => {
     w.files.set('/repo/RECORD.md', '# A')
     await start($, WT)
     const ui = await mount($, 'terminal')
-    for (const key of ['tab:now', 'tab:history', 'tab:records', 'record:a']) {
+    for (const key of ['tab:now', 'tab:history', 'tab:changelog', 'tab:records', 'record:a']) {
       await ui.press({ key })
       expect((await lastChild(ui)).props.key).toBe('statusbar')
       expect((await barRows(ui)).join('\n')).toContain('● Build 2/3')

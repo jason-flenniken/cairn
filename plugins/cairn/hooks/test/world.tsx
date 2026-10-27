@@ -70,6 +70,7 @@ export function world(on: On, init: WorldInit = {}) {
     branchGone: init.branchGone ?? false,
     raw: undefined as string | undefined,
     records: undefined as unknown[] | undefined,
+    recordsFail: false,
     mtimes: new Map<string, number>([[STATE, 1]]),
     runs: [] as string[][],
     toasts: [] as string[],
@@ -111,6 +112,7 @@ export function world(on: On, init: WorldInit = {}) {
     if (args.join(' ') === 'status --all --json') {
       return answer(0, w.raw ?? JSON.stringify({ ok: true, message: '', plans: w.rows, modActive: true }))
     }
+    if (args.join(' ') === 'records --json' && w.recordsFail) return answer(1, JSON.stringify({ ok: false, error: 'boom' }))
     if (args.join(' ') === 'records --json') return answer(0, JSON.stringify({ ok: true, records: w.records ?? [] }))
     if (args.join(' ') === 'status --json') {
       const here = w.rows.find(r => r.worktree === w.cwd)

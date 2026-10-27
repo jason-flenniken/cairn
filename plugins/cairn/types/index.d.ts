@@ -63,6 +63,8 @@ export type CairnRecord = {
   why: string
   /** Absolute path to RECORD.md, when the plan has one. */
   record?: string
+  /** The plan's changelog paragraph, when it has one. */
+  entry?: string
   followUps: { text: string; area: string; status: string }[]
 }
 

@@ -23,11 +23,11 @@ type Drift = { path?: string; acked?: unknown }
 const view = atom({ plugin: 'cairn', key: 'view' } as const, null as CairnView | null)
 const isTurnRunning = atom({ plugin: 'cairn', key: 'isTurnRunning' } as const, false)
 // The tab showing; the pane opens on Now.
-const tab = atom({ plugin: 'cairn', key: 'tab' } as const, 'now' as 'now' | 'history' | 'records')
+const tab = atom({ plugin: 'cairn', key: 'tab' } as const, 'now' as 'now' | 'history' | 'records' | 'changelog')
 // Records tab: the last `cairn records --json` (null until read) and the plan whose record is open.
 const records = atom({ plugin: 'cairn', key: 'records' } as const, null as CairnRecord[] | null)
 const openRecord = atom({ plugin: 'cairn', key: 'openRecord' } as const, null as string | null)
-const TABS = [['now', 'Now'], ['history', 'History'], ['records', 'Records']] as const
+const TABS = [['now', 'Now'], ['history', 'History'], ['records', 'Records'], ['changelog', 'Changelog']] as const
 
 const PANE = 'cairn'
 const PANE_PREF = 'pane'
@@ -96,6 +96,9 @@ async function readPlans($: EngineInterface): Promise<CairnPlanRow[] | undefined
   return list<CairnPlanRow>(r.json.plans).filter(p => typeof p.state?.slug === 'string')
 }
 
+/** Model-written text reaches the terminal only without control characters (escapes, bell, CR, C1); newlines and tabs stay. */
+const stripControl = (s: string): string => s.replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, '')
+
 /** Reads `cairn records --json` into the Records tab; a failed read keeps what was there. */
 async function fetchRecords($: EngineInterface): Promise<void> {
   const r = await cairn($, ['records', '--json'], quick).catch(() => undefined)
@@ -146,7 +149,8 @@ async function refresh($: EngineInterface): Promise<boolean> {
   await update($, view, () => next)
   await showStatus($, next)
   await trackCost($, next)
-  if ((await read($, tab)) === 'records') await fetchRecords($)
+  const shown = await read($, tab)
+  if (shown === 'records' || shown === 'changelog') await fetchRecords($)
   return true
 }
 
@@ -455,7 +459,7 @@ export function install(on: On): void {
           <Button key={`tab:${id}`} label={name} variant={shownTab === id ? 'primary' : undefined} onPress={() => act($, async () => {
             await update($, tab, () => id)
             void scrollToStart($, PANE)
-            if (id === 'records') await fetchRecords($)
+            if (id === 'records' || id === 'changelog') await fetchRecords($)
           })} />
         ))}
       </Box>
@@ -504,6 +508,30 @@ export function install(on: On): void {
           )
         }),
         all !== null && !all.some(x => x.stage === 'closed') && <Text dimColor>No finished plans yet.</Text>,
+      ], barLines)
+    }
+
+    if (!isInline && shownTab === 'changelog') {
+      const all = await read($, records)
+      // Closed plans only, newest first; the sort is stable, so equal dates keep the CLI's order.
+      const closed = (all ?? []).filter(x => x.stage === 'closed').sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+      return frame(e, [
+        tabs,
+        ...closed.map(x => {
+          const entry = typeof x.entry === 'string' ? stripControl(x.entry).trim() : ''
+          const head = <Text key={`entry:${x.slug}:head`} bold wrap="wrap">{stripControl(`${dateText(x.date)} · ${x.title}`)}</Text>
+          const text = entry === '' ? null : <Text key={`entry:${x.slug}:text`} wrap="wrap">{entry}</Text>
+          // A plan with no RECORD.md has nothing to open, so its entry is plain text.
+          const file = x.record
+          const press = file === undefined ? undefined : () => act($, () => openDoc($, PANE, { file, title: x.title, kind: 'record' }))
+          return (
+            <Box key={`entry:${x.slug}:row`} flexDirection="column">
+              {press === undefined ? head : <Button key={`entry:${x.slug}`} plain onPress={press}>{head}</Button>}
+              {text !== null && (press === undefined ? text : <Button key={`entry:${x.slug}:body`} plain onPress={press}>{text}</Button>)}
+            </Box>
+          )
+        }),
+        all !== null && closed.length === 0 && <Text dimColor>No finished plans yet, so no changelog.</Text>,
       ], barLines)
     }
 
