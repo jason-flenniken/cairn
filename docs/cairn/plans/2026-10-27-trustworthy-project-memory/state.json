@@ -6,12 +6,16 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T19:15:12.078Z",
-  "stage": "discover",
+  "updated": "2026-10-27T20:18:12.816Z",
+  "stage": "prd",
   "stageHistory": [
     {
       "stage": "discover",
       "at": "2026-10-27T19:15:12.077Z"
+    },
+    {
+      "stage": "prd",
+      "at": "2026-10-27T20:18:12.816Z"
     }
   ],
   "paused": null,
@@ -28,8 +32,48 @@
       "at": "2026-10-27T19:15:12.078Z",
       "event": "level",
       "detail": "standard"
+    },
+    {
+      "at": "2026-10-27T20:18:12.816Z",
+      "event": "advanced",
+      "detail": "prd"
     }
   ],
   "cairnVersion": "0.6.0",
-  "level": "standard"
+  "level": "standard",
+  "lasting": [
+    {
+      "n": 13,
+      "question": "How does ship check area docs against the code?",
+      "answer": "A new read-only fresh-eyes checker gets only the touched area docs and the code they reference and returns each claim as true or stale with evidence; the recorder fixes stale ones inside ship. The CLI also lints references at close: missing files and globs that match nothing.",
+      "why": "a CLI check proves an edit happened, not that the doc is true; the checker is not the writer, so it is not grading its own work",
+      "areas": [
+        "project-memory"
+      ],
+      "paths": [],
+      "at": "2026-10-27T19:28:37.838Z"
+    },
+    {
+      "n": 14,
+      "question": "How do area docs reference code?",
+      "answer": "By path plus symbol (e.g. cli/src/proof.ts verifyProof), not path:line. The lint checks the file exists and the symbol appears in it. Existing path:line references convert as docs are touched; the lint checks only the file for those.",
+      "why": "line numbers go stale on any edit above them; symbols survive edits and are checkable with a text search",
+      "areas": [
+        "project-memory"
+      ],
+      "paths": [],
+      "at": "2026-10-27T19:29:03.300Z"
+    },
+    {
+      "n": 16,
+      "question": "When a doc's Rule no longer matches the code, which side wins?",
+      "answer": "The code. The recorder updates the doc, and the ship approval summary lists each Rule that changed because the code no longer matched (old and new wording), so the user can push back before merge. No new stop.",
+      "why": "user: the code follows a reviewed plan and PRD, so a mismatch most likely means the doc is out of date; show the change at the existing ship approval",
+      "areas": [
+        "project-memory"
+      ],
+      "paths": [],
+      "at": "2026-10-27T19:35:15.500Z"
+    }
+  ]
 }
