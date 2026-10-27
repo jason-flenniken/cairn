@@ -1,6 +1,6 @@
-# ai-workflow
+# cairn
 
-A personal Claude Code marketplace. It holds one plugin, **cairn**, an agent-driven software development lifecycle.
+A Claude Code plugin for an agent-driven software development lifecycle. This repository is also its marketplace, so you can install it straight from GitHub.
 
 cairn takes a feature from an idea to a shipped, recorded change in the same fixed steps every time:
 
@@ -39,12 +39,25 @@ cairn fixes this in five ways:
 
 ## Install
 
+In a Claude Code session:
+
 ```
-/plugin marketplace add /Users/jasonflenniken/Development/ai_workflow
-/plugin install cairn@ai-workflow
+/plugin marketplace add jason-flenniken/cairn
+/plugin install cairn@cairn
 ```
 
-Then run `/reload-plugins`, or start a new session.
+Or from your shell:
+
+```
+claude plugin marketplace add jason-flenniken/cairn
+claude plugin install cairn@cairn
+```
+
+Then run `/reload-plugins`, or start a new session. The `cairn` CLI comes with the plugin: Claude Code puts it on the path of Claude's shell while the plugin is enabled, so there's nothing else to install.
+
+Adding the marketplace clones this repository with your own `git`. It tries SSH first and falls back to HTTPS; on a machine with no GitHub SSH key, set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` to go straight to HTTPS.
+
+cairn includes a **mod**, Claude Code code that runs inside the app: the pane, menu approvals, pause, and the guards that stop the model approving its own work. Like any mod it runs with your permissions. To see every event it handles and every call it makes before you install, clone the repo and run `claude plugin validate plugins/cairn`. See [Decide whether to trust a mod](https://code.claude.com/docs/en/plugins/mods/overview#decide-whether-to-trust-a-mod).
 
 In any repo where you use cairn, turn off Superpowers and Compound Engineering. Their skills trigger on their own and compete with cairn's. A project-level `.claude/settings.json` can do it:
 
@@ -56,6 +69,16 @@ In any repo where you use cairn, turn off Superpowers and Compound Engineering. 
   }
 }
 ```
+
+### Update
+
+A new release reaches you when its version changes. Auto-update is off for marketplaces you add yourself, so update by hand:
+
+```
+/plugin marketplace update cairn
+```
+
+or `claude plugin update cairn@cairn` from your shell, then `/reload-plugins`. To get releases automatically, open `/plugin`, go to **Marketplaces**, select `cairn`, and choose **Enable auto-update**.
 
 ## Quick start
 
@@ -283,6 +306,17 @@ cairn approve plan --human  # approve from your own terminal
 
 ## Developing cairn
 
+To work on cairn itself, install it from your clone instead of GitHub, so your edits load in place with `/reload-plugins` and no version bump. Only one marketplace named `cairn` can be registered at a time, so remove the GitHub one first if you added it:
+
+```
+git clone https://github.com/jason-flenniken/cairn && cd cairn
+claude plugin marketplace remove cairn        # only if you added it from GitHub
+claude plugin marketplace add ./
+claude plugin install cairn@cairn
+```
+
+Then:
+
 ```
 npm install
 npm run build        # bundles plugins/cairn/dist/cairn.mjs (committed)
@@ -297,7 +331,7 @@ plugins/cairn/
   hooks/            the mod: register.tsx, plus mod/ (pane, agent tracking, approvals, pause, guards)
   procedures/       the step-by-step instructions for each stage; `cairn next` names the one to follow
   skills/           thin slash-command wrappers around the procedures
-  agents/           implementer, task-reviewer, branch-reviewer, acceptance-checker, direction-checker, recorder
+  agents/           implementer, task-, branch-, security- and plan-reviewer, challenger, prd-checker, acceptance- and direction-checker, recorder
   templates/        PRD, plan, record, handoff, config
   references/       CLI contract, reporting rules (plain words, output style), model tiers
 ```
@@ -307,9 +341,14 @@ plugins/cairn/
 - Engine limits found while building the mod are in `plugins/cairn/hooks/NOTES.md`.
 - The design history is in `docs/design.md`, and each plan's record is in `docs/sdlc/plans/`.
 - To rename the plugin: `plugins/cairn/scripts/rename.sh <name>`.
+- To release: raise `version` in `plugins/cairn/.claude-plugin/plugin.json` and push to `main`. People who installed from GitHub only receive commits that change it.
 
 ## Credits
 
 cairn adapts ideas, prompts, and procedures from [Compound Engineering](https://github.com/everyinc/compound-engineering-plugin), [Superpowers](https://github.com/obra/superpowers), and [Matt Pocock's skills](https://github.com/mattpocock/skills), all MIT-licensed. Their notices are in `plugins/cairn/NOTICE`, and the upstream commits are in `plugins/cairn/UPSTREAM.md`.
 
 The fresh-eyes agents draw on the ideas in Dave Rensin's [essay](https://medium.com/@drensin/elephants-goldfish-and-the-new-golden-age-of-software-engineering-c33641a48874) and Google's [Elephant-Goldfish Model](https://github.com/google/elephant-goldfish-model) (Apache-2.0); their prompts are written for cairn, not copied.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

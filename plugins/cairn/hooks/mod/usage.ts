@@ -1,10 +1,12 @@
 // The bar's usage lines (FR-03..FR-06): model, plan cost, context and tokens; then the 5-hour and weekly limits.
 // `session.measure` pushes the figures into $.state; the pane only reads them (NFR-02: no timer of its own).
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, On } from 'claude-code'
-import type { CairnUsage } from '../../types/index.d.ts'
+import type { EngineInterface, On, PluginState } from 'claude-code'
 import { fmtDuration } from './activity.ts'
 import { BAR_COLUMNS, firstFit, lineCells, type BarLine, type BarSeg } from './bar.tsx'
+
+/** The session's usage as `session.measure` last reported it, and the model in use. */
+export type CairnUsage = NonNullable<PluginState['cairn']['usage']>
 
 // What the bar draws lives in $.state, so a hot reload keeps it. A restart starts both over.
 const usage = atom({ plugin: 'cairn', key: 'usage' } as const, null as CairnUsage | null)

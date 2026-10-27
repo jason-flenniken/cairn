@@ -1,14 +1,15 @@
 {
-  "name": "ai-workflow",
+  "name": "cairn",
   "owner": {
-    "name": "Jason Flenniken"
+    "name": "Jason Flenniken",
+    "url": "https://github.com/jason-flenniken"
   },
-  "description": "Jason's personal Claude Code plugins.",
+  "description": "cairn: an agent-driven software lifecycle for Claude Code, with plan state owned by a CLI.",
   "plugins": [
     {
       "name": "cairn",
       "source": "./plugins/cairn",
-      "description": "Agent-driven SDLC: PRD, phased parallel plans, checkpoint enforcement, status and resume."
+      "description": "Agent-driven SDLC: discover, PRD, phased parallel plan, build, check, review, ship. Script-owned state per plan, fresh-eyes checks before the PRD, and a live pane of running agents."
     }
   ]
 }

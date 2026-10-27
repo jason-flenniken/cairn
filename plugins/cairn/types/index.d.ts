@@ -1,5 +1,4 @@
 // cairn's mod types contract, named in plugin.json "types". It adds no noun to `$`.
-import type { SessionContextUsage, SessionCost, SessionRateLimit } from 'claude-code'
 
 /** What `cairn($, args)` in hooks/mod/cli.ts resolves with. */
 export type CairnRun = {
@@ -105,9 +104,6 @@ export type CairnGit = {
   worktree?: string
 }
 
-/** The session's usage as `session.measure` last reported it, and the model in use. */
-export type CairnUsage = { cost?: SessionCost; context: SessionContextUsage; rateLimits: SessionRateLimit[]; model?: string }
-
 /** A read-back question open in the chat: its plan, question, card and the dialog's own option labels. */
 export type CairnReadBack = { slug: string; question: string; card: string; options: string[] }
 
@@ -118,15 +114,15 @@ declare module 'claude-code' {
       isTurnRunning: boolean
       agents: AgentCard[]
       /** The main session's current action; null while no turn runs. */
-      mainActivity: { action: string; since: number } | null
+      mainActivity: { action: string; since: number; isWaiting?: boolean } | null
       /** The last few finished-agent lines. */
       feed: { at: number; text: string }[]
       /** Ticked while anything is active, so the pane redraws its timers. */
       now: number
       /** The pane's tab. */
       tab: 'now' | 'history' | 'records'
-      /** The session's usage; null before the first measurement. */
-      usage: CairnUsage | null
+      /** The session's usage as `session.measure` last reported it, and the model in use; null before the first measurement. */
+      usage: { cost?: SessionCost; context: SessionContextUsage; rateLimits: SessionRateLimit[]; model?: string } | null
       /** The session cost recorded as a plan's starting point; null until one is. */
       planBaseline: { slug: string; usd: number } | null
       /** The document the pane's viewer shows; null while closed. */
@@ -137,6 +133,10 @@ declare module 'claude-code' {
       git: CairnGit | null
       /** The read-back question open in the chat; null while none is. */
       readBack: CairnReadBack | null
+      /** The Records tab's list; null until first loaded. */
+      records: CairnRecord[] | null
+      /** The record whose details the Records tab shows; null while none is open. */
+      openRecord: string | null
     }
   }
 }

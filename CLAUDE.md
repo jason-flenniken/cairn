@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A personal Claude Code marketplace (`.claude-plugin/marketplace.json`) holding one plugin, **cairn** (`plugins/cairn/`): an agent-driven SDLC (Discover → PRD → Plan → Build → Check → Review → Ship → Learn) whose plan state is owned by a CLI rather than by prose. `README.md` is the user-facing spec; `plugins/cairn/references/cli.md` is the CLI contract (commands, stage-transition requirements, JSON shapes).
+A public Claude Code marketplace (`.claude-plugin/marketplace.json`, installed from GitHub as `jason-flenniken/cairn`) holding one plugin, **cairn** (`plugins/cairn/`): an agent-driven SDLC (Discover → PRD → Plan → Build → Check → Review → Ship → Learn) whose plan state is owned by a CLI rather than by prose. `README.md` is the user-facing spec; `plugins/cairn/references/cli.md` is the CLI contract (commands, stage-transition requirements, JSON shapes).
 
 The repo dogfoods cairn: `.sdlc/config.json` is cairn's own config for this repo, and `docs/sdlc/plans/<date>-<slug>/` holds the plans (PRD, plan, decisions, RECORD) that built each version. Those plan folders and their `state.json` are written by the CLI; don't hand-edit them.
 
@@ -37,6 +37,8 @@ Four layers, and the boundaries between them are the point of the design:
 2. **Procedures / skills / agents** (markdown). `skills/*/SKILL.md` are thin slash-command wrappers that call `cairn` and follow the procedure `cairn next` names. `procedures/*.md` are the step-by-step instructions per stage. `agents/*.md` are the subagents (implementer, task-reviewer, branch-reviewer, …). `references/` holds the CLI contract, reporting rules, model tiers, and review/security checklists; `templates/` holds PRD/plan/record/config skeletons.
 3. **Mod** (`plugins/cairn/hooks/`): a Claude Code module loaded via `hooks.json` → `register.tsx`, which only wires one-concern modules in `hooks/mod/`: the live pane (`pane.tsx`, `cards.tsx`, `bar.tsx`, …), agent activity tracking, menu approvals (`approve.ts`, holds the one-time secret in memory), pause/resume, heartbeat, and `guards.ts` (denies the model running `cairn approve`, setting `CAIRN_APPROVER`, or writing `state.json`/`.git/cairn/`). `hooks.json` also registers plain command hooks (`cairn hook session-start`, `cairn hook post-edit`). `hooks/NOTES.md` records engine limits and the exact guard/heartbeat/secret formats; read it before changing the mod. Types for the mod API are in `plugins/cairn/types/index.d.ts`.
 4. **Bundle**: `plugins/cairn/dist/cairn.mjs` is committed and is what `bin/cairn` executes. After any change in `cli/src/`, run `npm run build` and commit the bundle with it. Changes in `hooks/` need `/reload-plugins` in a live session instead.
+
+**Releasing**: people install from GitHub and get a cached copy keyed by `version` in `plugins/cairn/.claude-plugin/plugin.json`. A push that doesn't raise it never reaches them. `types/index.d.ts` must stay self-contained (no `import`): `claude plugin validate plugins/cairn` rejects it otherwise, and every `$.state` key the mod uses must be declared there.
 
 ## Testing conventions
 
