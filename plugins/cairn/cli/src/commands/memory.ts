@@ -1,10 +1,8 @@
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { areasForFile, loadAreas, SYSTEM_DIR } from '../areas.ts';
-import { DECISIONS_DIR, loadDecisions, publishDecisions } from '../decision-log.ts';
 import { commitPaths, git, safeRef } from '../git.ts';
-import { planDirName, planRelOf, type Ctx } from '../locate.ts';
-import { historyLines, memoryIndex, OVERVIEW_REL, recall, renderOverview, withHistory } from '../memory.ts';
+import { planRelOf, type Ctx } from '../locate.ts';
+import { memoryIndex, OVERVIEW_REL, recall, renderChangelog } from '../memory.ts';
 import { isCairnPath } from '../paths.ts';
 import { loadState, log } from '../state.ts';
 import type { State } from '../types.ts';
@@ -85,32 +83,20 @@ export function cmdAreaSkip(ctx: Ctx, area: string | undefined, opts: Opts): Res
   return { message: `Skipped the area doc check for ${id}: ${note}` };
 }
 
-/** Rewrite every area doc's History and the OVERVIEW from the checkout at `root`. Returns the repo-relative files that changed. */
+/** Rewrite the OVERVIEW changelog from the checkout at `root`. Returns the repo-relative files that changed. */
 export function refreshMemory(root: string, ctx: Ctx): string[] {
-  const { areas } = loadAreas(root);
-  const decisions = loadDecisions(root);
-  const plans = planEntries(ctx);
-  const changed: string[] = [];
-  const put = (rel: string, before: string | undefined, after: string) => {
-    if (before === after) return;
-    writeText(join(root, rel), after);
-    changed.push(rel);
-  };
-  for (const a of areas) {
-    const md = readText(join(root, a.file)) ?? '';
-    put(a.file, md, withHistory(md, historyLines(root, a, decisions, plans)));
-  }
-  put(OVERVIEW_REL, readText(join(root, OVERVIEW_REL)), renderOverview(root, areas, decisions, plans));
-  return changed;
+  const before = readText(join(root, OVERVIEW_REL));
+  const after = renderChangelog(root, planEntries(ctx));
+  if (before === after) return [];
+  writeText(join(root, OVERVIEW_REL), after);
+  return [OVERVIEW_REL];
 }
 
-/** At close: publish the plan's lasting decisions, refresh area History and the OVERVIEW, and commit them. Returns the files changed. */
+/** At close: refresh the OVERVIEW changelog and commit it. Returns the files changed. */
 export function writeMemory(pc: PlanCtx, s: State): string[] {
   const root = pc.plan.worktree;
-  const today = planDirName('', new Date()).slice(0, 10);
-  const changed = [...new Set([...publishDecisions(root, s.slug, today, s.lasting ?? []), ...refreshMemory(root, pc.ctx)])];
-  if (pc.cfg.autoCommit && changed.length)
-    commitPaths(root, [DECISIONS_DIR, SYSTEM_DIR, OVERVIEW_REL].filter((p) => existsSync(join(root, p))), `cairn(${s.slug}): publish decisions and area history`);
+  const changed = refreshMemory(root, pc.ctx);
+  if (pc.cfg.autoCommit && changed.length) commitPaths(root, changed, `cairn(${s.slug}): update changelog`);
   return changed;
 }
 
@@ -120,7 +106,7 @@ export function closeMemory(pc: PlanCtx, r: Result): Result {
     writeMemory(pc, loadState(pc.plan.dir));
     return r;
   } catch (e) {
-    return { ...r, message: `${r.message}\nWarning: the decision log and area history were not updated (${(e as Error).message.split('\n')[0]}); run cairn render on main.` };
+    return { ...r, message: `${r.message}\nWarning: the changelog was not updated (${(e as Error).message.split('\n')[0]}); run cairn render on main.` };
   }
 }
 
@@ -138,7 +124,7 @@ export function cmdRecall(ctx: Ctx, globs: string[], _opts: Opts): Result {
   return { message: out.length ? out.join('\n') : 'Nothing recorded for these paths yet.', data: { ...r, problems } };
 }
 
-/** `cairn index`: the short memory index that session start injects. */
+/** `cairn index`: the recent changelog entries that session start injects. Prints nothing when no plan is closed. */
 export function cmdIndex(ctx: Ctx): Result {
-  return { message: memoryIndex(ctx.top, planEntries(ctx)) || 'Nothing recorded yet. Run /cairn:map to set up area docs.' };
+  return { message: memoryIndex(ctx.top, () => planEntries(ctx)) };
 }

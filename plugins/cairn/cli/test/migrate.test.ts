@@ -51,7 +51,7 @@ test('moves both roots and commits', () => {
 
 test('second run is a no-op', () => {
   assert.match(run(['migrate'], repo).message, /Nothing to migrate/);
-  assert.equal(hookSessionStart({ cwd: repo }), '');
+  assert.doesNotMatch(hookSessionStart({ cwd: repo }), /cairn migrate/); // the closed plan now shows in the changelog
 });
 
 test('refuses with an in-flight plan', () => {

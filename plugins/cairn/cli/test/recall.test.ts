@@ -103,44 +103,6 @@ test('recall lists at most five plans, newest first', () => {
   assert.deepEqual(recall(repo, ['src/core/a.ts'], plans).plans.map((p) => p.slug), ['p6', 'p5', 'p4', 'p3', 'p2']);
 });
 
-test('index caps at 60 lines', () => {
-  const root = tmp();
-  for (let i = 0; i < 70; i++) write(join(root, SYSTEM, `a${String(i).padStart(2, '0')}.md`), areaDoc(`A${i}`, `Area ${i}.`, `src/a${i}/**`));
-  const idx = memoryIndex(root, []).split('\n');
-  assert.equal(idx.filter((l) => /^- a\d\d: /.test(l)).length, 70);
-  assert.match(idx[0], /^cairn memory \(full picture: docs\/cairn\/OVERVIEW\.md\)\. Before changing code, run `cairn recall <paths>`\.$/);
-  rmSync(root, { recursive: true, force: true });
-
-  const r2 = tmp();
-  for (let i = 0; i < 20; i++) write(join(r2, SYSTEM, `a${String(i).padStart(2, '0')}.md`), areaDoc(`A${i}`, `Area ${i}.`, `src/a${i}/**`));
-  for (let i = 0; i < 50; i++) write(join(r2, 'docs/cairn/decisions', `2026-01-02-d${String(i).padStart(2, '0')}.md`), decision(`2026-01-02-d${String(i).padStart(2, '0')}`, `answer ${i}`, ['a00']));
-  const plans = Array.from({ length: 5 }, (_, i) => entry(`p${i}`, `2026-03-0${i + 1}`));
-  const lines = memoryIndex(r2, plans).split('\n');
-  assert.ok(lines.length <= 60, `${lines.length} lines`);
-  assert.equal(lines.filter((l) => l.startsWith('Decisions in force: 2026-01-02-d00, ')).length, 1);
-  assert.ok(!lines.includes('Recent plans:'));
-  rmSync(r2, { recursive: true, force: true });
-});
-
-test('index drops recent plans before collapsing decisions', () => {
-  const root = tmp();
-  for (let i = 0; i < 40; i++) write(join(root, SYSTEM, `a${String(i).padStart(2, '0')}.md`), areaDoc(`A${i}`, `Area ${i}.`, `src/a${i}/**`));
-  write(join(root, 'docs/cairn/decisions/2026-01-02-d.md'), decision('2026-01-02-d', 'x'.repeat(150), ['a00']));
-  const plans = Array.from({ length: 5 }, (_, i) => entry(`p${i}`, `2026-03-0${i + 1}`));
-  const idx = memoryIndex(root, plans, 45).split('\n');
-  assert.ok(idx.includes('Decisions in force:'));
-  assert.ok(!idx.includes('Recent plans:'));
-  assert.equal(idx.find((l) => l.startsWith('- 2026-01-02-d:'))!.length, '- 2026-01-02-d: '.length + 100);
-  assert.ok(memoryIndex(root, plans, 60).includes('Recent plans:'));
-  rmSync(root, { recursive: true, force: true });
-});
-
-test('session-start includes the index on main with no active plans', () => {
-  const out = ctxOf(hookSessionStart({ cwd: repo }));
-  assert.match(out, /cairn memory/);
-  assert.match(out, /- core: The core\./);
-});
-
 test('session-start survives a broken memory', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-recall-broken-')));
   try {
@@ -158,50 +120,39 @@ test('session-start survives a broken memory', () => {
   }
 });
 
-test('session-start adds the index after the plan lines', () => {
-  const wt = run(['new', 'idx', '--title', 'Idx'], repo).data!.worktree as string;
-  const out = ctxOf(hookSessionStart({ cwd: wt }));
-  assert.ok(out.indexOf('cairn: Idx') < out.indexOf('cairn memory'));
-  assert.ok(ctxOf(hookSessionStart({ cwd: repo })).indexOf('active plan') < ctxOf(hookSessionStart({ cwd: repo })).indexOf('cairn memory'));
-});
-
-test('index with nothing recorded prints the map hint', () => {
+test('index with no closed plans prints nothing', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-recall-empty-')));
   try {
     g(root, 'init', '-q', '-b', 'main');
     write(join(root, 'README.md'), 'hi\n');
     g(root, 'add', '-A');
     g(root, 'commit', '-q', '-m', 'init');
-    assert.equal(run(['index'], root).message, 'Nothing recorded yet. Run /cairn:map to set up area docs.');
+    assert.equal(run(['index'], root).message, '');
     assert.equal(ctxOf(hookSessionStart({ cwd: root })), '');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('session-start still returns its plan lines when the index build throws', () => {
+test('session-start still returns its plan lines when the changelog cannot be read', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-recall-throw-')));
   try {
     g(root, 'init', '-q', '-b', 'main');
     write(join(root, 'README.md'), 'hi\n');
-    write(join(root, 'docs/cairn/decisions'), 'not a folder\n'); // loadDecisions has no guard of its own
     g(root, 'add', '-A');
     g(root, 'commit', '-q', '-m', 'init');
-    assert.throws(() => memoryIndex(root, []));
     const wt = run(['new', 'live', '--title', 'Live'], root).data!.worktree as string;
     assert.match(ctxOf(hookSessionStart({ cwd: wt })), /^cairn: Live/);
-    assert.doesNotMatch(ctxOf(hookSessionStart({ cwd: wt })), /cairn memory/);
+    assert.doesNotMatch(ctxOf(hookSessionStart({ cwd: wt })), /changelog/);
     assert.match(ctxOf(hookSessionStart({ cwd: root })), /1 active plan/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('the plan list is only read when there is memory to index', () => {
+test('the plan list is read once for the index', () => {
   let called = 0;
   const lazy = () => (called++, []);
   assert.equal(memoryIndex(tmp(), lazy), '');
-  assert.equal(called, 0);
-  assert.match(memoryIndex(repo, lazy), /cairn memory/);
   assert.equal(called, 1);
 });
