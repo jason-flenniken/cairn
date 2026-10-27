@@ -5,7 +5,7 @@
 ## Links
 - PRD: docs/cairn/plans/2026-10-27-trustworthy-project-memory/prd.md
 - Plan: docs/cairn/plans/2026-10-27-trustworthy-project-memory/plan.md
-- PR: <pending>
+- PR: https://github.com/jason-flenniken/cairn/pull/5
 - Tracker: none
 
 ## Why
