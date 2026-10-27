@@ -1,12 +1,8 @@
 import { existsSync } from 'node:fs';
 import { basename, join, posix } from 'node:path';
-import { areasForScopes, loadAreas, type Area } from './areas.ts';
-import { activeDecisionsFor, loadDecisions, type LoggedDecision } from './decision-log.ts';
-import { scopesOverlap } from './glob.ts';
 import { changelogText, type PlanEntry } from './commands/records.ts';
 import { PLANS_DIRS } from './locate.ts';
 import { DOCS_DIR } from './paths.ts';
-import { allTasks } from './ready.ts';
 import { stripControl } from './util.ts';
 
 export const OVERVIEW_REL = `${DOCS_DIR}/OVERVIEW.md`;
@@ -18,18 +14,6 @@ const NONE = 'None yet.';
 const recordRel = (root: string, e: PlanEntry): string | undefined =>
   PLANS_DIRS.map((d) => `${d}/${basename(e.dir)}/RECORD.md`).find((rel) => existsSync(join(root, rel)));
 const byNewest = (a: PlanEntry, b: PlanEntry) => b.date.localeCompare(a.date) || a.state.slug.localeCompare(b.state.slug);
-
-/** Closed plans that touched an area: its recorded areas, else task scopes that overlap its paths (a `**` scope says nothing). Newest first. */
-export function plansTouching(area: Area, plans: PlanEntry[]): PlanEntry[] {
-  return plans
-    .filter((p) => {
-      if (p.state.stage !== 'closed') return false;
-      if (p.state.areasTouched) return p.state.areasTouched.includes(area.id);
-      const scopes = allTasks(p.state).flatMap((t) => t.scope).filter((g) => g !== '**');
-      return scopes.length > 0 && scopesOverlap(scopes, area.paths);
-    })
-    .sort(byNewest);
-}
 
 /** The generated changelog: one block per closed plan, newest first. Links are relative to the OVERVIEW. */
 export function renderChangelog(root: string, plans: PlanEntry[]): string {
@@ -49,33 +33,6 @@ export function renderChangelog(root: string, plans: PlanEntry[]): string {
     if (r) out.push(`[Record](${posix.relative(DOCS_DIR, r)})`, '');
   }
   return `${out.join('\n').replace(/\n+$/, '')}\n`;
-}
-
-export interface RecallResult {
-  areas: Area[];
-  decisions: LoggedDecision[];
-  plans: { slug: string; title: string; date: string; record?: string }[];
-  /** Globs that no area doc covers. */
-  uncovered: string[];
-}
-
-const RECALL_PLANS = 5;
-
-/** What the memory holds about these paths: area docs, decisions in force, and the closed plans that touched them. */
-export function recall(root: string, globs: string[], plans: PlanEntry[]): RecallResult {
-  const all = loadAreas(root).areas;
-  const areas = areasForScopes(globs, all);
-  const decisions = activeDecisionsFor(globs, areas.map((a) => a.id), loadDecisions(root));
-  const found = new Map<string, PlanEntry>();
-  for (const a of areas) for (const p of plansTouching(a, plans)) found.set(p.state.slug, p);
-  for (const p of plans) {
-    if (p.state.stage !== 'closed') continue;
-    const scopes = allTasks(p.state).flatMap((t) => t.scope).filter((g) => g !== '**');
-    if (scopes.length > 0 && scopesOverlap(globs, scopes)) found.set(p.state.slug, p);
-  }
-  const top = [...found.values()].sort(byNewest).slice(0, RECALL_PLANS).map((p) => ({ slug: p.state.slug, title: p.state.title, date: p.date, ...(recordRel(root, p) ? { record: recordRel(root, p) } : {}) }));
-  const uncovered = all.length ? globs.filter((g) => !all.some((a) => scopesOverlap([g], a.paths))) : [];
-  return { areas, decisions, plans: top, uncovered };
 }
 
 const INDEX_ENTRIES = 5;
