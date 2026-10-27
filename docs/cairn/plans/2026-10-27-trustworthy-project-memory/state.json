@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T21:13:32.994Z",
+  "updated": "2026-10-27T21:23:52.841Z",
   "stage": "review",
   "stageHistory": [
     {
@@ -291,6 +291,12 @@
       "result": "pass",
       "at": "2026-10-27T21:13:32.870Z",
       "note": "tests: 347 CLI + 573 mod passing, build matches bundle; 16 requirements met, 0 untested (FR-01 output and FR-14 on main observable at ship/close); FR-13 met after merging the unmerged close of roomier-pane-visuals; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-27T21:23:52.841Z",
+      "note": "2 blocking findings fixed and rechecked (changelog read from the rendering checkout; pane Why fallback); 3 follow-ups logged from review",
+      "blocking": 0
     }
   },
   "drift": [
@@ -566,6 +572,26 @@
       "at": "2026-10-27T21:13:32.994Z",
       "event": "advanced",
       "detail": "review"
+    },
+    {
+      "at": "2026-10-27T21:13:51.817Z",
+      "event": "step",
+      "detail": "reviewing"
+    },
+    {
+      "at": "2026-10-27T21:19:19.795Z",
+      "event": "step",
+      "detail": "fixing (2)"
+    },
+    {
+      "at": "2026-10-27T21:21:46.090Z",
+      "event": "step",
+      "detail": "rechecking"
+    },
+    {
+      "at": "2026-10-27T21:23:52.841Z",
+      "event": "review pass",
+      "detail": "2 blocking findings fixed and rechecked (changelog read from the rendering checkout; pane Why fallback); 3 follow-ups logged from review"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -657,6 +683,41 @@
       ],
       "from": "task-review",
       "at": "2026-10-27T20:38:32.694Z"
+    },
+    {
+      "id": "s6",
+      "area": "security",
+      "text": "Label the session-start changelog as past work for reference, not instructions, so an edited entry is not read as session guidance",
+      "where": [
+        "plugins/cairn/cli/src/memory.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T21:14:43.205Z"
+    },
+    {
+      "id": "s7",
+      "area": "ux",
+      "text": "Show the plan's changelog entry in the pane's ship approval card, not only RECORD.md's What was built",
+      "where": [
+        "plugins/cairn/cli/src/commands/stages.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-27T21:19:19.720Z"
+    },
+    {
+      "id": "s8",
+      "area": "quality",
+      "text": "Share one checkout-first changelog lookup between planEntries and changelogIn, and restore the planEntries doc comment",
+      "where": [
+        "plugins/cairn/cli/src/commands/records.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-27T21:23:52.762Z"
     }
-  ]
+  ],
+  "step": {
+    "stage": "review",
+    "name": "rechecking",
+    "at": "2026-10-27T21:21:46.089Z"
+  }
 }
