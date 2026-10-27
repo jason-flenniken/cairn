@@ -1,4 +1,4 @@
-# ai-workflow
+# Cairn: Repeatable SDLC Workflows
 
 A personal Claude Code marketplace. It holds one plugin, **cairn**, an agent-driven software development lifecycle.
 
