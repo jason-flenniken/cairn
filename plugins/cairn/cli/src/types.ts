@@ -165,12 +165,6 @@ export interface State {
   evidence: { verify?: Evidence; review?: Evidence };
   drift: DriftEntry[];
   suggestions?: Suggestion[];
-  /** Decisions flagged as lasting; close publishes them to the repo-wide log. */
-  lasting?: PendingDecision[];
-  /** Area docs a plan chose not to update, with why. `(uncovered)` stands for files no area covers. */
-  areaSkips?: { area: string; note: string; at: string }[];
-  /** Ids of the area docs that cover code this plan changed; set at close. */
-  areasTouched?: string[];
   log: LogEntry[];
 }
 
@@ -190,17 +184,4 @@ export interface Config {
   reproTimeoutMinutes?: number;
   /** The level `/cairn:new` pre-selects: mvp, standard or polished. Standard when unset. */
   defaultLevel?: string;
-}
-
-/** A lasting decision recorded in plan state until close publishes it to the repo-wide log. */
-export interface PendingDecision {
-  n: number;
-  question: string;
-  answer: string;
-  why?: string;
-  /** Id of the logged decision this one replaces. */
-  replaces?: string;
-  areas: string[];
-  paths: string[];
-  at: string;
 }
