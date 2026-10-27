@@ -978,13 +978,13 @@ var require_Collection = __commonJS({
 var require_stringifyComment = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
-    var stringifyComment = (str2) => str2.replace(/^(?!$)(?: $)?/gm, "#");
+    var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
     function indentComment(comment, indent) {
       if (/^\n+$/.test(comment))
         return comment.substring(1);
       return indent ? comment.replace(/^(?! *$)/gm, indent) : comment;
     }
-    var lineComment = (str2, indent, comment) => str2.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str2.endsWith(" ") ? "" : " ") + comment;
+    var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
     exports.indentComment = indentComment;
     exports.lineComment = lineComment;
     exports.stringifyComment = stringifyComment;
@@ -1138,16 +1138,16 @@ var require_stringifyString = __commonJS({
       lineWidth: ctx.options.lineWidth,
       minContentWidth: ctx.options.minContentWidth
     });
-    var containsDocumentMarker = (str2) => /^(%|---|\.\.\.)/m.test(str2);
-    function lineLengthOverLimit(str2, lineWidth, indentLength) {
+    var containsDocumentMarker = (str) => /^(%|---|\.\.\.)/m.test(str);
+    function lineLengthOverLimit(str, lineWidth, indentLength) {
       if (!lineWidth || lineWidth < 0)
         return false;
       const limit = lineWidth - indentLength;
-      const strLen = str2.length;
+      const strLen = str.length;
       if (strLen <= limit)
         return false;
       for (let i = 0, start = 0; i < strLen; ++i) {
-        if (str2[i] === "\n") {
+        if (str[i] === "\n") {
           if (i - start > limit)
             return true;
           start = i + 1;
@@ -1164,11 +1164,11 @@ var require_stringifyString = __commonJS({
       const { implicitKey } = ctx;
       const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
       const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
-      let str2 = "";
+      let str = "";
       let start = 0;
       for (let i = 0, ch = json[i]; ch; ch = json[++i]) {
         if (ch === " " && json[i + 1] === "\\" && json[i + 2] === "n") {
-          str2 += json.slice(start, i) + "\\ ";
+          str += json.slice(start, i) + "\\ ";
           i += 1;
           start = i;
           ch = "\\";
@@ -1177,38 +1177,38 @@ var require_stringifyString = __commonJS({
           switch (json[i + 1]) {
             case "u":
               {
-                str2 += json.slice(start, i);
+                str += json.slice(start, i);
                 const code = json.substr(i + 2, 4);
                 switch (code) {
                   case "0000":
-                    str2 += "\\0";
+                    str += "\\0";
                     break;
                   case "0007":
-                    str2 += "\\a";
+                    str += "\\a";
                     break;
                   case "000b":
-                    str2 += "\\v";
+                    str += "\\v";
                     break;
                   case "001b":
-                    str2 += "\\e";
+                    str += "\\e";
                     break;
                   case "0085":
-                    str2 += "\\N";
+                    str += "\\N";
                     break;
                   case "00a0":
-                    str2 += "\\_";
+                    str += "\\_";
                     break;
                   case "2028":
-                    str2 += "\\L";
+                    str += "\\L";
                     break;
                   case "2029":
-                    str2 += "\\P";
+                    str += "\\P";
                     break;
                   default:
                     if (code.substr(0, 2) === "00")
-                      str2 += "\\x" + code.substr(2);
+                      str += "\\x" + code.substr(2);
                     else
-                      str2 += json.substr(i, 6);
+                      str += json.substr(i, 6);
                 }
                 i += 5;
                 start = i + 1;
@@ -1218,14 +1218,14 @@ var require_stringifyString = __commonJS({
               if (implicitKey || json[i + 2] === '"' || json.length < minMultiLineLength) {
                 i += 1;
               } else {
-                str2 += json.slice(start, i) + "\n\n";
+                str += json.slice(start, i) + "\n\n";
                 while (json[i + 2] === "\\" && json[i + 3] === "n" && json[i + 4] !== '"') {
-                  str2 += "\n";
+                  str += "\n";
                   i += 2;
                 }
-                str2 += indent;
+                str += indent;
                 if (json[i + 2] === " ")
-                  str2 += "\\";
+                  str += "\\";
                 i += 1;
                 start = i + 1;
               }
@@ -1234,8 +1234,8 @@ var require_stringifyString = __commonJS({
               i += 1;
           }
       }
-      str2 = start ? str2 + json.slice(start) : json;
-      return implicitKey ? str2 : foldFlowLines.foldFlowLines(str2, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
+      str = start ? str + json.slice(start) : json;
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
     }
     function singleQuotedString(value, ctx) {
       if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
@@ -1363,15 +1363,15 @@ ${indent}${start}${value}${end}`;
           return quotedString(value, ctx);
         }
       }
-      const str2 = value.replace(/\n+/g, `$&
+      const str = value.replace(/\n+/g, `$&
 ${indent}`);
       if (actualString) {
-        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str2);
+        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
         const { compat, tags } = ctx.doc.schema;
         if (tags.some(test) || compat?.some(test))
           return quotedString(value, ctx);
       }
-      return implicitKey ? str2 : foldFlowLines.foldFlowLines(str2, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
     }
     function stringifyString(item, ctx, onComment, onChompKeep) {
       const { implicitKey, inFlow } = ctx;
@@ -1501,7 +1501,7 @@ var require_stringify = __commonJS({
         props.push(doc.directives.tagString(tag));
       return props.join(" ");
     }
-    function stringify2(item, ctx, onComment, onChompKeep) {
+    function stringify(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -1523,14 +1523,14 @@ var require_stringify = __commonJS({
       const props = stringifyProps(node, tagObj, ctx);
       if (props.length > 0)
         ctx.indentAtStart = (ctx.indentAtStart ?? 0) + props.length + 1;
-      const str2 = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
+      const str = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
       if (!props)
-        return str2;
-      return identity.isScalar(node) || str2[0] === "{" || str2[0] === "[" ? `${props} ${str2}` : `${props}
-${ctx.indent}${str2}`;
+        return str;
+      return identity.isScalar(node) || str[0] === "{" || str[0] === "[" ? `${props} ${str}` : `${props}
+${ctx.indent}${str}`;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify2;
+    exports.stringify = stringify;
   }
 });
 
@@ -1540,7 +1540,7 @@ var require_stringifyPair = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var stringify2 = require_stringify();
+    var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
@@ -1562,8 +1562,8 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str2 = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
-      if (!explicitKey && !ctx.inFlow && str2.length > 1024) {
+      let str = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      if (!explicitKey && !ctx.inFlow && str.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
         explicitKey = true;
@@ -1572,27 +1572,27 @@ var require_stringifyPair = __commonJS({
         if (allNullValues || value == null) {
           if (keyCommentDone && onComment)
             onComment();
-          return str2 === "" ? "?" : explicitKey ? `? ${str2}` : str2;
+          return str === "" ? "?" : explicitKey ? `? ${str}` : str;
         }
       } else if (allNullValues && !simpleKeys || value == null && explicitKey) {
-        str2 = `? ${str2}`;
+        str = `? ${str}`;
         if (keyComment && !keyCommentDone) {
-          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
         } else if (chompKeep && onChompKeep)
           onChompKeep();
-        return str2;
+        return str;
       }
       if (keyCommentDone)
         keyComment = null;
       if (explicitKey) {
         if (keyComment)
-          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
-        str2 = `? ${str2}
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+        str = `? ${str}
 ${indent}:`;
       } else {
-        str2 = `${str2}:`;
+        str = `${str}:`;
         if (keyComment)
-          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
       }
       let vsb, vcb, valueComment;
       if (identity.isNode(value)) {
@@ -1608,13 +1608,13 @@ ${indent}:`;
       }
       ctx.implicitKey = false;
       if (!explicitKey && !keyComment && identity.isScalar(value))
-        ctx.indentAtStart = str2.length + 1;
+        ctx.indentAtStart = str.length + 1;
       chompKeep = false;
       if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor) {
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
-      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      const valueStr = stringify.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
       let ws = " ";
       if (keyComment || vsb || vcb) {
         ws = vsb ? "\n" : "";
@@ -1652,16 +1652,16 @@ ${ctx.indent}`;
       } else if (valueStr === "" || valueStr[0] === "\n") {
         ws = "";
       }
-      str2 += ws + valueStr;
+      str += ws + valueStr;
       if (ctx.inFlow) {
         if (valueCommentDone && onComment)
           onComment();
       } else if (valueComment && !valueCommentDone) {
-        str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(valueComment));
+        str += stringifyComment.lineComment(str, ctx.indent, commentString(valueComment));
       } else if (chompKeep && onChompKeep) {
         onChompKeep();
       }
-      return str2;
+      return str;
     }
     exports.stringifyPair = stringifyPair;
   }
@@ -1755,7 +1755,7 @@ var require_addPairToJSMap = __commonJS({
     "use strict";
     var log2 = require_log();
     var merge = require_merge();
-    var stringify2 = require_stringify();
+    var stringify = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map, { key, value }) {
@@ -1791,7 +1791,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey !== "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
+        const strCtx = stringify.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -1858,12 +1858,12 @@ var require_stringifyCollection = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify2 = require_stringify();
+    var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       const flow = ctx.inFlow ?? collection.flow;
-      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
-      return stringify3(collection, ctx, options);
+      const stringify2 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify2(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
       const { indent, options: { commentString } } = ctx;
@@ -1888,31 +1888,31 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str3 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str2 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
-          str3 += stringifyComment.lineComment(str3, itemIndent, commentString(comment2));
+          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
           chompKeep = false;
-        lines.push(blockItemPrefix + str3);
+        lines.push(blockItemPrefix + str2);
       }
-      let str2;
+      let str;
       if (lines.length === 0) {
-        str2 = flowChars.start + flowChars.end;
+        str = flowChars.start + flowChars.end;
       } else {
-        str2 = lines[0];
+        str = lines[0];
         for (let i = 1; i < lines.length; ++i) {
           const line = lines[i];
-          str2 += line ? `
+          str += line ? `
 ${indent}${line}` : "\n";
         }
       }
       if (comment) {
-        str2 += "\n" + stringifyComment.indentComment(commentString(comment), indent);
+        str += "\n" + stringifyComment.indentComment(commentString(comment), indent);
         if (onComment)
           onComment();
       } else if (chompKeep && onChompKeep)
         onChompKeep();
-      return str2;
+      return str;
     }
     function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
       const { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
@@ -1955,21 +1955,21 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str2 = stringify2.stringify(item, itemCtx, () => comment = null);
-        reqNewline || (reqNewline = lines.length > linesAtValue || str2.includes("\n"));
+        let str = stringify.stringify(item, itemCtx, () => comment = null);
+        reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
         if (i < items.length - 1) {
-          str2 += ",";
+          str += ",";
         } else if (ctx.options.trailingComma) {
           if (ctx.options.lineWidth > 0) {
-            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str2.length + 2) > ctx.options.lineWidth);
+            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
           }
           if (reqNewline) {
-            str2 += ",";
+            str += ",";
           }
         }
         if (comment)
-          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment));
-        lines.push(str2);
+          str += stringifyComment.lineComment(str, itemIndent, commentString(comment));
+        lines.push(str);
         linesAtValue = lines.length;
       }
       const { start, end } = flowChars;
@@ -1981,11 +1981,11 @@ ${indent}${line}` : "\n";
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
-          let str2 = start;
+          let str = start;
           for (const line of lines)
-            str2 += line ? `
+            str += line ? `
 ${indentStep}${indent}${line}` : "\n";
-          return `${str2}
+          return `${str}
 ${indent}${end}`;
         } else {
           return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
@@ -2317,7 +2317,7 @@ var require_string = __commonJS({
       identify: (value) => typeof value === "string",
       default: true,
       tag: "tag:yaml.org,2002:str",
-      resolve: (str2) => str2,
+      resolve: (str) => str,
       stringify(item, ctx, onComment, onChompKeep) {
         ctx = Object.assign({ actualString: true }, ctx);
         return stringifyString.stringifyString(item, ctx, onComment, onChompKeep);
@@ -2355,7 +2355,7 @@ var require_bool = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:bool",
       test: /^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$/,
-      resolve: (str2) => new Scalar.Scalar(str2[0] === "t" || str2[0] === "T"),
+      resolve: (str) => new Scalar.Scalar(str[0] === "t" || str[0] === "T"),
       stringify({ source, value }, ctx) {
         if (source && boolTag.test.test(source)) {
           const sv = source[0] === "t" || source[0] === "T";
@@ -2407,7 +2407,7 @@ var require_float = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
-      resolve: (str2) => str2.slice(-3).toLowerCase() === "nan" ? NaN : str2[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
       stringify: stringifyNumber.stringifyNumber
     };
     var floatExp = {
@@ -2416,7 +2416,7 @@ var require_float = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "EXP",
       test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
-      resolve: (str2) => parseFloat(str2),
+      resolve: (str) => parseFloat(str),
       stringify(node) {
         const num = Number(node.value);
         return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
@@ -2427,11 +2427,11 @@ var require_float = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/,
-      resolve(str2) {
-        const node = new Scalar.Scalar(parseFloat(str2));
-        const dot = str2.indexOf(".");
-        if (dot !== -1 && str2[str2.length - 1] === "0")
-          node.minFractionDigits = str2.length - dot - 1;
+      resolve(str) {
+        const node = new Scalar.Scalar(parseFloat(str));
+        const dot = str.indexOf(".");
+        if (dot !== -1 && str[str.length - 1] === "0")
+          node.minFractionDigits = str.length - dot - 1;
         return node;
       },
       stringify: stringifyNumber.stringifyNumber
@@ -2448,7 +2448,7 @@ var require_int = __commonJS({
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
-    var intResolve = (str2, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str2) : parseInt(str2.substring(offset), radix);
+    var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
     function intStringify(node, radix, prefix) {
       const { value } = node;
       if (intIdentify(value) && value >= 0)
@@ -2461,7 +2461,7 @@ var require_int = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "OCT",
       test: /^0o[0-7]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 2, 8, opt),
+      resolve: (str, _onError, opt) => intResolve(str, 2, 8, opt),
       stringify: (node) => intStringify(node, 8, "0o")
     };
     var int = {
@@ -2469,7 +2469,7 @@ var require_int = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:int",
       test: /^[-+]?[0-9]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 0, 10, opt),
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
       stringify: stringifyNumber.stringifyNumber
     };
     var intHex = {
@@ -2478,7 +2478,7 @@ var require_int = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "HEX",
       test: /^0x[0-9a-fA-F]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 2, 16, opt),
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
       stringify: (node) => intStringify(node, 16, "0x")
     };
     exports.int = int;
@@ -2531,7 +2531,7 @@ var require_schema2 = __commonJS({
         identify: (value) => typeof value === "string",
         default: true,
         tag: "tag:yaml.org,2002:str",
-        resolve: (str2) => str2,
+        resolve: (str) => str,
         stringify: stringifyJSON
       },
       {
@@ -2548,7 +2548,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:bool",
         test: /^true$|^false$/,
-        resolve: (str2) => str2 === "true",
+        resolve: (str) => str === "true",
         stringify: stringifyJSON
       },
       {
@@ -2556,7 +2556,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:int",
         test: /^-?(?:0|[1-9][0-9]*)$/,
-        resolve: (str2, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str2) : parseInt(str2, 10),
+        resolve: (str, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str, 10),
         stringify: ({ value }) => intIdentify(value) ? value.toString() : JSON.stringify(value)
       },
       {
@@ -2564,7 +2564,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:float",
         test: /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?$/,
-        resolve: (str2) => parseFloat(str2),
+        resolve: (str) => parseFloat(str),
         stringify: stringifyJSON
       }
     ];
@@ -2572,9 +2572,9 @@ var require_schema2 = __commonJS({
       default: true,
       tag: "",
       test: /^/,
-      resolve(str2, onError) {
-        onError(`Unresolved plain scalar ${JSON.stringify(str2)}`);
-        return str2;
+      resolve(str, onError) {
+        onError(`Unresolved plain scalar ${JSON.stringify(str)}`);
+        return str;
       }
     };
     var schema = [map.map, seq.seq].concat(jsonScalars, jsonError);
@@ -2606,10 +2606,10 @@ var require_binary = __commonJS({
         if (typeof node_buffer.Buffer === "function") {
           return node_buffer.Buffer.from(src, "base64");
         } else if (typeof atob === "function") {
-          const str2 = atob(src.replace(/[\n\r]/g, ""));
-          const buffer = new Uint8Array(str2.length);
-          for (let i = 0; i < str2.length; ++i)
-            buffer[i] = str2.charCodeAt(i);
+          const str = atob(src.replace(/[\n\r]/g, ""));
+          const buffer = new Uint8Array(str.length);
+          for (let i = 0; i < str.length; ++i)
+            buffer[i] = str.charCodeAt(i);
           return buffer;
         } else {
           onError("This environment does not support reading binary tags; either Buffer or atob is required");
@@ -2620,28 +2620,28 @@ var require_binary = __commonJS({
         if (!value)
           return "";
         const buf = value;
-        let str2;
+        let str;
         if (typeof node_buffer.Buffer === "function") {
-          str2 = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
+          str = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
         } else if (typeof btoa === "function") {
           let s = "";
           for (let i = 0; i < buf.length; ++i)
             s += String.fromCharCode(buf[i]);
-          str2 = btoa(s);
+          str = btoa(s);
         } else {
           throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
         }
         type ?? (type = Scalar.Scalar.BLOCK_LITERAL);
         if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
           const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
-          const n = Math.ceil(str2.length / lineWidth);
+          const n = Math.ceil(str.length / lineWidth);
           const lines = new Array(n);
           for (let i = 0, o = 0; i < n; ++i, o += lineWidth) {
-            lines[i] = str2.substr(o, lineWidth);
+            lines[i] = str.substr(o, lineWidth);
           }
-          str2 = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
+          str = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
         }
-        return stringifyString.stringifyString({ comment, type, value: str2 }, ctx, onComment, onChompKeep);
+        return stringifyString.stringifyString({ comment, type, value: str }, ctx, onComment, onChompKeep);
       }
     };
     exports.binary = binary;
@@ -2847,7 +2847,7 @@ var require_float2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
-      resolve: (str2) => str2.slice(-3).toLowerCase() === "nan" ? NaN : str2[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
       stringify: stringifyNumber.stringifyNumber
     };
     var floatExp = {
@@ -2856,7 +2856,7 @@ var require_float2 = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "EXP",
       test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
-      resolve: (str2) => parseFloat(str2.replace(/_/g, "")),
+      resolve: (str) => parseFloat(str.replace(/_/g, "")),
       stringify(node) {
         const num = Number(node.value);
         return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
@@ -2867,11 +2867,11 @@ var require_float2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*$/,
-      resolve(str2) {
-        const node = new Scalar.Scalar(parseFloat(str2.replace(/_/g, "")));
-        const dot = str2.indexOf(".");
+      resolve(str) {
+        const node = new Scalar.Scalar(parseFloat(str.replace(/_/g, "")));
+        const dot = str.indexOf(".");
         if (dot !== -1) {
-          const f = str2.substring(dot + 1).replace(/_/g, "");
+          const f = str.substring(dot + 1).replace(/_/g, "");
           if (f[f.length - 1] === "0")
             node.minFractionDigits = f.length;
         }
@@ -2891,34 +2891,34 @@ var require_int2 = __commonJS({
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
-    function intResolve(str2, offset, radix, { intAsBigInt }) {
-      const sign = str2[0];
+    function intResolve(str, offset, radix, { intAsBigInt }) {
+      const sign = str[0];
       if (sign === "-" || sign === "+")
         offset += 1;
-      str2 = str2.substring(offset).replace(/_/g, "");
+      str = str.substring(offset).replace(/_/g, "");
       if (intAsBigInt) {
         switch (radix) {
           case 2:
-            str2 = `0b${str2}`;
+            str = `0b${str}`;
             break;
           case 8:
-            str2 = `0o${str2}`;
+            str = `0o${str}`;
             break;
           case 16:
-            str2 = `0x${str2}`;
+            str = `0x${str}`;
             break;
         }
-        const n2 = BigInt(str2);
+        const n2 = BigInt(str);
         return sign === "-" ? BigInt(-1) * n2 : n2;
       }
-      const n = parseInt(str2, radix);
+      const n = parseInt(str, radix);
       return sign === "-" ? -1 * n : n;
     }
     function intStringify(node, radix, prefix) {
       const { value } = node;
       if (intIdentify(value)) {
-        const str2 = value.toString(radix);
-        return value < 0 ? "-" + prefix + str2.substr(1) : prefix + str2;
+        const str = value.toString(radix);
+        return value < 0 ? "-" + prefix + str.substr(1) : prefix + str;
       }
       return stringifyNumber.stringifyNumber(node);
     }
@@ -2928,7 +2928,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "BIN",
       test: /^[-+]?0b[0-1_]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 2, 2, opt),
+      resolve: (str, _onError, opt) => intResolve(str, 2, 2, opt),
       stringify: (node) => intStringify(node, 2, "0b")
     };
     var intOct = {
@@ -2937,7 +2937,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "OCT",
       test: /^[-+]?0[0-7_]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 1, 8, opt),
+      resolve: (str, _onError, opt) => intResolve(str, 1, 8, opt),
       stringify: (node) => intStringify(node, 8, "0")
     };
     var int = {
@@ -2945,7 +2945,7 @@ var require_int2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:int",
       test: /^[-+]?[0-9][0-9_]*$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 0, 10, opt),
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
       stringify: stringifyNumber.stringifyNumber
     };
     var intHex = {
@@ -2954,7 +2954,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "HEX",
       test: /^[-+]?0x[0-9a-fA-F_]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 2, 16, opt),
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
       stringify: (node) => intStringify(node, 16, "0x")
     };
     exports.int = int;
@@ -3058,9 +3058,9 @@ var require_timestamp = __commonJS({
   "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
-    function parseSexagesimal(str2, asBigInt) {
-      const sign = str2[0];
-      const parts = sign === "-" || sign === "+" ? str2.substring(1) : str2;
+    function parseSexagesimal(str, asBigInt) {
+      const sign = str[0];
+      const parts = sign === "-" || sign === "+" ? str.substring(1) : str;
       const num = (n) => asBigInt ? BigInt(n) : Number(n);
       const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
       return sign === "-" ? num(-1) * res : res;
@@ -3097,7 +3097,7 @@ var require_timestamp = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "TIME",
       test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+$/,
-      resolve: (str2, _onError, { intAsBigInt }) => parseSexagesimal(str2, intAsBigInt),
+      resolve: (str, _onError, { intAsBigInt }) => parseSexagesimal(str, intAsBigInt),
       stringify: stringifySexagesimal
     };
     var floatTime = {
@@ -3106,7 +3106,7 @@ var require_timestamp = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "TIME",
       test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*$/,
-      resolve: (str2) => parseSexagesimal(str2, false),
+      resolve: (str) => parseSexagesimal(str, false),
       stringify: stringifySexagesimal
     };
     var timestamp = {
@@ -3117,8 +3117,8 @@ var require_timestamp = __commonJS({
       // may be omitted altogether, resulting in a date format. In such a case, the time part is
       // assumed to be 00:00:00Z (start of day, UTC).
       test: RegExp("^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:t|T|[ \\t]+)([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}(\\.[0-9]+)?)(?:[ \\t]*(Z|[-+][012]?[0-9](?::[0-9]{2})?))?)?$"),
-      resolve(str2) {
-        const match = str2.match(timestamp.test);
+      resolve(str) {
+        const match = str.match(timestamp.test);
         if (!match)
           throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
         const [, year, month, day2, hour, minute, second] = match.map(Number);
@@ -3316,7 +3316,7 @@ var require_stringifyDocument = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify2 = require_stringify();
+    var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       const lines = [];
@@ -3331,7 +3331,7 @@ var require_stringifyDocument = __commonJS({
       }
       if (hasDirectives)
         lines.push("---");
-      const ctx = stringify2.createStringifyContext(doc, options);
+      const ctx = stringify.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
         if (lines.length !== 1)
@@ -3353,7 +3353,7 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body = stringify.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
         if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
@@ -3361,7 +3361,7 @@ var require_stringifyDocument = __commonJS({
         } else
           lines.push(body);
       } else {
-        lines.push(stringify2.stringify(doc.contents, ctx));
+        lines.push(stringify.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
@@ -5497,7 +5497,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -5550,7 +5550,7 @@ var require_cst_stringify = __commonJS({
         res += stringifyToken(value);
       return res;
     }
-    exports.stringify = stringify2;
+    exports.stringify = stringify;
   }
 });
 
@@ -7261,7 +7261,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse4(src, reviver, options) {
+    function parse3(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7280,7 +7280,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify2(value, replacer, options) {
+    function stringify(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer === "function" || Array.isArray(replacer)) {
         _replacer = replacer;
@@ -7302,10 +7302,10 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse4;
+    exports.parse = parse3;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
-    exports.stringify = stringify2;
+    exports.stringify = stringify;
   }
 });
 
@@ -7443,6 +7443,7 @@ function withLock(dir, fn) {
     }
   }
 }
+var stripControl = (s) => s.replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, "");
 
 // plugins/cairn/cli/src/git.ts
 var NO_AUTO_MAINTENANCE = ["-c", "gc.auto=0", "-c", "maintenance.auto=false"];
@@ -8249,369 +8250,122 @@ function template(name) {
 }
 
 // plugins/cairn/cli/src/commands/plans.ts
-import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
-import { join as join9, resolve } from "node:path";
-
-// plugins/cairn/cli/src/areas.ts
-var import_yaml = __toESM(require_dist(), 1);
-import { existsSync as existsSync3, readdirSync as readdirSync2 } from "node:fs";
-import { join as join7 } from "node:path";
-var SYSTEM_DIR = `${DOCS_DIR}/system`;
-function parseFrontmatter(md) {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(md);
-  if (!m) return void 0;
-  const data = (0, import_yaml.parse)(m[1]);
-  return { data: data && typeof data === "object" && !Array.isArray(data) ? data : {}, body: m[2] };
-}
-var nonEmpty = (v) => typeof v === "string" && v.trim() !== "";
-function loadAreas(root) {
-  const areas = [];
-  const problems = [];
-  const dir = join7(root, SYSTEM_DIR);
-  if (!existsSync3(dir)) return { areas, problems };
-  let names;
-  try {
-    names = readdirSync2(dir).filter((f) => f.endsWith(".md")).sort();
-  } catch {
-    return { areas, problems: [`${SYSTEM_DIR} is not a folder`] };
-  }
-  for (const name of names) {
-    const file = `${SYSTEM_DIR}/${name}`;
-    const id = name.slice(0, -3);
-    if (!SLUG.test(id)) {
-      problems.push(`${file} file name must be kebab-case`);
-      continue;
-    }
-    let fm;
-    try {
-      fm = parseFrontmatter(readText(join7(dir, name)) ?? "");
-    } catch (e) {
-      problems.push(`${file} frontmatter is not valid YAML: ${e.message.split("\n")[0]}`);
-      continue;
-    }
-    if (!fm) {
-      problems.push(`${file} has no frontmatter`);
-      continue;
-    }
-    const { area, summary: summary2, paths } = fm.data;
-    if (!Array.isArray(paths) || paths.length === 0 || !paths.every(nonEmpty)) {
-      problems.push(`${file} needs a non-empty paths list`);
-      continue;
-    }
-    if (!nonEmpty(area) || !nonEmpty(summary2)) {
-      problems.push(`${file} needs area and summary`);
-      continue;
-    }
-    areas.push({ id, name: area, summary: summary2, paths, file });
-  }
-  return { areas: areas.sort((a, b) => a.id.localeCompare(b.id)), problems };
-}
-var areasForFile = (file, areas) => areas.filter((a) => matchesAny(file, a.paths));
-var areasForScopes = (globs, areas) => areas.filter((a) => scopesOverlap(globs, a.paths));
-
-// plugins/cairn/cli/src/decision-log.ts
-var import_yaml2 = __toESM(require_dist(), 1);
-import { existsSync as existsSync4, mkdirSync as mkdirSync3, readdirSync as readdirSync3, writeFileSync as writeFileSync3 } from "node:fs";
-import { join as join8 } from "node:path";
-var DECISIONS_DIR = `${DOCS_DIR}/decisions`;
-var strings = (v) => Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
-var str = (v) => typeof v === "string" && v !== "" ? v : v instanceof Date ? v.toISOString().slice(0, 10) : void 0;
-function parseDecision(name, text) {
-  let fm;
-  try {
-    fm = parseFrontmatter(text);
-  } catch {
-    return void 0;
-  }
-  if (!fm) return void 0;
-  const { id, status, replaced_by, replaces, areas, paths, plan: plan2, date } = fm.data;
-  const q = /^# (.+)$/m.exec(fm.body);
-  const a = /\*\*Decision:\*\* ([\s\S]*?)(?:\n\n\*\*Why:\*\* |\s*$)/.exec(fm.body);
-  const w = /\n\n\*\*Why:\*\* ([\s\S]*?)\s*$/.exec(fm.body);
-  if (!str(id) || status !== "active" && status !== "replaced" || !q || !a || !str(plan2) || !str(date)) return void 0;
-  return {
-    body: fm.body,
-    d: {
-      id: str(id),
-      question: q[1],
-      answer: a[1],
-      why: w?.[1],
-      status,
-      replacedBy: str(replaced_by),
-      replaces: str(replaces),
-      areas: strings(areas),
-      paths: strings(paths),
-      plan: str(plan2),
-      date: str(date),
-      file: `${DECISIONS_DIR}/${name}`
-    }
-  };
-}
-function render(d, body) {
-  const fm = { id: d.id, status: d.status };
-  if (d.replacedBy) fm.replaced_by = d.replacedBy;
-  if (d.replaces) fm.replaces = d.replaces;
-  if (d.areas.length) fm.areas = d.areas;
-  if (d.paths.length) fm.paths = d.paths;
-  fm.plan = d.plan;
-  fm.date = d.date;
-  return `---
-${(0, import_yaml2.stringify)(fm)}---
-${body}`;
-}
-var bodyOf = (p) => `
-# ${p.question}
-
-**Decision:** ${p.answer}
-${p.why ? `
-**Why:** ${p.why}
-` : ""}`;
-function readAll(root) {
-  const dir = join8(root, DECISIONS_DIR);
-  if (!existsSync4(dir)) return [];
-  const out = [];
-  for (const name of readdirSync3(dir).filter((f) => f.endsWith(".md")).sort()) {
-    const parsed = parseDecision(name, readText(join8(dir, name)) ?? "");
-    if (parsed) out.push(parsed);
-  }
-  return out;
-}
-var loadDecisions = (root) => readAll(root).map((x) => x.d);
-function decisionId(date, question, taken) {
-  const words = question.toLowerCase().replace(/[^a-z0-9]+/g, "-").split("-").filter(Boolean).slice(0, 6).join("-");
-  const base = `${date}-${words}`.replace(/^-+|-+$/g, "");
-  let id = base;
-  for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
-  return id;
-}
-function activeDecisionsFor(globs, areaIds, all) {
-  return all.filter((d) => d.status === "active" && (d.areas.some((a) => areaIds.includes(a)) || d.paths.length > 0 && scopesOverlap(globs, d.paths)));
-}
-function publishDecisions(root, plan2, date, pending) {
-  const existing = readAll(root);
-  const taken = new Set(existing.map((x) => x.d.id));
-  const written = [];
-  const dir = join8(root, DECISIONS_DIR);
-  for (const p of pending) {
-    if (existing.some((x) => x.d.plan === plan2 && x.d.question === p.question)) continue;
-    const id = decisionId(date, p.question, taken);
-    if (/[/\\]|\.\./.test(id)) throw new Refusal(`"${id}" is not a usable decision id`, ["use a date like 2026-10-27"]);
-    mkdirSync3(dir, { recursive: true });
-    taken.add(id);
-    const d = { id, question: p.question, answer: p.answer, why: p.why, status: "active", replaces: p.replaces, areas: p.areas, paths: p.paths, plan: plan2, date, file: `${DECISIONS_DIR}/${id}.md` };
-    writeFileSync3(join8(root, d.file), render(d, bodyOf(p)));
-    written.push(d.file);
-    const old = p.replaces ? existing.find((x) => x.d.id === p.replaces) : void 0;
-    if (old) {
-      old.d.status = "replaced";
-      old.d.replacedBy = id;
-      writeFileSync3(join8(root, old.d.file), render(old.d, old.body));
-      written.push(old.d.file);
-    }
-    existing.push({ d, body: bodyOf(p) });
-  }
-  return written;
-}
-
-// plugins/cairn/cli/src/commands/plans.ts
-function cmdNew(ctx, slug, opts) {
-  if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "\u2026"');
-  const track = opts.track === "fix" ? "fix" : "feature";
-  const branch = planBranch(slug, track);
-  const existing = planBranchesFor(slug, ctx.top)[0];
-  if (existing) throw new Refusal(`a plan named "${slug}" already exists (${existing})`, [`cairn resume ${slug}`, "or pick another slug"]);
-  if (!gitOk(["rev-parse", "--verify", "HEAD"], ctx.top)) throw new Refusal("the repository has no commits yet", ["make an initial commit first"]);
-  const mainBranch = ctx.worktrees[0]?.branch ?? ctx.branch;
-  const base = typeof opts.from === "string" ? opts.from : ctx.plan ? mainBranch : ctx.branch;
-  const title = typeof opts.title === "string" ? opts.title : slug;
-  const cfg = loadConfig(ctx.top, ctx.mainRoot);
-  if (typeof opts.level === "string" && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(", ")}`);
-  const badDefault = cfg.defaultLevel !== void 0 && !isLevel(cfg.defaultLevel);
-  const level = typeof opts.level === "string" ? opts.level : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : "standard";
-  let wt;
-  if (opts["no-worktree"]) {
-    git(["switch", "-q", "-c", branch, base], ctx.top);
-    wt = ctx.top;
-  } else {
-    const root = worktreeRoot(cfg, ctx.mainRoot);
-    if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-    wt = join9(root, worktreeName(branch));
-    git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
-  }
-  const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
-  const dir = join9(wt, rel);
-  writeText(join9(dir, "decisions.md"), `# Decisions: ${title}
-
-Append-only. Written by \`cairn decide\` as each decision is made.
-`);
-  const state = newState(slug, title, track, branch, base, track === "fix" ? "repro" : "discover");
-  state.cairnVersion = pluginVersion();
-  if (track === "feature") {
-    state.level = level;
-    log(state, "level", level);
-  }
-  saveState(dir, state);
-  if (cfg.autoCommit) commitPath(wt, rel, `cairn(${slug}): start plan "${title}"`);
-  const setup = opts["no-worktree"] ? "" : runSetup(cfg, wt, ctx.mainRoot);
-  return {
-    message: [
-      `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
-      ...badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(", ")}; using standard.`] : [],
-      `Worktree: ${wt}`,
-      `The plan is ready. Continue with /cairn:next from where you are.`
-    ].join("\n"),
-    data: { slug, branch, base, worktree: wt, dir, level: track === "feature" ? level : null }
-  };
-}
-function cmdProductInit(ctx) {
-  const dir = join9(ctx.top, `${DOCS_DIR}/product`);
-  const prd = join9(dir, "PRD.md");
-  if (existsSync5(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
-  writeText(prd, template("product-prd.md") ?? "# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n");
-  writeText(join9(dir, "decisions", ".gitkeep"), "");
-  return { message: `Created ${DOCS_DIR}/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
-}
-var csv = (v) => typeof v === "string" ? v.split(",").map((x) => x.trim()).filter(Boolean) : [];
-var today = () => planDirName("", /* @__PURE__ */ new Date()).slice(0, 10);
-function checkLasting(root, l) {
-  if (!l.areas.length && !l.paths.length) throw new Refusal("a lasting decision needs --areas or --paths, so recall can find it", ['add --areas <area-id>[,\u2026] or --paths "<glob>[,\u2026]"']);
-  const { areas } = loadAreas(root);
-  const bad = areas.length ? l.areas.filter((a) => !areas.some((x) => x.id === a)) : [];
-  if (bad.length) throw new Refusal(`unknown area ${bad.join(", ")}`, [`use one of: ${areas.map((x) => x.id).join(", ")}`]);
-  if (l.replaces && !loadDecisions(root).some((d) => d.id === l.replaces))
-    throw new Refusal(`no logged decision "${l.replaces}" to replace`, ["cairn recall lists logged decisions with their ids"]);
-}
-function inheritScope(root, l) {
-  if (!l.replaces || l.areas.length || l.paths.length) return;
-  const old = loadDecisions(root).find((d) => d.id === l.replaces);
-  if (old) {
-    l.areas = old.areas;
-    l.paths = old.paths;
-  }
-}
-function cmdDecide(ctx, question, answer, opts) {
-  const f = typeof opts.file === "string" ? readDecisionFile(ctx.cwd, opts.file) : {};
-  const d = typeof opts.file === "string" ? f : { question, answer, why: typeof opts.why === "string" ? opts.why : void 0 };
-  const lasting = {
-    areas: [...csv(opts.areas), ...f.areas ?? []],
-    paths: [...csv(opts.paths), ...f.paths ?? []],
-    replaces: typeof opts.replaces === "string" ? opts.replaces : f.replaces
-  };
-  const promote = opts.promote !== void 0;
-  const isLasting = opts.lasting === true || f.lasting === true;
-  if (promote) {
-    const n2 = Number(opts.promote);
-    if (!Number.isInteger(n2) || n2 < 1) throw new CliError("usage: cairn decide --promote <n> --areas a,b [--paths g1,g2] [--replaces <id>]");
-    const pc2 = planCtx(ctx);
-    inheritScope(pc2.plan.worktree, lasting);
-    return promoteDecision(pc2, n2, lasting);
-  }
-  if (!d.question || !d.answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "\u2026"] [--lasting --areas a,b] | cairn decide --file <path> | cairn decide --promote <n> --areas a,b');
-  if (!ctx.plan) {
-    if (!isLasting || typeof opts.plan !== "string") planCtx(ctx);
-    const plan2 = String(opts.plan);
-    const date = typeof opts.date === "string" ? opts.date : today();
-    if (!SLUG.test(plan2)) throw new Refusal(`"${plan2}" is not a plan name`, ["use a kebab-case name, e.g. --plan map"]);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Refusal(`"${date}" is not a date`, ["use --date YYYY-MM-DD"]);
-    inheritScope(ctx.top, lasting);
-    checkLasting(ctx.top, lasting);
-    const p = { n: 0, question: d.question, answer: d.answer, why: d.why, ...lasting, at: now() };
-    const files = publishDecisions(ctx.top, plan2, date, [p]);
-    return { message: files.length ? `Logged decision: ${d.answer}` : `Already logged: ${d.question}`, data: { files } };
-  }
-  const pc = planCtx(ctx);
-  if (isLasting) {
-    inheritScope(pc.plan.worktree, lasting);
-    checkLasting(pc.plan.worktree, lasting);
-  }
-  const n = appendDecision(pc, d.question, d.answer, d.why, isLasting ? lasting : void 0);
-  if (isLasting) mutate(pc, void 0, (s) => void (s.lasting ??= []).push({ n, question: d.question, answer: d.answer, why: d.why, ...lasting, at: now() }));
-  return { message: `Recorded decision ${n}${isLasting ? " as lasting" : ""}: ${d.answer}`, data: { number: n } };
-}
-function promoteDecision(pc, n, lasting) {
-  checkLasting(pc.plan.worktree, lasting);
-  const file = planFile(pc, "decisions.md");
-  const cur = readText(file) ?? "";
-  const found = parseDecisions(cur).find((x) => x.n === n);
-  if (!found) throw new Refusal(`no decision ${n} in decisions.md`, ['cairn decide "<question>" "<answer>" --lasting records a new one']);
-  if (loadState(pc.plan.dir).lasting?.some((x) => x.n === n)) throw new Refusal(`decision ${n} is already lasting`);
-  writeText(file, withLastingLine(cur, n, lasting));
-  mutate(pc, void 0, (s) => void (s.lasting ??= []).push({ ...found, ...lasting, at: now() }));
-  return { message: `Flagged decision ${n} as lasting: ${found.answer}`, data: { number: n } };
-}
-function parseDecisions(md) {
-  const out = [];
-  for (const block of md.split(/^(?=### \d+\. )/m)) {
-    const h = /^### (\d+)\. (.*)\n/.exec(block);
-    if (!h) continue;
-    const rest = block.slice(h[0].length);
-    const a = /^\*\*Decision:\*\* ([\s\S]*?)(?=\n\*\*Why:\*\* |\n\*\*Lasting:\*\* |\n_[^\n]*_\s*$|\s*$)/.exec(rest);
-    if (!a) continue;
-    const w = /\n\*\*Why:\*\* ([\s\S]*?)(?=\n\*\*Lasting:\*\* |\n_[^\n]*_\s*$|\s*$)/.exec(rest);
-    out.push({ n: Number(h[1]), question: h[2], answer: a[1], ...w ? { why: w[1] } : {} });
-  }
-  return out;
-}
-var lastingLine = (l) => `**Lasting:** ${[l.areas.length ? `areas: ${l.areas.join(", ")}` : "", l.paths.length ? `paths: ${l.paths.join(", ")}` : "", l.replaces ? `replaces: ${l.replaces}` : ""].filter(Boolean).join("; ")}`;
-function withLastingLine(md, n, l) {
-  return md.split(/^(?=### \d+\. )/m).map((block) => {
-    if (!block.startsWith(`### ${n}. `)) return block;
-    const lines = block.replace(/\n*$/, "").split("\n");
-    const at = /^_.*_$/.test(lines[lines.length - 1]) ? lines.length - 1 : lines.length;
-    lines.splice(at, 0, lastingLine(l));
-    return `${lines.join("\n")}
-`;
-  }).join("");
-}
-function readDecisionFile(cwd, file) {
-  let data;
-  try {
-    data = JSON.parse(readFileSync5(resolve(cwd, file), "utf8"));
-  } catch (e) {
-    throw new CliError(`cannot read decision file ${file}: ${e.message}`);
-  }
-  const obj = data;
-  const list2 = (v) => v === void 0 || Array.isArray(v) && v.every((x) => typeof x === "string");
-  if (!obj || typeof obj !== "object" || Array.isArray(obj) || typeof obj.question !== "string" || typeof obj.answer !== "string" || obj.why !== void 0 && typeof obj.why !== "string" || !list2(obj.areas) || !list2(obj.paths) || obj.replaces !== void 0 && typeof obj.replaces !== "string" || obj.lasting !== void 0 && typeof obj.lasting !== "boolean")
-    throw new CliError(`decision file ${file} must be a JSON object {"question": "\u2026", "answer": "\u2026", "why": "\u2026"} (why optional; lasting, areas, paths, replaces optional)`);
-  return { question: obj.question, answer: obj.answer, why: obj.why, lasting: obj.lasting, areas: obj.areas, paths: obj.paths, replaces: obj.replaces };
-}
-function appendDecision(pc, question, answer, why, lasting) {
-  const file = planFile(pc, "decisions.md");
-  const cur = readText(file) ?? "# Decisions\n";
-  const n = (cur.match(/^### /gm)?.length ?? 0) + 1;
-  writeText(file, `${cur.replace(/\n*$/, "\n")}
-### ${n}. ${question}
-**Decision:** ${answer}${why ? `
-**Why:** ${why}` : ""}${lasting ? `
-${lastingLine(lasting)}` : ""}
-_${now().slice(0, 16).replace("T", " ")}_
-`);
-  return n;
-}
-
-// plugins/cairn/cli/src/commands/stages.ts
-import { join as join16 } from "node:path";
+import { existsSync as existsSync7, readFileSync as readFileSync6 } from "node:fs";
+import { join as join14, resolve } from "node:path";
 
 // plugins/cairn/cli/src/commands/memory.ts
-import { existsSync as existsSync9 } from "node:fs";
-import { join as join14 } from "node:path";
+import { join as join13 } from "node:path";
 
 // plugins/cairn/cli/src/memory.ts
-import { existsSync as existsSync8 } from "node:fs";
-import { basename as basename3, join as join13, posix } from "node:path";
+import { existsSync as existsSync6 } from "node:fs";
+import { basename as basename3, join as join12, posix } from "node:path";
 
 // plugins/cairn/cli/src/commands/records.ts
-import { existsSync as existsSync7, readdirSync as readdirSync5 } from "node:fs";
-import { basename as basename2, dirname as dirname3, join as join12 } from "node:path";
+import { existsSync as existsSync5, readdirSync as readdirSync3 } from "node:fs";
+import { basename as basename2, dirname as dirname3, join as join11 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync6, readFileSync as readFileSync6 } from "node:fs";
-import { join as join11, relative as relative2 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync5 } from "node:fs";
+import { join as join10, relative as relative2 } from "node:path";
+
+// plugins/cairn/cli/src/commands/stages.ts
+import { join as join9 } from "node:path";
+
+// plugins/cairn/cli/src/commands/fix.ts
+import { spawnSync as spawnSync3 } from "node:child_process";
+import { existsSync as existsSync3, mkdtempSync, rmSync as rmSync2 } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as join7 } from "node:path";
+var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
+var fastLane = (s) => s.track === "fix" && (s.stage === "repro" || !!s.repro);
+var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build }));
+function configGate(s, cfg, event, opts) {
+  gate(
+    !s.configHash || s.configHash === configHash(cfg),
+    s,
+    event,
+    opts,
+    `the setup, test, or build command in ${CONFIG_REL} changed since the user approved it`,
+    ["the user re-approves the commands by running, in their own terminal: cairn approve plan --human", "or the user chooses Override in the menu"]
+  );
+}
+var changedFiles = (cwd, slug, base, head) => git(["diff", "--name-only", "-z", "-M", base, head, "--", ".", `:!${planRelIn(slug, cwd)}`], cwd).split("\0").filter(Boolean);
+var GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
+var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
+function runRepro(cmd, cwd, cfg) {
+  const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
+  const tmp = mkdtempSync(join7(tmpdir(), "cairn-repro-"));
+  const pidFile = join7(tmp, "pgid");
+  const r = spawnSync3("sh", ["-c", GROUP_WRAPPER, "sh", cmd, pidFile], { cwd, encoding: "utf8", env: childEnv(), timeout: minutes * 6e4, maxBuffer: 64 * 1024 * 1024 });
+  const timedOut = r.error?.code === "ETIMEDOUT";
+  const pgid = Number(readText(pidFile));
+  if (timedOut && pgid > 0) {
+    try {
+      process.kill(-pgid, "SIGKILL");
+    } catch {
+    }
+  }
+  rmSync2(tmp, { recursive: true, force: true });
+  const lines = `${r.stdout ?? ""}
+${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter((l) => l && !SETPGID_FAILURE.test(l));
+  const last = lines.slice(-1)[0] ?? `exit ${r.status}`;
+  if (timedOut) return { outcome: "timeout", detail: `timed out after ${Math.round(minutes * 60)}s` };
+  if (r.error) return { outcome: "nostart", detail: r.error.message };
+  if (r.status === 126 || r.status === 127) return { outcome: "nostart", detail: last };
+  return { outcome: r.status === 0 ? "passes" : "fails", detail: last };
+}
+function cmdRepro(ctx, cmd, opts) {
+  if (!cmd) throw new CliError('usage: cairn repro "<command>"');
+  const pc = planCtx(ctx);
+  const pre = loadState(pc.plan.dir);
+  if (pre.track !== "fix") throw new Refusal("cairn repro is for fix plans", ["start one with cairn new <slug> --track fix"]);
+  gate(pre.stage === "repro", pre, "repro", opts, `the plan is in ${pre.stage}, not repro`);
+  configGate(pre, pc.cfg, "repro", opts);
+  const ran = runRepro(cmd, pc.plan.worktree, pc.cfg);
+  return mutate(pc, "repro recorded", (s) => {
+    configGate(s, pc.cfg, "repro", opts);
+    gate(s.stage === "repro", s, "repro", opts, `the plan is in ${s.stage}, not repro`);
+    if (ran.outcome === "timeout" || ran.outcome === "nostart")
+      throw new Refusal(`the repro command ${ran.outcome === "timeout" ? "did not finish" : "could not start"}: ${ran.detail}`, ["write a repro command that runs and finishes"]);
+    if (ran.outcome === "passes") throw new Refusal("the command exits 0: this does not reproduce the bug", ["write a command that fails while the bug is present"]);
+    s.repro = { cmd, tail: ran.detail, at: now() };
+    s.configHash = configHash(pc.cfg);
+    log(s, "repro recorded", `${cmd} \u2192 ${ran.detail}`);
+    return { message: `Repro recorded: \`${cmd}\` fails (${ran.detail}). Next: \`cairn advance\` to the fix.`, data: { repro: s.repro } };
+  });
+}
+function cmdEscalate(ctx, opts) {
+  const pc = planCtx(ctx);
+  const pre = loadState(pc.plan.dir);
+  if (pre.track !== "fix") throw new Refusal("only a fix plan can be escalated; this is a feature plan");
+  if (pre.stage === "closed") throw new Refusal("the plan is closed");
+  const changed = /* @__PURE__ */ new Map();
+  const own = planRelOf(pc.plan) + "/";
+  for (const sl of allTasks(pre)) {
+    const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
+    if (!sl.base || !head) continue;
+    const files = changedFiles(pc.plan.worktree, pre.slug, sl.base, head);
+    if (sl.status === "in_progress" && sl.worktree && existsSync3(sl.worktree))
+      for (const args of [["diff", "--name-only", "-z", "HEAD"], ["ls-files", "--others", "--exclude-standard", "-z"]])
+        files.push(...git(args, sl.worktree).split("\0").filter((f) => f && !f.startsWith(own)));
+    changed.set(sl.id, [...new Set(files.map((f) => f.replace(/[*?]/g, "?")))].sort());
+  }
+  return mutate(pc, "escalated to a feature plan", (s) => {
+    for (const sl of allTasks(s)) sl.scope = changed.get(sl.id) ?? [];
+    const repro = s.repro ? `\`${s.repro.cmd}\` (failed with: ${s.repro.tail})` : "none recorded";
+    appendDecision(pc, "Escalate the fix to a feature plan", `The bug "${s.title}" is bigger than a fix. Repro: ${repro}. The fix task and its work are kept; the plan must keep the task id "fix".`, typeof opts.note === "string" ? opts.note : void 0);
+    s.track = "feature";
+    setStage(s, "prd");
+    delete s.evidence.review;
+    delete s.approvals.ship;
+    log(s, "escalated", "fix \u2192 feature plan at prd");
+    return { message: `"${s.title}" is now a feature plan at the PRD stage. The fix task keeps its work, with its scope narrowed to the files it changed. Next: write the PRD.` };
+  });
+}
 
 // plugins/cairn/cli/src/commands/suggest.ts
-import { readdirSync as readdirSync4 } from "node:fs";
-import { join as join10 } from "node:path";
+import { readdirSync as readdirSync2 } from "node:fs";
+import { join as join8 } from "node:path";
 var list = (v) => typeof v === "string" ? v.split("\n").filter(Boolean) : [];
 var MAX_DECLINES = 2;
 var MAX_AGE_DAYS = 60;
@@ -8621,8 +8375,8 @@ function allStates(ctx) {
   const out = /* @__PURE__ */ new Map();
   for (const r of listPlans(ctx)) out.set(r.state.slug, r.state);
   for (const dir of plansDirsIn(ctx.top))
-    for (const name of readdirSync4(dir)) {
-      const raw = readText(join10(dir, name, "state.json"));
+    for (const name of readdirSync2(dir)) {
+      const raw = readText(join8(dir, name, "state.json"));
       if (raw === void 0) continue;
       try {
         const s = parseState(raw);
@@ -8749,466 +8503,6 @@ function suggestDecline(ctx, keys) {
   });
 }
 
-// plugins/cairn/cli/src/commands/status.ts
-function listPlans(ctx) {
-  const refs = git(["for-each-ref", "--format=%(refname:short)", ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split("\n").filter(Boolean);
-  const rows = [];
-  for (const b of refs) {
-    const slug = parseBranch(b).slug;
-    if (!slug) continue;
-    const ref = planRef(slug, ctx.worktrees, b);
-    try {
-      const rel = resolvePlanDir(slug, { ref: b, cwd: ctx.top });
-      const raw = ref.dir && existsSync6(join11(ref.dir, "state.json")) ? readFileSync6(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
-      const state = parseState(raw);
-      if (state.branch !== b) continue;
-      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join11(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
-    } catch {
-    }
-  }
-  return rows;
-}
-var modIsActive = (ctx) => modActive(commonDir(ctx.mainRoot));
-function warnings(pc, s) {
-  const w = [];
-  const prd = readText(planFile(pc, "prd.md"));
-  if (prdEditedSinceApproval(s, prd)) w.push(s.stage === "plan" ? "prd.md changed after it was approved: approving the plan accepts the edits" : "prd.md changed after it was approved");
-  const plan2 = readText(planFile(pc, "plan.md"));
-  if (s.planHash && plan2 && hashText(plan2) !== s.planHash) w.push("plan.md changed after it was loaded: run `cairn plan load --replan` or revert it");
-  const open = s.drift.filter((d) => !d.acked);
-  if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
-  const cw = configWarning(pc.plan.worktree);
-  if (cw) w.push(cw);
-  return w;
-}
-function waitingOnMerge(ctx, s, cwd, planRel2) {
-  if (s.stage !== "learn" && s.stage !== "closed") return false;
-  return landedState(cwd, s.branch, s.base, planRel2, join11(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
-}
-function cmdStatus(ctx, opts) {
-  if (opts.all || !ctx.plan) {
-    const rows = listPlans(ctx);
-    const active = rows.filter((r) => r.state.stage !== "closed");
-    const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, relative2(r.worktree ?? ctx.mainRoot, r.dir)) }));
-    const lines = rows.length ? shown.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state, r.prOpen)}
-    next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
-    const openSuggestions2 = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions: openSuggestions2, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
-  }
-  const pc = planCtx(ctx);
-  const s = loadState(pc.plan.dir);
-  const w = warnings(pc, s);
-  const next = nextFor(s);
-  const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
-  let listed = [];
-  try {
-    listed = collectSuggestions(ctx);
-  } catch {
-  }
-  const openSuggestions = listed.filter((x) => x.open && !x.hardening).length;
-  const hardeningItems = listed.filter((x) => x.open && x.hardening).length;
-  const hardeningByArea = {};
-  for (const x of listed) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
-  const timing = stageTimes(s);
-  return {
-    message: [
-      summary(s, prOpen),
-      `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
-      ...s.level ? [`Level: ${levelLabel(s)}`] : [],
-      ...hardeningItems ? [`Hardening items: ${hardeningItems}`] : [],
-      ...s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : [],
-      ...w.map((x) => `! ${x}`),
-      ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []
-    ].join("\n"),
-    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
-  };
-}
-var procedurePath = (name) => join11(pluginRoot(), "procedures", `${name}.md`);
-function cmdNext(ctx) {
-  if (!ctx.plan) {
-    const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
-    if (!active.length) return { message: "No active plans. Start one.", data: { plan: null, stage: null, procedure: procedurePath("new"), summary: "No active plans.", modActive: modIsActive(ctx) } };
-    return {
-      message: `Active plans:
-${active.map((r) => `  ${summary(r.state)}`).join("\n")}
-Ask the user which plan to resume (/cairn:resume <slug>) or whether to start a new one (/cairn:new).`,
-      data: { plan: null, stage: null, procedure: procedurePath("status"), plans: active.map((r) => r.state.slug), modActive: modIsActive(ctx) }
-    };
-  }
-  const pc = planCtx(ctx);
-  const s = loadState(pc.plan.dir);
-  const n = nextFor(s);
-  return {
-    message: `${summary(s)}
-Next: ${n.text}
-Follow: ${procedurePath(n.procedure)}`,
-    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
-  };
-}
-function cmdRender(ctx) {
-  if (ctx.plan) {
-    const pc = planCtx(ctx);
-    withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
-    return { message: `Rendered ${join11(pc.plan.dir, "STATUS.md")}.` };
-  }
-  refreshMemory(ctx.top, ctx);
-  return { message: `Rendered ${join11(ctx.top, OVERVIEW_REL)} and the History of each area doc.` };
-}
-
-// plugins/cairn/cli/src/commands/records.ts
-var DATE_PREFIX = /^(\d{4}-\d{2}-\d{2})-/;
-function whyLine(md) {
-  const body = (md ? sections(md).get("why") ?? "" : "").replace(/<!--[\s\S]*?-->/g, "").trim();
-  const para = body.split(/\n\s*\n/)[0]?.replace(/\s+/g, " ").trim() ?? "";
-  return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
-}
-function planEntries(ctx) {
-  const main2 = dirname3(commonDir(ctx.top));
-  const found = /* @__PURE__ */ new Map();
-  for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
-  const bases = plansDirsIn(main2);
-  for (const base of bases)
-    for (const name of readdirSync5(base)) {
-      const raw = readText(join12(base, name, "state.json"));
-      if (raw === void 0) continue;
-      try {
-        const state = parseState(raw);
-        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join12(base, name) });
-      } catch {
-      }
-    }
-  return [...found.values()].map(({ state, dir }) => {
-    let recordPath = join12(dir, "RECORD.md");
-    if (!existsSync7(recordPath)) recordPath = bases.map((b) => join12(b, basename2(dir), "RECORD.md")).find((p) => existsSync7(p)) ?? recordPath;
-    return { state, dir, date: basename2(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10), ...existsSync7(recordPath) ? { record: recordPath } : {} };
-  });
-}
-function listRecords(ctx) {
-  const byMain = { ...ctx, top: dirname3(commonDir(ctx.top)) };
-  const followUps = /* @__PURE__ */ new Map();
-  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status, ...x.hardening ? { hardening: true } : {} }]);
-  const entries = planEntries(ctx).map(({ state, date, record }) => ({
-    slug: state.slug,
-    title: state.title,
-    date,
-    stage: state.stage,
-    why: whyLine(record ? readText(record) : void 0),
-    ...record ? { record } : {},
-    followUps: followUps.get(state.slug) ?? []
-  }));
-  const open = (e) => e.stage === "closed" ? 1 : 0;
-  return entries.sort((a, b) => open(a) - open(b) || b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
-}
-function cmdRecords(ctx) {
-  const records = listRecords(ctx);
-  const lines = records.map((r) => {
-    const open = r.followUps.filter((f) => f.status === "open").length;
-    return [
-      `${r.date}  ${r.title} (${r.slug})${r.stage === "closed" ? "" : `  [in progress: ${r.stage}]`}`,
-      ...r.why ? [`    ${r.why}`] : [],
-      ...r.record ? [`    ${r.record}`] : [],
-      ...r.followUps.length ? [`    ${r.followUps.length} follow-up(s), ${open} open`] : []
-    ].join("\n");
-  });
-  return { message: lines.length ? lines.join("\n") : "No plans yet.", data: { records } };
-}
-
-// plugins/cairn/cli/src/memory.ts
-var OVERVIEW_REL = `${DOCS_DIR}/OVERVIEW.md`;
-var HISTORY_MARK = "<!-- Generated by cairn from the decision log and plan records. Edits here are overwritten. -->";
-var NONE = "None yet.";
-var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename3(e.dir)}/RECORD.md`).find((rel) => existsSync8(join13(root, rel)));
-var cell = (s) => s.replace(/\s+/g, " ").replace(/\|/g, "\\|").trim();
-var byNewest = (a, b) => b.date.localeCompare(a.date) || a.state.slug.localeCompare(b.state.slug);
-function plansTouching(area, plans) {
-  return plans.filter((p) => {
-    if (p.state.stage !== "closed") return false;
-    if (p.state.areasTouched) return p.state.areasTouched.includes(area.id);
-    const scopes = allTasks(p.state).flatMap((t) => t.scope).filter((g) => g !== "**");
-    return scopes.length > 0 && scopesOverlap(scopes, area.paths);
-  }).sort(byNewest);
-}
-var decisionsFor = (area, all) => all.filter((d) => d.areas.includes(area.id) || d.paths.length > 0 && scopesOverlap(d.paths, area.paths)).sort((a, b) => a.status === b.status ? a.id.localeCompare(b.id) : a.status === "active" ? -1 : 1);
-function historyLines(root, area, decisions, plans) {
-  const from = posix.dirname(area.file);
-  const out = decisionsFor(area, decisions).map((d) => `- Decision [${d.id}](${posix.relative(from, d.file)}): ${cell(d.answer)} (${d.status === "active" ? "in force" : `replaced by ${d.replacedBy ?? "a later decision"}`})`);
-  for (const p of plansTouching(area, plans)) {
-    const rel = recordRel(root, p);
-    out.push(`- ${p.date} ${rel ? `[${p.state.title}](${posix.relative(from, rel)})` : p.state.title}`);
-  }
-  return out;
-}
-function withHistory(md, lines) {
-  const body = `
-${HISTORY_MARK}
-
-${lines.length ? lines.join("\n") : NONE}
-`;
-  const h = /^## History[ \t]*\r?\n/m.exec(md);
-  if (!h) return `${md.replace(/\s*$/, "\n")}
-## History
-${body}`;
-  const start = h.index + h[0].length;
-  const next = /^## /m.exec(md.slice(start));
-  return md.slice(0, start) + body + (next ? `
-${md.slice(start + next.index)}` : "");
-}
-var table = (head, rows) => rows.length ? [`| ${head.join(" | ")} |`, `|${head.map(() => "---").join("|")}|`, ...rows.map((r) => `| ${r.join(" | ")} |`)] : [NONE];
-function renderOverview(root, areas, decisions, plans) {
-  const rel = (p) => posix.relative(DOCS_DIR, p);
-  const link = (d) => `[${d.id}](${rel(d.file)})`;
-  const active = decisions.filter((d) => d.status === "active").sort((a, b) => a.id.localeCompare(b.id));
-  const replaced = decisions.filter((d) => d.status === "replaced").sort((a, b) => a.id.localeCompare(b.id));
-  const out = ["# System overview", "", HISTORY_MARK.replace("the decision log and plan records", "the area docs, decision log, and plan records"), ""];
-  out.push("## Areas", "", ...table(["Area", "Summary", "Doc"], areas.map((a) => [cell(a.name), cell(a.summary), `[${a.id}](${rel(a.file)})`])), "");
-  out.push("## Decisions in force", "", ...table(["Decision", "Areas", "Plan", "Date"], active.map((d) => [`${link(d)} ${cell(d.answer)}`, d.areas.join(", "), d.plan, d.date])), "");
-  out.push("## Replaced decisions", "", ...table(["Decision", "Replaced by"], replaced.map((d) => [link(d), d.replacedBy ?? ""])), "");
-  out.push("## Plans", "");
-  const lines = plans.filter((p) => p.state.stage === "closed").sort(byNewest).map((p) => {
-    const r = recordRel(root, p);
-    const why = whyLine(r ? readText(join13(root, r)) : void 0);
-    return `- ${p.date} **${p.state.title}**${why ? `: ${why}` : ""}${r ? ` [record](${rel(r)})` : ""}`;
-  });
-  out.push(...lines.length ? lines : [NONE]);
-  return `${out.join("\n")}
-`;
-}
-var RECALL_PLANS = 5;
-function recall(root, globs, plans) {
-  const all = loadAreas(root).areas;
-  const areas = areasForScopes(globs, all);
-  const decisions = activeDecisionsFor(globs, areas.map((a) => a.id), loadDecisions(root));
-  const found = /* @__PURE__ */ new Map();
-  for (const a of areas) for (const p of plansTouching(a, plans)) found.set(p.state.slug, p);
-  for (const p of plans) {
-    if (p.state.stage !== "closed") continue;
-    const scopes = allTasks(p.state).flatMap((t) => t.scope).filter((g) => g !== "**");
-    if (scopes.length > 0 && scopesOverlap(globs, scopes)) found.set(p.state.slug, p);
-  }
-  const top = [...found.values()].sort(byNewest).slice(0, RECALL_PLANS).map((p) => ({ slug: p.state.slug, title: p.state.title, date: p.date, ...recordRel(root, p) ? { record: recordRel(root, p) } : {} }));
-  const uncovered = all.length ? globs.filter((g) => !all.some((a) => scopesOverlap([g], a.paths))) : [];
-  return { areas, decisions, plans: top, uncovered };
-}
-var cut = (s, n) => s.length > n ? `${s.slice(0, n - 1)}\u2026` : s;
-function memoryIndex(root, plansOf, maxLines = 60) {
-  const { areas } = loadAreas(root);
-  const decisions = loadDecisions(root).filter((d) => d.status === "active");
-  if (!areas.length && !decisions.length) return "";
-  const plans = typeof plansOf === "function" ? plansOf() : plansOf;
-  const recent = plans.filter((p) => p.state.stage === "closed").sort(byNewest).slice(0, 5);
-  const head = `cairn memory (full picture: ${OVERVIEW_REL}). Before changing code, run \`cairn recall <paths>\`.`;
-  const areaLines = areas.length ? ["Areas:", ...areas.map((a) => `- ${a.id}: ${a.summary}`)] : [];
-  const decisionLines = decisions.length ? ["Decisions in force:", ...decisions.map((d) => `- ${d.id}: ${cut(d.answer, 100)}`)] : [];
-  const planLines = recent.length ? ["Recent plans:", ...recent.map((p) => `- ${p.date} ${p.state.title}`)] : [];
-  const build = (d, p) => [head, ...areaLines, ...d, ...p];
-  let out = build(decisionLines, planLines);
-  if (out.length > maxLines) out = build(decisionLines, []);
-  if (out.length > maxLines && decisions.length) out = build([`Decisions in force: ${decisions.map((d) => d.id).join(", ")}`], []);
-  return out.join("\n");
-}
-
-// plugins/cairn/cli/src/commands/memory.ts
-var UNCOVERED = "(uncovered)";
-var some = (xs, n) => xs.slice(0, n).join(", ");
-function areaCheck(worktree, s) {
-  const none = { problems: [], fixes: [], touched: [] };
-  let changed;
-  try {
-    if (!safeRef(worktree, s.base)) throw new Error("unsafe base");
-    const base = git(["merge-base", s.base, "HEAD"], worktree);
-    changed = git(["diff", "--name-only", base, "HEAD"], worktree).split("\n").filter(Boolean);
-  } catch {
-    return { ...none, warning: `could not compare with ${s.base}; area docs were not checked` };
-  }
-  const { areas, problems } = loadAreas(worktree);
-  if (!areas.length && !problems.length) return { ...none, warning: `no area docs under ${SYSTEM_DIR}; run /cairn:map to set them up` };
-  const code = changed.filter((f) => !isCairnPath(f));
-  const skipped = new Set((s.areaSkips ?? []).map((x) => x.area));
-  const touched = [];
-  const out = [...problems];
-  let stale = false;
-  for (const a of areas) {
-    const files = code.filter((f) => areasForFile(f, [a]).length);
-    if (!files.length) continue;
-    touched.push(a.id);
-    if (changed.includes(a.file) || skipped.has(a.id)) continue;
-    stale = true;
-    out.push(`${a.file} covers files this plan changed (${some(files, 5)}) but was not updated`);
-  }
-  const orphans = code.filter((f) => !areasForFile(f, areas).length);
-  const orphan = orphans.length > 0 && !skipped.has(UNCOVERED);
-  if (orphan) out.push(`changed files belong to no area: ${some(orphans, 10)}`);
-  const fixes = [];
-  if (stale) {
-    fixes.push("update each named area doc (Rules, How it works, Gotchas) for what this plan changed, and commit it on the plan branch");
-    fixes.push('or, when a doc needs no change: cairn area skip <area> --note "<why>"');
-  }
-  if (orphan) {
-    fixes.push("for files no area covers: add them to an area doc's paths, or create one from templates/area.md");
-    fixes.push('or: cairn area skip --uncovered --note "<why>"');
-  }
-  return { problems: out, fixes, touched };
-}
-function cmdAreaSkip(ctx, area, opts) {
-  const id = opts.uncovered === true ? UNCOVERED : area;
-  if (!id) throw new CliError('usage: cairn area skip <id> --note "<why>" | cairn area skip --uncovered --note "<why>"');
-  const note = typeof opts.note === "string" ? opts.note.trim() : "";
-  if (!note) throw new Refusal("an area skip needs a note saying why", [`cairn area skip ${id === UNCOVERED ? "--uncovered" : id} --note "<why>"`]);
-  const pc = planCtx(ctx);
-  if (id !== UNCOVERED) {
-    const { areas } = loadAreas(pc.plan.worktree);
-    if (!areas.some((a) => a.id === id)) throw new Refusal(`no area "${id}"`, [areas.length ? `use one of: ${areas.map((a) => a.id).join(", ")}` : `there are no area docs under ${SYSTEM_DIR}`]);
-  }
-  mutate(pc, void 0, (s) => {
-    (s.areaSkips ??= []).push({ area: id, note, at: now() });
-    log(s, "area skip", `${id}: ${note}`);
-  });
-  if (pc.cfg.autoCommit) commitPaths(pc.plan.worktree, [planRelOf(pc.plan)], `area skip: ${id}`);
-  return { message: `Skipped the area doc check for ${id}: ${note}` };
-}
-function refreshMemory(root, ctx) {
-  const { areas } = loadAreas(root);
-  const decisions = loadDecisions(root);
-  const plans = planEntries(ctx);
-  const changed = [];
-  const put = (rel, before, after) => {
-    if (before === after) return;
-    writeText(join14(root, rel), after);
-    changed.push(rel);
-  };
-  for (const a of areas) {
-    const md = readText(join14(root, a.file)) ?? "";
-    put(a.file, md, withHistory(md, historyLines(root, a, decisions, plans)));
-  }
-  put(OVERVIEW_REL, readText(join14(root, OVERVIEW_REL)), renderOverview(root, areas, decisions, plans));
-  return changed;
-}
-function writeMemory(pc, s) {
-  const root = pc.plan.worktree;
-  const today2 = planDirName("", /* @__PURE__ */ new Date()).slice(0, 10);
-  const changed = [.../* @__PURE__ */ new Set([...publishDecisions(root, s.slug, today2, s.lasting ?? []), ...refreshMemory(root, pc.ctx)])];
-  if (pc.cfg.autoCommit && changed.length)
-    commitPaths(root, [DECISIONS_DIR, SYSTEM_DIR, OVERVIEW_REL].filter((p) => existsSync9(join14(root, p))), `cairn(${s.slug}): publish decisions and area history`);
-  return changed;
-}
-function closeMemory(pc, r) {
-  try {
-    writeMemory(pc, loadState(pc.plan.dir));
-    return r;
-  } catch (e) {
-    return { ...r, message: `${r.message}
-Warning: the decision log and area history were not updated (${e.message.split("\n")[0]}); run cairn render on main.` };
-  }
-}
-function cmdRecall(ctx, globs, _opts) {
-  if (!globs.length) throw new CliError("usage: cairn recall <path or glob>...");
-  const r = recall(ctx.top, globs, planEntries(ctx));
-  const { problems } = loadAreas(ctx.top);
-  const out = [];
-  if (r.areas.length) out.push("Areas:", ...r.areas.map((a) => `  ${a.id}: ${a.summary} (${a.file})`));
-  if (r.decisions.length) out.push("Decisions in force:", ...r.decisions.map((d) => `  ${d.id}: ${d.answer} (${d.file})`));
-  if (r.plans.length) out.push("Past plans:", ...r.plans.map((p) => `  ${p.date} ${p.title}${p.record ? `: ${p.record}` : ""}`));
-  if (r.uncovered.length) out.push(`Not covered by any area: ${r.uncovered.join(", ")}`);
-  if (problems.length) out.push(`Area docs with problems: ${problems.join("; ")}`);
-  return { message: out.length ? out.join("\n") : "Nothing recorded for these paths yet.", data: { ...r, problems } };
-}
-function cmdIndex(ctx) {
-  return { message: memoryIndex(ctx.top, planEntries(ctx)) || "Nothing recorded yet. Run /cairn:map to set up area docs." };
-}
-
-// plugins/cairn/cli/src/commands/fix.ts
-import { spawnSync as spawnSync3 } from "node:child_process";
-import { existsSync as existsSync10, mkdtempSync, rmSync as rmSync2 } from "node:fs";
-import { tmpdir } from "node:os";
-import { join as join15 } from "node:path";
-var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
-var fastLane = (s) => s.track === "fix" && (s.stage === "repro" || !!s.repro);
-var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build }));
-function configGate(s, cfg, event, opts) {
-  gate(
-    !s.configHash || s.configHash === configHash(cfg),
-    s,
-    event,
-    opts,
-    `the setup, test, or build command in ${CONFIG_REL} changed since the user approved it`,
-    ["the user re-approves the commands by running, in their own terminal: cairn approve plan --human", "or the user chooses Override in the menu"]
-  );
-}
-var changedFiles = (cwd, slug, base, head) => git(["diff", "--name-only", "-z", "-M", base, head, "--", ".", `:!${planRelIn(slug, cwd)}`], cwd).split("\0").filter(Boolean);
-var GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
-var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
-function runRepro(cmd, cwd, cfg) {
-  const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
-  const tmp = mkdtempSync(join15(tmpdir(), "cairn-repro-"));
-  const pidFile = join15(tmp, "pgid");
-  const r = spawnSync3("sh", ["-c", GROUP_WRAPPER, "sh", cmd, pidFile], { cwd, encoding: "utf8", env: childEnv(), timeout: minutes * 6e4, maxBuffer: 64 * 1024 * 1024 });
-  const timedOut = r.error?.code === "ETIMEDOUT";
-  const pgid = Number(readText(pidFile));
-  if (timedOut && pgid > 0) {
-    try {
-      process.kill(-pgid, "SIGKILL");
-    } catch {
-    }
-  }
-  rmSync2(tmp, { recursive: true, force: true });
-  const lines = `${r.stdout ?? ""}
-${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter((l) => l && !SETPGID_FAILURE.test(l));
-  const last = lines.slice(-1)[0] ?? `exit ${r.status}`;
-  if (timedOut) return { outcome: "timeout", detail: `timed out after ${Math.round(minutes * 60)}s` };
-  if (r.error) return { outcome: "nostart", detail: r.error.message };
-  if (r.status === 126 || r.status === 127) return { outcome: "nostart", detail: last };
-  return { outcome: r.status === 0 ? "passes" : "fails", detail: last };
-}
-function cmdRepro(ctx, cmd, opts) {
-  if (!cmd) throw new CliError('usage: cairn repro "<command>"');
-  const pc = planCtx(ctx);
-  const pre = loadState(pc.plan.dir);
-  if (pre.track !== "fix") throw new Refusal("cairn repro is for fix plans", ["start one with cairn new <slug> --track fix"]);
-  gate(pre.stage === "repro", pre, "repro", opts, `the plan is in ${pre.stage}, not repro`);
-  configGate(pre, pc.cfg, "repro", opts);
-  const ran = runRepro(cmd, pc.plan.worktree, pc.cfg);
-  return mutate(pc, "repro recorded", (s) => {
-    configGate(s, pc.cfg, "repro", opts);
-    gate(s.stage === "repro", s, "repro", opts, `the plan is in ${s.stage}, not repro`);
-    if (ran.outcome === "timeout" || ran.outcome === "nostart")
-      throw new Refusal(`the repro command ${ran.outcome === "timeout" ? "did not finish" : "could not start"}: ${ran.detail}`, ["write a repro command that runs and finishes"]);
-    if (ran.outcome === "passes") throw new Refusal("the command exits 0: this does not reproduce the bug", ["write a command that fails while the bug is present"]);
-    s.repro = { cmd, tail: ran.detail, at: now() };
-    s.configHash = configHash(pc.cfg);
-    log(s, "repro recorded", `${cmd} \u2192 ${ran.detail}`);
-    return { message: `Repro recorded: \`${cmd}\` fails (${ran.detail}). Next: \`cairn advance\` to the fix.`, data: { repro: s.repro } };
-  });
-}
-function cmdEscalate(ctx, opts) {
-  const pc = planCtx(ctx);
-  const pre = loadState(pc.plan.dir);
-  if (pre.track !== "fix") throw new Refusal("only a fix plan can be escalated; this is a feature plan");
-  if (pre.stage === "closed") throw new Refusal("the plan is closed");
-  const changed = /* @__PURE__ */ new Map();
-  const own = planRelOf(pc.plan) + "/";
-  for (const sl of allTasks(pre)) {
-    const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
-    if (!sl.base || !head) continue;
-    const files = changedFiles(pc.plan.worktree, pre.slug, sl.base, head);
-    if (sl.status === "in_progress" && sl.worktree && existsSync10(sl.worktree))
-      for (const args of [["diff", "--name-only", "-z", "HEAD"], ["ls-files", "--others", "--exclude-standard", "-z"]])
-        files.push(...git(args, sl.worktree).split("\0").filter((f) => f && !f.startsWith(own)));
-    changed.set(sl.id, [...new Set(files.map((f) => f.replace(/[*?]/g, "?")))].sort());
-  }
-  return mutate(pc, "escalated to a feature plan", (s) => {
-    for (const sl of allTasks(s)) sl.scope = changed.get(sl.id) ?? [];
-    const repro = s.repro ? `\`${s.repro.cmd}\` (failed with: ${s.repro.tail})` : "none recorded";
-    appendDecision(pc, "Escalate the fix to a feature plan", `The bug "${s.title}" is bigger than a fix. Repro: ${repro}. The fix task and its work are kept; the plan must keep the task id "fix".`, typeof opts.note === "string" ? opts.note : void 0);
-    s.track = "feature";
-    setStage(s, "prd");
-    delete s.evidence.review;
-    delete s.approvals.ship;
-    log(s, "escalated", "fix \u2192 feature plan at prd");
-    return { message: `"${s.title}" is now a feature plan at the PRD stage. The fix task keeps its work, with its scope narrowed to the files it changed. Next: write the PRD.` };
-  });
-}
-
 // plugins/cairn/cli/src/commands/stages.ts
 var STAGE_ORDER = {
   feature: STAGES.filter((x) => x !== "repro"),
@@ -9226,7 +8520,7 @@ function fixRecordProblems(pc) {
   return p;
 }
 var recordCheck = (pc, track) => track === "fix" ? { problems: fixRecordProblems(pc), fix: "write RECORD.md from templates/record-fix.md" } : { problems: recordProblems(pc), fix: "write RECORD.md from templates/record.md" };
-function closeGates(pc, s, opts, record, tests, areas) {
+function closeGates(pc, s, opts, record, tests) {
   configGate(s, pc.cfg, "close", opts);
   const open = collectSuggestions(pc.ctx).filter((x) => x.open && !x.hardening && x.slug === s.slug);
   gate(
@@ -9238,9 +8532,6 @@ function closeGates(pc, s, opts, record, tests, areas) {
     ['group related ones: cairn suggest merge <key>... --area <a> --text "<high-level item>"', 'drop trivia: cairn suggest resolve <key> --dismiss --note "<reason>"', "then list what was dropped in the record"]
   );
   gate(!record.problems.length, s, "close", opts, record.problems.join("; "), [record.fix]);
-  gate(!areas.problems.length, s, "close", opts, areas.problems.join("; "), areas.fixes);
-  if (areas.warning) log(s, "warning: close", areas.warning);
-  s.areasTouched = areas.touched;
   testsGate(tests, s, "close", opts);
 }
 function prdProblems(md) {
@@ -9265,7 +8556,7 @@ var PRD_EDITED_NOTE = "**prd.md changed after you approved it; approving the pla
 function readyFor(pc) {
   try {
     const s = loadState(pc.plan.dir);
-    const file = (name) => join16(pc.plan.dir, name);
+    const file = (name) => join9(pc.plan.dir, name);
     const pcLike = pc;
     if (s.stage === "prd" && !s.approvals.prd) {
       const md = readText(file("prd.md"));
@@ -9352,7 +8643,6 @@ function cmdAdvance(ctx, opts) {
   if (closing) configGate(pre, pc.cfg, "close", opts);
   const record = closing ? recordCheck(pc, "fix") : void 0;
   const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : void 0;
-  const areas = closing ? areaCheck(pc.plan.worktree, pre) : void 0;
   let to;
   const r = mutate(pc, void 0, (s) => {
     to = nextStage(s);
@@ -9384,7 +8674,7 @@ function cmdAdvance(ctx, opts) {
         break;
       case "ship":
         gate(!!s.approvals.ship, s, "advance", opts, "shipping is not approved", ["cairn approve ship"]);
-        if (record && areas) closeGates(pc, s, opts, record, tests, areas);
+        if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
     if (to === "ship" && levelOf(s) === "mvp") {
@@ -9397,7 +8687,7 @@ function cmdAdvance(ctx, opts) {
       if (p && p.status === "pending") p.status = "in_progress";
     }
     log(s, "advanced", to);
-    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join16(pc.plan.dir, "RECORD.md")}.` };
+    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join9(pc.plan.dir, "RECORD.md")}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
@@ -9408,15 +8698,369 @@ function cmdClose(ctx, opts) {
   configGate(loadState(pc.plan.dir), pc.cfg, "close", opts);
   const record = recordCheck(pc, "feature");
   const tests = runTests(pc.cfg, pc.plan.worktree);
-  const areas = areaCheck(pc.plan.worktree, loadState(pc.plan.dir));
   const r = mutate(pc, "closed", (s) => {
     gate(s.stage === "learn", s, "close", opts, `the plan is in ${s.stage}, not learn`);
-    closeGates(pc, s, opts, record, tests, areas);
+    closeGates(pc, s, opts, record, tests);
     setStage(s, "closed");
     log(s, "closed");
-    return { message: `Closed "${s.title}". The record is ${join16(pc.plan.dir, "RECORD.md")}.` };
+    return { message: `Closed "${s.title}". The record is ${join9(pc.plan.dir, "RECORD.md")}.` };
   });
   return closeMemory(pc, r);
+}
+
+// plugins/cairn/cli/src/commands/status.ts
+function listPlans(ctx) {
+  const refs = git(["for-each-ref", "--format=%(refname:short)", ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split("\n").filter(Boolean);
+  const rows = [];
+  for (const b of refs) {
+    const slug = parseBranch(b).slug;
+    if (!slug) continue;
+    const ref = planRef(slug, ctx.worktrees, b);
+    try {
+      const rel = resolvePlanDir(slug, { ref: b, cwd: ctx.top });
+      const raw = ref.dir && existsSync4(join10(ref.dir, "state.json")) ? readFileSync5(join10(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
+      const state = parseState(raw);
+      if (state.branch !== b) continue;
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join10(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
+    } catch {
+    }
+  }
+  return rows;
+}
+var modIsActive = (ctx) => modActive(commonDir(ctx.mainRoot));
+function warnings(pc, s) {
+  const w = [];
+  const prd = readText(planFile(pc, "prd.md"));
+  if (prdEditedSinceApproval(s, prd)) w.push(s.stage === "plan" ? "prd.md changed after it was approved: approving the plan accepts the edits" : "prd.md changed after it was approved");
+  const plan2 = readText(planFile(pc, "plan.md"));
+  if (s.planHash && plan2 && hashText(plan2) !== s.planHash) w.push("plan.md changed after it was loaded: run `cairn plan load --replan` or revert it");
+  const open = s.drift.filter((d) => !d.acked);
+  if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
+  const cw = configWarning(pc.plan.worktree);
+  if (cw) w.push(cw);
+  return w;
+}
+function waitingOnMerge(ctx, s, cwd, planRel2) {
+  if (s.stage !== "learn" && s.stage !== "closed") return false;
+  return landedState(cwd, s.branch, s.base, planRel2, join10(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
+}
+function cmdStatus(ctx, opts) {
+  if (opts.all || !ctx.plan) {
+    const rows = listPlans(ctx);
+    const active = rows.filter((r) => r.state.stage !== "closed");
+    const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, relative2(r.worktree ?? ctx.mainRoot, r.dir)) }));
+    const lines = rows.length ? shown.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state, r.prOpen)}
+    next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
+    const openSuggestions2 = openSuggestionCount(ctx);
+    return { message: `${active.length} active plan(s).
+${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions: openSuggestions2, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : void 0 })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
+  }
+  const pc = planCtx(ctx);
+  const s = loadState(pc.plan.dir);
+  const w = warnings(pc, s);
+  const next = nextFor(s);
+  const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
+  let listed = [];
+  try {
+    listed = collectSuggestions(ctx);
+  } catch {
+  }
+  const openSuggestions = listed.filter((x) => x.open && !x.hardening).length;
+  const hardeningItems = listed.filter((x) => x.open && x.hardening).length;
+  const hardeningByArea = {};
+  for (const x of listed) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
+  const timing = stageTimes(s);
+  return {
+    message: [
+      summary(s, prOpen),
+      `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
+      ...s.level ? [`Level: ${levelLabel(s)}`] : [],
+      ...hardeningItems ? [`Hardening items: ${hardeningItems}`] : [],
+      ...s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : [],
+      ...w.map((x) => `! ${x}`),
+      ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []
+    ].join("\n"),
+    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
+  };
+}
+var procedurePath = (name) => join10(pluginRoot(), "procedures", `${name}.md`);
+function cmdNext(ctx) {
+  if (!ctx.plan) {
+    const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
+    if (!active.length) return { message: "No active plans. Start one.", data: { plan: null, stage: null, procedure: procedurePath("new"), summary: "No active plans.", modActive: modIsActive(ctx) } };
+    return {
+      message: `Active plans:
+${active.map((r) => `  ${summary(r.state)}`).join("\n")}
+Ask the user which plan to resume (/cairn:resume <slug>) or whether to start a new one (/cairn:new).`,
+      data: { plan: null, stage: null, procedure: procedurePath("status"), plans: active.map((r) => r.state.slug), modActive: modIsActive(ctx) }
+    };
+  }
+  const pc = planCtx(ctx);
+  const s = loadState(pc.plan.dir);
+  const n = nextFor(s);
+  return {
+    message: `${summary(s)}
+Next: ${n.text}
+Follow: ${procedurePath(n.procedure)}`,
+    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) }
+  };
+}
+function cmdRender(ctx) {
+  if (ctx.plan) {
+    const pc = planCtx(ctx);
+    withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
+    return { message: `Rendered ${join10(pc.plan.dir, "STATUS.md")}.` };
+  }
+  refreshMemory(ctx.top, ctx);
+  return { message: `Rendered ${join10(ctx.top, OVERVIEW_REL)} (the changelog).` };
+}
+
+// plugins/cairn/cli/src/commands/records.ts
+var DATE_PREFIX = /^(\d{4}-\d{2}-\d{2})-/;
+function whyLine(md) {
+  const body = (md ? sections(md).get("why") ?? "" : "").replace(/<!--[\s\S]*?-->/g, "").trim();
+  const para = body.split(/\n\s*\n/)[0]?.replace(/\s+/g, " ").trim() ?? "";
+  return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
+}
+function changelogEntry(e) {
+  return e.changelog ? stripControl(readText(e.changelog) ?? "").trim() : "";
+}
+function changelogText(e) {
+  return changelogEntry(e) || stripControl(whyLine(e.record ? readText(e.record) : void 0));
+}
+function planEntries(ctx) {
+  const main2 = dirname3(commonDir(ctx.top));
+  const found = /* @__PURE__ */ new Map();
+  for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
+  const bases = plansDirsIn(main2);
+  for (const base of bases)
+    for (const name of readdirSync3(base)) {
+      const raw = readText(join11(base, name, "state.json"));
+      if (raw === void 0) continue;
+      try {
+        const state = parseState(raw);
+        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join11(base, name) });
+      } catch {
+      }
+    }
+  return [...found.values()].map(({ state, dir }) => {
+    let recordPath = join11(dir, "RECORD.md");
+    if (!existsSync5(recordPath)) recordPath = bases.map((b) => join11(b, basename2(dir), "RECORD.md")).find((p) => existsSync5(p)) ?? recordPath;
+    let changelogPath = join11(dir, "changelog.md");
+    if (!existsSync5(changelogPath)) changelogPath = bases.map((b) => join11(b, basename2(dir), "changelog.md")).find((p) => existsSync5(p)) ?? changelogPath;
+    return {
+      state,
+      dir,
+      date: basename2(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
+      ...existsSync5(recordPath) ? { record: recordPath } : {},
+      ...existsSync5(changelogPath) ? { changelog: changelogPath } : {}
+    };
+  });
+}
+function listRecords(ctx) {
+  const byMain = { ...ctx, top: dirname3(commonDir(ctx.top)) };
+  const followUps = /* @__PURE__ */ new Map();
+  for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status, ...x.hardening ? { hardening: true } : {} }]);
+  const entries = planEntries(ctx).map((pe) => {
+    const { state, date, record } = pe;
+    let entry = "";
+    try {
+      entry = changelogEntry(pe);
+    } catch {
+    }
+    return {
+      slug: state.slug,
+      title: stripControl(state.title),
+      date,
+      stage: state.stage,
+      why: stripControl(whyLine(record ? readText(record) : void 0)),
+      ...entry ? { entry } : {},
+      ...record ? { record } : {},
+      followUps: followUps.get(state.slug) ?? []
+    };
+  });
+  const open = (e) => e.stage === "closed" ? 1 : 0;
+  return entries.sort((a, b) => open(a) - open(b) || b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
+}
+function cmdRecords(ctx) {
+  const records = listRecords(ctx);
+  const lines = records.map((r) => {
+    const open = r.followUps.filter((f) => f.status === "open").length;
+    return [
+      `${r.date}  ${r.title} (${r.slug})${r.stage === "closed" ? "" : `  [in progress: ${r.stage}]`}`,
+      ...r.why ? [`    ${r.why}`] : [],
+      ...r.record ? [`    ${r.record}`] : [],
+      ...r.followUps.length ? [`    ${r.followUps.length} follow-up(s), ${open} open`] : []
+    ].join("\n");
+  });
+  return { message: lines.length ? lines.join("\n") : "No plans yet.", data: { records } };
+}
+
+// plugins/cairn/cli/src/memory.ts
+var OVERVIEW_REL = `${DOCS_DIR}/OVERVIEW.md`;
+var CHANGELOG_MARK = "<!-- Generated by cairn from each plan's changelog entry and record. Edits here are overwritten. -->";
+var NONE = "None yet.";
+var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename3(e.dir)}/RECORD.md`).find((rel) => existsSync6(join12(root, rel)));
+var byNewest = (a, b) => b.date.localeCompare(a.date) || a.state.slug.localeCompare(b.state.slug);
+function renderChangelog(root, plans) {
+  const out = ["# Changelog", "", CHANGELOG_MARK, ""];
+  const closed = plans.filter((p) => p.state.stage === "closed").sort(byNewest);
+  if (!closed.length) out.push(NONE);
+  for (const p of closed) {
+    let text = "";
+    try {
+      text = changelogText(p);
+    } catch {
+    }
+    const r = recordRel(root, p);
+    out.push(`## ${p.date} \xB7 ${stripControl(p.state.title)}`, "");
+    if (text) out.push(text, "");
+    if (r) out.push(`[Record](${posix.relative(DOCS_DIR, r)})`, "");
+  }
+  return `${out.join("\n").replace(/\n+$/, "")}
+`;
+}
+var INDEX_ENTRIES = 5;
+var INDEX_WORDS = 120;
+function cutWords(text, n) {
+  const words = text.split(/\s+/).filter(Boolean);
+  return words.length > n ? `${words.slice(0, n).join(" ")}\u2026` : text;
+}
+function memoryIndex(root, plansOf) {
+  const plans = typeof plansOf === "function" ? plansOf() : plansOf;
+  const lines = [];
+  for (const p of plans.filter((x) => x.state.stage === "closed").sort(byNewest)) {
+    if (lines.length >= INDEX_ENTRIES) break;
+    try {
+      const text = cutWords(changelogText(p), INDEX_WORDS);
+      lines.push(`- ${p.date} ${stripControl(p.state.title)}${text ? `: ${text}` : ""}`);
+    } catch {
+    }
+  }
+  if (!lines.length) return "";
+  return ["cairn changelog (newest first):", ...lines, `Older work: ${OVERVIEW_REL}`].join("\n");
+}
+
+// plugins/cairn/cli/src/commands/memory.ts
+var removed = (what) => new Refusal(`${what} was removed; the changelog in ${OVERVIEW_REL} replaces it.`);
+function refreshMemory(root, ctx) {
+  const before = readText(join13(root, OVERVIEW_REL));
+  const after = renderChangelog(root, planEntries(ctx));
+  if (before === after) return [];
+  writeText(join13(root, OVERVIEW_REL), after);
+  return [OVERVIEW_REL];
+}
+function writeMemory(pc, s) {
+  const root = pc.plan.worktree;
+  const changed = refreshMemory(root, pc.ctx);
+  if (pc.cfg.autoCommit && changed.length) commitPaths(root, changed, `cairn(${s.slug}): update changelog`);
+  return changed;
+}
+function closeMemory(pc, r) {
+  try {
+    writeMemory(pc, loadState(pc.plan.dir));
+    return r;
+  } catch (e) {
+    return { ...r, message: `${r.message}
+Warning: the changelog was not updated (${e.message.split("\n")[0]}); run cairn render on main.` };
+  }
+}
+function cmdIndex(ctx) {
+  return { message: memoryIndex(ctx.top, () => planEntries(ctx)) };
+}
+
+// plugins/cairn/cli/src/commands/plans.ts
+function cmdNew(ctx, slug, opts) {
+  if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "\u2026"');
+  const track = opts.track === "fix" ? "fix" : "feature";
+  const branch = planBranch(slug, track);
+  const existing = planBranchesFor(slug, ctx.top)[0];
+  if (existing) throw new Refusal(`a plan named "${slug}" already exists (${existing})`, [`cairn resume ${slug}`, "or pick another slug"]);
+  if (!gitOk(["rev-parse", "--verify", "HEAD"], ctx.top)) throw new Refusal("the repository has no commits yet", ["make an initial commit first"]);
+  const mainBranch = ctx.worktrees[0]?.branch ?? ctx.branch;
+  const base = typeof opts.from === "string" ? opts.from : ctx.plan ? mainBranch : ctx.branch;
+  const title = typeof opts.title === "string" ? opts.title : slug;
+  const cfg = loadConfig(ctx.top, ctx.mainRoot);
+  if (typeof opts.level === "string" && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(", ")}`);
+  const badDefault = cfg.defaultLevel !== void 0 && !isLevel(cfg.defaultLevel);
+  const level = typeof opts.level === "string" ? opts.level : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : "standard";
+  let wt;
+  if (opts["no-worktree"]) {
+    git(["switch", "-q", "-c", branch, base], ctx.top);
+    wt = ctx.top;
+  } else {
+    const root = worktreeRoot(cfg, ctx.mainRoot);
+    if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
+    wt = join14(root, worktreeName(branch));
+    git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
+  }
+  const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
+  const dir = join14(wt, rel);
+  writeText(join14(dir, "decisions.md"), `# Decisions: ${title}
+
+Append-only. Written by \`cairn decide\` as each decision is made.
+`);
+  const state = newState(slug, title, track, branch, base, track === "fix" ? "repro" : "discover");
+  state.cairnVersion = pluginVersion();
+  if (track === "feature") {
+    state.level = level;
+    log(state, "level", level);
+  }
+  saveState(dir, state);
+  if (cfg.autoCommit) commitPath(wt, rel, `cairn(${slug}): start plan "${title}"`);
+  const setup = opts["no-worktree"] ? "" : runSetup(cfg, wt, ctx.mainRoot);
+  return {
+    message: [
+      `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
+      ...badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(", ")}; using standard.`] : [],
+      `Worktree: ${wt}`,
+      `The plan is ready. Continue with /cairn:next from where you are.`
+    ].join("\n"),
+    data: { slug, branch, base, worktree: wt, dir, level: track === "feature" ? level : null }
+  };
+}
+function cmdProductInit(ctx) {
+  const dir = join14(ctx.top, `${DOCS_DIR}/product`);
+  const prd = join14(dir, "PRD.md");
+  if (existsSync7(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
+  writeText(prd, template("product-prd.md") ?? "# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n");
+  writeText(join14(dir, "decisions", ".gitkeep"), "");
+  return { message: `Created ${DOCS_DIR}/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
+}
+var REMOVED_DECIDE_OPTS = ["lasting", "promote", "replaces", "areas", "paths", "plan", "date"];
+function cmdDecide(ctx, question, answer, opts) {
+  for (const o of REMOVED_DECIDE_OPTS) if (opts[o] !== void 0) throw removed(`cairn decide --${o}`);
+  const f = typeof opts.file === "string" ? readDecisionFile(ctx.cwd, opts.file) : {};
+  const d = typeof opts.file === "string" ? f : { question, answer, why: typeof opts.why === "string" ? opts.why : void 0 };
+  if (!d.question || !d.answer) throw new CliError('usage: cairn decide "<question>" "<answer>" [--why "\u2026"] | cairn decide --file <path>');
+  const pc = planCtx(ctx);
+  const n = appendDecision(pc, d.question, d.answer, d.why);
+  return { message: `Recorded decision ${n}: ${d.answer}`, data: { number: n } };
+}
+function readDecisionFile(cwd, file) {
+  let data;
+  try {
+    data = JSON.parse(readFileSync6(resolve(cwd, file), "utf8"));
+  } catch (e) {
+    throw new CliError(`cannot read decision file ${file}: ${e.message}`);
+  }
+  const obj = data;
+  for (const k of ["lasting", "areas", "paths", "replaces"]) if (obj && typeof obj === "object" && k in obj) throw removed(`"${k}" in a decision file`);
+  if (!obj || typeof obj !== "object" || Array.isArray(obj) || typeof obj.question !== "string" || typeof obj.answer !== "string" || obj.why !== void 0 && typeof obj.why !== "string")
+    throw new CliError(`decision file ${file} must be a JSON object {"question": "\u2026", "answer": "\u2026", "why": "\u2026"} (why optional)`);
+  return { question: obj.question, answer: obj.answer, why: obj.why };
+}
+function appendDecision(pc, question, answer, why) {
+  const file = planFile(pc, "decisions.md");
+  const cur = readText(file) ?? "# Decisions\n";
+  const n = (cur.match(/^### /gm)?.length ?? 0) + 1;
+  writeText(file, `${cur.replace(/\n*$/, "\n")}
+### ${n}. ${question}
+**Decision:** ${answer}${why ? `
+**Why:** ${why}` : ""}
+_${now().slice(0, 16).replace("T", " ")}_
+`);
+  return n;
 }
 
 // plugins/cairn/cli/src/commands/level.ts
@@ -9475,7 +9119,7 @@ function levelCheck(s, to) {
 }
 
 // plugins/cairn/cli/src/plan-parse.ts
-var import_yaml3 = __toESM(require_dist(), 1);
+var import_yaml = __toESM(require_dist(), 1);
 var BLOCK = /```ya?ml\s+cairn-tasks\s*\n([\s\S]*?)```/;
 var COMPLEXITY = ["simple", "standard", "complex"];
 var KINDS = ["prefactor"];
@@ -9488,7 +9132,7 @@ function parsePlan(planMd, prdMd) {
   if (!block) return { phases: [], problems: [...problems, "plan.md has no ```yaml cairn-tasks block under ## Phases"] };
   let doc;
   try {
-    doc = (0, import_yaml3.parse)(block);
+    doc = (0, import_yaml.parse)(block);
   } catch (e) {
     return { phases: [], problems: [...problems, `cairn-tasks YAML does not parse: ${e.message}`] };
   }
@@ -9632,8 +9276,8 @@ function cmdPlanLoad(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/tasks.ts
-import { existsSync as existsSync11 } from "node:fs";
-import { basename as basename4, join as join17 } from "node:path";
+import { existsSync as existsSync8 } from "node:fs";
+import { basename as basename4, join as join15 } from "node:path";
 var MAX_FIX_ROUNDS = 2;
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
@@ -9672,7 +9316,7 @@ function taskStart(pc, id, opts) {
   const { plan: plan2, ctx, cfg } = pc;
   const r = mutate(pc, void 0, (s) => {
     const branch = taskBranch(plan2.slug, id);
-    const path = join17(worktreeRoot(cfg, ctx.mainRoot), `${basename4(plan2.worktree)}--${id}`);
+    const path = join15(worktreeRoot(cfg, ctx.mainRoot), `${basename4(plan2.worktree)}--${id}`);
     const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
@@ -9692,7 +9336,7 @@ function taskStart(pc, id, opts) {
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base = git(["rev-parse", pb], plan2.worktree);
     let setup = "";
-    if (!existsSync11(path)) {
+    if (!existsSync8(path)) {
       if (branchExists(branch, plan2.worktree)) git(["worktree", "add", "-q", path, branch], plan2.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan2.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
@@ -9730,7 +9374,7 @@ function taskDone(pc, id, opts) {
   const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
   const merged = branchExists(sl.branch, plan2.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree);
-  const dirty = sl.worktree && existsSync11(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync8(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan2.worktree) ? git(["rev-parse", "--short", sl.branch], plan2.worktree) : void 0;
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
@@ -9773,7 +9417,7 @@ function taskDone(pc, id, opts) {
       data: { phaseComplete: !left }
     };
   });
-  if (merged && sl.worktree && existsSync11(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
+  if (merged && sl.worktree && existsSync8(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
   if (merged) gitOk(["branch", "-d", sl.branch], plan2.worktree);
   return r;
 }
@@ -9867,34 +9511,34 @@ function cmdTest(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/migrate.ts
-import { existsSync as existsSync12, lstatSync, mkdirSync as mkdirSync4, readdirSync as readdirSync6, renameSync as renameSync2, rmdirSync as rmdirSync2 } from "node:fs";
-import { dirname as dirname4, join as join18 } from "node:path";
+import { existsSync as existsSync9, lstatSync, mkdirSync as mkdirSync3, readdirSync as readdirSync4, renameSync as renameSync2, rmdirSync as rmdirSync2 } from "node:fs";
+import { dirname as dirname4, join as join16 } from "node:path";
 var PAIRS = [
   [LEGACY_CAIRN_DIR, CAIRN_DIR],
   [LEGACY_DOCS_DIR, DOCS_DIR]
 ];
 function isCairns(root, old) {
-  if (old === LEGACY_CAIRN_DIR) return existsSync12(join18(root, old, "config.json"));
-  if (existsSync12(join18(root, old, "product"))) return true;
-  const plans = join18(root, old, "plans");
-  return existsSync12(plans) && readdirSync6(plans).some((n) => existsSync12(join18(plans, n, "state.json")));
+  if (old === LEGACY_CAIRN_DIR) return existsSync9(join16(root, old, "config.json"));
+  if (existsSync9(join16(root, old, "product"))) return true;
+  const plans = join16(root, old, "plans");
+  return existsSync9(plans) && readdirSync4(plans).some((n) => existsSync9(join16(plans, n, "state.json")));
 }
 var legacyLayout = (root) => PAIRS.map(([old]) => old).filter((p) => isCairns(root, p));
 var tracked = (root, rel) => git(["ls-files", "--", rel], root) !== "";
 function move(root, from, to) {
-  mkdirSync4(dirname4(join18(root, to)), { recursive: true });
+  mkdirSync3(dirname4(join16(root, to)), { recursive: true });
   if (tracked(root, from)) git(["mv", from, to], root);
-  else renameSync2(join18(root, from), join18(root, to));
+  else renameSync2(join16(root, from), join16(root, to));
 }
 var present = (root, rel) => {
   try {
-    lstatSync(join18(root, rel));
+    lstatSync(join16(root, rel));
     return true;
   } catch {
     return false;
   }
 };
-var isDir = (root, rel) => lstatSync(join18(root, rel)).isDirectory();
+var isDir = (root, rel) => lstatSync(join16(root, rel)).isDirectory();
 function plan(root, old, next, out) {
   if (!present(root, next)) {
     out.moves.push([old, next]);
@@ -9905,10 +9549,10 @@ function plan(root, old, next, out) {
     return;
   }
   out.dirs.push(old);
-  for (const n of readdirSync6(join18(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
+  for (const n of readdirSync4(join16(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
 }
 var prune = (root, dirs) => {
-  for (const d of [...dirs].reverse()) if (existsSync12(join18(root, d)) && !readdirSync6(join18(root, d)).length) rmdirSync2(join18(root, d));
+  for (const d of [...dirs].reverse()) if (existsSync9(join16(root, d)) && !readdirSync4(join16(root, d)).length) rmdirSync2(join16(root, d));
 };
 function cmdMigrate(ctx) {
   if (ctx.plan) throw new Refusal("run cairn migrate on the main branch, outside any plan");
@@ -9936,7 +9580,7 @@ function cmdMigrate(ctx) {
 }
 
 // plugins/cairn/cli/src/direction.ts
-var import_yaml4 = __toESM(require_dist(), 1);
+var import_yaml2 = __toESM(require_dist(), 1);
 var BLOCK2 = /```ya?ml[ \t]+cairn-direction[ \t]*\r?\n([\s\S]*?)```/g;
 var VERDICTS = ["aligned", "partial", "missing", "contradicted"];
 var CLASSES = ["pulled-forward", "unplanned", "non-goal-breach", "supporting"];
@@ -9948,7 +9592,7 @@ function parseScorecard(md) {
   if (blocks.length > 1) return { rows: empty(), problems: ["the report has more than one cairn-direction block; keep exactly one"] };
   let doc;
   try {
-    doc = (0, import_yaml4.parse)(blocks[0][1]);
+    doc = (0, import_yaml2.parse)(blocks[0][1]);
   } catch (e) {
     return { rows: empty(), problems: [`cairn-direction YAML does not parse: ${e.message}`] };
   }
@@ -10039,7 +9683,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join19 } from "node:path";
+import { join as join17 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -10063,7 +9707,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join19(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join17(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -10096,8 +9740,8 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync13 } from "node:fs";
-import { dirname as dirname5, isAbsolute, join as join20, relative as relative3, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync10 } from "node:fs";
+import { dirname as dirname5, isAbsolute, join as join18, relative as relative3, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function indexFor(ctx) {
   try {
@@ -10112,7 +9756,7 @@ var startOut = (...parts) => {
 };
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync13(join20(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync10(join18(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return startOut(indexFor(ctx));
@@ -10135,9 +9779,9 @@ function hookPostEdit(input) {
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
   let dir = dirname5(abs);
-  while (!existsSync13(dir) && dirname5(dir) !== dir) dir = dirname5(dir);
+  while (!existsSync10(dir) && dirname5(dir) !== dir) dir = dirname5(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync13(join20(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync10(join18(ctx.plan.dir, "state.json"))) return "";
   const rel = relative3(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (isCairnPath(rel)) return "";
@@ -10172,7 +9816,7 @@ function hookPostEdit(input) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "uncovered"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting"]);
 var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];
@@ -10212,12 +9856,11 @@ ${v}` : v;
   return { pos, opts };
 }
 var USAGE3 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
-  next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] [--lasting --areas a,b --paths g1,g2 --replaces <id>] | decide --file <path> | decide --promote <n> --areas a,b
+  next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
-  recall <path or glob>... | index
-  area skip <id>|--uncovered --note "..." | pause [--now] | resume [<slug>] | close | render | records | migrate
+  index | pause [--now] | resume [<slug>] | close | render | records | migrate
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 function run(argv, cwd = process.cwd()) {
@@ -10271,10 +9914,9 @@ function run(argv, cwd = process.cwd()) {
     case "resume":
       return cmdResume(ctx(), a, opts);
     case "area":
-      if (a !== "skip") throw new CliError('usage: cairn area skip <id>|--uncovered --note "<why>"');
-      return cmdAreaSkip(ctx(), b, opts);
+      throw removed("cairn area");
     case "recall":
-      return cmdRecall(ctx(), pos.slice(1), opts);
+      throw removed("cairn recall");
     case "index":
       return cmdIndex(ctx());
     case "close":
@@ -10314,7 +9956,7 @@ function main(argv) {
   const json = argv.includes("--json");
   try {
     const r = run(argv);
-    process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + "\n");
+    if (json || r.message !== "") process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + "\n");
     return 0;
   } catch (e) {
     if (e instanceof Refusal) {
