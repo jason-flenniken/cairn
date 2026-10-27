@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, renameSync, rmdirSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadConfig } from '../config.ts';
 import { git, gitOk } from '../git.ts';
@@ -13,8 +13,16 @@ const PAIRS: [string, string][] = [
   [LEGACY_DOCS_DIR, DOCS_DIR],
 ];
 
-/** The legacy folders present under `root`. */
-export const legacyLayout = (root: string): string[] => PAIRS.map(([old]) => old).filter((p) => existsSync(join(root, p)));
+/** Whether a legacy folder is cairn's: it holds cairn's config, a plan record, or the product docs. Other tools' `docs/sdlc/` are left alone. */
+function isCairns(root: string, old: string): boolean {
+  if (old === LEGACY_CAIRN_DIR) return existsSync(join(root, old, 'config.json'));
+  if (existsSync(join(root, old, 'product'))) return true;
+  const plans = join(root, old, 'plans');
+  return existsSync(plans) && readdirSync(plans).some((n) => existsSync(join(plans, n, 'state.json')));
+}
+
+/** The cairn legacy folders present under `root`. */
+export const legacyLayout = (root: string): string[] => PAIRS.map(([old]) => old).filter((p) => isCairns(root, p));
 
 const tracked = (root: string, rel: string) => git(['ls-files', '--', rel], root) !== '';
 
@@ -31,11 +39,21 @@ interface Plan {
   dirs: string[];
 }
 
-const isDir = (root: string, rel: string) => statSync(join(root, rel)).isDirectory();
+/** Present at all, even as a dangling symlink. */
+const present = (root: string, rel: string) => {
+  try {
+    lstatSync(join(root, rel));
+    return true;
+  } catch {
+    return false;
+  }
+};
+/** A real directory; a symlink is not one, so it counts as a clash. */
+const isDir = (root: string, rel: string) => lstatSync(join(root, rel)).isDirectory();
 
 /** Walk `old` against `next`: whole entries move where the target is free, directories present in both are merged. */
 function plan(root: string, old: string, next: string, out: Plan): void {
-  if (!existsSync(join(root, next))) {
+  if (!present(root, next)) {
     out.moves.push([old, next]);
     return;
   }
@@ -55,7 +73,8 @@ const prune = (root: string, dirs: string[]) => {
 export function cmdMigrate(ctx: Ctx): Result {
   if (ctx.plan) throw new Refusal('run cairn migrate on the main branch, outside any plan');
   const root = ctx.top;
-  const found = PAIRS.filter(([old]) => existsSync(join(root, old)));
+  const legacy = legacyLayout(root);
+  const found = PAIRS.filter(([old]) => legacy.includes(old));
   if (!found.length) return { message: `Nothing to migrate: this repo already uses ${CAIRN_DIR}/ and ${DOCS_DIR}/.` };
   const open = listPlans(ctx).filter((r) => r.state.stage !== 'closed');
   if (open.length) throw new Refusal(`these plans are still open: ${open.map((r) => r.state.slug).join(', ')}`, ['finish or close them first']);

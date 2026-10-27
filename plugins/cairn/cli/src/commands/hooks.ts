@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import { DOCS_DIR, isCairnPath } from '../paths.ts';
+import { DOCS_DIR, DOCS_DIRS, isCairnPath } from '../paths.ts';
 import { matchesAny } from '../glob.ts';
-import { context } from '../locate.ts';
+import { context, planRelOf } from '../locate.ts';
 import { allTasks, currentPhase, findTask } from '../ready.ts';
 import { nextFor, summary } from '../render.ts';
 import { loadState, log, saveState } from '../state.ts';
@@ -43,7 +43,7 @@ export function hookSessionStart(input: HookInput): string {
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     if (ctx.task) {
       const sl = findTask(s, ctx.task);
-      if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit ${DOCS_DIR}/.`);
+      if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit ${DOCS_DIRS.find((d) => planRelOf(pc.plan).startsWith(`${d}/`)) ?? DOCS_DIR}/.`);
     }
     return startOut(lines.join('\n'), indexFor(ctx));
   }

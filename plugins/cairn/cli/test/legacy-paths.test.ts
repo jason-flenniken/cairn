@@ -1,7 +1,7 @@
 import './no-auto-gc.ts';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -36,6 +36,49 @@ function legacyBranch(slug: string, title: string) {
   g(wt, 'add', '-A');
   g(wt, 'commit', '-q', '-m', 'legacy plan');
   return { branch, wt };
+}
+
+/** A repo with only the legacy config, and a fresh plan moved under docs/sdlc/plans as a plan started before 0.6 would be. */
+function legacyPlan(slug: string, track: 'feature' | 'fix') {
+  const r = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-legacy-close-')));
+  g(r, 'init', '-q', '-b', 'main');
+  mkdirSync(join(r, '.sdlc'), { recursive: true });
+  writeFileSync(join(r, '.sdlc/config.json'), JSON.stringify({ test: 'true', maxParallel: 3 }));
+  g(r, 'add', '-A');
+  g(r, 'commit', '-q', '-m', 'init');
+  const wt = run(['new', slug, '--title', slug, ...(track === 'fix' ? ['--track', 'fix'] : [])], r).data!.worktree as string;
+  mkdirSync(join(wt, 'docs/sdlc'), { recursive: true });
+  g(wt, 'mv', 'docs/cairn/plans', 'docs/sdlc/plans');
+  g(wt, 'commit', '-q', '-m', 'legacy layout');
+  const dir = run(['status', '--json'], wt).data!.planDir as string;
+  assert.match(dir, /docs\/sdlc\/plans\//);
+  const f = join(dir, 'state.json');
+  const st = JSON.parse(readFileSync(f, 'utf8'));
+  st.stage = 'learn';
+  writeFileSync(f, JSON.stringify(st, null, 2));
+  copyFileSync(join(import.meta.dirname, '../../templates/record.md'), join(dir, 'RECORD.md'));
+  mkdirSync(join(wt, 'src'), { recursive: true });
+  writeFileSync(join(wt, 'src/a.ts'), '1\n');
+  g(wt, 'add', '-A');
+  g(wt, 'commit', '-q', '-m', 'code');
+  return { r, wt, f };
+}
+
+for (const track of ['feature', 'fix'] as const) {
+  test(`a ${track} plan under docs/sdlc/plans with .sdlc/config.json resolves and closes`, () => {
+    const { r, wt, f } = legacyPlan(`leg-${track}`, track);
+    try {
+      const out = run(['close'], wt);
+      assert.match(out.message, /Closed/);
+      assert.equal(JSON.parse(readFileSync(f, 'utf8')).stage, 'closed');
+      assert.equal(g(wt, 'status', '--porcelain'), '');
+      assert.ok(existsSync(join(wt, 'docs/cairn/OVERVIEW.md')));
+      assert.doesNotMatch(readFileSync(join(wt, 'docs/cairn/OVERVIEW.md'), 'utf8'), /docs\/sdlc/);
+    } finally {
+      g(r, 'worktree', 'remove', '--force', wt);
+      rmSync(r, { recursive: true, force: true });
+    }
+  });
 }
 
 test('new plans land under docs/cairn/plans', () => {
