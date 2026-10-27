@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:41:19.975Z",
+  "updated": "2026-10-27T20:41:23.514Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -88,7 +88,7 @@
     {
       "id": "switch-over",
       "name": "Remove the old memory and wire the changelog everywhere",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "cli-removals",
@@ -208,7 +208,7 @@
     {
       "id": "repo-and-release",
       "name": "This repo's memory, docs and release",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "repo-docs",
@@ -439,6 +439,11 @@
       "at": "2026-10-27T20:41:19.975Z",
       "event": "task done",
       "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:41:23.514Z",
+      "event": "phase finished",
+      "detail": "Remove the old memory and wire the changelog everywhere (tests green (0 fail))"
     }
   ],
   "cairnVersion": "0.6.0",
