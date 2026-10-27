@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:49:46.767Z",
+  "updated": "2026-10-27T21:13:32.871Z",
   "stage": "verify",
   "stageHistory": [
     {
@@ -282,7 +282,13 @@
       ]
     }
   ],
-  "evidence": {},
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-27T21:13:32.870Z",
+      "note": "tests: 347 CLI + 573 mod passing, build matches bundle; 16 requirements met, 0 untested (FR-01 output and FR-14 on main observable at ship/close); FR-13 met after merging the unmerged close of roomier-pane-visuals; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    }
+  },
   "drift": [
     {
       "path": "plugins/cairn/cli/src/main.ts",
@@ -526,6 +532,31 @@
       "at": "2026-10-27T20:49:46.767Z",
       "event": "advanced",
       "detail": "verify"
+    },
+    {
+      "at": "2026-10-27T20:49:54.147Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-10-27T20:50:35.021Z",
+      "event": "step",
+      "detail": "scanning"
+    },
+    {
+      "at": "2026-10-27T21:12:39.266Z",
+      "event": "step",
+      "detail": "fixing (1)"
+    },
+    {
+      "at": "2026-10-27T21:12:57.698Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-10-27T21:13:32.871Z",
+      "event": "verify pass",
+      "detail": "tests: 347 CLI + 573 mod passing, build matches bundle; 16 requirements met, 0 untested (FR-01 output and FR-14 on main observable at ship/close); FR-13 met after merging the unmerged close of roomier-pane-visuals; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -618,5 +649,10 @@
       "from": "task-review",
       "at": "2026-10-27T20:38:32.694Z"
     }
-  ]
+  ],
+  "step": {
+    "stage": "verify",
+    "name": "testing",
+    "at": "2026-10-27T21:12:57.697Z"
+  }
 }
