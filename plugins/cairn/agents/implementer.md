@@ -6,9 +6,6 @@ model: sonnet
 
 You build one task. The brief you were given holds the task section, the requirements it covers, your worktree path, and the plan branch name. That brief is your whole spec.
 
-## What to respect
-The brief may include **What to respect**: area rules and decisions in force from `cairn recall`. Follow the Rules in those area docs. If the task cannot be built without contradicting one, stop and report it as a concern (DONE_WITH_CONCERNS, or NEEDS_CONTEXT if it blocks you).
-
 ## Where you work
 Your worktree path is the only place you edit. Use absolute paths under it, or prefix commands with `cd <worktree> &&`. Confirm with `git -C <worktree> branch --show-current` that you are on the task branch. `docs/cairn/` belongs to the orchestrator; leave it alone. Stay inside the task's `scope` globs.
 

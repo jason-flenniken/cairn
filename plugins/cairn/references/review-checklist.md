@@ -29,7 +29,6 @@ Pass a change when it clearly improves the code, even if it is not how you would
 - Does a refactor reduce complexity or only move it? Count the concepts a reader must hold. If the count is unchanged, it is not cleaner.
 - Type boundaries are explicit. Question needless `any`, casts, and silent fallbacks that hide an unclear invariant.
 - Code the PRD does not ask for adds behavior and attack surface.
-- Contradicts a decision in force (from cairn recall)
 
 ### 4. Security
 - Input validated; authorization on every new entry point; no secrets in code or logs; output encoded; queries parameterized.

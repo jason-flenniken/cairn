@@ -100,6 +100,7 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - `doc.tsx` owns the `docOpen` atom (read through `readDoc`, since the engine only follows an atom read in the file that declares it). Read all on an approval card and a Records entry with a record file open it; docked only.
 - The viewer replaces the tab's content, drawn through `frame` so the bar stays pinned: title, Back, Approve (only while that very file is the one waiting on approval), then the whole text in one Markdown. Opening scrolls the pane to the start. The kit raises no `ui.scroll` for it, so that part is a live check.
 - Document text only reaches `Markdown`; Approve is the one path to `approvePress`, which asks the confirm first.
+- Changelog tab: the fourth tab, fed by the same `cairn records --json` fetch and poll as Records (its `entry` field), drawn through `frame`. Closed plans only, newest first; date and title bold, the paragraph wrapped; a click opens RECORD.md with `openDoc`, and Back returns to the tab. The pane strips control characters from entry text itself (it never trusts the CLI to have done it).
 
 ## Testing
 

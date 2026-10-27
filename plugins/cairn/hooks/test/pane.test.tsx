@@ -797,7 +797,7 @@ describe('tabs and the Now view (FR-01..FR-06, FR-19)', () => {
     world(on, { rows: [row(EXECUTE, WT)] })
     await start($, WT)
     const ui = await mount($, 'terminal')
-    expect((await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter(isTab)).toEqual(['tab:now', 'tab:history', 'tab:records'])
+    expect((await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter(isTab)).toEqual(['tab:now', 'tab:history', 'tab:records', 'tab:changelog'])
     expect(await drawn(ui)).toContain('Main session')
     await ui.press({ key: 'tab:history' })
     expect(await drawn(ui)).not.toContain('History is coming')
@@ -961,6 +961,98 @@ describe('Records tab (FR-08, FR-09)', () => {
   })
 })
 
+describe('Changelog tab (FR-06..FR-08)', () => {
+  const rec = (slug: string, date: string, over: Record<string, unknown> = {}) => ({
+    slug, title: `Plan ${slug}`, date, stage: 'closed', why: `why ${slug}`, entry: `entry text for ${slug}`, record: `/repo/docs/cairn/plans/${slug}/RECORD.md`, followUps: [], ...over,
+  })
+
+  test('lists closed plans newest first with their text; open plans are left out', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('older', '2026-09-03'), rec('live', '2026-10-21', { stage: 'execute', record: undefined }), rec('newer', '2026-10-20')]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:changelog' })
+    const text = await drawn(ui)
+    expect(text.indexOf('Oct 20 · Plan newer')).toBeGreaterThanOrEqual(0)
+    expect(text.indexOf('Oct 20 · Plan newer')).toBeLessThan(text.indexOf('Sep 3 · Plan older'))
+    expect(text).toContain('entry text for newer')
+    expect(text).toContain('entry text for older')
+    expect(text).not.toContain('Plan live')
+    await ui.unmount()
+  })
+
+  test('clicking an entry opens its RECORD.md; Back returns to the Changelog tab', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20')]
+    w.files.set('/repo/docs/cairn/plans/a/RECORD.md', '# Record A')
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:changelog' })
+    await ui.press({ key: 'entry:a' })
+    expect((await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text)[0]).toBe('# Record A')
+    await ui.press({ key: 'back' })
+    expect(await drawn(ui)).toContain('entry text for a')
+    expect(await ui.findAll({ type: 'Markdown' })).toHaveLength(0)
+    await ui.unmount()
+  })
+
+  test('with no closed plans it says so in one line', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('live', '2026-10-21', { stage: 'execute', record: undefined })]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:changelog' })
+    expect(await drawn(ui)).toContain('No finished plans yet, so no changelog.')
+    await ui.unmount()
+  })
+
+  test('a failed read keeps the last entries', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20')]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:changelog' })
+    expect(await drawn(ui)).toContain('entry text for a')
+    w.recordsFail = true
+    await ui.press({ key: 'tab:now' })
+    await ui.press({ key: 'tab:changelog' })
+    expect(await drawn(ui)).toContain('entry text for a')
+    await ui.unmount()
+  })
+
+  test('an entry without a paragraph lists date and title only', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20', { entry: undefined, why: '', record: undefined })]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:changelog' })
+    expect(await drawn(ui)).toContain('Oct 20 · Plan a')
+    await ui.unmount()
+  })
+
+  test('a record with a Why but no entry shows the Why sentence', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20', { entry: undefined, why: 'Plan a fixed the thing.' })]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:changelog' })
+    expect(await drawn(ui)).toContain('Plan a fixed the thing.')
+    await ui.unmount()
+  })
+
+  test('control characters in an entry are not rendered', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20', { entry: 'hello \x1b[2Jworld\x07', title: 'T\x1b[2Jitle' })]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:changelog' })
+    const text = await drawn(ui)
+    expect(text).toContain('hello [2Jworld')
+    expect(text).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/)
+    await ui.unmount()
+  })
+})
+
 describe('roomier layout (side padding, blank lines between sections)', () => {
   const rec = (slug: string, date: string) => ({
     slug, title: `Plan ${slug}`, date, stage: 'closed', why: `why ${slug}`, record: `/repo/docs/sdlc/plans/${slug}/RECORD.md`, followUps: [],
@@ -973,7 +1065,7 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
     w.records = [rec('a', '2026-10-20'), rec('b', '2026-09-03')]
     await start($, WT)
     const ui = await mount($, 'terminal')
-    for (const key of ['tab:now', 'tab:history', 'tab:records']) {
+    for (const key of ['tab:now', 'tab:history', 'tab:changelog', 'tab:records']) {
       await ui.press({ key })
       expect((await root(ui)).props).toMatchObject({ paddingX: 1, gap: 1 })
     }
@@ -987,7 +1079,7 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
     w.records = [rec('a', '2026-10-20'), rec('b', '2026-09-03')]
     await start($, WT)
     const ui = await mount($, 'terminal')
-    for (const key of ['tab:now', 'tab:history', 'tab:records', 'record:a']) {
+    for (const key of ['tab:now', 'tab:history', 'tab:changelog', 'tab:records', 'record:a']) {
       await ui.press({ key })
       for (const b of await boxes(ui)) expect(b.props.backgroundColor).toBeUndefined()
     }

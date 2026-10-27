@@ -66,3 +66,6 @@ export function withLock<T>(dir: string, fn: () => T): T {
     } catch {}
   }
 }
+
+/** Drop control characters (terminal escapes, bell, carriage return, C1) so model-written text cannot drive the terminal. Newlines and tabs stay. */
+export const stripControl = (s: string): string => s.replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, '');

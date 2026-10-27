@@ -9,7 +9,7 @@ import { STAGES, type Stage, type State, type Track } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
 import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
-import { areaCheck, closeMemory, type AreaCheck } from './memory.ts';
+import { closeMemory } from './memory.ts';
 import { configGate, configHash, fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
 
@@ -37,7 +37,7 @@ const recordCheck = (pc: PlanCtx, track: Track) =>
     : { problems: recordProblems(pc), fix: 'write RECORD.md from templates/record.md' };
 
 /** The checks for closing a plan: the record, green tests, and the approved commands. */
-function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: string[]; fix: string }, tests: TestRun | undefined, areas: AreaCheck): void {
+function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: string[]; fix: string }, tests: TestRun | undefined): void {
   configGate(s, pc.cfg, 'close', opts);
   const open = collectSuggestions(pc.ctx).filter((x) => x.open && !x.hardening && x.slug === s.slug);
   gate(
@@ -49,9 +49,6 @@ function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: strin
     ['group related ones: cairn suggest merge <key>... --area <a> --text "<high-level item>"', 'drop trivia: cairn suggest resolve <key> --dismiss --note "<reason>"', 'then list what was dropped in the record'],
   );
   gate(!record.problems.length, s, 'close', opts, record.problems.join('; '), [record.fix]);
-  gate(!areas.problems.length, s, 'close', opts, areas.problems.join('; '), areas.fixes);
-  if (areas.warning) log(s, 'warning: close', areas.warning);
-  s.areasTouched = areas.touched;
   testsGate(tests, s, 'close', opts);
 }
 /** Why prd.md cannot be approved yet: missing or empty sections, open questions. */
@@ -186,7 +183,6 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
   if (closing) configGate(pre, pc.cfg, 'close', opts);
   const record = closing ? recordCheck(pc, 'fix') : undefined;
   const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : undefined;
-  const areas = closing ? areaCheck(pc.plan.worktree, pre) : undefined;
   let to: Stage | undefined;
   const r = mutate(pc, undefined, (s) => {
     to = nextStage(s);
@@ -219,7 +215,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         break;
       case 'ship':
         gate(!!s.approvals.ship, s, 'advance', opts, 'shipping is not approved', ['cairn approve ship']);
-        if (record && areas) closeGates(pc, s, opts, record, tests, areas);
+        if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
     // An MVP task that was not flagged risky skipped its per-task review: say so, scoped to the task.
@@ -244,10 +240,9 @@ export function cmdClose(ctx: Ctx, opts: Opts): Result {
   configGate(loadState(pc.plan.dir), pc.cfg, 'close', opts);
   const record = recordCheck(pc, 'feature');
   const tests = runTests(pc.cfg, pc.plan.worktree);
-  const areas = areaCheck(pc.plan.worktree, loadState(pc.plan.dir));
   const r = mutate(pc, 'closed', (s) => {
     gate(s.stage === 'learn', s, 'close', opts, `the plan is in ${s.stage}, not learn`);
-    closeGates(pc, s, opts, record, tests, areas);
+    closeGates(pc, s, opts, record, tests);
     setStage(s, 'closed');
     log(s, 'closed');
     return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };

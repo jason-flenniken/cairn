@@ -20,7 +20,7 @@ interface HookInput {
 
 const hookOut = (event: string, text: string) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 
-/** The memory index, or '' when there is none or it cannot be read; a broken memory never blocks a session. */
+/** The recent changelog (newest closed plans, one line each), or '' when there is none or it cannot be read; a broken memory never blocks a session. */
 function indexFor(ctx: ReturnType<typeof context>): string {
   try {
     return memoryIndex(ctx.top, () => planEntries(ctx));

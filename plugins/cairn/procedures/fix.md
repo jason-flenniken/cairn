@@ -74,15 +74,15 @@ Write `docs/cairn/plans/<date>-<slug>/RECORD.md` from `templates/record-fix.md`.
 
 The record is at most 200 words. Count the words with headings and HTML comments left out. Trim until it fits.
 
-Then update the area docs. Run `cairn recall <files changed on the branch> --json`, and dispatch the `recorder` again (`model: sonnet`, `description` "Record · area docs") with that output, `git diff <base>...<plan-branch> --stat`, the plan log, and `decisions.md`. It updates Rules, How it works, and Gotchas in each area doc that covers changed code, and for uncovered code that forms a coherent area it proposes a new doc from `templates/area.md`. It never edits `## History`; cairn writes that at close. Then read `decisions.md`: promote any decision that sets a rule for the whole repo and is not yet lasting, with `cd <plan worktree> && cairn decide --promote <n> --areas <a,b>`. Commit the area docs on the plan branch, so they are in the PR the user approves. With no area docs in the repo, skip the recorder dispatch and say once that `/cairn:map` sets them up; still review `decisions.md` for decisions to promote, using `--paths "<globs>"` in place of `--areas`.
+Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, `description` "Record · changelog entry") with `RECORD.md`, the repro, and the plan log. It writes `docs/cairn/plans/<date>-<slug>/changelog.md`: one paragraph of at most 120 words covering what was fixed, why it broke, and any big rocks (API, data model, security or dependency changes a developer must know). Check it with `wc -w`, then commit both files on the plan branch, so they are in the PR the user approves.
 
-**Done when:** `RECORD.md` has the five sections and is at most 200 words, and the area docs for the changed code are updated and committed.
+**Done when:** `RECORD.md` has the five sections and is at most 200 words, and `changelog.md` exists, is at most 120 words, and is committed.
 
 ## 8. Ship stop
-Run `cd <plan worktree> && cairn step approving`. Show the user the record in about five lines, plus the count of open recommended follow-ups when there are any. Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to step 9. Otherwise read `modActive`.
+Run `cd <plan worktree> && cairn step approving`. Show the user the record in about five lines, the changelog entry, plus the count of open recommended follow-ups when there are any. Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to step 9. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output. Options:
   - Approve (Recommended): approve the record
-  - Revise the record: ask what to change, edit, recheck the word count, and show it again
+  - Revise the record or the entry: ask what to change, edit, recheck the word counts, and show it again
   - Hold: stop here; the plan stays at ship
 - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve ship --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 

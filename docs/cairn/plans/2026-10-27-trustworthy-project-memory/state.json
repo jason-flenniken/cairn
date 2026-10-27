@@ -1,0 +1,798 @@
+{
+  "schema": 1,
+  "slug": "trustworthy-project-memory",
+  "title": "Trustworthy project memory",
+  "track": "feature",
+  "branch": "feature/trustworthy-project-memory",
+  "base": "main",
+  "created": "2026-10-27T19:15:12.077Z",
+  "updated": "2026-10-27T21:27:18.014Z",
+  "stage": "closed",
+  "stageHistory": [
+    {
+      "stage": "discover",
+      "at": "2026-10-27T19:15:12.077Z"
+    },
+    {
+      "stage": "prd",
+      "at": "2026-10-27T20:18:12.816Z"
+    },
+    {
+      "stage": "plan",
+      "at": "2026-10-27T20:21:02.567Z"
+    },
+    {
+      "stage": "execute",
+      "at": "2026-10-27T20:26:55.640Z"
+    },
+    {
+      "stage": "verify",
+      "at": "2026-10-27T20:49:46.767Z"
+    },
+    {
+      "stage": "review",
+      "at": "2026-10-27T21:13:32.994Z"
+    },
+    {
+      "stage": "ship",
+      "at": "2026-10-27T21:23:52.964Z"
+    },
+    {
+      "stage": "learn",
+      "at": "2026-10-27T21:26:38.106Z"
+    },
+    {
+      "stage": "closed",
+      "at": "2026-10-27T21:27:18.013Z"
+    }
+  ],
+  "paused": null,
+  "approvals": {
+    "prd": {
+      "at": "2026-10-27T20:26:52.083Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "d71ea63b3544300b"
+    },
+    "plan": {
+      "at": "2026-10-27T20:26:52.082Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "d7fb8dccb89efc27"
+    },
+    "ship": {
+      "at": "2026-10-27T21:26:19.198Z",
+      "via": "human",
+      "source": "mod"
+    }
+  },
+  "phases": [
+    {
+      "id": "changelog-core",
+      "name": "Changelog in the CLI",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "changelog-engine",
+          "name": "Changelog engine",
+          "covers": [
+            "FR-03",
+            "FR-04",
+            "FR-05"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/memory.ts",
+            "plugins/cairn/cli/src/commands/memory.ts",
+            "plugins/cairn/cli/src/commands/records.ts",
+            "plugins/cairn/cli/src/commands/status.ts",
+            "plugins/cairn/cli/src/util.ts",
+            "plugins/cairn/cli/test/changelog.test.ts",
+            "plugins/cairn/cli/test/publish.test.ts",
+            "plugins/cairn/cli/test/recall.test.ts",
+            "plugins/cairn/cli/test/records.test.ts",
+            "plugins/cairn/cli/test/legacy-paths.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "model-written entry text reaches every session start and the pane",
+          "branch": "task/trustworthy-project-memory/changelog-engine",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--changelog-engine",
+          "base": "29e91896ab625bdd47f7d61540d32a767d91a08b",
+          "startedAt": "2026-10-27T20:27:02.764Z",
+          "level": "standard",
+          "doneAt": "2026-10-27T20:33:14.111Z",
+          "tip": "af2de98",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2dc3134a8f89045fbb274028393abd8703817611"
+        }
+      ]
+    },
+    {
+      "id": "switch-over",
+      "name": "Remove the old memory and wire the changelog everywhere",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "cli-removals",
+          "name": "Remove recall, area check and lasting decisions",
+          "covers": [
+            "FR-11",
+            "FR-12",
+            "FR-14"
+          ],
+          "blockedBy": [
+            "changelog-engine"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/areas.ts",
+            "plugins/cairn/cli/src/decision-log.ts",
+            "plugins/cairn/cli/src/memory.ts",
+            "plugins/cairn/cli/src/commands/memory.ts",
+            "plugins/cairn/cli/src/commands/stages.ts",
+            "plugins/cairn/cli/src/commands/plans.ts",
+            "plugins/cairn/cli/src/commands.ts",
+            "plugins/cairn/cli/src/main.ts",
+            "plugins/cairn/cli/src/types.ts",
+            "plugins/cairn/cli/test/areas.test.ts",
+            "plugins/cairn/cli/test/area-check.test.ts",
+            "plugins/cairn/cli/test/decision-log.test.ts",
+            "plugins/cairn/cli/test/lasting.test.ts",
+            "plugins/cairn/cli/test/recall.test.ts",
+            "plugins/cairn/cli/test/publish.test.ts",
+            "plugins/cairn/cli/test/removed.test.ts",
+            "plugins/cairn/cli/test/lifecycle.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "changes the public CLI and must never touch user-owned area or decision files",
+          "branch": "task/trustworthy-project-memory/cli-removals",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--cli-removals",
+          "base": "1d96c5f124df497142ba8c029bf6deafe9896bf4",
+          "startedAt": "2026-10-27T20:33:28.296Z",
+          "level": "standard",
+          "doneAt": "2026-10-27T20:40:45.858Z",
+          "tip": "03bf08d",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "548070b4867075c08dd8e06040943e01f803cc3d"
+        },
+        {
+          "id": "changelog-tab",
+          "name": "Changelog tab in the pane",
+          "covers": [
+            "FR-06",
+            "FR-07",
+            "FR-08"
+          ],
+          "blockedBy": [
+            "changelog-engine"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/NOTES.md",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/**"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "renders model-written text in the terminal",
+          "branch": "task/trustworthy-project-memory/changelog-tab",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--changelog-tab",
+          "base": "1d96c5f124df497142ba8c029bf6deafe9896bf4",
+          "startedAt": "2026-10-27T20:33:28.896Z",
+          "level": "standard",
+          "doneAt": "2026-10-27T20:39:06.482Z",
+          "tip": "d82de1a",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "7e6ed6f333ee035344b6213c72d5904805448c4b"
+        },
+        {
+          "id": "procedures-and-agents",
+          "name": "Procedures and agents write the changelog, drop recall",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-09",
+            "FR-10",
+            "FR-11"
+          ],
+          "blockedBy": [
+            "changelog-engine"
+          ],
+          "scope": [
+            "plugins/cairn/procedures/**",
+            "plugins/cairn/agents/**",
+            "plugins/cairn/skills/**",
+            "plugins/cairn/templates/**",
+            "plugins/cairn/references/review-checklist.md",
+            "plugins/cairn/cli/test/memory-doc.test.ts",
+            "plugins/cairn/cli/test/skills.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/trustworthy-project-memory/procedures-and-agents",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--procedures-and-agents",
+          "base": "1d96c5f124df497142ba8c029bf6deafe9896bf4",
+          "startedAt": "2026-10-27T20:33:29.512Z",
+          "level": "standard",
+          "doneAt": "2026-10-27T20:41:19.974Z",
+          "tip": "3b15258",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "4622a9bfc32e769f1a4ff28d5964fe123c0a456e"
+        }
+      ]
+    },
+    {
+      "id": "repo-and-release",
+      "name": "This repo's memory, docs and release",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "repo-docs",
+          "name": "README, CLI reference and this repo's backfill",
+          "covers": [
+            "FR-13",
+            "FR-15"
+          ],
+          "blockedBy": [
+            "cli-removals",
+            "procedures-and-agents"
+          ],
+          "scope": [
+            "README.md",
+            "CLAUDE.md",
+            "plugins/cairn/references/cli.md",
+            "docs/cairn/system/**",
+            "docs/cairn/decisions/**",
+            "docs/cairn/plans/2026-10-20-cairn-v0-2/changelog.md",
+            "docs/cairn/plans/2026-10-21-*/changelog.md",
+            "plugins/cairn/cli/test/memory-readme-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "deletes the repo's area and decision folders",
+          "branch": "task/trustworthy-project-memory/repo-docs",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--repo-docs",
+          "base": "4001c7712605360f29babc5ffb3996a33570106a",
+          "startedAt": "2026-10-27T20:41:42.651Z",
+          "level": "standard",
+          "doneAt": "2026-10-27T20:47:23.464Z",
+          "tip": "6a9cc2a",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "4e099fb9ad84774694774c47d08ebb1ea8ca2f1b"
+        },
+        {
+          "id": "release",
+          "name": "Version bump and bundle",
+          "covers": [
+            "FR-16"
+          ],
+          "blockedBy": [
+            "repo-docs",
+            "cli-removals",
+            "changelog-tab"
+          ],
+          "scope": [
+            "plugins/cairn/.claude-plugin/plugin.json",
+            "plugins/cairn/dist/**"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/trustworthy-project-memory/release",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--release",
+          "base": "865b06cebc155f8912aaeac3b44f79663e78bbf2",
+          "startedAt": "2026-10-27T20:47:28.709Z",
+          "level": "standard",
+          "doneAt": "2026-10-27T20:49:46.546Z",
+          "tip": "3becbcd",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "9b1cce6ad336e8b17e4a6b1f89f1a27dc1cb826b"
+        }
+      ]
+    }
+  ],
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-27T21:13:32.870Z",
+      "note": "tests: 347 CLI + 573 mod passing, build matches bundle; 16 requirements met, 0 untested (FR-01 output and FR-14 on main observable at ship/close); FR-13 met after merging the unmerged close of roomier-pane-visuals; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-27T21:23:52.841Z",
+      "note": "2 blocking findings fixed and rechecked (changelog read from the rendering checkout; pane Why fallback); 3 follow-ups logged from review",
+      "blocking": 0
+    }
+  },
+  "drift": [
+    {
+      "path": "plugins/cairn/cli/src/main.ts",
+      "at": "2026-10-27T20:33:14.111Z",
+      "reason": "changed outside task \"Changelog engine\" scope (found at task done)",
+      "task": "changelog-engine"
+    },
+    {
+      "path": "plugins/cairn/cli/test/migrate.test.ts",
+      "at": "2026-10-27T20:33:14.111Z",
+      "reason": "changed outside task \"Changelog engine\" scope (found at task done)",
+      "task": "changelog-engine"
+    }
+  ],
+  "log": [
+    {
+      "at": "2026-10-27T19:15:12.077Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-10-27T19:15:12.078Z",
+      "event": "level",
+      "detail": "standard"
+    },
+    {
+      "at": "2026-10-27T20:18:12.816Z",
+      "event": "advanced",
+      "detail": "prd"
+    },
+    {
+      "at": "2026-10-27T20:19:43.133Z",
+      "event": "PRD approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-27T20:21:02.568Z",
+      "event": "advanced",
+      "detail": "plan"
+    },
+    {
+      "at": "2026-10-27T20:25:34.881Z",
+      "event": "plan loaded",
+      "detail": "3 phases, 6 tasks"
+    },
+    {
+      "at": "2026-10-27T20:25:50.608Z",
+      "event": "plan loaded",
+      "detail": "3 phases, 6 tasks"
+    },
+    {
+      "at": "2026-10-27T20:26:52.083Z",
+      "event": "plan approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-27T20:26:52.083Z",
+      "event": "PRD edits accepted with the plan",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-27T20:26:55.640Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-27T20:27:02.765Z",
+      "event": "task started",
+      "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:27:40.623Z",
+      "event": "task implementing",
+      "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:31:25.997Z",
+      "event": "task reviewing",
+      "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:32:42.675Z",
+      "event": "task merging",
+      "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:33:14.111Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/src/main.ts"
+    },
+    {
+      "at": "2026-10-27T20:33:14.111Z",
+      "event": "drift",
+      "detail": "plugins/cairn/cli/test/migrate.test.ts"
+    },
+    {
+      "at": "2026-10-27T20:33:14.111Z",
+      "event": "task done",
+      "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:33:20.942Z",
+      "event": "phase finished",
+      "detail": "Changelog in the CLI (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-27T20:33:28.296Z",
+      "event": "task started",
+      "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:33:28.897Z",
+      "event": "task started",
+      "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:33:29.513Z",
+      "event": "task started",
+      "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:34:08.069Z",
+      "event": "task implementing",
+      "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:34:08.149Z",
+      "event": "task implementing",
+      "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:34:08.229Z",
+      "event": "task implementing",
+      "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:36:55.905Z",
+      "event": "task reviewing",
+      "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:37:54.422Z",
+      "event": "task reviewing",
+      "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:38:32.773Z",
+      "event": "task merging",
+      "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:39:06.483Z",
+      "event": "task done",
+      "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:39:25.219Z",
+      "event": "task reviewing",
+      "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:40:15.237Z",
+      "event": "task merging",
+      "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:40:45.858Z",
+      "event": "task done",
+      "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:40:49.266Z",
+      "event": "task merging",
+      "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:41:19.975Z",
+      "event": "task done",
+      "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:41:23.514Z",
+      "event": "phase finished",
+      "detail": "Remove the old memory and wire the changelog everywhere (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-27T20:41:42.652Z",
+      "event": "task started",
+      "detail": "README, CLI reference and this repo's backfill"
+    },
+    {
+      "at": "2026-10-27T20:42:01.179Z",
+      "event": "task implementing",
+      "detail": "README, CLI reference and this repo's backfill"
+    },
+    {
+      "at": "2026-10-27T20:46:08.636Z",
+      "event": "task reviewing",
+      "detail": "README, CLI reference and this repo's backfill"
+    },
+    {
+      "at": "2026-10-27T20:46:53.984Z",
+      "event": "task merging",
+      "detail": "README, CLI reference and this repo's backfill"
+    },
+    {
+      "at": "2026-10-27T20:47:23.465Z",
+      "event": "task done",
+      "detail": "README, CLI reference and this repo's backfill"
+    },
+    {
+      "at": "2026-10-27T20:47:28.710Z",
+      "event": "task started",
+      "detail": "Version bump and bundle"
+    },
+    {
+      "at": "2026-10-27T20:47:38.502Z",
+      "event": "task implementing",
+      "detail": "Version bump and bundle"
+    },
+    {
+      "at": "2026-10-27T20:48:48.386Z",
+      "event": "task reviewing",
+      "detail": "Version bump and bundle"
+    },
+    {
+      "at": "2026-10-27T20:49:16.878Z",
+      "event": "task merging",
+      "detail": "Version bump and bundle"
+    },
+    {
+      "at": "2026-10-27T20:49:46.547Z",
+      "event": "task done",
+      "detail": "Version bump and bundle"
+    },
+    {
+      "at": "2026-10-27T20:49:46.766Z",
+      "event": "phase finished",
+      "detail": "This repo's memory, docs and release (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-27T20:49:46.767Z",
+      "event": "advanced",
+      "detail": "verify"
+    },
+    {
+      "at": "2026-10-27T20:49:54.147Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-10-27T20:50:35.021Z",
+      "event": "step",
+      "detail": "scanning"
+    },
+    {
+      "at": "2026-10-27T21:12:39.266Z",
+      "event": "step",
+      "detail": "fixing (1)"
+    },
+    {
+      "at": "2026-10-27T21:12:57.698Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-10-27T21:13:32.871Z",
+      "event": "verify pass",
+      "detail": "tests: 347 CLI + 573 mod passing, build matches bundle; 16 requirements met, 0 untested (FR-01 output and FR-14 on main observable at ship/close); FR-13 met after merging the unmerged close of roomier-pane-visuals; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    },
+    {
+      "at": "2026-10-27T21:13:32.994Z",
+      "event": "advanced",
+      "detail": "review"
+    },
+    {
+      "at": "2026-10-27T21:13:51.817Z",
+      "event": "step",
+      "detail": "reviewing"
+    },
+    {
+      "at": "2026-10-27T21:19:19.795Z",
+      "event": "step",
+      "detail": "fixing (2)"
+    },
+    {
+      "at": "2026-10-27T21:21:46.090Z",
+      "event": "step",
+      "detail": "rechecking"
+    },
+    {
+      "at": "2026-10-27T21:23:52.841Z",
+      "event": "review pass",
+      "detail": "2 blocking findings fixed and rechecked (changelog read from the rendering checkout; pane Why fallback); 3 follow-ups logged from review"
+    },
+    {
+      "at": "2026-10-27T21:23:52.964Z",
+      "event": "advanced",
+      "detail": "ship"
+    },
+    {
+      "at": "2026-10-27T21:25:15.759Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-10-27T21:26:19.199Z",
+      "event": "ship approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-27T21:26:22.769Z",
+      "event": "step",
+      "detail": "opening-pr"
+    },
+    {
+      "at": "2026-10-27T21:26:38.106Z",
+      "event": "advanced",
+      "detail": "learn"
+    },
+    {
+      "at": "2026-10-27T21:27:18.014Z",
+      "event": "closed"
+    }
+  ],
+  "cairnVersion": "0.6.0",
+  "level": "standard",
+  "lasting": [
+    {
+      "n": 13,
+      "question": "How does ship check area docs against the code?",
+      "answer": "A new read-only fresh-eyes checker gets only the touched area docs and the code they reference and returns each claim as true or stale with evidence; the recorder fixes stale ones inside ship. The CLI also lints references at close: missing files and globs that match nothing.",
+      "why": "a CLI check proves an edit happened, not that the doc is true; the checker is not the writer, so it is not grading its own work",
+      "areas": [
+        "project-memory"
+      ],
+      "paths": [],
+      "at": "2026-10-27T19:28:37.838Z"
+    },
+    {
+      "n": 14,
+      "question": "How do area docs reference code?",
+      "answer": "By path plus symbol (e.g. cli/src/proof.ts verifyProof), not path:line. The lint checks the file exists and the symbol appears in it. Existing path:line references convert as docs are touched; the lint checks only the file for those.",
+      "why": "line numbers go stale on any edit above them; symbols survive edits and are checkable with a text search",
+      "areas": [
+        "project-memory"
+      ],
+      "paths": [],
+      "at": "2026-10-27T19:29:03.300Z"
+    },
+    {
+      "n": 16,
+      "question": "When a doc's Rule no longer matches the code, which side wins?",
+      "answer": "The code. The recorder updates the doc, and the ship approval summary lists each Rule that changed because the code no longer matched (old and new wording), so the user can push back before merge. No new stop.",
+      "why": "user: the code follows a reviewed plan and PRD, so a mismatch most likely means the doc is out of date; show the change at the existing ship approval",
+      "areas": [
+        "project-memory"
+      ],
+      "paths": [],
+      "at": "2026-10-27T19:35:15.500Z"
+    }
+  ],
+  "planHash": "d7fb8dccb89efc27",
+  "configHash": "12129909968d47d2",
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "security",
+      "text": "Skip changelog.md or RECORD.md when it is a symlink or resolves outside the plan folder, so a cloned repo can't inject an outside file into the session start or OVERVIEW",
+      "where": [
+        "plugins/cairn/cli/src/commands/records.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T20:32:39.318Z"
+    },
+    {
+      "id": "s2",
+      "area": "security",
+      "text": "Collapse newlines in index entries and titles, add a per-entry character cap (one huge unspaced token passes the 120-word cut), and strip Unicode bidi and line-separator characters",
+      "where": [
+        "plugins/cairn/cli/src/memory.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T20:32:39.392Z"
+    },
+    {
+      "id": "s3",
+      "area": "security",
+      "text": "Pass follow-up text in records --json through stripControl before the pane shows it",
+      "where": [
+        "plugins/cairn/cli/src/commands/records.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T20:32:39.467Z"
+    },
+    {
+      "id": "s4",
+      "area": "security",
+      "text": "Strip control characters from the title passed to openDoc in the Changelog tab, so the pane doesn't rely on the CLI having stripped it",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T20:38:19.710Z"
+    },
+    {
+      "id": "s5",
+      "area": "ux",
+      "text": "Changelog entries take two keyboard stops (head and paragraph buttons); fold them into one button if the engine allows a multi-line Text-only button",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-27T20:38:32.694Z"
+    },
+    {
+      "id": "s6",
+      "area": "security",
+      "text": "Label the session-start changelog as past work for reference, not instructions, so an edited entry is not read as session guidance",
+      "where": [
+        "plugins/cairn/cli/src/memory.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T21:14:43.205Z"
+    },
+    {
+      "id": "s7",
+      "area": "ux",
+      "text": "Show the plan's changelog entry in the pane's ship approval card, not only RECORD.md's What was built",
+      "where": [
+        "plugins/cairn/cli/src/commands/stages.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-27T21:19:19.720Z"
+    },
+    {
+      "id": "s8",
+      "area": "quality",
+      "text": "Share one checkout-first changelog lookup between planEntries and changelogIn, and restore the planEntries doc comment",
+      "where": [
+        "plugins/cairn/cli/src/commands/records.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-27T21:23:52.762Z"
+    },
+    {
+      "id": "s9",
+      "area": "security",
+      "text": "Harden changelog text handling: reject symlinked or out-of-folder changelog.md and RECORD.md, cap each entry by characters and collapse newlines in titles, strip control characters from follow-up text and the openDoc title, and label the session-start changelog as reference only",
+      "where": [
+        "plugins/cairn/cli/src/commands/records.ts",
+        "plugins/cairn/cli/src/memory.ts",
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "trustworthy-project-memory:s1",
+        "trustworthy-project-memory:s2",
+        "trustworthy-project-memory:s3",
+        "trustworthy-project-memory:s4",
+        "trustworthy-project-memory:s6"
+      ],
+      "at": "2026-10-27T21:24:07.326Z"
+    },
+    {
+      "id": "s10",
+      "area": "ux",
+      "text": "Changelog pane polish: one keyboard stop per entry, and show the changelog entry on the ship approval card",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/cli/src/commands/stages.ts"
+      ],
+      "from": "plan",
+      "merges": [
+        "trustworthy-project-memory:s5",
+        "trustworthy-project-memory:s7"
+      ],
+      "at": "2026-10-27T21:24:07.623Z"
+    }
+  ]
+}

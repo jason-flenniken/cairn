@@ -3,7 +3,6 @@ import { resolve } from 'node:path';
 import {
   cmdAdvance,
   cmdApprove,
-  cmdAreaSkip,
   cmdClose,
   cmdDecide,
   cmdDriftAck,
@@ -16,13 +15,13 @@ import {
   cmdNext,
   cmdPause,
   cmdPhase,
+  removed,
   cmdStep,
   cmdTest,
   cmdSuggest,
   cmdPlanLoad,
   cmdProductInit,
   cmdReady,
-  cmdRecall,
   cmdRecords,
   cmdRepro,
   cmdRender,
@@ -37,7 +36,7 @@ import {
 } from './commands.ts';
 import { CliError, Refusal } from './util.ts';
 
-const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'uncovered']);
+const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting']);
 /** Flags that may repeat; the values are joined with newlines. */
 const REPEATABLE = new Set(['where', 'for']);
 
@@ -79,12 +78,11 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
 }
 
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
-  next | status [--all] | new <slug> --title "…" | product init | decide "<q>" "<a>" [--why] [--lasting --areas a,b --paths g1,g2 --replaces <id>] | decide --file <path> | decide --promote <n> --areas a,b
+  next | status [--all] | new <slug> --title "…" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
-  recall <path or glob>... | index
-  area skip <id>|--uncovered --note "..." | pause [--now] | resume [<slug>] | close | render | records | migrate
+  index | pause [--now] | resume [<slug>] | close | render | records | migrate
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 
@@ -139,10 +137,9 @@ export function run(argv: string[], cwd = process.cwd()): Result {
     case 'resume':
       return cmdResume(ctx(), a, opts);
     case 'area':
-      if (a !== 'skip') throw new CliError('usage: cairn area skip <id>|--uncovered --note "<why>"');
-      return cmdAreaSkip(ctx(), b, opts);
+      throw removed('cairn area');
     case 'recall':
-      return cmdRecall(ctx(), pos.slice(1), opts);
+      throw removed('cairn recall');
     case 'index':
       return cmdIndex(ctx());
     case 'close':
@@ -183,7 +180,8 @@ function main(argv: string[]): number {
   const json = argv.includes('--json');
   try {
     const r = run(argv);
-    process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + '\n');
+    // An empty message prints nothing at all (cairn index with no closed plans), not a blank line.
+    if (json || r.message !== '') process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + '\n');
     return 0;
   } catch (e) {
     if (e instanceof Refusal) {
