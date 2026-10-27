@@ -74,7 +74,9 @@ Write `docs/cairn/plans/<date>-<slug>/RECORD.md` from `templates/record-fix.md`.
 
 The record is at most 200 words. Count the words with headings and HTML comments left out. Trim until it fits.
 
-**Done when:** `RECORD.md` has the five sections and is at most 200 words.
+Then update the area docs. Run `cairn recall <files changed on the branch> --json`, and dispatch the `recorder` again (`model: sonnet`, `description` "Record · area docs") with that output, `git diff <base>...<plan-branch> --stat`, the plan log, and `decisions.md`. It updates Rules, How it works, and Gotchas in each area doc that covers changed code, and for uncovered code that forms a coherent area it proposes a new doc from `templates/area.md`. It never edits `## History`; cairn writes that at close. Then read `decisions.md`: promote any decision that sets a rule for the whole repo and is not yet lasting, with `cairn decide --promote <n> --areas <a,b>`. Commit the area docs on the plan branch, so they are in the PR the user approves. With no area docs in the repo, skip this and say once that `/cairn:map` sets them up.
+
+**Done when:** `RECORD.md` has the five sections and is at most 200 words, and the area docs for the changed code are updated and committed.
 
 ## 8. Ship stop
 Run `cd <plan worktree> && cairn step approving`. Show the user the record in about five lines, plus the count of open recommended follow-ups when there are any. Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to step 9. Otherwise read `modActive`.

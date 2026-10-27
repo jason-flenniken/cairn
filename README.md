@@ -154,6 +154,15 @@ The hardening list doesn't count toward the 5 follow-ups a plan may close with. 
 
 You can raise the level any time before ship with `/cairn-level` in the pane, and lower it only before any task starts. The pane header shows the level and how long the current stage has taken. Only you change the level; cairn can suggest a raise, but the change needs your pick in a menu or `cairn level <level> --human` in a terminal.
 
+## Project memory
+
+cairn keeps what it learns about your code in the repo, so the next plan starts informed instead of cold.
+
+- **Area docs** (`docs/cairn/system/<id>.md`) describe one part of the system each: its rules, how it works, and its gotchas. `/cairn:map` sets them up. When a plan ships, the recorder updates the docs for the code it changed, so the update is in the PR you approve. Closing a plan is refused when a doc covering changed code was left alone, unless you record why with `cairn area skip`.
+- **Lasting decisions** are answers that set a rule for later plans. They are published to `docs/cairn/decisions/` when the plan closes. A review flags code that contradicts one.
+- **`cairn recall <paths>`** shows the areas, decisions in force, and past plans for those paths. Discovery, planning, building and review run it for you; `cairn index` prints the short overview that is also given to every session.
+- **`docs/cairn/OVERVIEW.md`** is the generated summary of all of it, rewritten whenever a plan closes.
+
 ## Fresh eyes
 
 The session that runs your interview builds up a lot of context: your answers, the codebase facts, and its own guess at what you want. That context is what makes the plan good, and it's also what makes the session a poor judge of it. Once it has argued for one approach, it struggles to see past it. cairn's other reviewers check work against the PRD, so none of them can catch a PRD that points the wrong way, and the start of a plan is where a wrong direction costs the most.

@@ -28,7 +28,9 @@ Follow-ups declined twice, or older than 60 days, expire on their own and need n
 ## 3. Draft the record
 Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open follow-up counts, the list of dropped follow-ups, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, the plan log (the `log` array in `state.json`), and `git log <base>..<plan-branch>`. It writes `docs/cairn/plans/<date>-<slug>/RECORD.md` from the record template in at most 600 words, Findings included.
 
-**Done when:** `RECORD.md` exists with every template heading and is within 600 words (`wc -w`).
+Then update the area docs. Run `cairn recall <files changed on the branch> --json`, and dispatch the `recorder` again (`model: sonnet`, `description` "Record · area docs") with that output, `git diff <base>...<plan-branch> --stat`, the plan log, and `decisions.md`. It updates Rules, How it works, and Gotchas in each area doc that covers changed code, and for uncovered code that forms a coherent area it proposes a new doc from `templates/area.md`. It never edits `## History`; cairn writes that at close. Then read `decisions.md`: promote any decision that sets a rule for the whole repo and is not yet lasting, with `cairn decide --promote <n> --areas <a,b>`. Commit the area docs on the plan branch, so they are in the PR the user approves. With no area docs in the repo, skip this and say once that `/cairn:map` sets them up.
+
+**Done when:** `RECORD.md` exists with every template heading and is within 600 words (`wc -w`), and the area docs for the changed code are updated and committed.
 
 ## 4. Show and stop
 Run `cd <plan worktree> && cairn step approving`. Then show the user the record, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.

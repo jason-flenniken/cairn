@@ -92,6 +92,13 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn product init`: creates `docs/cairn/product/` from templates, on the current branch.
   - `cairn decide "<question>" "<answer>" [--why "…"]`: appends to `decisions.md`.
   - `cairn decide --file <path>`: reads the decision from a JSON file, `{question, answer, why?}`.
+  - `cairn decide "<question>" "<answer>" [--why "…"] --lasting (--areas <a,b> | --paths "<g1,g2>") [--replaces <id>]`: marks the decision lasting, a rule later plans must follow. `--areas` names area docs, `--paths` globs. `--replaces <id>` retires an earlier lasting decision.
+  - `cairn decide --promote <n> (--areas … | --paths …) [--replaces <id>]`: makes decision number `<n>` of the current plan lasting.
+  - Off a plan, `--lasting` publishes straight to `docs/cairn/decisions/`; `--plan <slug> --date YYYY-MM-DD` records the provenance of a backfilled decision.
+- **Project memory**
+  - `cairn recall <path or glob>... [--json]`: what the project already knows about those paths. Prints `Areas:` (`<id>: <summary> (<file>)`), `Decisions in force:` (`<id>: <answer> (<file>)`), `Past plans:` (`<date> <title>: <record path>`), `Not covered by any area: <globs>`, and `Area docs with problems: …`; "Nothing recorded for these paths yet." when empty. `--json`: `{areas, decisions, plans, uncovered, problems}`.
+  - `cairn index`: the memory index, at most 60 lines: areas and decisions in force. Also added to the session-start context when area docs or decisions exist. Prints "Nothing recorded yet. Run /cairn:map to set up area docs." otherwise.
+  - `cairn area skip <area> --note "<why>"`: on a plan, satisfies close's area check for that area. `cairn area skip --uncovered --note "<why>"` does the same for changed code that belongs to no area.
   - `--note-file <path>`: works on any command that takes `--note`, and reads the note from the file.
   - Prefer `--file` and `--note-file` for text with quotes, apostrophes, or backticks, so the shell never parses it.
 - **Stage transitions**
@@ -132,9 +139,9 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 - **Pause, resume, close**
   - `cairn pause [--now]`: requires `handoff.md` with In flight / Open questions / Next action sections.
   - `cairn resume`: clears the pause and prints a recap: status, the handoff, and the next procedure.
-  - `cairn close`
+  - `cairn close`: besides the checks above, refuses when an area doc covering changed code was not updated on the branch (and not skipped), when changed code belongs to no area (and not skipped), or when an area doc's frontmatter is broken. With no area docs at all it only warns. After closing it publishes lasting decisions to `docs/cairn/decisions/`, rewrites each area doc's generated `## History`, and writes `docs/cairn/OVERVIEW.md`, committing them as "cairn(<slug>): publish decisions and area history". A fix plan's `cairn advance` from ship does the same.
 - **Generated docs and hooks**
-  - `cairn render`: regenerates `STATUS.md`, plus `docs/cairn/OVERVIEW.md` and each area doc's History when on main.
+  - `cairn render`: regenerates `STATUS.md`. Off a plan it also writes `docs/cairn/OVERVIEW.md` and refreshes each area doc's History.
   - `cairn records [--json]`: lists every plan, in-progress first then closed newest first, with date, title, why line, record path and follow-ups. Works from any worktree.
   - `cairn hook session-start|post-edit`: used by `hooks/hooks.json`. Reads hook JSON on stdin.
 

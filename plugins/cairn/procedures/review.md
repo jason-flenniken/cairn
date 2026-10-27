@@ -17,7 +17,7 @@ Run `cd <plan worktree> && cairn status --json`. The stage must be `review`. Any
 **Done when:** the stage is `review` and you hold the base and plan branch names.
 
 ## 2. Review the branch
-Run `cd <plan worktree> && cairn step reviewing`. Then dispatch two agents in the same message, so they run in parallel: one `branch-reviewer` (`model: opus`, `description` "Review · whole branch") and one `security-reviewer` (`model: sonnet`, `description` "Review · whole branch (security)"). Give both the plugin root path (`${CLAUDE_PLUGIN_ROOT}`), the paths to `prd.md` and `plan.md`, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`. Each returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI, each with `path:line` and a proposed fix.
+Run `cd <plan worktree> && cairn step reviewing`. Then dispatch two agents in the same message, so they run in parallel: one `branch-reviewer` (`model: opus`, `description` "Review · whole branch") and one `security-reviewer` (`model: sonnet`, `description` "Review · whole branch (security)"). Give both the plugin root path (`${CLAUDE_PLUGIN_ROOT}`), the paths to `prd.md` and `plan.md`, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`. Give the branch reviewer also the output of `cairn recall <files changed on the branch>`. Each returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI, each with `path:line` and a proposed fix.
 
 **Done when:** both reviewers returned their findings.
 
