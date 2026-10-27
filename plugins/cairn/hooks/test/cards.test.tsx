@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { estimateUsd } from '../mod/prices.ts'
-import { drawn, mount, mountAs, plan, row, start, task, world, WT } from './world.tsx'
+import { drawn, mount, mountAs, plan, row, start, task, until, world, WT } from './world.tsx'
 
 const EXECUTE = plan({
   phases: [{ id: 'p1', name: 'Core', status: 'in_progress', tasks: [task('cart', 'Cart', { status: 'in_progress' })] }],
@@ -203,5 +203,80 @@ describe('estimateUsd', () => {
   })
   test('an unknown model has no estimate', () => {
     expect(estimateUsd('gpt-9', usage)).toBeUndefined()
+  })
+})
+
+describe('the main session card says waiting only while it asks you', () => {
+  const QUESTION = { question: 'Which template first?', header: 'Pick', multiSelect: false, options: [{ label: 'Clinical', description: 'a' }, { label: 'Modern', description: 'b' }] }
+
+  test('idle with nothing running reads idle, not waiting for you', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    const text = await drawn(ui)
+    expect(text).toContain('idle')
+    expect(text).not.toContain('waiting for you')
+    await ui.unmount()
+  })
+
+  test('idle while an agent works counts the agents', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await clock.advance(1_000)
+    expect(await drawn(ui)).toContain('idle · 1 agent working')
+    await ui.unmount()
+  })
+
+  test('a main-session question shows waiting for you until it is answered', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    w.holdAsks = true
+    w.answer = 'Clinical'
+    const asked = $.tool.call({ tool: 'AskUserQuestion', questions: [QUESTION] } as never)
+    await until(clock, () => w.asked.length > 0)
+    await clock.advance(1_000)
+    expect(await drawn(ui)).toContain('● waiting for you · 1s')
+    w.release.forEach(r => r())
+    await asked
+    await clock.advance(1_000)
+    const text = await drawn(ui)
+    expect(text).not.toContain('waiting for you')
+    expect(text).toContain('● working')
+    await ui.unmount()
+  })
+
+  test("an agent's question leaves the main session card alone", async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    w.holdAsks = true
+    const asked = $.tool.call({ tool: 'AskUserQuestion', questions: [QUESTION], agentId: 'agent-1' } as never)
+    await until(clock, () => w.asked.length > 0)
+    await clock.advance(1_000)
+    expect(await drawn(ui)).not.toContain('waiting for you')
+    w.release.forEach(r => r())
+    await asked
+    await ui.unmount()
+  })
+
+  test('inline, the main line reads idle, then waiting for you while a question is open', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    expect(await drawn(ui)).toContain('● Main session · idle')
+    w.holdAsks = true
+    const asked = $.tool.call({ tool: 'AskUserQuestion', questions: [QUESTION] } as never)
+    await until(clock, () => w.asked.length > 0)
+    await clock.advance(1_000)
+    expect(await drawn(ui)).toContain('● Main session · waiting for you · 1s')
+    w.release.forEach(r => r())
+    await asked
+    await ui.unmount()
   })
 })

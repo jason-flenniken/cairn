@@ -2,7 +2,7 @@
 // other pane modules share. A press views that agent's conversation.
 import type { EngineInterface } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
-import { fmtDuration } from './activity.ts'
+import { fmtDuration, type MainActivity } from './activity.ts'
 import { cells } from './bar.tsx'
 import { STAGE_LABEL, type Ui } from './header.tsx'
 
@@ -62,7 +62,7 @@ export function agentRole(title: string, stage?: string, taskNames: string[] = [
 const fitting = (columns: number, texts: string[]) => texts.find(x => cells(x) <= columns) ?? (texts.at(-1) as string)
 
 /** The main session's action while a turn runs; null while it waits for the person. */
-export type Main = { action: string; since: number } | null
+export type Main = MainActivity | null
 
 /** Cut to `columns` cells, with an ellipsis, then padded with spaces to exactly `columns`. */
 function fit(text: string, columns: number): string {
@@ -122,11 +122,17 @@ export function agentCard($: EngineInterface, cx: CardContext, c: AgentCard) {
   return card($, cx, `agent:${c.agentId}`, c.status === 'done' ? 'green' : 'red', title, c.model, `${c.status === 'done' ? '✓ finished' : '✗ stopped'} · ${took}${used === '' ? '' : ` · ${used}`}`, steps(c.steps), c.agentId)
 }
 
-export function mainCard($: EngineInterface, cx: CardContext, main: Main) {
+/** "idle", with how many agents still work: the main session's turn ended but it is not asking you anything. */
+function idle(cards: AgentCard[]): string {
+  const n = cards.filter(c => c.status === 'working').length
+  return n === 0 ? 'idle' : `idle · ${n} agent${n === 1 ? '' : 's'} working`
+}
+
+export function mainCard($: EngineInterface, cx: CardContext, main: Main, cards: AgentCard[]) {
   const { accent, nowMs } = cx
-  return main === null
-    ? card($, cx, 'main', 'gray', 'Main session', '', 'waiting for you', '')
-    : card($, cx, 'main', accent, 'Main session', '', `● working · ${fmtDuration(nowMs - main.since)}`, main.action)
+  if (main === null) return card($, cx, 'main', 'gray', 'Main session', '', idle(cards), '')
+  if (main.isWaiting) return card($, cx, 'main', 'yellow', 'Main session', '', `● waiting for you · ${fmtDuration(nowMs - main.since)}`, 'answer in the chat')
+  return card($, cx, 'main', accent, 'Main session', '', `● working · ${fmtDuration(nowMs - main.since)}`, main.action)
 }
 
 /**
@@ -137,7 +143,7 @@ export function agentLines(cx: CardContext, main: Main, cards: AgentCard[], max 
   const { ui, nowMs } = cx
   const { Text } = ui
   const lines = [
-    <Text key="main" wrap="truncate-end">{main === null ? '● Main session · waiting for you' : `● Main session · ${main.action} · ${fmtDuration(nowMs - main.since)}`}</Text>,
+    <Text key="main" wrap="truncate-end">{main === null ? `● Main session · ${idle(cards)}` : `● Main session · ${main.action} · ${fmtDuration(nowMs - main.since)}`}</Text>,
     ...cards.filter(c => c.status === 'working').map(c => {
       const role = agentRole(c.title, cx.stage, cx.taskNames)
       const doing = [role?.step, c.action ?? (role === undefined ? 'working' : undefined)].filter(Boolean).join(' · ')

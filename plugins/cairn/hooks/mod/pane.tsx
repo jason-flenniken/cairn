@@ -436,7 +436,7 @@ export function install(on: On): void {
       return [
         header,
         approve,
-        mainCard($, cx, main),
+        mainCard($, cx, main, cards),
         ...cards.map(c => agentCard($, cx, c)),
         upNext.length > 0 && <Text key="next" wrap="truncate-end">{`UP NEXT  ${upNext.join(' · ')}`}</Text>,
         drift.length > 0 && (
@@ -527,7 +527,7 @@ export function install(on: On): void {
               <Text key="head" bold>cairn</Text>
               <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>
             </Box>,
-            ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - barLines.length) : [mainCard($, cx, main), ...cards.map(c => agentCard($, cx, c))]),
+            ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - barLines.length) : [mainCard($, cx, main, cards), ...cards.map(c => agentCard($, cx, c))]),
             <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
           ],
       others.length > 0 && isInline && (

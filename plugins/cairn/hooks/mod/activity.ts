@@ -7,7 +7,7 @@ import { estimateUsd } from './prices.ts'
 
 // What the pane draws lives in $.state, so a hot reload keeps the cards.
 const agents = atom({ plugin: 'cairn', key: 'agents' } as const, [] as AgentCard[])
-const mainActivity = atom({ plugin: 'cairn', key: 'mainActivity' } as const, null as { action: string; since: number } | null)
+const mainActivity = atom({ plugin: 'cairn', key: 'mainActivity' } as const, null as MainActivity | null)
 const feed = atom({ plugin: 'cairn', key: 'feed' } as const, [] as { at: number; text: string }[])
 const now = atom({ plugin: 'cairn', key: 'now' } as const, 0)
 
@@ -17,6 +17,11 @@ const KEEP_ENDED_MS = 120_000
 /** How long a finished card stays on screen; a failure stays longer so it is not missed. */
 export const LINGER_MS = { done: 10_000, failed: 60_000 }
 const ACTIVE = ['running', 'pending', 'waiting']
+/** Tools whose call stays open until you answer, so the main session is waiting for you while one runs. */
+const ASKS_YOU = new Set(['AskUserQuestion', 'ExitPlanMode'])
+
+/** What the main session is doing; `isWaiting` while a question of its is open for you. */
+export type MainActivity = { action: string; since: number; isWaiting?: boolean }
 
 let ticking: Timer | undefined
 
@@ -24,7 +29,7 @@ let ticking: Timer | undefined
 export function readAgents($: EngineInterface): Promise<AgentCard[]> {
   return read($, agents)
 }
-export function readMain($: EngineInterface): Promise<{ action: string; since: number } | null> {
+export function readMain($: EngineInterface): Promise<MainActivity | null> {
   return read($, mainActivity)
 }
 export function readFeed($: EngineInterface): Promise<{ at: number; text: string }[]> {
@@ -148,12 +153,13 @@ function patch($: EngineInterface, id: string, fn: (c: AgentCard) => AgentCard):
 
 type Call = { agentId?: string } & Record<string, unknown>
 
-/** A tool call is about to run: its card, or the main session, shows the phrase. */
+/** A tool call is about to run: its card, or the main session, shows the phrase; a question to you shows as waiting. */
 export function before($: EngineInterface, e: Call): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
     const action = phrase(e)
-    if (e.agentId === undefined) await update($, mainActivity, () => ({ action, since: t }))
+    if (e.agentId === undefined && ASKS_YOU.has(String(e.tool))) await update($, mainActivity, () => ({ action: 'waiting for you', since: t, isWaiting: true }))
+    else if (e.agentId === undefined) await update($, mainActivity, () => ({ action, since: t }))
     else await patch($, e.agentId, c => ({ ...c, action, actionSince: t }))
     await touch($)
   })
