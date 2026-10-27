@@ -88,7 +88,7 @@ or `claude plugin update cairn@cairn` from your shell, then `/reload-plugins`. T
    /cairn:new add a CSV export to the reports page
    ```
 
-   cairn creates a branch (`feature/<slug>`) and a worktree for the plan. If the repo has no `.sdlc/config.json`, cairn detects your test and build commands from `package.json`, a `Makefile`, `pyproject.toml` and the like, asks you to confirm them, and commits the file. Then the discovery interview starts.
+   cairn creates a branch (`feature/<slug>`) and a worktree for the plan. If the repo has no `.cairn/config.json`, cairn detects your test and build commands from `package.json`, a `Makefile`, `pyproject.toml` and the like, asks you to confirm them, and commits the file. Then the discovery interview starts.
 2. **Answer the interview.** It asks one question at a time, each with a recommended answer. Every answer is written to the plan's `decisions.md`.
 3. **Approve the PRD**, then **approve the plan**, from the menu.
 4. **Let it build.** Phases run on their own. Tasks run in parallel, get merged, and are tested. A phase that finishes with passing tests rolls straight into the next one.
@@ -107,7 +107,7 @@ When you're unsure what to do, run **`/cairn:next`**. It does the one correct ne
 | `/cairn:fix <bug>` | The quick lane for one bug: failing repro first, then the fix, then a short record. |
 | `/cairn:suggestions` | Lists recommended follow-ups from every plan. Turn one into a fix, add it to the current plan, or dismiss it. |
 | `/cairn:direction` | An on-demand on-track check: compares the code to the PRD and reports green, yellow, or red per requirement. |
-| `/cairn:product` | Writes the whole-app product PRD (`docs/sdlc/product/`) that every plan inherits. |
+| `/cairn:product` | Writes the whole-app product PRD (`docs/cairn/product/`) that every plan inherits. |
 | `/cairn:discover`, `/cairn:prd`, `/cairn:plan`, `/cairn:execute` | Run one stage directly. `/cairn:next` normally picks these for you. |
 
 The mod adds these commands, which run instantly without a Claude turn:
@@ -266,7 +266,7 @@ If the fix grows past 8 files, or turns out to need new requirements, `cairn esc
 
 ## Configuration
 
-Each repo has `.sdlc/config.json`, which cairn creates the first time:
+Each repo has `.cairn/config.json`, which cairn creates the first time:
 
 ```json
 {
@@ -303,10 +303,10 @@ The `setup`, `test`, and `build` commands are locked when you approve the plan. 
 |---|---|
 | A feature plan's branch | `feature/<slug>`, in a worktree under `.claude/worktrees/` (folder `feature-<slug>`) |
 | A fix plan's branch | `fix/<slug>`, in a worktree under `.claude/worktrees/` (folder `fix-<slug>`) |
-| A plan's documents | `docs/sdlc/plans/<date>-<slug>/` on the plan branch: `decisions.md`, `prd.md`, `plan.md`, `STATUS.md`, `handoff.md`, `RECORD.md`, `state.json` |
+| A plan's documents | `docs/cairn/plans/<date>-<slug>/` on the plan branch: `decisions.md`, `prd.md`, `plan.md`, `STATUS.md`, `handoff.md`, `RECORD.md`, `state.json` |
 | A task's branch | `task/<slug>/<task>`, in its own worktree (folder: the plan folder plus `--<task>`, e.g. `feature-billing--cart-api`) |
-| The product PRD | `docs/sdlc/product/` on main |
-| Repo config | `.sdlc/config.json` |
+| The product PRD | `docs/cairn/product/` on main |
+| Repo config | `.cairn/config.json` |
 
 When a plan ships, its branch merges back and its record lands on main with it.
 
@@ -358,7 +358,7 @@ plugins/cairn/
 - Changes to `hooks/` take effect after `/reload-plugins`.
 - Changes to `cli/src/` need `npm run build`.
 - Engine limits found while building the mod are in `plugins/cairn/hooks/NOTES.md`.
-- The design history is in `docs/design.md`, and each plan's record is in `docs/sdlc/plans/`.
+- The design history is in `docs/design.md`, and each plan's record is in `docs/cairn/plans/`.
 - To rename the plugin: `plugins/cairn/scripts/rename.sh <name>`.
 - To release: raise `version` in `plugins/cairn/.claude-plugin/plugin.json` and push to `main`. People who installed from GitHub only receive commits that change it.
 

@@ -18,7 +18,7 @@ Run `cairn status --json`. The stage must be `discover`. Any other stage: say wh
 
 ## 2. Research first
 Dispatch these in parallel, each with `model: sonnet`, each returning facts with `path:line` or URL. Set each Agent `description` per `references/reporting.md` (for example "Check · discovery research"):
-- Explore agent: codebase facts relevant to the request (stack, existing modules, patterns, tests, conventions), plus prior work in `docs/sdlc/` and `docs/sdlc/product/PRD.md` (non-goals, must-not-trade-off).
+- Explore agent: codebase facts relevant to the request (stack, existing modules, patterns, tests, conventions), plus prior work in `docs/cairn/` and `docs/cairn/product/PRD.md` (non-goals, must-not-trade-off).
 - Web research (general-purpose agent, `model: sonnet`) only when the request touches an external API, standard, or competitor.
 
 Read `decisions.md` in the plan directory; it may hold earlier answers.

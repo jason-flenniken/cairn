@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A public Claude Code marketplace (`.claude-plugin/marketplace.json`, installed from GitHub as `jason-flenniken/cairn`) holding one plugin, **cairn** (`plugins/cairn/`): an agent-driven SDLC (Discover → PRD → Plan → Build → Check → Review → Ship → Learn) whose plan state is owned by a CLI rather than by prose. `README.md` is the user-facing spec; `plugins/cairn/references/cli.md` is the CLI contract (commands, stage-transition requirements, JSON shapes).
 
-The repo dogfoods cairn: `.sdlc/config.json` is cairn's own config for this repo, and `docs/sdlc/plans/<date>-<slug>/` holds the plans (PRD, plan, decisions, RECORD) that built each version. Those plan folders and their `state.json` are written by the CLI; don't hand-edit them.
+The repo dogfoods cairn: `.cairn/config.json` is cairn's own config for this repo, and `docs/cairn/plans/<date>-<slug>/` holds the plans (PRD, plan, decisions, RECORD) that built each version. Those plan folders and their `state.json` are written by the CLI; don't hand-edit them.
 
 `sources/` is reference material borrowed from other projects, not part of the build. `graft/` is a gitignored code index.
 
@@ -30,7 +30,7 @@ claude plugin validate plugins/cairn
 Four layers, and the boundaries between them are the point of the design:
 
 1. **CLI** (`plugins/cairn/cli/src/`, TypeScript, zero runtime deps) is the *only* writer of a plan's `state.json`. `main.ts` parses args and dispatches; `commands.ts` re-exports the per-area handlers in `commands/` (stages, tasks, phase, evidence, suggest, pause, status, hooks, …). Each move between stages is validated and a missing proof throws `Refusal` with the exact fix. Key modules:
-   - `locate.ts`: which plan a cwd belongs to. The current git branch decides (`feature/<slug>`, `fix/<slug>`, legacy `sdlc/<slug>`; task branches `task/<slug>/<task>`). It finds the plan's worktree via `git worktree list` and always reads/writes state there, falling back to `git show` for branches with no worktree. Plan folders are named `<local-date>-<slug>` (local date, not UTC; tests depend on this), with legacy undated folders still resolved.
+   - `locate.ts`: which plan a cwd belongs to. The current git branch decides (`feature/<slug>`, `fix/<slug>`, legacy `sdlc/<slug>`; task branches `task/<slug>/<task>`). It finds the plan's worktree via `git worktree list` and always reads/writes state there, falling back to `git show` for branches with no worktree. Plan folders are named `<local-date>-<slug>` (local date, not UTC; tests depend on this), with legacy undated folders still resolved. Plan files live under `docs/cairn/` and config under `.cairn/`; the old `docs/sdlc/` and `.sdlc/` are read as a fallback and moved by `cairn migrate`.
    - `state.ts`: load/save/log of `state.json`. `proof.ts`: human-approval proof (mod secret hash under `<git common dir>/cairn/`, heartbeat freshness, or `--human` terminal input).
    - `plan-parse.ts` / `commands/planload.ts`: parse the fenced YAML task block in `plan.md` into state (cycle check, scopes, requirement coverage). `ready.ts` computes which tasks can run in parallel without overlapping file scopes.
    - `cairn next` maps the current stage/substep to a file in `procedures/` and prints it; that is how agents learn what to do.

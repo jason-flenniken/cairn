@@ -2,8 +2,6 @@
 
 Finish the record, close the plan, then hand off to the merge step. Learn asks the user nothing itself.
 
-v0.1 scope. A later version adds structured learnings written to `docs/sdlc/learnings/`.
-
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
 ## At this level
@@ -23,7 +21,7 @@ Ship's tidy step already grouped and dismissed this plan's follow-ups. Run `cair
 **Done when:** at most 5 open follow-ups remain from this plan.
 
 ## 3. Findings
-Check the `## Findings` section of `docs/sdlc/plans/<date>-<slug>/RECORD.md`. If it is filled in, go on. If it is missing or still the template placeholder, dispatch the `recorder` agent (`model: sonnet`, `description` "Record · findings") with the plan log (the `log` array in `state.json`), the evidence notes, and the record path. Tell it to write Findings from that log only: tasks that escalated, review findings that repeated, checks that failed, scope added mid-plan, and anything surprising. It edits only that section and keeps the record within 600 words (`wc -w`). Commit the change on the plan branch.
+Check the `## Findings` section of `docs/cairn/plans/<date>-<slug>/RECORD.md`. If it is filled in, go on. If it is missing or still the template placeholder, dispatch the `recorder` agent (`model: sonnet`, `description` "Record · findings") with the plan log (the `log` array in `state.json`), the evidence notes, and the record path. Tell it to write Findings from that log only: tasks that escalated, review findings that repeated, checks that failed, scope added mid-plan, and anything surprising. It edits only that section and keeps the record within 600 words (`wc -w`). Commit the change on the plan branch.
 
 **Done when:** the Findings section has lines (or says "None.") and the change is committed.
 

@@ -1,6 +1,6 @@
 # Product PRD: <product>
 
-> Lives on main at `docs/sdlc/product/PRD.md`. Every feature plan inherits this.
+> Lives on main at `docs/cairn/product/PRD.md`. Every feature plan inherits this.
 
 ## Vision
 What the product is and the change it makes for its users. Three sentences.

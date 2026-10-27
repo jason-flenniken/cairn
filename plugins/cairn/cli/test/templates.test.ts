@@ -37,7 +37,7 @@ test('the direction procedure, agent, and skill fit together', () => {
   const t = read('procedures/direction.md');
   assert.match(t, /```yaml cairn-direction/);
   assert.match(t, /direction-checker/);
-  assert.match(t, /docs\/sdlc\/product\/PRD\.md/);
+  assert.match(t, /docs\/cairn\/product\/PRD\.md/);
   assert.match(t, /cairn evidence phase/);
   assert.ok(!t.includes('--override'), 'direction.md must not tell the agent to override');
   const block = /```yaml cairn-direction\n([\s\S]*?)```/.exec(t);

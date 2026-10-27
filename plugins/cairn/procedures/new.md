@@ -6,7 +6,7 @@ Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLU
 
 ## 1. Check
 Run `cairn status --json`.
-- On a plan branch (one that holds `docs/sdlc/plans/<date>-<slug>/state.json`, such as `feature/<slug>`, `fix/<slug>`, or `task/<slug>/<task>`), tell the user a plan is already active, name it, and stop. Offer `/cairn:next` to continue it.
+- On a plan branch (one that holds `docs/cairn/plans/<date>-<slug>/state.json`, such as `feature/<slug>`, `fix/<slug>`, or `task/<slug>/<task>`), tell the user a plan is already active, name it, and stop. Offer `/cairn:next` to continue it.
 - On any other branch, continue.
 
 **Done when:** you know the session is on a non-plan branch (main or similar).
@@ -17,14 +17,14 @@ Ask with AskUserQuestion: "What are we building?" Offer 2-3 short title options 
 **Done when:** you have a title and a kebab-case slug of at most 40 characters.
 
 ## 3. Repo config
-Check for `.sdlc/config.json`.
+Check for `.cairn/config.json`.
 - Present: read it and move on.
-- Missing: detect commands from `package.json` scripts, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `app.json` (Expo), and similar. Fill the shape of `${CLAUDE_PLUGIN_ROOT}/templates/config.json` (`test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `autoCommit`). Ask with AskUserQuestion, one question per uncertain field (test command first), recommended detection first, with the proposed JSON as a preview. Write `.sdlc/config.json`, then commit it on the current branch: `git add .sdlc/config.json && git commit -m "chore: add cairn config"`.
+- Missing: detect commands from `package.json` scripts, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `app.json` (Expo), and similar. Fill the shape of `${CLAUDE_PLUGIN_ROOT}/templates/config.json` (`test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `autoCommit`). Ask with AskUserQuestion, one question per uncertain field (test command first), recommended detection first, with the proposed JSON as a preview. Write `.cairn/config.json`, then commit it on the current branch: `git add .cairn/config.json && git commit -m "chore: add cairn config"`.
 
-**Done when:** `.sdlc/config.json` exists and is committed, and its `test` command is non-empty.
+**Done when:** `.cairn/config.json` exists and is committed, and its `test` command is non-empty.
 
 ## 4. Level
-Ask once with AskUserQuestion, a plain choice and not an approval: "How much effort should this build spend?" Options, with the repo's default first and marked "(Recommended)" (`defaultLevel` in `.sdlc/config.json`, Standard when unset):
+Ask once with AskUserQuestion, a plain choice and not an approval: "How much effort should this build spend?" Options, with the repo's default first and marked "(Recommended)" (`defaultLevel` in `.cairn/config.json`, Standard when unset):
 - MVP: a short interview, few large tasks, no per-task review, red tests warn; shortcuts go on a hardening list for later.
 - Standard: the full interview, every task reviewed, tests, scans and the full branch review.
 - Polished: Standard plus test-first on every task, a fresh read of the plan, and the on-track check after every phase.

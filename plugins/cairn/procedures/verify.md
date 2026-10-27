@@ -16,7 +16,7 @@ Run `cairn status --json`. The stage must be `verify`. Any other stage: say whic
 **Done when:** the stage is `verify`.
 
 ## 2. Tests and build
-Run `cd <plan worktree> && cairn step testing`. Then run the repo's test command (`test` in `.sdlc/config.json`) in the plan worktree, and the build command when `build` is set. Read the output and the exit code. With no test command, say so in one line and continue.
+Run `cd <plan worktree> && cairn step testing`. Then run the repo's test command (`test` in `.cairn/config.json`) in the plan worktree, and the build command when `build` is set. Read the output and the exit code. With no test command, say so in one line and continue.
 
 **Done when:** you hold the pass/fail counts from a run made in this step. On failure, fix in place (step 5) before continuing.
 
@@ -45,7 +45,7 @@ Run `cd <plan worktree> && cairn step scanning`. Then read the Secrets section o
      ```
   3. Added `.env` files, by path only: `git diff --name-only --diff-filter=A <base>...<plan branch> | grep -E '(^|/)\.env($|\.)'`.
   A secret in the diff blocks: remove it in step 5. A committed secret counts as leaked, so tell the user to revoke it.
-- **Dependency audit.** Run the `audit` command from `.sdlc/config.json` when it is set. Otherwise detect it from the lockfile: `package-lock.json` runs `npm audit --omit=dev --audit-level=high`, `pnpm-lock.yaml` runs `pnpm audit`, `yarn.lock` runs `yarn npm audit` (berry) or `yarn audit` (v1), `Cargo.lock` runs `cargo audit` when installed, and a pinned `requirements*.txt` runs `pip-audit --no-deps --disable-pip -r <file>` when installed (that form installs nothing; it needs every requirement pinned with `==`, so skip an unpinned file with a one-line note). `poetry.lock` is not audited unless the config sets a command. Run the audit command only: never an install, never an audit fix (no `npm audit fix --force`), and never `pip-audit` without `--no-deps --disable-pip` (it builds the packages in a temp environment, which can run their build scripts).
+- **Dependency audit.** Run the `audit` command from `.cairn/config.json` when it is set. Otherwise detect it from the lockfile: `package-lock.json` runs `npm audit --omit=dev --audit-level=high`, `pnpm-lock.yaml` runs `pnpm audit`, `yarn.lock` runs `yarn npm audit` (berry) or `yarn audit` (v1), `Cargo.lock` runs `cargo audit` when installed, and a pinned `requirements*.txt` runs `pip-audit --no-deps --disable-pip -r <file>` when installed (that form installs nothing; it needs every requirement pinned with `==`, so skip an unpinned file with a one-line note). `poetry.lock` is not audited unless the config sets a command. Run the audit command only: never an install, never an audit fix (no `npm audit fix --force`), and never `pip-audit` without `--no-deps --disable-pip` (it builds the packages in a temp environment, which can run their build scripts).
 - **Triage by reachability.** A critical or high advisory in code the build reaches blocks: fix it in step 5. Everything else is logged: `cairn suggest add --area security --from check --where <lockfile> --text "<advisory and package>"`.
 - **Lockfile diff.** When the branch changes a lockfile, list the new and bumped packages. Flag install scripts and names that look like a typosquat.
 - **No audit tool.** With no configured command and no known audit for the stack, say in one line that the audit was skipped and why, then go on.

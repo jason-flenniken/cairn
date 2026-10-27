@@ -41,14 +41,14 @@ The mod registers these commands. Their names have no ":" because the engine for
 
 ## Where things live
 - Plan branch (from `cairn status --json`, `state.branch`): `feature/<slug>` for a feature plan, `fix/<slug>` for a fix. It is usually checked out in its own worktree. The orchestrator session stays at the repo root and runs `cd <plan worktree> && cairn <command>`.
-- Plan dir, committed on the plan branch: `docs/sdlc/plans/<date>-<slug>/` (the date is the plan's start; `cairn status --json` gives the absolute path as `dir`; older plans keep the undated `<slug>` folder and are still found), containing:
+- Plan dir, committed on the plan branch: `docs/cairn/plans/<date>-<slug>/` (the date is the plan's start; `cairn status --json` gives the absolute path as `dir`; older plans keep the undated `<slug>` folder and are still found), containing:
   - `decisions.md`: append-only, written via `cairn decide`
   - `prd.md`, `plan.md`, `handoff.md`, `RECORD.md`: written by procedures from `templates/`
   - `direction/<phase-id>.md`: one direction report per phase, with its `cairn-direction` scorecard
   - `state.json`, `STATUS.md`: CLI only
-- Task branches: `task/<slug>/<task>`, each in its own worktree, in a folder named after the plan folder plus `--<task>`. Task workers never touch `docs/sdlc/`.
-- Product track, on main: `docs/sdlc/product/PRD.md` and `docs/sdlc/product/decisions/`.
-- Repo config: `.sdlc/config.json`, with keys:
+- Task branches: `task/<slug>/<task>`, each in its own worktree, in a folder named after the plan folder plus `--<task>`. Task workers never touch `docs/cairn/`.
+- Product track, on main: `docs/cairn/product/PRD.md` and `docs/cairn/product/decisions/`.
+- Repo config: `.cairn/config.json` (falls back to `.sdlc/config.json`; when both exist `.cairn` wins and `cairn status` warns), with keys:
   - `setup`: run in every new plan or task worktree, for example to install dependencies
   - `test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `worktreeRoot`, `autoCommit`
   - `resumeFreshAfterMinutes`: how long a pause counts as recent before resume offers a clean start (default 60)
@@ -56,7 +56,7 @@ The mod registers these commands. Their names have no ":" because the engine for
   - `audit`: the dependency audit command the check stage runs (a string). When absent, the check stage detects the stack's native audit from the lockfile
   - `reproTimeoutMinutes`: how long `cairn repro` may run (default 10)
 - Config lock (FR-32): plan approval records a hash of the `setup`, `test`, and `build` commands. On the fix track the hash is taken when the repro is recorded. `task start`, `task done`, `repro`, and `close` refuse while the hash differs, and name the fix: the user re-approves the plan, or chooses Override.
-- The active plan is decided by the current git branch. A branch counts as a plan only when it holds `docs/sdlc/plans/<date>-<slug>/state.json`; hand-made `feature/` branches are ignored. On any other branch the CLI works on the index of all plans. Plans created before the `feature/`, `fix/`, and `task/` names keep `sdlc/<slug>`, `sdlc-task/<slug>/<task>`, and `sdlc-<slug>` folders, finish under those names, and cairn still recognises them.
+- The active plan is decided by the current git branch. A branch counts as a plan only when it holds `docs/cairn/plans/<date>-<slug>/state.json`; hand-made `feature/` branches are ignored. On any other branch the CLI works on the index of all plans. Plans created before the `feature/`, `fix/`, and `task/` names keep `sdlc/<slug>`, `sdlc-task/<slug>/<task>`, and `sdlc-<slug>` folders, finish under those names, and cairn still recognises them.
 
 ## Stages
 `discover → prd → plan → execute → verify → review → ship → learn → closed`
@@ -72,7 +72,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 | `cairn approve plan` | the plan is loaded and `plan.md` is unchanged since it was loaded. If `prd.md` changed after the PRD was approved, this approval also accepts those edits (the PRD approval takes the new text's hash), and the plan's approval card and the `status` warning say so. `cairn approve prd` works only at the prd stage |
 | `cairn advance` (to execute) | plan approved |
 | `cairn task start <id>` | the task is in the ready set (`cairn ready`), and the config lock holds |
-| `cairn task done <id>` | the task branch is merged into the plan branch, the config `test` command passes in the plan worktree (a missing test command is a warning, not a refusal; at MVP a red suite is a warning plus a hardening item), the config lock holds, and on feature plans no non-merge commit made directly on the plan branch since the task started changes files in the task's scope (outside `docs/sdlc/`). That refusal lists the short SHAs: move them onto the task branch and merge it with `--no-ff` |
+| `cairn task done <id>` | the task branch is merged into the plan branch, the config `test` command passes in the plan worktree (a missing test command is a warning, not a refusal; at MVP a red suite is a warning plus a hardening item), the config lock holds, and on feature plans no non-merge commit made directly on the plan branch since the task started changes files in the task's scope (outside `docs/cairn/`). That refusal lists the short SHAs: move them onto the task branch and merge it with `--no-ff` |
 | `cairn evidence phase` | (on demand) the phase's direction report has one valid `cairn-direction` block with a row for every covered requirement |
 | `cairn phase finish` | every task in the current phase is done, nothing is blocked or paused, the plan worktree is clean, tests are green at the current commit (the last `task done` run is reused when no code changed), and no on-track check for the phase is red. No human step |
 | (last phase finished) | stage moves to verify automatically |
@@ -88,7 +88,8 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn status [--all] [--json]`: one plan, or every plan with `--all`, read live from each worktree.
 - **Plans**
   - `cairn new <slug> --title "…" [--track feature|fix] [--level mvp|standard|polished] [--from <ref>] [--no-worktree]`: creates the branch, the worktree, the plan dir, and state, and prints the worktree path. `--level` defaults to config `defaultLevel`, then Standard; fix plans have no level.
-  - `cairn product init`: creates `docs/sdlc/product/` from templates, on the current branch.
+  - `cairn migrate`: moves a repo from `.sdlc/` and `docs/sdlc/` to `.cairn/` and `docs/cairn/` with `git mv`, then commits "cairn: move .sdlc to .cairn and docs/sdlc to docs/cairn". Run it on main, outside any plan, with no plan in flight and a clean tree. Folders that already exist are merged; it refuses only when the same file exists on both sides. Legacy `docs/sdlc/plans/` is still read (in checkouts and on branches) but never written, and the session-start hook hints at `cairn migrate` when a repo still has the old folders and no plan is active.
+  - `cairn product init`: creates `docs/cairn/product/` from templates, on the current branch.
   - `cairn decide "<question>" "<answer>" [--why "…"]`: appends to `decisions.md`.
   - `cairn decide --file <path>`: reads the decision from a JSON file, `{question, answer, why?}`.
   - `--note-file <path>`: works on any command that takes `--note`, and reads the note from the file.
@@ -133,7 +134,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn resume`: clears the pause and prints a recap: status, the handoff, and the next procedure.
   - `cairn close`
 - **Generated docs and hooks**
-  - `cairn render`: regenerates `STATUS.md`, plus `docs/sdlc/INDEX.md` when on main.
+  - `cairn render`: regenerates `STATUS.md`, plus `docs/cairn/INDEX.md` when on main.
   - `cairn records [--json]`: lists every plan, in-progress first then closed newest first, with date, title, why line, record path and follow-ups. Works from any worktree.
   - `cairn hook session-start|post-edit`: used by `hooks/hooks.json`. Reads hook JSON on stdin.
 

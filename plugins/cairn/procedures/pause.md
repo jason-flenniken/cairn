@@ -21,7 +21,7 @@ When tasks are running, ask with AskUserQuestion: Drain (Recommended: in-flight 
 **Done when:** no agent is mid-edit and every task worktree is committed.
 
 ## 4. Write handoff.md
-Write `docs/sdlc/plans/<date>-<slug>/handoff.md` from `${CLAUDE_PLUGIN_ROOT}/templates/handoff.md`, keeping its three `## ` headings:
+Write `docs/cairn/plans/<date>-<slug>/handoff.md` from `${CLAUDE_PLUGIN_ROOT}/templates/handoff.md`, keeping its three `## ` headings:
 - **In flight:** each in-progress task with its recorded substep (from `cairn status --json`), its worktree path, and what is committed.
 - **Open questions:** anything waiting on the user, with your recommendation. Keep the questions an earlier handoff already lists and append the new ones; the mod's pause does the same.
 - **Next action:** the exact first step on resume, for example "re-run review for the cart API task" or "continue the plan procedure at step 4".

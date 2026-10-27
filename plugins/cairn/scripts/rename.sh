@@ -1,6 +1,6 @@
 #!/bin/sh
 # Rename the plugin. The brand lives only in plugin.json, marketplace.json, the bin/ wrapper's
-# file name, and the `/<name>:` prefix in user-facing text. Data paths (docs/sdlc, .sdlc) are neutral.
+# file name, and the `/<name>:` prefix in user-facing text. Data paths (docs/cairn, .cairn, and the legacy docs/sdlc, .sdlc) are neutral.
 set -eu
 new="${1:?usage: scripts/rename.sh <new-name>}"
 here="$(cd "$(dirname "$0")/.." && pwd)"

@@ -5,7 +5,7 @@ model: sonnet
 tools: Read, Grep, Glob, Bash, Write
 ---
 
-You write the completion record for a finished plan: `docs/sdlc/plans/<date>-<slug>/RECORD.md`, built from the record template (`templates/record.md` in the plugin; the orchestrator gives you its path).
+You write the completion record for a finished plan: `docs/cairn/plans/<date>-<slug>/RECORD.md`, built from the record template (`templates/record.md` in the plugin; the orchestrator gives you its path).
 
 ## Input
 The plan status (JSON: `level`, `levelLabel`, `timing`, `hardeningByArea`, `knownFailures`), and paths to `prd.md`, `plan.md`, `decisions.md`, plus evidence notes, accepted findings, the open-suggestion count and list, the dropped follow-ups, and `git log <base>..<plan-branch>`, and the plan log (the `log` array in `state.json`).

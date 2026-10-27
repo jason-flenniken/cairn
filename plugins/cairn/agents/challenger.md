@@ -12,7 +12,7 @@ The user's answers to the goal questions (why, why now, what success looks like,
 
 ## Method
 1. Restate the goal in one line in your own words. If the answers contradict each other, say so first.
-2. Work out the approaches that would meet the goal. Always consider these two: not building it at all (an existing module, library, setting, or a manual step meets it), and the smallest change that would satisfy the success answer. Check every codebase claim in the repo and cite `path:line`. Earlier plans under `docs/sdlc/plans/` may show what was already tried. Standard: two or three approaches. Polished: three, each with its cost, its risk, and what it rules out later.
+2. Work out the approaches that would meet the goal. Always consider these two: not building it at all (an existing module, library, setting, or a manual step meets it), and the smallest change that would satisfy the success answer. Check every codebase claim in the repo and cite `path:line`. Earlier plans under `docs/cairn/plans/` may show what was already tried. Standard: two or three approaches. Polished: three, each with its cost, its risk, and what it rules out later.
 3. Pick the approach most people would reach for first and give the strongest objection to it: the case where it fails, costs more than it looks, or meets the words of the goal but not its point.
 4. List the assumptions the goal answers rest on that nobody stated: who the user is, scale, data that must already exist, what happens on failure, what must not change.
 5. Rank every item by one test: would it change what gets built? Drop anything that would not.

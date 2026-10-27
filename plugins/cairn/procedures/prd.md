@@ -16,7 +16,7 @@ Run `cairn status --json`. The stage must be `prd`. Any other stage: say which a
 **Done when:** the stage is `prd`. If `prd.md` already exists, read it and treat step 2 as a revision.
 
 ## 2. Draft prd.md
-Write `docs/sdlc/plans/<date>-<slug>/prd.md` in the plan worktree from `${CLAUDE_PLUGIN_ROOT}/templates/prd.md`. Keep the five required `## ` headings exactly as the template has them: Problem, Solution, Requirements, Non-goals, Open questions. Sources: `decisions.md` and, when present, `docs/sdlc/product/PRD.md`.
+Write `docs/cairn/plans/<date>-<slug>/prd.md` in the plan worktree from `${CLAUDE_PLUGIN_ROOT}/templates/prd.md`. Keep the five required `## ` headings exactly as the template has them: Problem, Solution, Requirements, Non-goals, Open questions. Sources: `decisions.md` and, when present, `docs/cairn/product/PRD.md`.
 
 - Requirements: one testable behavior each, ids `FR-01`, `FR-02`, ... in order, each with a one-line `Check:` that says how you will know it works.
 - Keep the optional sections (Unhappy paths, Security, Non-functional requirements, User stories) only where they are real for this plan; delete the rest. Security is required whenever discover recorded a trust boundary in `decisions.md`. Write it as a short threat model: trust boundaries, assets, a STRIDE pass (one line per boundary) and misuse cases. Read the Threat model section of `references/security-checklist.md` first. Leave it out only when every boundary was recorded as not applicable.

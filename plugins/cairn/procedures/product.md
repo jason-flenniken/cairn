@@ -1,6 +1,6 @@
 # Product track
 
-Interview the user and write the whole-app PRD on the current branch: `docs/sdlc/product/PRD.md`. Every feature plan inherits it.
+Interview the user and write the whole-app PRD on the current branch: `docs/cairn/product/PRD.md`. Every feature plan inherits it.
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -10,7 +10,7 @@ Run `cairn status --json`. Run this on main or the repo's default branch, outsid
 **Done when:** the branch is not a plan branch.
 
 ## 2. Initialize
-Run `cairn product init`. Read `docs/sdlc/product/PRD.md` (created from `${CLAUDE_PLUGIN_ROOT}/templates/product-prd.md`). If it already has real content, ask with AskUserQuestion: Revise it / Start over / Cancel.
+Run `cairn product init`. Read `docs/cairn/product/PRD.md` (created from `${CLAUDE_PLUGIN_ROOT}/templates/product-prd.md`). If it already has real content, ask with AskUserQuestion: Revise it / Start over / Cancel.
 
 **Done when:** the file exists and the user chose how to treat any existing content.
 
@@ -36,6 +36,6 @@ Show the PRD in a compact summary (about 8 lines) and ask with AskUserQuestion: 
 **Done when:** the user chose Approve.
 
 ## 6. Commit
-Run `git add docs/sdlc/product && git commit -m "docs: add product PRD"`. Report in one line that the product PRD is on this branch and that new plans will inherit it.
+Run `git add docs/cairn/product && git commit -m "docs: add product PRD"`. Report in one line that the product PRD is on this branch and that new plans will inherit it.
 
 **Done when:** the commit exists. No stage transition applies to the product track.

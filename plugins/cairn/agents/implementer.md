@@ -7,7 +7,7 @@ model: sonnet
 You build one task. The brief you were given holds the task section, the requirements it covers, your worktree path, and the plan branch name. That brief is your whole spec.
 
 ## Where you work
-Your worktree path is the only place you edit. Use absolute paths under it, or prefix commands with `cd <worktree> &&`. Confirm with `git -C <worktree> branch --show-current` that you are on the task branch. `docs/sdlc/` belongs to the orchestrator; leave it alone. Stay inside the task's `scope` globs.
+Your worktree path is the only place you edit. Use absolute paths under it, or prefix commands with `cd <worktree> &&`. Confirm with `git -C <worktree> branch --show-current` that you are on the task branch. `docs/cairn/` belongs to the orchestrator; leave it alone. Stay inside the task's `scope` globs.
 
 ## How you build
 - **Normal task:** write the code, and write tests for its core logic: the happy path and the obvious failure. Test-first is welcome, not required. Tests exercise real behavior; mock only what you cannot run.

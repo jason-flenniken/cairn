@@ -26,7 +26,7 @@ Follow-ups declined twice, or older than 60 days, expire on their own and need n
 **Done when:** at most 5 open follow-ups remain from this plan (`cairn close` refuses otherwise and names them).
 
 ## 3. Draft the record
-Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open follow-up counts, the list of dropped follow-ups, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, the plan log (the `log` array in `state.json`), and `git log <base>..<plan-branch>`. It writes `docs/sdlc/plans/<date>-<slug>/RECORD.md` from the record template in at most 600 words, Findings included.
+Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open follow-up counts, the list of dropped follow-ups, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, the plan log (the `log` array in `state.json`), and `git log <base>..<plan-branch>`. It writes `docs/cairn/plans/<date>-<slug>/RECORD.md` from the record template in at most 600 words, Findings included.
 
 **Done when:** `RECORD.md` exists with every template heading and is within 600 words (`wc -w`).
 

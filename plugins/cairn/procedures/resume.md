@@ -12,11 +12,11 @@ Run `cairn status --json`.
 **Done when:** the session is in the target plan's worktree.
 
 ## 2. Resume
-A pause under `resumeFreshAfterMinutes` (`.sdlc/config.json`, default 60) resumes in this session. After a longer pause, or when the pause time is missing, tell the user the context is stale: suggest `/clear`, then `/cairn:resume`, with how long ago it was paused, and ask with AskUserQuestion: Resume here anyway / Not now. Continue only on "Resume here anyway", or in the fresh session.
+A pause under `resumeFreshAfterMinutes` (`.cairn/config.json`, default 60) resumes in this session. After a longer pause, or when the pause time is missing, tell the user the context is stale: suggest `/clear`, then `/cairn:resume`, with how long ago it was paused, and ask with AskUserQuestion: Resume here anyway / Not now. Continue only on "Resume here anyway", or in the fresh session.
 
 Run `cairn resume`. It clears the pause and prints a recap: status, the handoff, and the next procedure.
 
-**Done when:** the command exits 0 and you have read the recap and `docs/sdlc/plans/<date>-<slug>/handoff.md`.
+**Done when:** the command exits 0 and you have read the recap and `docs/cairn/plans/<date>-<slug>/handoff.md`.
 
 ## 3. Previously
 Tell the user in 3 lines: where the plan was (stage and phase), what was in flight, and what happens next. Surface open questions from the handoff and ask them with AskUserQuestion (recommended first) before continuing.

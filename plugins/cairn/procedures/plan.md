@@ -22,7 +22,7 @@ Dispatch Explore agents (`model: sonnet`, `description` per `references/reportin
 **Done when:** you can name, for each FR, the files and seams it lands in.
 
 ## 3. Write plan.md
-Write `docs/sdlc/plans/<date>-<slug>/plan.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. Required headings: Goal, Architecture, Phases. Keep the plan short. Slicing rules:
+Write `docs/cairn/plans/<date>-<slug>/plan.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. Required headings: Goal, Architecture, Phases. Keep the plan short. Slicing rules:
 
 - **Vertical:** each task is a narrow, complete path through every layer. A horizontal layer alone is never a task.
 - **Right-sized:** each task fits one fresh context window. Split further when it would not.
