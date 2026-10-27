@@ -26,6 +26,7 @@ const SUBCOMMANDS = [
   'close',
   'render',
   'escalate',
+  'migrate',
 ];
 
 type Skill = { name: string; allowedTools: string[] };

@@ -8,6 +8,7 @@ import { nextFor, summary } from '../render.ts';
 import { loadState, log, saveState } from '../state.ts';
 import { now, withLock } from '../util.ts';
 import { planCtx } from '../shared.ts';
+import { legacyLayout } from './migrate.ts';
 import { listPlans, warnings } from './status.ts';
 
 interface HookInput {
@@ -31,7 +32,10 @@ export function hookSessionStart(input: HookInput): string {
     return hookOut('SessionStart', lines.join('\n'));
   }
   const active = listPlans(ctx).filter((r) => r.state.stage !== 'closed');
-  if (!active.length) return '';
+  if (!active.length) {
+    const legacy = legacyLayout(ctx.mainRoot);
+    return legacy.length ? hookOut('SessionStart', `cairn: this repo still uses ${legacy.join(' and ')}; run \`cairn migrate\` on main to move them.`) : '';
+  }
   return hookOut('SessionStart', [`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), 'The user can resume one with /cairn:resume <slug> or start another with /cairn:new.'].join('\n'));
 }
 

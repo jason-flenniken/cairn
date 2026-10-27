@@ -21,6 +21,7 @@ allowed-tools:
   - "Bash(cairn resume:*)"
   - "Bash(cairn close:*)"
   - "Bash(cairn render:*)"
+  - "Bash(cairn migrate:*)"
   - "Bash(cairn escalate:*)"
   - "Bash(cairn level:*)"
   - "Bash(cairn test:*)"

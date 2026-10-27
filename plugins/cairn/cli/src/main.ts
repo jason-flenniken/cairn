@@ -8,6 +8,7 @@ import {
   cmdDriftAck,
   cmdEscalate,
   cmdLevel,
+  cmdMigrate,
   cmdEvidence,
   cmdNew,
   cmdNext,
@@ -79,7 +80,7 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
-  pause [--now] | resume [<slug>] | close | render | records
+  pause [--now] | resume [<slug>] | close | render | records | migrate
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 
@@ -137,6 +138,8 @@ export function run(argv: string[], cwd = process.cwd()): Result {
       return cmdClose(ctx(), opts);
     case 'records':
       return cmdRecords(ctx());
+    case 'migrate':
+      return cmdMigrate(ctx());
     case 'render':
       return cmdRender(ctx());
     case undefined:
