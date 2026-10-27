@@ -6,8 +6,8 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T21:13:32.871Z",
-  "stage": "verify",
+  "updated": "2026-10-27T21:13:32.994Z",
+  "stage": "review",
   "stageHistory": [
     {
       "stage": "discover",
@@ -28,6 +28,10 @@
     {
       "stage": "verify",
       "at": "2026-10-27T20:49:46.767Z"
+    },
+    {
+      "stage": "review",
+      "at": "2026-10-27T21:13:32.994Z"
     }
   ],
   "paused": null,
@@ -557,6 +561,11 @@
       "at": "2026-10-27T21:13:32.871Z",
       "event": "verify pass",
       "detail": "tests: 347 CLI + 573 mod passing, build matches bundle; 16 requirements met, 0 untested (FR-01 output and FR-14 on main observable at ship/close); FR-13 met after merging the unmerged close of roomier-pane-visuals; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    },
+    {
+      "at": "2026-10-27T21:13:32.994Z",
+      "event": "advanced",
+      "detail": "review"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -649,10 +658,5 @@
       "from": "task-review",
       "at": "2026-10-27T20:38:32.694Z"
     }
-  ],
-  "step": {
-    "stage": "verify",
-    "name": "testing",
-    "at": "2026-10-27T21:12:57.697Z"
-  }
+  ]
 }
