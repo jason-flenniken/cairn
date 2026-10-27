@@ -1,4 +1,4 @@
-# cairn
+# Cairn: Repeatable SDLC Workflows
 
 A Claude Code plugin for an agent-driven software development lifecycle. This repository is also its marketplace, so you can install it straight from GitHub.
 
