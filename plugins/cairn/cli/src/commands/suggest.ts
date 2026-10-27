@@ -1,7 +1,7 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { scopesOverlap } from '../glob.ts';
-import { PLANS_DIR, type Ctx } from '../locate.ts';
+import { plansDirsIn, type Ctx } from '../locate.ts';
 import { parseState } from '../state.ts';
 import { SUGGESTION_AREAS, SUGGESTION_SOURCES, type State, type Suggestion } from '../types.ts';
 import { CliError, readText, Refusal } from '../util.ts';
@@ -32,8 +32,7 @@ const isMarker = (x: Suggestion): boolean => !!x.resolves || !!x.declines;
 function allStates(ctx: Ctx): State[] {
   const out = new Map<string, State>();
   for (const r of listPlans(ctx)) out.set(r.state.slug, r.state);
-  const dir = join(ctx.top, PLANS_DIR);
-  if (existsSync(dir))
+  for (const dir of plansDirsIn(ctx.top))
     for (const name of readdirSync(dir)) {
       const raw = readText(join(dir, name, 'state.json'));
       if (raw === undefined) continue;

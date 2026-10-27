@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { commonDir } from '../git.ts';
-import { PLANS_DIR, type Ctx } from '../locate.ts';
+import { plansDirsIn, type Ctx } from '../locate.ts';
 import { sections } from '../sections.ts';
 import { parseState } from '../state.ts';
 import type { Suggestion } from '../types.ts';
@@ -35,8 +35,8 @@ export function listRecords(ctx: Ctx): RecordEntry[] {
   const byMain: Ctx = { ...ctx, top: main };
   const found = new Map<string, { state: ReturnType<typeof parseState>; dir: string }>();
   for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
-  const base = join(main, PLANS_DIR);
-  if (existsSync(base))
+  const bases = plansDirsIn(main);
+  for (const base of bases)
     for (const name of readdirSync(base)) {
       const raw = readText(join(base, name, 'state.json'));
       if (raw === undefined) continue;
@@ -53,7 +53,7 @@ export function listRecords(ctx: Ctx): RecordEntry[] {
   const entries = [...found.values()].map(({ state, dir }): RecordEntry => {
     let recordPath = join(dir, 'RECORD.md');
     // A plan found on its branch may have its record only in the main checkout.
-    if (!existsSync(recordPath)) recordPath = join(base, basename(dir), 'RECORD.md');
+    if (!existsSync(recordPath)) recordPath = bases.map((b) => join(b, basename(dir), 'RECORD.md')).find((p) => existsSync(p)) ?? recordPath;
     const text = readText(recordPath);
     return {
       slug: state.slug,

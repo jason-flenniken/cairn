@@ -4,6 +4,7 @@ import { worktreeRoot } from '../config.ts';
 import { branchExists, directCommits, git, gitOk } from '../git.ts';
 import { matchesAny } from '../glob.ts';
 import { planRelOf, taskBranch, type Ctx } from '../locate.ts';
+import { DOCS_DIRS } from '../paths.ts';
 import { phaseStatus } from '../plan-parse.ts';
 import { findTask, readySet } from '../ready.ts';
 import { loadState, log, setStage } from '../state.ts';
@@ -136,7 +137,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   // Work committed straight onto the plan branch inside the task's scope, since the task base. Merge commits are
   // skipped (a task merge is the normal path) and so is cairn's own state under docs/sdlc/.
   // The fix track is exempt: it has its own size limit, which counts plan-branch commits.
-  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !f.startsWith('docs/sdlc/') && matchesAny(f, sl.scope))) : [];
+  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !DOCS_DIRS.some((d) => f.startsWith(`${d}/`)) && matchesAny(f, sl.scope))) : [];
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `task done: ${sl.name}`, (s) => {
     const cur = findTask(s, id)!;

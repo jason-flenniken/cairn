@@ -2,9 +2,16 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { branchExists, currentBranch, git, gitOk, topLevel, worktrees, type Worktree } from './git.ts';
 import type { Track } from './types.ts';
+import { DOCS_DIR, LEGACY_DOCS_DIR } from './paths.ts';
 import { CliError } from './util.ts';
 
-export const PLANS_DIR = 'docs/sdlc/plans';
+export const PLANS_DIR = `${DOCS_DIR}/plans`;
+/** The pre-rename plans root: still read, never written. */
+export const LEGACY_PLANS_DIR = `${LEGACY_DOCS_DIR}/plans`;
+/** Every plans root, newest first. */
+export const PLANS_DIRS: readonly string[] = [PLANS_DIR, LEGACY_PLANS_DIR];
+/** The plans roots that exist under `root`, as absolute paths, new root first. */
+export const plansDirsIn = (root: string): string[] => PLANS_DIRS.map((d) => join(root, d)).filter((d) => existsSync(d));
 /** Prefixes a plan branch can carry. `sdlc/` is legacy: plans recorded on it keep their name. */
 export const PLAN_PREFIXES = ['feature/', 'fix/', 'sdlc/'] as const;
 /** Task branch prefixes. `sdlc-task/` is legacy. */
@@ -35,24 +42,27 @@ function pickPlanDir(slug: string, names: string[], hasPlan: (name: string) => b
  * read from a checkout (`root`) or from a branch's committed tree (`ref`). Undefined when neither holds the plan.
  */
 export function resolvePlanDir(slug: string, where: { root: string } | { ref: string; cwd: string }): string | undefined {
-  let name: string | undefined;
-  if ('root' in where) {
-    const base = join(where.root, PLANS_DIR);
-    if (!existsSync(base)) return undefined;
-    name = pickPlanDir(slug, readdirSync(base), (n) => existsSync(join(base, n, 'state.json')));
-  } else {
-    let names: string[];
-    try {
-      names = git(['ls-tree', '--name-only', where.ref, `${PLANS_DIR}/`], where.cwd)
-        .split('\n')
-        .filter(Boolean)
-        .map((p) => p.slice(PLANS_DIR.length + 1));
-    } catch {
-      return undefined;
-    }
-    name = pickPlanDir(slug, names, (n) => gitOk(['cat-file', '-e', `${where.ref}:${PLANS_DIR}/${n}/state.json`], where.cwd));
+  for (const plans of PLANS_DIRS) {
+    const name = 'root' in where ? pickInRoot(slug, join(where.root, plans)) : pickInRef(slug, plans, where.ref, where.cwd);
+    if (name) return `${plans}/${name}`;
   }
-  return name && `${PLANS_DIR}/${name}`;
+  return undefined;
+}
+function pickInRoot(slug: string, base: string): string | undefined {
+  if (!existsSync(base)) return undefined;
+  return pickPlanDir(slug, readdirSync(base), (n) => existsSync(join(base, n, 'state.json')));
+}
+function pickInRef(slug: string, plans: string, ref: string, cwd: string): string | undefined {
+  let names: string[];
+  try {
+    names = git(['ls-tree', '--name-only', ref, `${plans}/`], cwd)
+      .split('\n')
+      .filter(Boolean)
+      .map((p) => p.slice(plans.length + 1));
+  } catch {
+    return undefined;
+  }
+  return pickPlanDir(slug, names, (n) => gitOk(['cat-file', '-e', `${ref}:${plans}/${n}/state.json`], cwd));
 }
 /** Plan folder in a checkout, falling back to the old undated name when nothing is there yet. */
 export const planRelIn = (slug: string, root: string) => resolvePlanDir(slug, { root }) ?? planRel(slug);

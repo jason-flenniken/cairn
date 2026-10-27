@@ -29,7 +29,7 @@ after(() => rmSync(repo, { recursive: true, force: true }));
 
 /** Rename a plan's folder on its branch, as a commit. */
 function renameFolder(wt: string, from: string, to: string) {
-  g(wt, 'mv', `docs/sdlc/plans/${from}`, `docs/sdlc/plans/${to}`);
+  g(wt, 'mv', `docs/cairn/plans/${from}`, `docs/cairn/plans/${to}`);
   g(wt, 'commit', '-q', '-m', `rename ${from}`);
 }
 
@@ -46,9 +46,9 @@ test('cairn new creates the dated folder on the plain-slug branch', () => {
   const r = run(['new', 'demo', '--title', 'Demo'], repo);
   const wt = r.data!.worktree as string;
   assert.equal(g(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'feature/demo');
-  assert.equal(r.data!.dir, join(wt, `docs/sdlc/plans/${today}-demo`));
-  assert.ok(existsSync(join(wt, `docs/sdlc/plans/${today}-demo/state.json`)));
-  assert.ok(!existsSync(join(wt, 'docs/sdlc/plans/demo')));
+  assert.equal(r.data!.dir, join(wt, `docs/cairn/plans/${today}-demo`));
+  assert.ok(existsSync(join(wt, `docs/cairn/plans/${today}-demo/state.json`)));
+  assert.ok(!existsSync(join(wt, 'docs/cairn/plans/demo')));
   assert.equal(g(wt, 'status', '--porcelain'), '', 'the new folder is committed');
   assert.equal(run(['status'], wt).data!.state && (run(['status'], wt).data!.state as { slug: string }).slug, 'demo');
 });
@@ -56,24 +56,24 @@ test('cairn new creates the dated folder on the plain-slug branch', () => {
 test('a plan renamed to the dated form on its branch is found by status, next, decide and task start', () => {
   const wt = run(['new', 'shop', '--title', 'Shop'], repo).data!.worktree as string;
   renameFolder(wt, `${today}-shop`, '2026-10-01-shop');
-  assert.equal(resolvePlanDir('shop', { root: wt }), 'docs/sdlc/plans/2026-10-01-shop');
+  assert.equal(resolvePlanDir('shop', { root: wt }), 'docs/cairn/plans/2026-10-01-shop');
   assert.equal((run(['status'], wt).data!.state as { slug: string }).slug, 'shop');
   assert.match(run(['next'], wt).message, /Shop/);
   run(['decide', 'Q?', 'A'], wt);
-  assert.match(readFileSync(join(wt, 'docs/sdlc/plans/2026-10-01-shop/decisions.md'), 'utf8'), /### 1\. Q\?/);
+  assert.match(readFileSync(join(wt, 'docs/cairn/plans/2026-10-01-shop/decisions.md'), 'utf8'), /### 1\. Q\?/);
   run(['advance'], wt);
   assert.equal(g(wt, 'status', '--porcelain'), '', 'plan commits land in the renamed folder');
   assert.match(g(wt, 'show', '--stat', '--format=%s', 'HEAD'), /advance to prd[\s\S]*2026-10-01-shop/);
   assert.throws(() => run(['task', 'start', 'nope'], wt), (e: unknown) => e instanceof Refusal && /no task "nope"|plan is in/.test(e.message));
   const row = (run(['status', '--all'], repo).data!.plans as { state: { slug: string }; dir: string }[]).find((p) => p.state.slug === 'shop');
-  assert.equal(row?.dir, join(wt, 'docs/sdlc/plans/2026-10-01-shop'));
+  assert.equal(row?.dir, join(wt, 'docs/cairn/plans/2026-10-01-shop'));
 });
 
 test('a branch whose tree still has the old folder resolves to it, and status --all lists it from the branch', () => {
   const wt = run(['new', 'legacy-app', '--title', 'Legacy app'], repo).data!.worktree as string;
   renameFolder(wt, `${today}-legacy-app`, 'legacy-app');
   g(repo, 'worktree', 'remove', '--force', wt); // only the branch remains
-  assert.equal(resolvePlanDir('legacy-app', { ref: 'feature/legacy-app', cwd: repo }), 'docs/sdlc/plans/legacy-app');
+  assert.equal(resolvePlanDir('legacy-app', { ref: 'feature/legacy-app', cwd: repo }), 'docs/cairn/plans/legacy-app');
   const plans = run(['status', '--all'], repo).data!.plans as { state: { slug: string }; live: boolean; dir: string }[];
   const rows = plans.filter((p) => p.state.slug === 'legacy-app');
   assert.equal(rows.length, 1);
@@ -88,7 +88,7 @@ test('a checkout holding both the old and the dated folder lists the plan once a
   const old = join(dirname(dated), 'twin');
   mkdirSync(old, { recursive: true });
   writeFileSync(join(old, 'state.json'), readFileSync(join(dated, 'state.json')));
-  assert.equal(resolvePlanDir('twin', { root: wt }), `docs/sdlc/plans/${today}-twin`);
+  assert.equal(resolvePlanDir('twin', { root: wt }), `docs/cairn/plans/${today}-twin`);
   const rows = (run(['status', '--all'], repo).data!.plans as { state: { slug: string } }[]).filter((p) => p.state.slug === 'twin');
   assert.equal(rows.length, 1);
 });
@@ -99,10 +99,10 @@ test('a slug only matches its exact folder name, never another plan whose name e
   // `shop` lives on its own branch, so look in the pet-shop checkout: only pet-shop's folder is there.
   assert.equal(resolvePlanDir('shop', { root: wt }), undefined);
   assert.equal(resolvePlanDir('shop', { ref: 'feature/pet-shop', cwd: repo }), undefined);
-  assert.equal(resolvePlanDir('pet-shop', { root: wt }), 'docs/sdlc/plans/2026-10-01-pet-shop');
+  assert.equal(resolvePlanDir('pet-shop', { root: wt }), 'docs/cairn/plans/2026-10-01-pet-shop');
   // and a decoy folder with a longer name beside the real one does not win
-  const dir = join(wt, 'docs/sdlc/plans');
+  const dir = join(wt, 'docs/cairn/plans');
   mkdirSync(join(dir, '2026-10-01-big-pet-shop'), { recursive: true });
   writeFileSync(join(dir, '2026-10-01-big-pet-shop/state.json'), '{}');
-  assert.equal(resolvePlanDir('pet-shop', { root: wt }), 'docs/sdlc/plans/2026-10-01-pet-shop');
+  assert.equal(resolvePlanDir('pet-shop', { root: wt }), 'docs/cairn/plans/2026-10-01-pet-shop');
 });

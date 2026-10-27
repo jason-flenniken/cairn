@@ -7509,8 +7509,18 @@ function landedState(cwd, branch, base, planRel2, cacheFile) {
   return local === "open" && prMerged(cwd, branch, cacheFile) ? "merged" : local;
 }
 
+// plugins/cairn/cli/src/paths.ts
+var CAIRN_DIR = ".cairn";
+var LEGACY_CAIRN_DIR = ".sdlc";
+var DOCS_DIR = "docs/cairn";
+var LEGACY_DOCS_DIR = "docs/sdlc";
+var DOCS_DIRS = [DOCS_DIR, LEGACY_DOCS_DIR];
+
 // plugins/cairn/cli/src/locate.ts
-var PLANS_DIR = "docs/sdlc/plans";
+var PLANS_DIR = `${DOCS_DIR}/plans`;
+var LEGACY_PLANS_DIR = `${LEGACY_DOCS_DIR}/plans`;
+var PLANS_DIRS = [PLANS_DIR, LEGACY_PLANS_DIR];
+var plansDirsIn = (root) => PLANS_DIRS.map((d) => join2(root, d)).filter((d) => existsSync2(d));
 var PLAN_PREFIXES = ["feature/", "fix/", "sdlc/"];
 var TASK_PREFIXES = ["task/", "sdlc-task/"];
 var planBranch = (slug, track) => `${track === "fix" ? "fix/" : "feature/"}${slug}`;
@@ -7528,21 +7538,24 @@ function pickPlanDir(slug, names, hasPlan) {
   return [...dated, slug].find((n) => names.includes(n) && hasPlan(n));
 }
 function resolvePlanDir(slug, where) {
-  let name;
-  if ("root" in where) {
-    const base = join2(where.root, PLANS_DIR);
-    if (!existsSync2(base)) return void 0;
-    name = pickPlanDir(slug, readdirSync(base), (n) => existsSync2(join2(base, n, "state.json")));
-  } else {
-    let names;
-    try {
-      names = git(["ls-tree", "--name-only", where.ref, `${PLANS_DIR}/`], where.cwd).split("\n").filter(Boolean).map((p) => p.slice(PLANS_DIR.length + 1));
-    } catch {
-      return void 0;
-    }
-    name = pickPlanDir(slug, names, (n) => gitOk(["cat-file", "-e", `${where.ref}:${PLANS_DIR}/${n}/state.json`], where.cwd));
+  for (const plans of PLANS_DIRS) {
+    const name = "root" in where ? pickInRoot(slug, join2(where.root, plans)) : pickInRef(slug, plans, where.ref, where.cwd);
+    if (name) return `${plans}/${name}`;
   }
-  return name && `${PLANS_DIR}/${name}`;
+  return void 0;
+}
+function pickInRoot(slug, base) {
+  if (!existsSync2(base)) return void 0;
+  return pickPlanDir(slug, readdirSync(base), (n) => existsSync2(join2(base, n, "state.json")));
+}
+function pickInRef(slug, plans, ref, cwd) {
+  let names;
+  try {
+    names = git(["ls-tree", "--name-only", ref, `${plans}/`], cwd).split("\n").filter(Boolean).map((p) => p.slice(plans.length + 1));
+  } catch {
+    return void 0;
+  }
+  return pickPlanDir(slug, names, (n) => gitOk(["cat-file", "-e", `${ref}:${plans}/${n}/state.json`], cwd));
 }
 var planRelIn = (slug, root) => resolvePlanDir(slug, { root }) ?? planRel(slug);
 var planRelOf = (plan) => relative(plan.worktree, plan.dir);
@@ -7620,12 +7633,6 @@ import { join as join6 } from "node:path";
 
 // plugins/cairn/cli/src/config.ts
 import { join as join3 } from "node:path";
-
-// plugins/cairn/cli/src/paths.ts
-var CAIRN_DIR = ".cairn";
-var LEGACY_CAIRN_DIR = ".sdlc";
-
-// plugins/cairn/cli/src/config.ts
 var CONFIG_REL = `${CAIRN_DIR}/config.json`;
 var LEGACY_CONFIG_REL = `${LEGACY_CAIRN_DIR}/config.json`;
 var DEFAULTS = { maxParallel: 3, autoCommit: true };
@@ -8289,12 +8296,12 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   };
 }
 function cmdProductInit(ctx) {
-  const dir = join7(ctx.top, "docs/sdlc/product");
+  const dir = join7(ctx.top, `${DOCS_DIR}/product`);
   const prd = join7(dir, "PRD.md");
-  if (existsSync3(prd)) throw new Refusal("docs/sdlc/product/PRD.md already exists", ["edit it with the product procedure instead"]);
+  if (existsSync3(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
   writeText(prd, template("product-prd.md") ?? "# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n");
   writeText(join7(dir, "decisions", ".gitkeep"), "");
-  return { message: `Created docs/sdlc/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
+  return { message: `Created ${DOCS_DIR}/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
 }
 function cmdDecide(ctx, question, answer, opts) {
   const d = typeof opts.file === "string" ? readDecisionFile(ctx.cwd, opts.file) : { question, answer, why: typeof opts.why === "string" ? opts.why : void 0 };
@@ -8423,12 +8430,12 @@ function cmdEscalate(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/suggest.ts
-import { existsSync as existsSync6, readdirSync as readdirSync2 } from "node:fs";
+import { readdirSync as readdirSync2 } from "node:fs";
 import { join as join10 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
 import { existsSync as existsSync5, readFileSync as readFileSync6 } from "node:fs";
-import { basename as basename2, join as join9 } from "node:path";
+import { join as join9, relative as relative2 } from "node:path";
 function listPlans(ctx) {
   const refs = git(["for-each-ref", "--format=%(refname:short)", ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split("\n").filter(Boolean);
   const rows = [];
@@ -8468,7 +8475,7 @@ function cmdStatus(ctx, opts) {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
     const active = rows.filter((r) => r.state.stage !== "closed");
-    const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, `${PLANS_DIR}/${basename2(r.dir)}`) }));
+    const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, relative2(r.worktree ?? ctx.mainRoot, r.dir)) }));
     const lines = rows.length ? shown.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state, r.prOpen)}
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     const openSuggestions2 = openSuggestionCount(ctx);
@@ -8545,8 +8552,7 @@ var isMarker = (x) => !!x.resolves || !!x.declines;
 function allStates(ctx) {
   const out = /* @__PURE__ */ new Map();
   for (const r of listPlans(ctx)) out.set(r.state.slug, r.state);
-  const dir = join10(ctx.top, PLANS_DIR);
-  if (existsSync6(dir))
+  for (const dir of plansDirsIn(ctx.top))
     for (const name of readdirSync2(dir)) {
       const raw = readText(join10(dir, name, "state.json"));
       if (raw === void 0) continue;
@@ -9092,8 +9098,8 @@ function cmdPlanLoad(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/tasks.ts
-import { existsSync as existsSync7 } from "node:fs";
-import { basename as basename3, join as join12 } from "node:path";
+import { existsSync as existsSync6 } from "node:fs";
+import { basename as basename2, join as join12 } from "node:path";
 var MAX_FIX_ROUNDS = 2;
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
@@ -9132,7 +9138,7 @@ function taskStart(pc, id, opts) {
   const { plan, ctx, cfg } = pc;
   const r = mutate(pc, void 0, (s) => {
     const branch = taskBranch(plan.slug, id);
-    const path = join12(worktreeRoot(cfg, ctx.mainRoot), `${basename3(plan.worktree)}--${id}`);
+    const path = join12(worktreeRoot(cfg, ctx.mainRoot), `${basename2(plan.worktree)}--${id}`);
     const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
@@ -9152,7 +9158,7 @@ function taskStart(pc, id, opts) {
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base = git(["rev-parse", pb], plan.worktree);
     let setup = "";
-    if (!existsSync7(path)) {
+    if (!existsSync6(path)) {
       if (branchExists(branch, plan.worktree)) git(["worktree", "add", "-q", path, branch], plan.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
@@ -9190,7 +9196,7 @@ function taskDone(pc, id, opts) {
   const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
   const merged = branchExists(sl.branch, plan.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan.worktree);
-  const dirty = sl.worktree && existsSync7(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync6(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan.worktree) ? git(["rev-parse", "--short", sl.branch], plan.worktree) : void 0;
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan)}`], plan.worktree);
@@ -9202,7 +9208,7 @@ function taskDone(pc, id, opts) {
   const heads = [pb, ...tip ? [sl.branch] : []];
   const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan.worktree, plan.slug, sl.base, h))).size : 0;
   const outside = tip && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
-  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !f.startsWith("docs/sdlc/") && matchesAny(f, sl.scope))) : [];
+  const stray = sl.base && !fix ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !DOCS_DIRS.some((d) => f.startsWith(`${d}/`)) && matchesAny(f, sl.scope))) : [];
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `task done: ${sl.name}`, (s) => {
     const cur = findTask(s, id);
@@ -9233,7 +9239,7 @@ function taskDone(pc, id, opts) {
       data: { phaseComplete: !left }
     };
   });
-  if (merged && sl.worktree && existsSync7(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan.worktree);
+  if (merged && sl.worktree && existsSync6(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan.worktree);
   if (merged) gitOk(["branch", "-d", sl.branch], plan.worktree);
   return r;
 }
@@ -9327,8 +9333,8 @@ function cmdTest(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/records.ts
-import { existsSync as existsSync8, readdirSync as readdirSync3 } from "node:fs";
-import { basename as basename4, dirname as dirname3, join as join13 } from "node:path";
+import { existsSync as existsSync7, readdirSync as readdirSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname3, join as join13 } from "node:path";
 var DATE_PREFIX = /^(\d{4}-\d{2}-\d{2})-/;
 function whyLine(md) {
   const body = (md ? sections(md).get("why") ?? "" : "").replace(/<!--[\s\S]*?-->/g, "").trim();
@@ -9340,8 +9346,8 @@ function listRecords(ctx) {
   const byMain = { ...ctx, top: main2 };
   const found = /* @__PURE__ */ new Map();
   for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
-  const base = join13(main2, PLANS_DIR);
-  if (existsSync8(base))
+  const bases = plansDirsIn(main2);
+  for (const base of bases)
     for (const name of readdirSync3(base)) {
       const raw = readText(join13(base, name, "state.json"));
       if (raw === void 0) continue;
@@ -9355,12 +9361,12 @@ function listRecords(ctx) {
   for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status, ...x.hardening ? { hardening: true } : {} }]);
   const entries = [...found.values()].map(({ state, dir }) => {
     let recordPath = join13(dir, "RECORD.md");
-    if (!existsSync8(recordPath)) recordPath = join13(base, basename4(dir), "RECORD.md");
+    if (!existsSync7(recordPath)) recordPath = bases.map((b) => join13(b, basename3(dir), "RECORD.md")).find((p) => existsSync7(p)) ?? recordPath;
     const text = readText(recordPath);
     return {
       slug: state.slug,
       title: state.title,
-      date: basename4(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
+      date: basename3(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
       stage: state.stage,
       why: whyLine(text),
       ...text !== void 0 ? { record: recordPath } : {},
@@ -9545,12 +9551,12 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync9 } from "node:fs";
-import { dirname as dirname4, isAbsolute, join as join15, relative as relative2, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync8 } from "node:fs";
+import { dirname as dirname4, isAbsolute, join as join15, relative as relative3, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync9(join15(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync8(join15(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return "";
@@ -9570,10 +9576,10 @@ function hookPostEdit(input) {
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
   let dir = dirname4(abs);
-  while (!existsSync9(dir) && dirname4(dir) !== dir) dir = dirname4(dir);
+  while (!existsSync8(dir) && dirname4(dir) !== dir) dir = dirname4(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync9(join15(ctx.plan.dir, "state.json"))) return "";
-  const rel = relative2(ctx.top, abs);
+  if (!ctx.plan?.dir || !existsSync8(join15(ctx.plan.dir, "state.json"))) return "";
+  const rel = relative3(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (rel.startsWith("docs/sdlc/") || rel.startsWith(".sdlc/") || rel.startsWith(".claude/")) return "";
   const pc = planCtx(ctx);

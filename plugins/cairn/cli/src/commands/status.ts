@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { join, relative } from 'node:path';
 import { configWarning } from '../config.ts';
 import { commonDir, git, landedState } from '../git.ts';
-import { PLAN_PREFIXES, PLANS_DIR, parseBranch, planRef, planRelIn, planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
+import { PLAN_PREFIXES, parseBranch, planRef, planRelIn, planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { modActive } from '../proof.ts';
 import { levelLabel, nextFor, renderIndex, stepText, summary, timingText, type IndexRow } from '../render.ts';
 import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.ts';
@@ -61,7 +61,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
     const active = rows.filter((r) => r.state.stage !== 'closed');
-    const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, `${PLANS_DIR}/${basename(r.dir)}`) }));
+    const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, relative(r.worktree ?? ctx.mainRoot, r.dir)) }));
     const lines = rows.length
       ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];

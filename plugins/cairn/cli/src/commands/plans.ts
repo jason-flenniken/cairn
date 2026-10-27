@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CONFIG_REL, loadConfig, worktreeRoot } from '../config.ts';
 import { commitPath, git, gitOk } from '../git.ts';
+import { DOCS_DIR } from '../paths.ts';
 import { PLANS_DIR, planBranch, planBranchesFor, planDirName, worktreeName, type Ctx } from '../locate.ts';
 import { log, newState, saveState } from '../state.ts';
 import { isLevel, LEVELS, type Level } from '../types.ts';
@@ -57,12 +58,12 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
 }
 
 export function cmdProductInit(ctx: Ctx): Result {
-  const dir = join(ctx.top, 'docs/sdlc/product');
+  const dir = join(ctx.top, `${DOCS_DIR}/product`);
   const prd = join(dir, 'PRD.md');
-  if (existsSync(prd)) throw new Refusal('docs/sdlc/product/PRD.md already exists', ['edit it with the product procedure instead']);
+  if (existsSync(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ['edit it with the product procedure instead']);
   writeText(prd, template('product-prd.md') ?? '# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n');
   writeText(join(dir, 'decisions', '.gitkeep'), '');
-  return { message: `Created docs/sdlc/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
+  return { message: `Created ${DOCS_DIR}/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
 }
 
 export function cmdDecide(ctx: Ctx, question: string | undefined, answer: string | undefined, opts: Opts): Result {
