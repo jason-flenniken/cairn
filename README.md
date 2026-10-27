@@ -160,12 +160,16 @@ You can raise the level any time before ship with `/cairn-level` in the pane, an
 
 ## Project memory
 
-cairn keeps what it learns about your code in the repo, so the next plan starts informed instead of cold.
+cairn remembers what was done, not how the code works now, so nothing it keeps can go stale.
 
-- **Area docs** (`docs/cairn/system/<id>.md`) describe one part of the system each: its rules, how it works, and its gotchas. `/cairn:map` sets them up. When a plan ships, the recorder updates the docs for the code it changed, so the update is in the PR you approve. Closing a plan is refused when a doc covering changed code was left alone, unless you record why with `cairn area skip`.
-- **Lasting decisions** are answers that set a rule for later plans. They are published to `docs/cairn/decisions/` when the plan closes. A review flags code that contradicts one.
-- **`cairn recall <paths>`** shows the areas, decisions in force, and past plans for those paths. Discovery, planning, building and review run it for you; `cairn index` prints the short overview that is also given to every session.
-- **`docs/cairn/OVERVIEW.md`** is the generated summary of all of it, rewritten whenever a plan closes.
+- **Plan records.** Each plan keeps its folder, `docs/cairn/plans/<date>-<slug>/`, with its `RECORD.md`: why it was built, what changed, and what review found.
+- **The changelog.** When a plan ships, the recorder also writes `changelog.md` in that folder: one short paragraph (120 words at most) on what was built, why, and the big rocks a developer would care about, such as a changed API, a new model, or reworked encryption. It is part of the PR you review. `docs/cairn/OVERVIEW.md` is the generated changelog, newest first, rewritten whenever a plan closes. A plan with no entry shows the first sentence of its record's Why instead.
+- **The Changelog tab.** The pane shows the changelog at any time, nicely formatted; select an entry to open its record.
+- **What a session starts with.** The five most recent entries and a pointer to `docs/cairn/OVERVIEW.md`. Nothing is added until a plan has closed. Discovery reads the full changelog for context on older work. `cairn index` prints the same overview.
+
+### Upgrading from 0.6
+
+0.7 removed `/cairn:map`, `cairn recall`, `cairn area skip`, area docs, and lasting decisions (`cairn decide --lasting`, `--promote`, `--replaces`). Those commands refuse with a pointer to the changelog. Existing `docs/cairn/system/` and `docs/cairn/decisions/` folders are no longer read and can be deleted. cairn never deletes them for you.
 
 ## Fresh eyes
 
@@ -188,11 +192,11 @@ The idea comes from Dave Rensin's essay [Elephants, Goldfish and the New Golden 
 
 ## The live pane
 
-<img src="docs/images/pane.png" alt="The cairn pane docked beside the chat: Now, History and Records tabs; the plan header and progress; the main session card; a running build agent with its time, tokens and cost; the next tasks; Pause, Stop now and Status; and the bar with the stage steps, git state, model, plan cost, context, and usage limits." width="460">
+<img src="docs/images/pane.png" alt="The cairn pane docked beside the chat: Now, History, Records and Changelog tabs; the plan header and progress; the main session card; a running build agent with its time, tokens and cost; the next tasks; Pause, Stop now and Status; and the bar with the stage steps, git state, model, plan cost, context, and usage limits." width="460">
 
 The pane opens on its own at the start of every session, docked on the right in fullscreen (`/tui fullscreen`). In the normal layout it sits above the prompt as a compact summary. `/cairn-pane on|off` shows or hides it, and the choice sticks across sessions; closing it by hand turns it off too. Everything in it is read from the plan's state, so it's right even after a pause, a crash, or a new session.
 
-It has three tabs, **Now**, **History**, and **Records**, and the same bar along the bottom of each.
+It has four tabs, **Now**, **History**, **Records**, and **Changelog**, and the same bar along the bottom of each.
 
 ### Now
 
@@ -213,6 +217,10 @@ The plan's timeline, newest first, each line stamped with its time: stage moves,
 ### Records
 
 Every plan in the repo: those still in progress at the top, then finished ones newest first, each with its date, title, and one-line why. Select a finished one to read its `RECORD.md` in the pane, with its open recommended follow-ups listed under it.
+
+### Changelog
+
+The generated changelog from `docs/cairn/OVERVIEW.md`, newest first: each closed plan's date, title, and entry paragraph. Select an entry to read that plan's `RECORD.md`.
 
 ### The bar
 
@@ -316,7 +324,7 @@ The `setup`, `test`, and `build` commands are locked when you approve the plan. 
 |---|---|
 | A feature plan's branch | `feature/<slug>`, in a worktree under `.claude/worktrees/` (folder `feature-<slug>`) |
 | A fix plan's branch | `fix/<slug>`, in a worktree under `.claude/worktrees/` (folder `fix-<slug>`) |
-| A plan's documents | `docs/cairn/plans/<date>-<slug>/` on the plan branch: `decisions.md`, `prd.md`, `plan.md`, `STATUS.md`, `handoff.md`, `RECORD.md`, `state.json` |
+| A plan's documents | `docs/cairn/plans/<date>-<slug>/` on the plan branch: `decisions.md`, `prd.md`, `plan.md`, `STATUS.md`, `handoff.md`, `RECORD.md`, `changelog.md`, `state.json` |
 | A task's branch | `task/<slug>/<task>`, in its own worktree (folder: the plan folder plus `--<task>`, e.g. `feature-billing--cart-api`) |
 | The product PRD | `docs/cairn/product/` on main |
 | Repo config | `.cairn/config.json` |

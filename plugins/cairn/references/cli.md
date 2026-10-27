@@ -44,6 +44,7 @@ The mod registers these commands. Their names have no ":" because the engine for
 - Plan dir, committed on the plan branch: `docs/cairn/plans/<date>-<slug>/` (the date is the plan's start; `cairn status --json` gives the absolute path as `dir`; older plans keep the undated `<slug>` folder and are still found), containing:
   - `decisions.md`: append-only, written via `cairn decide`
   - `prd.md`, `plan.md`, `handoff.md`, `RECORD.md`: written by procedures from `templates/`
+  - `changelog.md`: the plan's changelog entry, one paragraph of at most 120 words (what was built, why, the big rocks), written by the recorder at ship
   - `direction/<phase-id>.md`: one direction report per phase, with its `cairn-direction` scorecard
   - `state.json`, `STATUS.md`: CLI only
 - Task branches: `task/<slug>/<task>`, each in its own worktree, in a folder named after the plan folder plus `--<task>`. Task workers never touch `docs/cairn/`.
@@ -92,13 +93,9 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn product init`: creates `docs/cairn/product/` from templates, on the current branch.
   - `cairn decide "<question>" "<answer>" [--why "…"]`: appends to `decisions.md`.
   - `cairn decide --file <path>`: reads the decision from a JSON file, `{question, answer, why?}`.
-  - `cairn decide "<question>" "<answer>" [--why "…"] --lasting (--areas <a,b> | --paths "<g1,g2>") [--replaces <id>]`: marks the decision lasting, a rule later plans must follow. `--areas` names area docs, `--paths` globs. `--replaces <id>` retires an earlier lasting decision; when it is given without `--areas` or `--paths`, the new decision inherits the replaced one's areas and paths, so `cairn decide "<question>" "<answer>" --why "…" --lasting --replaces <id>` is enough. Off a plan (map's backfill), `--lasting` also needs `--plan <name>`, and `--date` must be `YYYY-MM-DD`; without `--plan` the command refuses as not on a plan branch.
-  - `cairn decide --promote <n> (--areas … | --paths …) [--replaces <id>]`: makes decision number `<n>` of the current plan lasting.
-  - Off a plan, `--lasting` publishes straight to `docs/cairn/decisions/`; `--plan <slug> --date YYYY-MM-DD` records the provenance of a backfilled decision.
 - **Project memory**
-  - `cairn recall <path or glob>... [--json]`: what the project already knows about those paths. Prints `Areas:` (`<id>: <summary> (<file>)`), `Decisions in force:` (`<id>: <answer> (<file>)`), `Past plans:` (`<date> <title>: <record path>`), `Not covered by any area: <globs>`, and `Area docs with problems: …`; "Nothing recorded for these paths yet." when empty. `--json`: `{areas, decisions, plans, uncovered, problems}`.
-  - `cairn index`: the memory index, at most 60 lines: areas, decisions in force, and recent plans (recent plans are dropped first when it runs long). Also added to the session-start context when area docs or decisions exist. Prints "Nothing recorded yet. Run /cairn:map to set up area docs." otherwise.
-  - `cairn area skip <area> --note "<why>"`: on a plan, satisfies close's area check for that area. `cairn area skip --uncovered --note "<why>"` does the same for changed code that belongs to no area.
+  - `cairn index`: the short changelog that session start also receives: the five newest closed plans (`- <date> <title>: <entry>`), each entry cut to 120 words, then `Older work: docs/cairn/OVERVIEW.md`. A plan with no `changelog.md` shows the first sentence of its record's Why. Prints nothing when no plan is closed.
+  - Removed in 0.7.0: `/cairn:map`, the area-doc commands, the memory lookup command, and the lasting-decision flags on `cairn decide`. Each refuses (exit 2) with "<what> was removed; the changelog in docs/cairn/OVERVIEW.md replaces it." Existing `docs/cairn/system/` and `docs/cairn/decisions/` folders are no longer read, and cairn never deletes them.
   - `--note-file <path>`: works on any command that takes `--note`, and reads the note from the file.
   - Prefer `--file` and `--note-file` for text with quotes, apostrophes, or backticks, so the shell never parses it.
 - **Stage transitions**
@@ -139,10 +136,10 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 - **Pause, resume, close**
   - `cairn pause [--now]`: requires `handoff.md` with In flight / Open questions / Next action sections.
   - `cairn resume`: clears the pause and prints a recap: status, the handoff, and the next procedure.
-  - `cairn close`: besides the checks above, refuses when an area doc covering changed code was not updated on the branch (and not skipped), when changed code belongs to no area (and not skipped), or when an area doc's frontmatter is broken. With no area docs at all it only warns. After closing it publishes lasting decisions to `docs/cairn/decisions/`, rewrites each area doc's generated `## History`, and writes `docs/cairn/OVERVIEW.md`, committing them as "cairn(<slug>): publish decisions and area history". A fix plan's `cairn advance` from ship does the same.
+  - `cairn close`: after closing it rewrites `docs/cairn/OVERVIEW.md` from each closed plan's `changelog.md` and commits it as "cairn(<slug>): update changelog". If that fails, the close still succeeds with a warning to run `cairn render` on main. A fix plan's `cairn advance` from ship does the same.
 - **Generated docs and hooks**
-  - `cairn render`: on a plan, regenerates `STATUS.md`. Off a plan it does not touch `STATUS.md`; it writes `docs/cairn/OVERVIEW.md` and refreshes each area doc's History.
-  - `cairn records [--json]`: lists every plan, in-progress first then closed newest first, with date, title, why line, record path and follow-ups. Works from any worktree.
+  - `cairn render`: on a plan, regenerates `STATUS.md`. Off a plan it does not touch `STATUS.md`; it writes `docs/cairn/OVERVIEW.md`, the changelog, newest first.
+  - `cairn records [--json]`: lists every plan, in-progress first then closed newest first, with date, title, why line, changelog entry, record path and follow-ups. Works from any worktree.
   - `cairn hook session-start|post-edit`: used by `hooks/hooks.json`. Reads hook JSON on stdin.
 
 The CLI commits the plan dir on the plan branch only at transitions: approve, advance, plan load, task done, phase finish, pause, resume, and close.
@@ -162,7 +159,7 @@ A blocking review finding has two exits. `cairn task start fix` reopens the task
   - `ready` is present only when approving the current stop would pass its checks: `{kind: "prd"|"plan"|"ship", file, summary}`. `file` is the absolute path of the document; `summary` is a short markdown excerpt.
   - `state` is the full state.json: `phases[].tasks[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals`, `evidence`, `drift[]`, `suggestions[]`, and `log[]`. A task also has `risky`, `riskReason`, and `startedAt`.
   - `status --all`: `{plans: [{state, live, worktree, next, ready?}], modActive, openSuggestions}`.
-- `records`: `{records: [{slug, title, date, stage, why, record?, followUps: [{text, area, status}]}]}`. In-progress plans first, then closed plans newest first. Reads the main checkout from any worktree.
+- `records`: `{records: [{slug, title, date, stage, why, entry?, record?, followUps: [{text, area, status}]}]}`. In-progress plans first, then closed plans newest first. Reads the main checkout from any worktree.
 - `ready`: `{paused, phase, phaseStatus, ready: [task + model], inProgress: [task], waiting: [{id, on[]}]}`.
 - `task start`: `{worktree, branch, planBranch}`.
 - `new`: `{slug, branch, base, worktree, dir}`.
