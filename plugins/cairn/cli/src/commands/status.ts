@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
+import { configWarning } from '../config.ts';
 import { commonDir, git, landedState } from '../git.ts';
 import { PLAN_PREFIXES, PLANS_DIR, parseBranch, planRef, planRelIn, planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { modActive } from '../proof.ts';
@@ -42,6 +43,8 @@ export function warnings(pc: PlanCtx, s: State): string[] {
   if (s.planHash && plan && hashText(plan) !== s.planHash) w.push('plan.md changed after it was loaded: run `cairn plan load --replan` or revert it');
   const open = s.drift.filter((d) => !d.acked);
   if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
+  const cw = configWarning(pc.plan.worktree);
+  if (cw) w.push(cw);
   return w;
 }
 

@@ -7620,17 +7620,30 @@ import { join as join6 } from "node:path";
 
 // plugins/cairn/cli/src/config.ts
 import { join as join3 } from "node:path";
-var CONFIG_REL = ".sdlc/config.json";
+
+// plugins/cairn/cli/src/paths.ts
+var CAIRN_DIR = ".cairn";
+var LEGACY_CAIRN_DIR = ".sdlc";
+
+// plugins/cairn/cli/src/config.ts
+var CONFIG_REL = `${CAIRN_DIR}/config.json`;
+var LEGACY_CONFIG_REL = `${LEGACY_CAIRN_DIR}/config.json`;
 var DEFAULTS = { maxParallel: 3, autoCommit: true };
+function configWarning(root) {
+  if (readText(join3(root, CONFIG_REL)) === void 0 || readText(join3(root, LEGACY_CONFIG_REL)) === void 0) return void 0;
+  return `both ${CONFIG_REL} and ${LEGACY_CONFIG_REL} exist; ${CONFIG_REL} is used. Delete ${LEGACY_CONFIG_REL}.`;
+}
 function loadConfig(...roots) {
   for (const root of roots) {
     if (!root) continue;
-    const raw = readText(join3(root, CONFIG_REL));
-    if (raw === void 0) continue;
-    try {
-      return { ...DEFAULTS, ...JSON.parse(raw) };
-    } catch (e) {
-      throw new CliError(`${CONFIG_REL} is not valid JSON: ${e.message}`);
+    for (const rel of [CONFIG_REL, LEGACY_CONFIG_REL]) {
+      const raw = readText(join3(root, rel));
+      if (raw === void 0) continue;
+      try {
+        return { ...DEFAULTS, ...JSON.parse(raw) };
+      } catch (e) {
+        throw new CliError(`${rel} is not valid JSON: ${e.message}`);
+      }
     }
   }
   return { ...DEFAULTS };
@@ -8443,6 +8456,8 @@ function warnings(pc, s) {
   if (s.planHash && plan && hashText(plan) !== s.planHash) w.push("plan.md changed after it was loaded: run `cairn plan load --replan` or revert it");
   const open = s.drift.filter((d) => !d.acked);
   if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
+  const cw = configWarning(pc.plan.worktree);
+  if (cw) w.push(cw);
   return w;
 }
 function waitingOnMerge(ctx, s, cwd, planRel2) {
