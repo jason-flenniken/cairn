@@ -6,8 +6,8 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T21:26:19.199Z",
-  "stage": "ship",
+  "updated": "2026-10-27T21:26:38.106Z",
+  "stage": "learn",
   "stageHistory": [
     {
       "stage": "discover",
@@ -36,6 +36,10 @@
     {
       "stage": "ship",
       "at": "2026-10-27T21:23:52.964Z"
+    },
+    {
+      "stage": "learn",
+      "at": "2026-10-27T21:26:38.106Z"
     }
   ],
   "paused": null,
@@ -616,6 +620,16 @@
       "at": "2026-10-27T21:26:19.199Z",
       "event": "ship approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-27T21:26:22.769Z",
+      "event": "step",
+      "detail": "opening-pr"
+    },
+    {
+      "at": "2026-10-27T21:26:38.106Z",
+      "event": "advanced",
+      "detail": "learn"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -772,10 +786,5 @@
       ],
       "at": "2026-10-27T21:24:07.623Z"
     }
-  ],
-  "step": {
-    "stage": "ship",
-    "name": "approving",
-    "at": "2026-10-27T21:25:15.759Z"
-  }
+  ]
 }
