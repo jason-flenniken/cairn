@@ -47,7 +47,6 @@ For each started task, dispatch the `implementer` agent in the background, with 
 2. The PRD requirements the task covers, quoted verbatim from `prd.md`.
 3. The plan's Global constraints, when it has that section.
 4. The task worktree path and the plan branch name (from `cairn status --json`, `state.branch`).
-5. What to respect: the text output of `cairn recall <task scope globs>` (area rules and decisions in force).
 
 Then run `cd <plan worktree> && cairn task step <id> implementing`.
 
@@ -58,7 +57,7 @@ When an implementer reports, read its status line.
 - `NEEDS_CONTEXT`: answer from the PRD, plan, or `decisions.md` and send it to the implementer with SendMessage. Ask the user only when the documents don't answer it (AskUserQuestion, recommended first; record with `cd <plan worktree> && cairn decide`).
 - `BLOCKED`: step 8.
 - `DONE` or `DONE_WITH_CONCERNS`: first log the report's `Suggestions:` lines (up to 3) with `cd <plan worktree> && cairn suggest add --area <area> --where <path> --from implementer --text "<text>"`. Then review the task, risky or not: run `cd <plan worktree> && cairn task step <id> reviewing`.
-  - Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the plugin root path (`${CLAUDE_PLUGIN_ROOT}`), the task section, the covered requirements, the implementer's report, the same `cairn recall` text (What to respect), and the diff command `git -C <worktree> diff <plan-branch>...HEAD`.
+  - Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the plugin root path (`${CLAUDE_PLUGIN_ROOT}`), the task section, the covered requirements, the implementer's report, and the diff command `git -C <worktree> diff <plan-branch>...HEAD`.
   - When the task is `risky` (or the report or the diff shows auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data), dispatch the `security-reviewer` agent in the same message, so both run in parallel (`model: sonnet`, `description` "Review · <task name> (security)"), with the same brief and diff.
   - Each reviewer returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI. Route them:
     - Critical and Required: step 6. Each one names its proposed fix.

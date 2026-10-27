@@ -26,7 +26,7 @@ Check the `## Findings` section of `docs/cairn/plans/<date>-<slug>/RECORD.md`. I
 **Done when:** the Findings section has lines (or says "None.") and the change is committed.
 
 ## 4. Close
-Run `cairn close`. It needs a valid `RECORD.md` (every section, Findings included, within 600 words) and passing tests; on refusal, fix what it names and rerun. When it refuses on area docs, update each doc it names (the same recorder pass as in `ship.md` step 3), or, when the change really does not alter that area, record `cairn area skip <area> --note "<why>"` (`cairn area skip --uncovered --note "<why>"` for code that belongs to no area). Never skip just to get past the check.
+Run `cairn close`. It needs a valid `RECORD.md` (every section, Findings included, within 600 words) and passing tests; on refusal, fix what it names and rerun.
 
 **Done when:** the stage is `closed`. Commit anything the close wrote on the plan branch.
 

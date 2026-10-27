@@ -9,8 +9,6 @@ const SKILLS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'sk
 
 // Every subcommand named in the CLI USAGE text (src/main.ts), except `repro`.
 const SUBCOMMANDS = [
-  'area',
-  'recall',
   'index',
   'next',
   'status',
