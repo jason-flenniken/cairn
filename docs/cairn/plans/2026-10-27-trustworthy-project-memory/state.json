@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:25:34.882Z",
+  "updated": "2026-10-27T20:25:50.608Z",
   "stage": "plan",
   "stageHistory": [
     {
@@ -245,6 +245,11 @@
       "at": "2026-10-27T20:25:34.881Z",
       "event": "plan loaded",
       "detail": "3 phases, 6 tasks"
+    },
+    {
+      "at": "2026-10-27T20:25:50.608Z",
+      "event": "plan loaded",
+      "detail": "3 phases, 6 tasks"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -284,5 +289,5 @@
       "at": "2026-10-27T19:35:15.500Z"
     }
   ],
-  "planHash": "bc7ffb102e3d3809"
+  "planHash": "d7fb8dccb89efc27"
 }

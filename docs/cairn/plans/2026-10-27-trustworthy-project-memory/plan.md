@@ -130,7 +130,7 @@ A plain `cairn decide q a --why w` still appends to `decisions.md`.
 - The area gate is removed from `closeGates`, `cmdAdvance` and `cmdClose`.
 - In `decide`, the lasting, promote, replaces, areas, paths, plan and date options are removed, along with the lasting keys in `--file`. Keep `lasting` in the boolean flag set, so the flag doesn't swallow the next argument before it is refused.
 - `lasting`, `areaSkips`, `areasTouched` and `PendingDecision` are dropped from the types. Old state files still load.
-- The usage text and `SUBCOMMANDS` in `skills.test.ts` are updated.
+- The usage text is updated.
 
 **Interfaces**
 - Consumes: `closeMemory`, `memoryIndex` and `renderChangelog` from changelog-engine.
@@ -173,7 +173,7 @@ The Changelog tab uses `cairn records --json`'s `entry` field, the same fetch, p
 
 **What it changes:**
 - `skills/map/`, `procedures/map.md` and `templates/area.md` are deleted.
-- The `area` and `recall` allowed-tools lines are dropped from every skill.
+- The `area` and `recall` allowed-tools lines are dropped from every skill and from `SUBCOMMANDS` in `skills.test.ts`.
 - Lasting and promote are removed from `discover.md` and `plan.md`.
 - The area-skip sentence is dropped from `learn.md`.
 - The recorder's Area docs section becomes a Changelog entry section.
