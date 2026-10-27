@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { commonDir } from '../git.ts';
-import { plansDirsIn, type Ctx } from '../locate.ts';
+import { PLANS_DIRS, plansDirsIn, type Ctx } from '../locate.ts';
 import { sections } from '../sections.ts';
 import { parseState } from '../state.ts';
 import type { State, Suggestion } from '../types.ts';
@@ -41,17 +41,21 @@ export interface PlanEntry {
   changelog?: string;
 }
 
-/** The plan's changelog entry, trimmed with control characters stripped. '' when there is no file or it is empty. Throws when the file cannot be read. */
-export function changelogEntry(e: PlanEntry): string {
-  return e.changelog ? stripControl(readText(e.changelog) ?? '').trim() : '';
+/** The plan's changelog.md as it exists under checkout `root` (new plans root first), when that checkout holds it. */
+export const changelogIn = (root: string, e: PlanEntry): string | undefined =>
+  PLANS_DIRS.map((d) => join(root, d, basename(e.dir), 'changelog.md')).find((p) => existsSync(p));
+
+/** The plan's changelog entry, trimmed with control characters stripped. Read from checkout `root` when it holds the file, else from where the plan was found. '' when there is no file or it is empty. Throws when the file cannot be read. */
+export function changelogEntry(e: PlanEntry, root?: string): string {
+  const path = (root === undefined ? undefined : changelogIn(root, e)) ?? e.changelog;
+  return path ? stripControl(readText(path) ?? '').trim() : '';
 }
 
 /** What the changelog says about a plan: its entry, else the first sentence of its record's Why, else ''. Throws when the entry cannot be read. */
-export function changelogText(e: PlanEntry): string {
-  return changelogEntry(e) || stripControl(whyLine(e.record ? readText(e.record) : undefined));
+export function changelogText(e: PlanEntry, root?: string): string {
+  return changelogEntry(e, root) || stripControl(whyLine(e.record ? readText(e.record) : undefined));
 }
 
-/** Every plan found from any worktree of the repository, with its date and record path. */
 export function planEntries(ctx: Ctx): PlanEntry[] {
   const main = dirname(commonDir(ctx.top));
   const found = new Map<string, { state: State; dir: string }>();
@@ -72,7 +76,8 @@ export function planEntries(ctx: Ctx): PlanEntry[] {
     let recordPath = join(dir, 'RECORD.md');
     // A plan found on its branch may have its record only in the main checkout.
     if (!existsSync(recordPath)) recordPath = bases.map((b) => join(b, basename(dir), 'RECORD.md')).find((p) => existsSync(p)) ?? recordPath;
-    let changelogPath = join(dir, 'changelog.md');
+    // The checkout being rendered wins, then the plan's own folder, then the main checkout.
+    let changelogPath = PLANS_DIRS.map((d) => join(ctx.top, d, basename(dir), 'changelog.md')).find((p) => existsSync(p)) ?? join(dir, 'changelog.md');
     if (!existsSync(changelogPath)) changelogPath = bases.map((b) => join(b, basename(dir), 'changelog.md')).find((p) => existsSync(p)) ?? changelogPath;
     return {
       state,
@@ -94,7 +99,7 @@ export function listRecords(ctx: Ctx): RecordEntry[] {
     const { state, date, record } = pe;
     let entry = '';
     try {
-      entry = changelogEntry(pe);
+      entry = changelogEntry(pe, ctx.top);
     } catch {
       // An unreadable entry is left out.
     }

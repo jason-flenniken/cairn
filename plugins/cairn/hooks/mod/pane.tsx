@@ -518,7 +518,7 @@ export function install(on: On): void {
       return frame(e, [
         tabs,
         ...closed.map(x => {
-          const entry = typeof x.entry === 'string' ? stripControl(x.entry).trim() : ''
+          const entry = stripControl(x.entry || x.why || '').trim()
           const head = <Text key={`entry:${x.slug}:head`} bold wrap="wrap">{stripControl(`${dateText(x.date)} · ${x.title}`)}</Text>
           const text = entry === '' ? null : <Text key={`entry:${x.slug}:text`} wrap="wrap">{entry}</Text>
           // A plan with no RECORD.md has nothing to open, so its entry is plain text.

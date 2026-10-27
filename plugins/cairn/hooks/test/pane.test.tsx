@@ -1022,11 +1022,21 @@ describe('Changelog tab (FR-06..FR-08)', () => {
 
   test('an entry without a paragraph lists date and title only', async ($, on) => {
     const { w } = world(on, { rows: [row(EXECUTE, WT)] })
-    w.records = [rec('a', '2026-10-20', { entry: undefined, record: undefined })]
+    w.records = [rec('a', '2026-10-20', { entry: undefined, why: '', record: undefined })]
     await start($, WT)
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'tab:changelog' })
     expect(await drawn(ui)).toContain('Oct 20 · Plan a')
+    await ui.unmount()
+  })
+
+  test('a record with a Why but no entry shows the Why sentence', async ($, on) => {
+    const { w } = world(on, { rows: [row(EXECUTE, WT)] })
+    w.records = [rec('a', '2026-10-20', { entry: undefined, why: 'Plan a fixed the thing.' })]
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'tab:changelog' })
+    expect(await drawn(ui)).toContain('Plan a fixed the thing.')
     await ui.unmount()
   })
 

@@ -23,7 +23,7 @@ export function renderChangelog(root: string, plans: PlanEntry[]): string {
   for (const p of closed) {
     let text = '';
     try {
-      text = changelogText(p);
+      text = changelogText(p, root);
     } catch {
       // An unreadable entry leaves the date and title only.
     }
@@ -38,10 +38,10 @@ export function renderChangelog(root: string, plans: PlanEntry[]): string {
 const INDEX_ENTRIES = 5;
 const INDEX_WORDS = 120;
 
-/** `text` cut to at most `n` words. */
+/** `text` with whitespace collapsed to single spaces, cut to at most `n` words (ellipsis only when cut). */
 function cutWords(text: string, n: number): string {
   const words = text.split(/\s+/).filter(Boolean);
-  return words.length > n ? `${words.slice(0, n).join(' ')}…` : text;
+  return words.length > n ? `${words.slice(0, n).join(' ')}…` : words.join(' ');
 }
 
 /** The short changelog injected at session start: the five newest closed plans, each cut to 120 words, then a pointer line. '' when no plan is closed. A plan whose files cannot be read is skipped. */
@@ -51,7 +51,7 @@ export function memoryIndex(root: string, plansOf: PlanEntry[] | (() => PlanEntr
   for (const p of plans.filter((x) => x.state.stage === 'closed').sort(byNewest)) {
     if (lines.length >= INDEX_ENTRIES) break;
     try {
-      const text = cutWords(changelogText(p), INDEX_WORDS);
+      const text = cutWords(changelogText(p, root), INDEX_WORDS);
       lines.push(`- ${p.date} ${stripControl(p.state.title)}${text ? `: ${text}` : ''}`);
     } catch {
       // Unreadable plan files: leave it out.

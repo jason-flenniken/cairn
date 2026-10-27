@@ -36,7 +36,6 @@ test('no procedure, agent, or reference mentions the removed memory system', () 
   const banned = [/cairn recall/, /area docs?\b/i, /decisions? in force/i, /what to respect/i, /cairn area/, /--lasting/, /--promote/, /--replaces/];
   for (const dir of ['procedures', 'agents', 'references']) {
     for (const f of readdirSync(join(root, dir))) {
-      if (dir === 'references' && f === 'cli.md') continue; // rewritten by the docs task
       const src = read(`${dir}/${f}`);
       for (const re of banned) assert.ok(!re.test(src), `${dir}/${f} still matches ${re}`);
     }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { planEntries } from '../src/commands/records.ts';
 import { context } from '../src/locate.ts';
@@ -110,4 +110,34 @@ test('control characters are stripped from the index and records --json, newline
   assert.doesNotMatch(JSON.stringify(rec).replace(/\\n/g, ''), /\\u00[01]|\x1b|\x07/);
   assert.equal(rec.entry, 'Line one [2Jrung.\nLine two.');
   assert.equal(stripControl('a\tb\nc\x1b\x07\r'), 'a\tb\nc');
+});
+
+test('the changelog paragraph is read from the checkout being rendered, not only the plan folder or main', () => {
+  const r = fresh();
+  const dir = closed(r, '2026-01-01', 'elsewhere', { why: 'Fallback sentence. More.' });
+  const wt = join(r, '..', `${basename(r)}-wt`);
+  g(r, 'worktree', 'add', '-q', '-b', 'other', wt);
+  repos.push(wt);
+  // The paragraph exists only in the second checkout.
+  const there = join(wt, 'docs/cairn/plans', basename(dir));
+  mkdirSync(there, { recursive: true });
+  writeFileSync(join(there, 'changelog.md'), 'Only the worktree has this.\n');
+  const [pe] = plans(r);
+  assert.ok(pe && pe.changelog === undefined, 'main has no changelog for it');
+  assert.match(renderChangelog(wt, [pe!]), /Only the worktree has this\./);
+  assert.match(memoryIndex(wt, [pe!]), /Only the worktree has this\./);
+  assert.match(renderChangelog(r, [pe!]), /Fallback sentence\./);
+  const [fromWt] = plans(wt);
+  assert.equal(fromWt?.changelog, join(there, 'changelog.md'));
+});
+
+test('a hand-edited entry with line breaks becomes one index line, with an ellipsis only when cut', () => {
+  const r = fresh();
+  closed(r, '2026-01-01', 'short', { entry: 'Line one.\n\nLine   two.\n' });
+  closed(r, '2026-02-01', 'long', { entry: `${Array.from({ length: 130 }, (_, i) => `w${i}`).join('\n')}\n` });
+  const lines = memoryIndex(r, plans(r)).split('\n');
+  assert.equal(lines.length, 4, 'header, two entries, pointer');
+  assert.ok(lines.includes('- 2026-01-01 Plan short: Line one. Line two.'));
+  const long = lines.find((l) => l.includes('Plan long'))!;
+  assert.ok(long.endsWith('w119…') && !long.includes('w120'));
 });

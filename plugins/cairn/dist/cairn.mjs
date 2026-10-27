@@ -8822,11 +8822,13 @@ function whyLine(md) {
   const para = body.split(/\n\s*\n/)[0]?.replace(/\s+/g, " ").trim() ?? "";
   return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
 }
-function changelogEntry(e) {
-  return e.changelog ? stripControl(readText(e.changelog) ?? "").trim() : "";
+var changelogIn = (root, e) => PLANS_DIRS.map((d) => join11(root, d, basename2(e.dir), "changelog.md")).find((p) => existsSync5(p));
+function changelogEntry(e, root) {
+  const path = (root === void 0 ? void 0 : changelogIn(root, e)) ?? e.changelog;
+  return path ? stripControl(readText(path) ?? "").trim() : "";
 }
-function changelogText(e) {
-  return changelogEntry(e) || stripControl(whyLine(e.record ? readText(e.record) : void 0));
+function changelogText(e, root) {
+  return changelogEntry(e, root) || stripControl(whyLine(e.record ? readText(e.record) : void 0));
 }
 function planEntries(ctx) {
   const main2 = dirname3(commonDir(ctx.top));
@@ -8846,7 +8848,7 @@ function planEntries(ctx) {
   return [...found.values()].map(({ state, dir }) => {
     let recordPath = join11(dir, "RECORD.md");
     if (!existsSync5(recordPath)) recordPath = bases.map((b) => join11(b, basename2(dir), "RECORD.md")).find((p) => existsSync5(p)) ?? recordPath;
-    let changelogPath = join11(dir, "changelog.md");
+    let changelogPath = PLANS_DIRS.map((d) => join11(ctx.top, d, basename2(dir), "changelog.md")).find((p) => existsSync5(p)) ?? join11(dir, "changelog.md");
     if (!existsSync5(changelogPath)) changelogPath = bases.map((b) => join11(b, basename2(dir), "changelog.md")).find((p) => existsSync5(p)) ?? changelogPath;
     return {
       state,
@@ -8865,7 +8867,7 @@ function listRecords(ctx) {
     const { state, date, record } = pe;
     let entry = "";
     try {
-      entry = changelogEntry(pe);
+      entry = changelogEntry(pe, ctx.top);
     } catch {
     }
     return {
@@ -8909,7 +8911,7 @@ function renderChangelog(root, plans) {
   for (const p of closed) {
     let text = "";
     try {
-      text = changelogText(p);
+      text = changelogText(p, root);
     } catch {
     }
     const r = recordRel(root, p);
@@ -8924,7 +8926,7 @@ var INDEX_ENTRIES = 5;
 var INDEX_WORDS = 120;
 function cutWords(text, n) {
   const words = text.split(/\s+/).filter(Boolean);
-  return words.length > n ? `${words.slice(0, n).join(" ")}\u2026` : text;
+  return words.length > n ? `${words.slice(0, n).join(" ")}\u2026` : words.join(" ");
 }
 function memoryIndex(root, plansOf) {
   const plans = typeof plansOf === "function" ? plansOf() : plansOf;
@@ -8932,7 +8934,7 @@ function memoryIndex(root, plansOf) {
   for (const p of plans.filter((x) => x.state.stage === "closed").sort(byNewest)) {
     if (lines.length >= INDEX_ENTRIES) break;
     try {
-      const text = cutWords(changelogText(p), INDEX_WORDS);
+      const text = cutWords(changelogText(p, root), INDEX_WORDS);
       lines.push(`- ${p.date} ${stripControl(p.state.title)}${text ? `: ${text}` : ""}`);
     } catch {
     }
