@@ -6,8 +6,8 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:49:46.547Z",
-  "stage": "execute",
+  "updated": "2026-10-27T20:49:46.767Z",
+  "stage": "verify",
   "stageHistory": [
     {
       "stage": "discover",
@@ -24,6 +24,10 @@
     {
       "stage": "execute",
       "at": "2026-10-27T20:26:55.640Z"
+    },
+    {
+      "stage": "verify",
+      "at": "2026-10-27T20:49:46.767Z"
     }
   ],
   "paused": null,
@@ -208,7 +212,7 @@
     {
       "id": "repo-and-release",
       "name": "This repo's memory, docs and release",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "repo-docs",
@@ -512,6 +516,16 @@
       "at": "2026-10-27T20:49:46.547Z",
       "event": "task done",
       "detail": "Version bump and bundle"
+    },
+    {
+      "at": "2026-10-27T20:49:46.766Z",
+      "event": "phase finished",
+      "detail": "This repo's memory, docs and release (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-27T20:49:46.767Z",
+      "event": "advanced",
+      "detail": "verify"
     }
   ],
   "cairnVersion": "0.6.0",
