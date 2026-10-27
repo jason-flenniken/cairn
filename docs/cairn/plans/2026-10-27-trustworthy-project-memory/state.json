@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:41:23.514Z",
+  "updated": "2026-10-27T20:47:23.465Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -232,10 +232,19 @@
             "plugins/cairn/cli/test/memory-readme-doc.test.ts"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "deletes the repo's area and decision folders"
+          "riskReason": "deletes the repo's area and decision folders",
+          "branch": "task/trustworthy-project-memory/repo-docs",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--repo-docs",
+          "base": "4001c7712605360f29babc5ffb3996a33570106a",
+          "startedAt": "2026-10-27T20:41:42.651Z",
+          "level": "standard",
+          "doneAt": "2026-10-27T20:47:23.464Z",
+          "tip": "6a9cc2a",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "4e099fb9ad84774694774c47d08ebb1ea8ca2f1b"
         },
         {
           "id": "release",
@@ -444,6 +453,31 @@
       "at": "2026-10-27T20:41:23.514Z",
       "event": "phase finished",
       "detail": "Remove the old memory and wire the changelog everywhere (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-27T20:41:42.652Z",
+      "event": "task started",
+      "detail": "README, CLI reference and this repo's backfill"
+    },
+    {
+      "at": "2026-10-27T20:42:01.179Z",
+      "event": "task implementing",
+      "detail": "README, CLI reference and this repo's backfill"
+    },
+    {
+      "at": "2026-10-27T20:46:08.636Z",
+      "event": "task reviewing",
+      "detail": "README, CLI reference and this repo's backfill"
+    },
+    {
+      "at": "2026-10-27T20:46:53.984Z",
+      "event": "task merging",
+      "detail": "README, CLI reference and this repo's backfill"
+    },
+    {
+      "at": "2026-10-27T20:47:23.465Z",
+      "event": "task done",
+      "detail": "README, CLI reference and this repo's backfill"
     }
   ],
   "cairnVersion": "0.6.0",
