@@ -8,7 +8,7 @@ import { modActive } from '../proof.ts';
 import { levelLabel, nextFor, stepText, summary, timingText, type IndexRow } from '../render.ts';
 import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.ts';
 import type { State } from '../types.ts';
-import { hashText, pluginRoot, readText, withLock, writeText } from '../util.ts';
+import { hashText, pluginRoot, readText, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
