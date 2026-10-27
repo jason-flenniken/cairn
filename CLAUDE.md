@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A public Claude Code marketplace (`.claude-plugin/marketplace.json`, installed from GitHub as `jason-flenniken/cairn`) holding one plugin, **cairn** (`plugins/cairn/`): an agent-driven SDLC (Discover → PRD → Plan → Build → Check → Review → Ship → Learn) whose plan state is owned by a CLI rather than by prose. `README.md` is the user-facing spec; `plugins/cairn/references/cli.md` is the CLI contract (commands, stage-transition requirements, JSON shapes).
 
-The repo dogfoods cairn: `.cairn/config.json` is cairn's own config for this repo, and `docs/cairn/plans/<date>-<slug>/` holds the plans (PRD, plan, decisions, RECORD) that built each version. Those plan folders and their `state.json` are written by the CLI; don't hand-edit them.
+The repo dogfoods cairn: `.cairn/config.json` is cairn's own config for this repo, and `docs/cairn/plans/<date>-<slug>/` holds the plans (PRD, plan, decisions, RECORD, changelog.md) that built each version. Those plan folders and their `state.json` are written by the CLI; don't hand-edit them.
 
 `sources/` is reference material borrowed from other projects, not part of the build. `graft/` is a gitignored code index.
 
