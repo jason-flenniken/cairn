@@ -25,6 +25,7 @@ type World = {
   handoff?: string
   config?: string
   configAt?: string
+  planDir?: string
   refusePause?: string
   failAbort?: boolean
   failRegister?: boolean
@@ -57,7 +58,7 @@ function world(on: On, w: World = {}) {
     cli.push(args)
     order.push(`cairn ${args.join(' ')}`)
     if (args.join(' ') === 'status --json') {
-      return answer(0, JSON.stringify({ ok: true, state: planState(w.paused, w.tasks), planWorktree: WT }))
+      return answer(0, JSON.stringify({ ok: true, state: planState(w.paused, w.tasks), planWorktree: WT, planDir: w.planDir }))
     }
     if (args[0] === 'pause') return w.refusePause === undefined ? answer(0, 'Paused "Shop".\n') : answer(2, '', `✗ Refused: ${w.refusePause}\n`)
     if (args[0] === 'resume') return answer(0, 'Resumed "Shop".\nNext: start cart\n')
@@ -144,6 +145,14 @@ test('pauseAge is the whole minutes since paused.at; a missing or invalid one is
   expect(pauseAge(planState({ mode: 'drain' }), NOW)).toBe(Infinity)
   expect(pauseAge(planState({ at: 'nonsense', mode: 'drain' }), NOW)).toBe(Infinity)
   expect(pauseAge(planState(null), NOW)).toBe(Infinity)
+})
+
+test('the handoff is written in the plan folder status reports, dated folders included', async ($, on) => {
+  const dir = `${WT}/docs/cairn/plans/2026-03-01-shop`
+  const w = world(on, { planDir: dir })
+  await start($)
+  await $.command.run({ command: 'cairn-pause-mod' })
+  expect(w.order.slice(-2)).toEqual([`write ${dir}/handoff.md`, 'cairn pause'])
 })
 
 test('drain pause writes the handoff, then runs cairn pause', async ($, on) => {

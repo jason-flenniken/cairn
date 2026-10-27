@@ -105,9 +105,9 @@ export function pickCurrent<R extends { state: { stage?: string; updated?: strin
 /** The session's plan from `cairn status --json`; from the repo root, the active plan from `status --all`. */
 export async function plan($: EngineInterface): Promise<Plan | string> {
   const r = await cairn($, ['status', '--json'], quick)
-  const json = r.json as { state?: PlanState; planWorktree?: string; ready?: Ready } | undefined
+  const json = r.json as { state?: PlanState; planWorktree?: string; planDir?: string; ready?: Ready } | undefined
   if (r.exitCode === 0 && json?.state !== undefined && json.planWorktree !== undefined) {
-    return { state: json.state, worktree: json.planWorktree, ready: json.ready }
+    return { state: json.state, worktree: json.planWorktree, ready: json.ready, dir: json.planDir }
   }
   const all = await cairn($, ['status', '--all', '--json'], quick)
   const rows = Array.isArray(all.json?.plans) ? (all.json.plans as { state: PlanState; worktree?: string; ready?: Ready; dir?: string }[]) : []

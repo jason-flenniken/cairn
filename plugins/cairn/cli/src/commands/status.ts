@@ -91,7 +91,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ...(s.level ? [`Level: ${levelLabel(s)}`] : []),
       ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
       ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
+    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
   };
 }
 
