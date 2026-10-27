@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:33:14.111Z",
+  "updated": "2026-10-27T20:33:20.942Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -45,7 +45,7 @@
     {
       "id": "changelog-core",
       "name": "Changelog in the CLI",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "changelog-engine",
@@ -88,7 +88,7 @@
     {
       "id": "switch-over",
       "name": "Remove the old memory and wire the changelog everywhere",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "cli-removals",
@@ -332,6 +332,11 @@
       "at": "2026-10-27T20:33:14.111Z",
       "event": "task done",
       "detail": "Changelog engine"
+    },
+    {
+      "at": "2026-10-27T20:33:20.942Z",
+      "event": "phase finished",
+      "detail": "Changelog in the CLI (tests green (0 fail))"
     }
   ],
   "cairnVersion": "0.6.0",
