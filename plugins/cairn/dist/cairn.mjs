@@ -8972,11 +8972,12 @@ function recall(root, globs, plans) {
   return { areas, decisions, plans: top, uncovered };
 }
 var cut = (s, n) => s.length > n ? `${s.slice(0, n - 1)}\u2026` : s;
-function memoryIndex(root, plans, maxLines = 60) {
+function memoryIndex(root, plansOf, maxLines = 60) {
   const { areas } = loadAreas(root);
   const decisions = loadDecisions(root).filter((d) => d.status === "active");
-  const recent = plans.filter((p) => p.state.stage === "closed").sort(byNewest).slice(0, 5);
   if (!areas.length && !decisions.length) return "";
+  const plans = typeof plansOf === "function" ? plansOf() : plansOf;
+  const recent = plans.filter((p) => p.state.stage === "closed").sort(byNewest).slice(0, 5);
   const head = `cairn memory (full picture: ${OVERVIEW_REL}). Before changing code, run \`cairn recall <paths>\`.`;
   const areaLines = areas.length ? ["Areas:", ...areas.map((a) => `- ${a.id}: ${a.summary}`)] : [];
   const decisionLines = decisions.length ? ["Decisions in force:", ...decisions.map((d) => `- ${d.id}: ${cut(d.answer, 100)}`)] : [];
@@ -10066,7 +10067,7 @@ import { dirname as dirname5, isAbsolute, join as join19, relative as relative3,
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function indexFor(ctx) {
   try {
-    return memoryIndex(ctx.top, planEntries(ctx));
+    return memoryIndex(ctx.top, () => planEntries(ctx));
   } catch {
     return "";
   }

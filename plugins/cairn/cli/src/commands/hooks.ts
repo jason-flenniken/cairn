@@ -23,7 +23,7 @@ const hookOut = (event: string, text: string) => JSON.stringify({ hookSpecificOu
 /** The memory index, or '' when there is none or it cannot be read; a broken memory never blocks a session. */
 function indexFor(ctx: ReturnType<typeof context>): string {
   try {
-    return memoryIndex(ctx.top, planEntries(ctx));
+    return memoryIndex(ctx.top, () => planEntries(ctx));
   } catch {
     return '';
   }

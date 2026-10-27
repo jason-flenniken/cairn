@@ -177,3 +177,30 @@ test('index with nothing recorded prints the map hint', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('session-start still returns its plan lines when the index build throws', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-recall-throw-')));
+  try {
+    g(root, 'init', '-q', '-b', 'main');
+    write(join(root, 'README.md'), 'hi\n');
+    write(join(root, 'docs/cairn/decisions'), 'not a folder\n'); // loadDecisions has no guard of its own
+    g(root, 'add', '-A');
+    g(root, 'commit', '-q', '-m', 'init');
+    assert.throws(() => memoryIndex(root, []));
+    const wt = run(['new', 'live', '--title', 'Live'], root).data!.worktree as string;
+    assert.match(ctxOf(hookSessionStart({ cwd: wt })), /^cairn: Live/);
+    assert.doesNotMatch(ctxOf(hookSessionStart({ cwd: wt })), /cairn memory/);
+    assert.match(ctxOf(hookSessionStart({ cwd: root })), /1 active plan/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the plan list is only read when there is memory to index', () => {
+  let called = 0;
+  const lazy = () => (called++, []);
+  assert.equal(memoryIndex(tmp(), lazy), '');
+  assert.equal(called, 0);
+  assert.match(memoryIndex(repo, lazy), /cairn memory/);
+  assert.equal(called, 1);
+});

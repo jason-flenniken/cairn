@@ -106,11 +106,12 @@ export function recall(root: string, globs: string[], plans: PlanEntry[]): Recal
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 /** The short index injected at session start. Plans go first when it runs long, then the decision list collapses to ids. '' when there are no areas or decisions (plans alone are not an index). */
-export function memoryIndex(root: string, plans: PlanEntry[], maxLines = 60): string {
+export function memoryIndex(root: string, plansOf: PlanEntry[] | (() => PlanEntry[]), maxLines = 60): string {
   const { areas } = loadAreas(root);
   const decisions = loadDecisions(root).filter((d) => d.status === 'active');
-  const recent = plans.filter((p) => p.state.stage === 'closed').sort(byNewest).slice(0, 5);
   if (!areas.length && !decisions.length) return '';
+  const plans = typeof plansOf === 'function' ? plansOf() : plansOf;
+  const recent = plans.filter((p) => p.state.stage === 'closed').sort(byNewest).slice(0, 5);
   const head = `cairn memory (full picture: ${OVERVIEW_REL}). Before changing code, run \`cairn recall <paths>\`.`;
   const areaLines = areas.length ? ['Areas:', ...areas.map((a) => `- ${a.id}: ${a.summary}`)] : [];
   const decisionLines = decisions.length ? ['Decisions in force:', ...decisions.map((d) => `- ${d.id}: ${cut(d.answer, 100)}`)] : [];
