@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:21:02.568Z",
+  "updated": "2026-10-27T20:25:34.882Z",
   "stage": "plan",
   "stageHistory": [
     {
@@ -31,7 +31,189 @@
       "hash": "23d8f314037eabbc"
     }
   },
-  "phases": [],
+  "phases": [
+    {
+      "id": "changelog-core",
+      "name": "Changelog in the CLI",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "changelog-engine",
+          "name": "Changelog engine",
+          "covers": [
+            "FR-03",
+            "FR-04",
+            "FR-05"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/cli/src/memory.ts",
+            "plugins/cairn/cli/src/commands/memory.ts",
+            "plugins/cairn/cli/src/commands/records.ts",
+            "plugins/cairn/cli/src/commands/status.ts",
+            "plugins/cairn/cli/src/util.ts",
+            "plugins/cairn/cli/test/changelog.test.ts",
+            "plugins/cairn/cli/test/publish.test.ts",
+            "plugins/cairn/cli/test/recall.test.ts",
+            "plugins/cairn/cli/test/records.test.ts",
+            "plugins/cairn/cli/test/legacy-paths.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "model-written entry text reaches every session start and the pane"
+        }
+      ]
+    },
+    {
+      "id": "switch-over",
+      "name": "Remove the old memory and wire the changelog everywhere",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "cli-removals",
+          "name": "Remove recall, area check and lasting decisions",
+          "covers": [
+            "FR-11",
+            "FR-12",
+            "FR-14"
+          ],
+          "blockedBy": [
+            "changelog-engine"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/areas.ts",
+            "plugins/cairn/cli/src/decision-log.ts",
+            "plugins/cairn/cli/src/memory.ts",
+            "plugins/cairn/cli/src/commands/memory.ts",
+            "plugins/cairn/cli/src/commands/stages.ts",
+            "plugins/cairn/cli/src/commands/plans.ts",
+            "plugins/cairn/cli/src/commands.ts",
+            "plugins/cairn/cli/src/main.ts",
+            "plugins/cairn/cli/src/types.ts",
+            "plugins/cairn/cli/test/areas.test.ts",
+            "plugins/cairn/cli/test/area-check.test.ts",
+            "plugins/cairn/cli/test/decision-log.test.ts",
+            "plugins/cairn/cli/test/lasting.test.ts",
+            "plugins/cairn/cli/test/recall.test.ts",
+            "plugins/cairn/cli/test/publish.test.ts",
+            "plugins/cairn/cli/test/removed.test.ts",
+            "plugins/cairn/cli/test/lifecycle.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "changes the public CLI and must never touch user-owned area or decision files"
+        },
+        {
+          "id": "changelog-tab",
+          "name": "Changelog tab in the pane",
+          "covers": [
+            "FR-06",
+            "FR-07",
+            "FR-08"
+          ],
+          "blockedBy": [
+            "changelog-engine"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/NOTES.md",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/**"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "renders model-written text in the terminal"
+        },
+        {
+          "id": "procedures-and-agents",
+          "name": "Procedures and agents write the changelog, drop recall",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-09",
+            "FR-10",
+            "FR-11"
+          ],
+          "blockedBy": [
+            "changelog-engine"
+          ],
+          "scope": [
+            "plugins/cairn/procedures/**",
+            "plugins/cairn/agents/**",
+            "plugins/cairn/skills/**",
+            "plugins/cairn/templates/**",
+            "plugins/cairn/references/review-checklist.md",
+            "plugins/cairn/cli/test/memory-doc.test.ts",
+            "plugins/cairn/cli/test/skills.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    },
+    {
+      "id": "repo-and-release",
+      "name": "This repo's memory, docs and release",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "repo-docs",
+          "name": "README, CLI reference and this repo's backfill",
+          "covers": [
+            "FR-13",
+            "FR-15"
+          ],
+          "blockedBy": [
+            "cli-removals",
+            "procedures-and-agents"
+          ],
+          "scope": [
+            "README.md",
+            "CLAUDE.md",
+            "plugins/cairn/references/cli.md",
+            "docs/cairn/system/**",
+            "docs/cairn/decisions/**",
+            "docs/cairn/plans/2026-10-20-cairn-v0-2/changelog.md",
+            "docs/cairn/plans/2026-10-21-*/changelog.md",
+            "plugins/cairn/cli/test/memory-readme-doc.test.ts"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "deletes the repo's area and decision folders"
+        },
+        {
+          "id": "release",
+          "name": "Version bump and bundle",
+          "covers": [
+            "FR-16"
+          ],
+          "blockedBy": [
+            "repo-docs",
+            "cli-removals",
+            "changelog-tab"
+          ],
+          "scope": [
+            "plugins/cairn/.claude-plugin/plugin.json",
+            "plugins/cairn/dist/**"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    }
+  ],
   "evidence": {},
   "drift": [],
   "log": [
@@ -58,6 +240,11 @@
       "at": "2026-10-27T20:21:02.568Z",
       "event": "advanced",
       "detail": "plan"
+    },
+    {
+      "at": "2026-10-27T20:25:34.881Z",
+      "event": "plan loaded",
+      "detail": "3 phases, 6 tasks"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -96,5 +283,6 @@
       "paths": [],
       "at": "2026-10-27T19:35:15.500Z"
     }
-  ]
+  ],
+  "planHash": "bc7ffb102e3d3809"
 }
