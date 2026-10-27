@@ -183,7 +183,8 @@ function main(argv: string[]): number {
   const json = argv.includes('--json');
   try {
     const r = run(argv);
-    process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + '\n');
+    // An empty message prints nothing at all (cairn index with no closed plans), not a blank line.
+    if (json || r.message !== '') process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + '\n');
     return 0;
   } catch (e) {
     if (e instanceof Refusal) {

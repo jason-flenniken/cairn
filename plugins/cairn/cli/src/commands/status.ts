@@ -123,5 +123,5 @@ export function cmdRender(ctx: Ctx): Result {
     return { message: `Rendered ${join(pc.plan.dir, 'STATUS.md')}.` };
   }
   refreshMemory(ctx.top, ctx);
-  return { message: `Rendered ${join(ctx.top, OVERVIEW_REL)} and the History of each area doc.` };
+  return { message: `Rendered ${join(ctx.top, OVERVIEW_REL)} (the changelog).` };
 }

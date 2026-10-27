@@ -7,8 +7,7 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import type { Area } from '../src/areas.ts';
 import type { PlanEntry } from '../src/commands/records.ts';
-import type { LoggedDecision } from '../src/decision-log.ts';
-import { HISTORY_MARK, plansTouching, renderOverview, withHistory } from '../src/memory.ts';
+import { plansTouching } from '../src/memory.ts';
 import { run } from '../src/main.ts';
 import type { State } from '../src/types.ts';
 import { pd } from './plandir.ts';
@@ -57,31 +56,23 @@ const mkState = (slug: string, over: Partial<State> = {}): State =>
   ({ slug, title: `Plan ${slug}`, track: 'feature', stage: 'closed', created: '2026-01-01T00:00:00Z', branch: `feature/${slug}`, phases: [], approvals: {}, evidence: {}, drift: [], suggestions: [], log: [], ...over }) as State;
 const entry = (slug: string, date: string, over: Partial<State> = {}, record?: string): PlanEntry => ({ state: mkState(slug, over), dir: `/x/${date}-${slug}`, date, record });
 
-test('close publishes lasting decisions', () => {
+test('close writes the changelog and commits it, and doing it again changes nothing', () => {
   const wt = learnPlan('pub');
   run(['close'], wt);
-  const file = g(wt, 'ls-tree', '--name-only', 'HEAD', 'docs/cairn/decisions/').split('\n')[0];
-  assert.match(file, /docs\/cairn\/decisions\/\d{4}-\d{2}-\d{2}-which-store\.md$/);
-  assert.match(g(wt, 'show', `HEAD:${file}`), /\*\*Decision:\*\* Use files/);
-  assert.match(g(wt, 'log', '-1', '--format=%s'), /publish decisions and area history/);
-  assert.ok(existsSync(join(wt, 'docs/cairn/OVERVIEW.md')));
-});
-
-test('close writes area History, and doing it again changes nothing', () => {
-  const wt = learnPlan('hist');
-  run(['close'], wt);
-  const doc = readFileSync(join(wt, SYSTEM, 'core.md'), 'utf8');
-  const hist = doc.slice(doc.indexOf('## History'));
-  assert.match(hist, /- Decision \[\d{4}-\d{2}-\d{2}-which-store\]\(\.\.\/decisions\/\d{4}-\d{2}-\d{2}-which-store\.md\): Use files \(in force\)/);
-  assert.match(hist, /- \d{4}-\d{2}-\d{2} \[Plan hist\]\(\.\.\/plans\/[^)]*hist\/RECORD\.md\)/);
-  assert.match(doc, /- keep it small/);
+  const md = readFileSync(join(wt, 'docs/cairn/OVERVIEW.md'), 'utf8');
+  assert.match(md, /^# Changelog/);
+  assert.match(md, /## \d{4}-\d{2}-\d{2} · Plan pub/);
+  assert.doesNotMatch(md, /## Areas|## Decisions/);
+  assert.match(g(wt, 'log', '-1', '--format=%s'), /update changelog/);
+  assert.equal(g(wt, 'ls-tree', '--name-only', 'HEAD', 'docs/cairn/decisions/'), '', 'close no longer publishes decisions');
+  assert.doesNotMatch(readFileSync(join(wt, SYSTEM, 'core.md'), 'utf8'), /Decision \[/);
   const before = g(wt, 'rev-parse', 'HEAD');
   run(['render'], wt);
-  assert.equal(g(wt, 'status', '--porcelain', '--', 'docs/cairn/system', 'docs/cairn/OVERVIEW.md'), '');
+  assert.equal(g(wt, 'status', '--porcelain', '--', 'docs/cairn/OVERVIEW.md'), '');
   assert.equal(g(wt, 'rev-parse', 'HEAD'), before);
 });
 
-test('every History and OVERVIEW record link resolves under the rendered root, even with an old-layout worktree', () => {
+test('every OVERVIEW record link resolves under the rendered root, even with an old-layout worktree', () => {
   const r = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-links-')));
   try {
     g(r, 'init', '-q', '-b', 'main');
@@ -112,10 +103,10 @@ test('every History and OVERVIEW record link resolves under the rendered root, e
       assert.doesNotMatch(md, /docs\/sdlc/);
       return md;
     };
-    const hist = check(`${SYSTEM}/core.md`);
-    check('docs/cairn/OVERVIEW.md');
-    assert.match(hist, /\[Plan both\]\(\.\.\/plans\/2026-10-01-both\/RECORD\.md\)/);
-    assert.match(hist, /- 2026-10-01 Plan only-old\n/);
+    const md = check('docs/cairn/OVERVIEW.md');
+    assert.match(md, /\[Record\]\(plans\/2026-10-01-both\/RECORD\.md\)/);
+    assert.match(md, /## 2026-10-01 · Plan only-old\n/);
+    assert.doesNotMatch(md, /only-old\/RECORD/);
   } finally {
     for (const slug of ['both', 'only-old']) {
       try {
@@ -126,27 +117,6 @@ test('every History and OVERVIEW record link resolves under the rendered root, e
     }
     rmSync(r, { recursive: true, force: true });
   }
-});
-
-test('withHistory replaces only History', () => {
-  const md = '---\na: 1\n---\n\n## Rules\n\n- one\n- two  \n\n## History\n\nold stuff\n\n## Gotchas\n\n- g\n';
-  const out = withHistory(md, ['- x']);
-  assert.ok(out.startsWith(md.slice(0, md.indexOf('## History'))));
-  assert.ok(out.endsWith('\n## Gotchas\n\n- g\n'));
-  assert.ok(out.includes(`## History\n\n${HISTORY_MARK}\n\n- x\n`));
-  assert.ok(!out.includes('old stuff'));
-  assert.equal(withHistory(out, ['- x']), out);
-  assert.match(withHistory('# T\n\n## Rules\n', []), /## Rules\n\n## History\n\n<!--.*-->\n\nNone yet\.\n$/);
-});
-
-test('renderOverview sections', () => {
-  const dec = (id: string, over: Partial<LoggedDecision>): LoggedDecision => ({ id, question: 'Q', answer: `A ${id}`, status: 'active', areas: ['core'], paths: [], plan: 'p1', date: '2026-02-01', file: `docs/cairn/decisions/${id}.md`, ...over });
-  const md = renderOverview(repo, [area], [dec('d-new', { replaces: 'd-old' }), dec('d-old', { status: 'replaced', replacedBy: 'd-new' })], [entry('older', '2026-01-01'), entry('newer', '2026-03-01', { stage: 'learn' }), entry('newest', '2026-04-01')]);
-  for (const h of ['# System overview', '## Areas', '## Decisions in force', '## Replaced decisions', '## Plans']) assert.ok(md.includes(h), h);
-  assert.ok(md.includes('d-new') && md.includes('d-old'));
-  assert.ok(md.indexOf('Plan newest') < md.indexOf('Plan older'));
-    assert.ok(!md.includes('Plan newer'), 'open plans are left out');
-  assert.match(renderOverview(repo, [], [], []), /## Areas\n\nNone yet\./);
 });
 
 test('plansTouching ignores ** scopes', () => {
@@ -163,5 +133,5 @@ test('render on main writes OVERVIEW.md, not INDEX.md', () => {
   run(['render'], repo);
   assert.ok(existsSync(join(repo, 'docs/cairn/OVERVIEW.md')));
   assert.ok(!existsSync(join(repo, 'docs/cairn/INDEX.md')));
-  assert.match(readFileSync(join(repo, 'docs/cairn/OVERVIEW.md'), 'utf8'), /^# System overview/);
+  assert.match(readFileSync(join(repo, 'docs/cairn/OVERVIEW.md'), 'utf8'), /^# Changelog/);
 });

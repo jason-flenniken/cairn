@@ -5,7 +5,7 @@ import { plansDirsIn, type Ctx } from '../locate.ts';
 import { sections } from '../sections.ts';
 import { parseState } from '../state.ts';
 import type { State, Suggestion } from '../types.ts';
-import { readText } from '../util.ts';
+import { readText, stripControl } from '../util.ts';
 import type { Result } from '../shared.ts';
 import { listPlans } from './status.ts';
 import { collectSuggestions, type FollowupStatus } from './suggest.ts';
@@ -17,6 +17,8 @@ export interface RecordEntry {
   stage: string;
   why: string;
   record?: string;
+  /** The plan's changelog entry text (control characters stripped), when it has one. */
+  entry?: string;
   followUps: { text: string; area: Suggestion['area']; status: FollowupStatus; hardening?: true }[];
 }
 
@@ -35,6 +37,18 @@ export interface PlanEntry {
   date: string;
   /** Absolute path of the plan's RECORD.md when it exists (in its folder, else in the main checkout). */
   record?: string;
+  /** Absolute path of the plan's changelog.md when it exists (in its folder, else in the main checkout). */
+  changelog?: string;
+}
+
+/** The plan's changelog entry, trimmed with control characters stripped. '' when there is no file or it is empty. Throws when the file cannot be read. */
+export function changelogEntry(e: PlanEntry): string {
+  return e.changelog ? stripControl(readText(e.changelog) ?? '').trim() : '';
+}
+
+/** What the changelog says about a plan: its entry, else the first sentence of its record's Why, else ''. Throws when the entry cannot be read. */
+export function changelogText(e: PlanEntry): string {
+  return changelogEntry(e) || stripControl(whyLine(e.record ? readText(e.record) : undefined));
 }
 
 /** Every plan found from any worktree of the repository, with its date and record path. */
@@ -58,7 +72,15 @@ export function planEntries(ctx: Ctx): PlanEntry[] {
     let recordPath = join(dir, 'RECORD.md');
     // A plan found on its branch may have its record only in the main checkout.
     if (!existsSync(recordPath)) recordPath = bases.map((b) => join(b, basename(dir), 'RECORD.md')).find((p) => existsSync(p)) ?? recordPath;
-    return { state, dir, date: basename(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10), ...(existsSync(recordPath) ? { record: recordPath } : {}) };
+    let changelogPath = join(dir, 'changelog.md');
+    if (!existsSync(changelogPath)) changelogPath = bases.map((b) => join(b, basename(dir), 'changelog.md')).find((p) => existsSync(p)) ?? changelogPath;
+    return {
+      state,
+      dir,
+      date: basename(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
+      ...(existsSync(recordPath) ? { record: recordPath } : {}),
+      ...(existsSync(changelogPath) ? { changelog: changelogPath } : {}),
+    };
   });
 }
 
@@ -68,15 +90,25 @@ export function listRecords(ctx: Ctx): RecordEntry[] {
   const followUps = new Map<string, RecordEntry['followUps']>();
   for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...(followUps.get(x.slug) ?? []), { text: x.text, area: x.area, status: x.status, ...(x.hardening ? { hardening: true as const } : {}) }]);
 
-  const entries = planEntries(ctx).map(({ state, date, record }): RecordEntry => ({
-    slug: state.slug,
-    title: state.title,
-    date,
-    stage: state.stage,
-    why: whyLine(record ? readText(record) : undefined),
-    ...(record ? { record } : {}),
-    followUps: followUps.get(state.slug) ?? [],
-  }));
+  const entries = planEntries(ctx).map((pe): RecordEntry => {
+    const { state, date, record } = pe;
+    let entry = '';
+    try {
+      entry = changelogEntry(pe);
+    } catch {
+      // An unreadable entry is left out.
+    }
+    return {
+      slug: state.slug,
+      title: stripControl(state.title),
+      date,
+      stage: state.stage,
+      why: stripControl(whyLine(record ? readText(record) : undefined)),
+      ...(entry ? { entry } : {}),
+      ...(record ? { record } : {}),
+      followUps: followUps.get(state.slug) ?? [],
+    };
+  });
   const open = (e: RecordEntry) => (e.stage === 'closed' ? 1 : 0);
   return entries.sort((a, b) => open(a) - open(b) || b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
 }
