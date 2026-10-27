@@ -47,3 +47,10 @@ test('README has a Project memory section', () => {
   assert.match(src, /^## Project memory/m);
   assert.ok(src.includes('cairn recall'));
 });
+
+test('map skill and procedure bootstrap area docs and the decision log', () => {
+  has('skills/map/SKILL.md', 'procedures/map.md', 'Bash(cairn render:*)', 'Bash(cairn migrate:*)');
+  const src = read('procedures/map.md');
+  for (let n = 1; n <= 6; n++) assert.match(src, new RegExp(`^## ${n}\\. `, 'm'), `map.md is missing step ${n}`);
+  has('procedures/map.md', 'templates/area.md', 'cairn decide', '--lasting', 'cairn render', 'cairn recall', 'AskUserQuestion', 'Record · area');
+});
