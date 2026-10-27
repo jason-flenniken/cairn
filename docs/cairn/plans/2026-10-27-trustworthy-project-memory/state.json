@@ -6,7 +6,7 @@
   "branch": "feature/trustworthy-project-memory",
   "base": "main",
   "created": "2026-10-27T19:15:12.077Z",
-  "updated": "2026-10-27T20:33:20.942Z",
+  "updated": "2026-10-27T20:39:06.483Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -121,10 +121,16 @@
             "plugins/cairn/cli/test/lifecycle.test.ts"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "changes the public CLI and must never touch user-owned area or decision files"
+          "riskReason": "changes the public CLI and must never touch user-owned area or decision files",
+          "substep": "implementing",
+          "branch": "task/trustworthy-project-memory/cli-removals",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--cli-removals",
+          "base": "1d96c5f124df497142ba8c029bf6deafe9896bf4",
+          "startedAt": "2026-10-27T20:33:28.296Z",
+          "level": "standard"
         },
         {
           "id": "changelog-tab",
@@ -144,10 +150,19 @@
             "plugins/cairn/hooks/test/**"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "renders model-written text in the terminal"
+          "riskReason": "renders model-written text in the terminal",
+          "branch": "task/trustworthy-project-memory/changelog-tab",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--changelog-tab",
+          "base": "1d96c5f124df497142ba8c029bf6deafe9896bf4",
+          "startedAt": "2026-10-27T20:33:28.896Z",
+          "level": "standard",
+          "doneAt": "2026-10-27T20:39:06.482Z",
+          "tip": "d82de1a",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "7e6ed6f333ee035344b6213c72d5904805448c4b"
         },
         {
           "id": "procedures-and-agents",
@@ -172,9 +187,15 @@
             "plugins/cairn/cli/test/skills.test.ts"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "substep": "reviewing",
+          "branch": "task/trustworthy-project-memory/procedures-and-agents",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-trustworthy-project-memory--procedures-and-agents",
+          "base": "1d96c5f124df497142ba8c029bf6deafe9896bf4",
+          "startedAt": "2026-10-27T20:33:29.512Z",
+          "level": "standard"
         }
       ]
     },
@@ -337,6 +358,56 @@
       "at": "2026-10-27T20:33:20.942Z",
       "event": "phase finished",
       "detail": "Changelog in the CLI (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-27T20:33:28.296Z",
+      "event": "task started",
+      "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:33:28.897Z",
+      "event": "task started",
+      "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:33:29.513Z",
+      "event": "task started",
+      "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:34:08.069Z",
+      "event": "task implementing",
+      "detail": "Remove recall, area check and lasting decisions"
+    },
+    {
+      "at": "2026-10-27T20:34:08.149Z",
+      "event": "task implementing",
+      "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:34:08.229Z",
+      "event": "task implementing",
+      "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:36:55.905Z",
+      "event": "task reviewing",
+      "detail": "Procedures and agents write the changelog, drop recall"
+    },
+    {
+      "at": "2026-10-27T20:37:54.422Z",
+      "event": "task reviewing",
+      "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:38:32.773Z",
+      "event": "task merging",
+      "detail": "Changelog tab in the pane"
+    },
+    {
+      "at": "2026-10-27T20:39:06.483Z",
+      "event": "task done",
+      "detail": "Changelog tab in the pane"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -408,6 +479,26 @@
       ],
       "from": "security-review",
       "at": "2026-10-27T20:32:39.467Z"
+    },
+    {
+      "id": "s4",
+      "area": "security",
+      "text": "Strip control characters from the title passed to openDoc in the Changelog tab, so the pane doesn't rely on the CLI having stripped it",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-10-27T20:38:19.710Z"
+    },
+    {
+      "id": "s5",
+      "area": "ux",
+      "text": "Changelog entries take two keyboard stops (head and paragraph buttons); fold them into one button if the engine allows a multi-line Text-only button",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-27T20:38:32.694Z"
     }
   ]
 }
