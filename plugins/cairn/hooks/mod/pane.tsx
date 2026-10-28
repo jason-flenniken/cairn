@@ -10,7 +10,7 @@ import { isWorking, readActive, startActive, trackActive } from './active.ts'
 import { activeStep, Bar, stageSteps, type BarLine } from './bar.tsx'
 import { agentCard, agentLines, mainCard, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
-import { docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
+import { closeDoc, docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
 import { gitLine, readGit, startGit, trackGit } from './git.ts'
 import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
@@ -473,7 +473,10 @@ export function install(on: On): void {
       const followUps = doc.kind === 'record' ? (await read($, records))?.find(x => x.record === doc.file)?.followUps.filter(f => f.status === 'open') ?? [] : []
       return frame(e, await docViewer(
         $, PANE, ui, doc,
-        waiting === undefined || here === undefined ? undefined : () => act($, () => approvePress($, here.state.slug, waiting.kind)),
+        // An approval that went through closes the viewer, so the tab it was opened from shows again; a cancel keeps it open.
+        waiting === undefined || here === undefined ? undefined : () => act($, async () => {
+          if (await approvePress($, here.state.slug, waiting.kind)) await closeDoc($, PANE)
+        }),
         followUps.length > 0 ? `**Follow-ups**\n\n${followUps.map(f => `- ${f.text} (${f.area})`).join('\n')}` : undefined,
       ), barLines)
     }
