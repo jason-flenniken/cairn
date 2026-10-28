@@ -133,3 +133,8 @@ _2026-10-28 01:59_
 **Decision:** builder's call, each covered by the requirement's check and tests; orange must stay distinct from waiting yellow
 **Why:** PRD builder check
 _2026-10-28 01:59_
+
+### 27. Inline worst case: which row gives way when agents have no room
+**Decision:** the +N other active plans line and the +N more agents line merge into one line (+6 agents · +1 other plan); Showing still goes first
+**Why:** user picked merging so nothing the person must see is lost
+_2026-10-28 09:44_

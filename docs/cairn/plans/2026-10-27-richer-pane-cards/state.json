@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T02:27:09.131Z",
+  "updated": "2026-10-28T09:49:33.467Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -117,7 +117,7 @@
     {
       "id": "live-detail",
       "name": "Real tool calls, the Main card and the polish",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "tool-calls",
@@ -241,9 +241,18 @@
             "plugins/cairn/hooks/test/inline.test.tsx"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/richer-pane-cards/inline-fit",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--inline-fit",
+          "base": "da86fe1356874411c9581b6aabde1327ee3c26bf",
+          "startedAt": "2026-10-28T02:27:09.937Z",
+          "level": "standard",
+          "doneAt": "2026-10-28T09:49:33.466Z",
+          "tip": "471691b",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2e7922e671961bed22c6fca129af4782496b0419"
         }
       ]
     }
@@ -462,6 +471,31 @@
       "at": "2026-10-28T02:27:09.131Z",
       "event": "task done",
       "detail": "Main card, order and wording"
+    },
+    {
+      "at": "2026-10-28T02:27:09.938Z",
+      "event": "task started",
+      "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T02:27:10.024Z",
+      "event": "task implementing",
+      "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T09:48:18.799Z",
+      "event": "task reviewing",
+      "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T09:49:01.611Z",
+      "event": "task merging",
+      "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T09:49:33.467Z",
+      "event": "task done",
+      "detail": "Inline view fits 7 rows"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -624,6 +658,46 @@
       ],
       "from": "task-review",
       "at": "2026-10-28T02:25:56.945Z"
+    },
+    {
+      "id": "s16",
+      "area": "docs",
+      "text": "add the inline budget order (Showing, then agents folded into +N more, then merged with other plans) to the inline note",
+      "where": [
+        "plugins/cairn/hooks/NOTES.md"
+      ],
+      "from": "implementer",
+      "at": "2026-10-28T09:48:18.725Z"
+    },
+    {
+      "id": "s17",
+      "area": "tests",
+      "text": "test the no-plan inline path with another plan and five agents fits 7 rows with a +N more line",
+      "where": [
+        "plugins/cairn/hooks/test/inline.test.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T09:49:01.386Z"
+    },
+    {
+      "id": "s18",
+      "area": "quality",
+      "text": "othersFolded is a mutable let set inside planLines and read later; return the fold decision instead",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T09:49:01.463Z"
+    },
+    {
+      "id": "s19",
+      "area": "ux",
+      "text": "the merged agents/other-plans line sits above the buttons while the normal other-plans line sits below; keep one position",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T09:49:01.537Z"
     }
   ],
   "lasting": [
