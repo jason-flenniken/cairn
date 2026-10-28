@@ -6,8 +6,8 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T09:49:33.467Z",
-  "stage": "execute",
+  "updated": "2026-10-28T09:49:37.608Z",
+  "stage": "verify",
   "stageHistory": [
     {
       "stage": "discover",
@@ -24,6 +24,10 @@
     {
       "stage": "execute",
       "at": "2026-10-28T02:03:42.482Z"
+    },
+    {
+      "stage": "verify",
+      "at": "2026-10-28T09:49:37.608Z"
     }
   ],
   "paused": null,
@@ -117,7 +121,7 @@
     {
       "id": "live-detail",
       "name": "Real tool calls, the Main card and the polish",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "tool-calls",
@@ -496,6 +500,16 @@
       "at": "2026-10-28T09:49:33.467Z",
       "event": "task done",
       "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T09:49:37.607Z",
+      "event": "phase finished",
+      "detail": "Real tool calls, the Main card and the polish (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-28T09:49:37.608Z",
+      "event": "advanced",
+      "detail": "verify"
     }
   ],
   "cairnVersion": "0.6.0",
