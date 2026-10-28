@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T02:18:46.408Z",
+  "updated": "2026-10-28T02:22:45.788Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -140,16 +140,19 @@
             "plugins/cairn/hooks/NOTES.md"
           ],
           "complexity": "standard",
-          "status": "in_progress",
-          "fixRound": 0,
+          "status": "done",
+          "fixRound": 1,
           "risky": true,
           "riskReason": "draws agent-supplied text (tool arguments, Bash commands, titles) on screen",
-          "substep": "implementing",
           "branch": "task/richer-pane-cards/tool-calls",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--tool-calls",
           "base": "c2a94480c6dd888f6d9e2a2709d6220bbbbb489e",
           "startedAt": "2026-10-28T02:14:23.038Z",
-          "level": "standard"
+          "level": "standard",
+          "doneAt": "2026-10-28T02:22:45.788Z",
+          "tip": "655beda",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "bf90d176a113b182b231a3e985c7e41720291504"
         },
         {
           "id": "doc-viewer",
@@ -243,6 +246,12 @@
       "at": "2026-10-28T02:16:35.403Z",
       "reason": "edited outside task \"Doc viewer after Approve\" scope",
       "task": "doc-viewer"
+    },
+    {
+      "path": "plugins/cairn/hooks/test/pane.test.tsx",
+      "at": "2026-10-28T02:22:45.787Z",
+      "reason": "changed outside task \"Real tool calls on cards\" scope (found at task done)",
+      "task": "tool-calls"
     }
   ],
   "log": [
@@ -389,6 +398,31 @@
       "at": "2026-10-28T02:18:46.408Z",
       "event": "task done",
       "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:19:16.583Z",
+      "event": "task reviewing",
+      "detail": "Real tool calls on cards"
+    },
+    {
+      "at": "2026-10-28T02:20:15.514Z",
+      "event": "task fixing",
+      "detail": "Real tool calls on cards (attempt 1)"
+    },
+    {
+      "at": "2026-10-28T02:22:15.324Z",
+      "event": "task merging",
+      "detail": "Real tool calls on cards"
+    },
+    {
+      "at": "2026-10-28T02:22:45.788Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/pane.test.tsx"
+    },
+    {
+      "at": "2026-10-28T02:22:45.788Z",
+      "event": "task done",
+      "detail": "Real tool calls on cards"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -501,6 +535,46 @@
       ],
       "from": "implementer",
       "at": "2026-10-28T02:17:45.518Z"
+    },
+    {
+      "id": "s11",
+      "area": "quality",
+      "text": "clean() strips tabs before the Bash word split, so git<TAB>commit shows as gitcommit; split on whitespace first",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T02:19:57.041Z"
+    },
+    {
+      "id": "s12",
+      "area": "security",
+      "text": "clean() could also drop U+061C, U+2028/2029, U+200B-200D, U+FEFF, U+206A-206F, tag characters U+E0000-E007F, and whole DCS/PM/APC strings",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T02:20:15.290Z"
+    },
+    {
+      "id": "s13",
+      "area": "security",
+      "text": "drop npx from the Bash subcommand allow-list so a package name in second position is never shown",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T02:20:15.364Z"
+    },
+    {
+      "id": "s14",
+      "area": "security",
+      "text": "clean() log detail text in recentLines too; plan-log text is outside text",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T02:20:15.440Z"
     }
   ],
   "lasting": [
