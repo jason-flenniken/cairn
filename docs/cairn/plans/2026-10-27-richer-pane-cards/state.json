@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "slug": "richer-pane-cards",
+  "title": "Richer pane cards",
+  "track": "feature",
+  "branch": "feature/richer-pane-cards",
+  "base": "main",
+  "created": "2026-10-28T01:39:33.906Z",
+  "updated": "2026-10-28T01:39:33.906Z",
+  "stage": "discover",
+  "stageHistory": [
+    {
+      "stage": "discover",
+      "at": "2026-10-28T01:39:33.906Z"
+    }
+  ],
+  "paused": null,
+  "approvals": {},
+  "phases": [],
+  "evidence": {},
+  "drift": [],
+  "log": [
+    {
+      "at": "2026-10-28T01:39:33.906Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-10-28T01:39:33.906Z",
+      "event": "level",
+      "detail": "standard"
+    }
+  ],
+  "cairnVersion": "0.6.0",
+  "level": "standard"
+}
