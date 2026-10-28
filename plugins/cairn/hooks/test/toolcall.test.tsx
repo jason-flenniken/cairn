@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { toolCall } from '../mod/activity.ts'
+import { agentLines, type CardContext } from '../mod/cards.tsx'
+import { phrase, toolCall } from '../mod/activity.ts'
 import { clean } from '../mod/util.ts'
 import { drawn, mount, plan, row, start, task, world, WT } from './world.tsx'
 
@@ -89,6 +90,40 @@ describe('toolCall', () => {
     expect(clean('a\x1b]0;title\x07b')).toBe('ab')
     expect(clean('a\u202ebc\u2066d\u200f\u0085\x07\x7f')).toBe('abcd')
     expect(clean('plain · text')).toBe('plain · text')
+  })
+})
+
+describe('the other places a command or title is drawn', () => {
+  test('phrase shows a Bash command as its program only, never a token', () => {
+    const cmd = "curl -H 'Authorization: Bearer abc123' https://x"
+    expect(phrase({ tool: 'Bash', command: cmd })).toBe('curl')
+    expect(phrase({ tool: 'Bash', command: 'TOKEN="s3 cret" psql' })).toBe('running a command')
+    expect(phrase({ tool: 'Bash', command: 'git merge x' })).toBe('merging')
+  })
+
+  test('the inline lines show neither a token nor a control character', () => {
+    const cx = { ui: { Text: (p: unknown) => p }, accent: 'x', nowMs: 5_000 } as unknown as CardContext
+    const main = { action: phrase({ tool: 'Bash', command: "curl -H 'Authorization: Bearer abc123' https://x" }), since: 0 }
+    const card = { agentId: 'a', number: 1, title: 'Build \x1b[31m\u202ex', type: 't', model: 'm', startedAt: 0, steps: 0, status: 'working' as const, action: phrase({ tool: 'Bash', command: 'echo Bearer abc123' }) }
+    const text = JSON.stringify(agentLines(cx, main, [card]))
+    for (const bad of ['abc123', 'Bearer', '[31m', '\\u001b', '\\u202e']) expect(text).not.toContain(bad)
+    expect(text).toContain('curl')
+  })
+
+  test('the History line for a finished agent has no control characters', async ($, on) => {
+    const { clock } = worldWithFiles(on)
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Build \x1b[31mCa\u202ert', subagentType: 'cairn:implementer' })
+    await $.turn.start({ text: 'p', turnId: 't1', agentId: 'agent-1' })
+    await $.turn.complete({ turnId: 't1', agentId: 'agent-1', reason: 'answer', answer: 'x', durationMs: 5_000 } as never)
+    await clock.advance(1_000)
+    await ui.press({ key: 'tab:history' })
+    const text = await drawn(ui)
+    expect(text).toContain('Finished')
+    for (const bad of ['\x1b', '[31m', '\u202e']) expect(text).not.toContain(bad)
+    await ui.unmount()
   })
 })
 

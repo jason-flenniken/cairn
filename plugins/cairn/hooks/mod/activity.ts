@@ -75,7 +75,7 @@ export function phrase(e: Record<string, unknown>): string {
       if (/npm (run )?test| test|cairn task done/.test(cmd)) return 'running tests'
       if (/git merge/.test(cmd)) return 'merging'
       if (/cairn/.test(cmd)) return 'updating the plan'
-      return cmd.slice(0, 40)
+      return bashCall(text('command')) || 'running a command'
     }
   }
   return tool.toLowerCase()
@@ -269,7 +269,7 @@ export function turnComplete($: EngineInterface, e: Complete): Promise<void> {
         .map(c => (c.agentId === id ? { ...c, status: ok ? 'done' : 'failed', endedAt: t, durationMs, tokens, tokensLive: undefined, usd: cost ?? c.usd, action: undefined, call: undefined, lastCall: c.call ?? c.lastCall } : c)),
     )
     const size = tokens === undefined ? '' : ` · ${tokenCount(tokens)}`
-    const line = `${ok ? 'Finished' : 'Stopped'} ${card.title} · ${fmtDuration(durationMs, true)}${size}`
+    const line = `${ok ? 'Finished' : 'Stopped'} ${clean(card.title)} · ${fmtDuration(durationMs, true)}${size}`
     await update($, feed, f => [...f, { at: t, text: line }].slice(-FEED_KEPT))
     await touch($)
   })

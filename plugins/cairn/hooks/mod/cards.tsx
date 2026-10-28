@@ -162,7 +162,7 @@ export function mainCard($: EngineInterface, cx: CardContext, main: Main, cards:
     return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.idle, right: '○ idle', line2: n === 0 ? '' : `${n} agent${n === 1 ? '' : 's'} working`, line3: '' })
   }
   if (main.isWaiting) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.waiting, right: `◷ waiting for you ${fmtClock(nowMs - main.since)}`, line2: 'answer in the chat', line3: '' })
-  return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - main.since)}`, line2: '', line3: main.call ?? main.action, line3Dim: main.call === undefined })
+  return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - main.since)}`, line2: '', line3: main.call ?? clean(main.action), line3Dim: main.call === undefined })
 }
 
 /**
