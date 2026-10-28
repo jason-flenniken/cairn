@@ -6,8 +6,8 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T01:59:41.873Z",
-  "stage": "prd",
+  "updated": "2026-10-28T01:59:44.990Z",
+  "stage": "plan",
   "stageHistory": [
     {
       "stage": "discover",
@@ -16,6 +16,10 @@
     {
       "stage": "prd",
       "at": "2026-10-28T01:56:40.018Z"
+    },
+    {
+      "stage": "plan",
+      "at": "2026-10-28T01:59:44.990Z"
     }
   ],
   "paused": null,
@@ -49,6 +53,11 @@
       "at": "2026-10-28T01:59:41.873Z",
       "event": "PRD approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-28T01:59:44.990Z",
+      "event": "advanced",
+      "detail": "plan"
     }
   ],
   "cairnVersion": "0.6.0",
