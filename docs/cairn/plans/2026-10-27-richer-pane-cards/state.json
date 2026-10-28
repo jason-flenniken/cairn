@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T09:51:46.564Z",
+  "updated": "2026-10-28T10:01:18.460Z",
   "stage": "review",
   "stageHistory": [
     {
@@ -270,6 +270,12 @@
       "result": "pass",
       "at": "2026-10-28T09:51:46.458Z",
       "note": "tests: 349 CLI + 607 mod passing; 18 requirements met, 1 untested (FR-04 narrow-row drop order); FR-15 worst case draws the merged agents/other-plans line per user decision; secret scan: clean; audit: skipped, no manifest or lockfile changed"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-28T10:01:18.459Z",
+      "note": "3 required findings fixed (Main card last call, version 0.8.0, dead accent); 11 follow-ups logged",
+      "blocking": 0
     }
   },
   "drift": [
@@ -540,6 +546,26 @@
       "at": "2026-10-28T09:51:46.563Z",
       "event": "advanced",
       "detail": "review"
+    },
+    {
+      "at": "2026-10-28T09:51:53.708Z",
+      "event": "step",
+      "detail": "reviewing"
+    },
+    {
+      "at": "2026-10-28T09:57:44.592Z",
+      "event": "step",
+      "detail": "fixing (3)"
+    },
+    {
+      "at": "2026-10-28T10:00:27.843Z",
+      "event": "step",
+      "detail": "rechecking"
+    },
+    {
+      "at": "2026-10-28T10:01:18.460Z",
+      "event": "review pass",
+      "detail": "3 required findings fixed (Main card last call, version 0.8.0, dead accent); 11 follow-ups logged"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -752,6 +778,56 @@
       ],
       "from": "check",
       "at": "2026-10-28T09:51:46.386Z"
+    },
+    {
+      "id": "s21",
+      "area": "security",
+      "text": "viewer Approve closes whatever doc is open when the confirm returns; close only if the same file is still open",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T09:53:13.919Z"
+    },
+    {
+      "id": "s22",
+      "area": "security",
+      "text": "toasts show CLI output and engine deny text without clean(); wrap toast text in clean()",
+      "where": [
+        "plugins/cairn/hooks/mod/approval.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T09:53:14.008Z"
+    },
+    {
+      "id": "s23",
+      "area": "ux",
+      "text": "overlapping tool calls: after(A) clears call while B still runs; track open calls or clear only the matching call",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-28T09:57:44.372Z"
+    },
+    {
+      "id": "s24",
+      "area": "quality",
+      "text": "tokenCount has no M tier and rounds differently from usage.ts tokensText; build it on tokensText",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-28T09:57:44.450Z"
+    },
+    {
+      "id": "s25",
+      "area": "docs",
+      "text": "header.tsx stage-color comment still says borders of working cards",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-28T09:57:44.520Z"
     }
   ],
   "lasting": [
@@ -779,5 +855,10 @@
     }
   ],
   "planHash": "59c7dab4943e87ed",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "step": {
+    "stage": "review",
+    "name": "rechecking",
+    "at": "2026-10-28T10:00:27.843Z"
+  }
 }
