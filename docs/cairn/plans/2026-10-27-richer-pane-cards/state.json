@@ -6,8 +6,8 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T10:03:50.997Z",
-  "stage": "ship",
+  "updated": "2026-10-28T10:04:10.617Z",
+  "stage": "learn",
   "stageHistory": [
     {
       "stage": "discover",
@@ -36,6 +36,10 @@
     {
       "stage": "ship",
       "at": "2026-10-28T10:01:18.585Z"
+    },
+    {
+      "stage": "learn",
+      "at": "2026-10-28T10:04:10.617Z"
     }
   ],
   "paused": null,
@@ -590,6 +594,16 @@
       "at": "2026-10-28T10:03:50.997Z",
       "event": "ship approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-10-28T10:03:54.309Z",
+      "event": "step",
+      "detail": "opening-pr"
+    },
+    {
+      "at": "2026-10-28T10:04:10.617Z",
+      "event": "advanced",
+      "detail": "learn"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -975,10 +989,5 @@
     }
   ],
   "planHash": "59c7dab4943e87ed",
-  "configHash": "12129909968d47d2",
-  "step": {
-    "stage": "ship",
-    "name": "approving",
-    "at": "2026-10-28T10:02:55.851Z"
-  }
+  "configHash": "12129909968d47d2"
 }
