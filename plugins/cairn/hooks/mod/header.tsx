@@ -2,7 +2,8 @@
 // and the plan-reading helpers the other pane modules share.
 import type { Elements, EngineInterface, RenderSurface } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnView } from '../../types/index.d.ts'
-import { etaMs, fmtDuration, readAgents, type EtaTask } from './activity.ts'
+import { etaMs, readAgents, type EtaTask } from './activity.ts'
+import { fmtDuration } from './util.ts'
 
 /** The element table a render hook resolved, as the pane modules draw with it. */
 export type Ui = Elements[RenderSurface]

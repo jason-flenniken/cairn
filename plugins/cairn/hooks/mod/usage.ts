@@ -2,8 +2,8 @@
 // `session.measure` pushes the figures into $.state; the pane only reads them (NFR-02: no timer of its own).
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, PluginState } from 'claude-code'
-import { fmtDuration } from './activity.ts'
-import { BAR_COLUMNS, firstFit, lineCells, type BarLine, type BarSeg } from './bar.tsx'
+import { BAR_COLUMNS, type BarLine, type BarSeg } from './bar.tsx'
+import { firstFit, fmtDuration, lineCells } from './util.ts'
 
 /** The session's usage as `session.measure` last reported it, and the model in use. */
 export type CairnUsage = NonNullable<PluginState['cairn']['usage']>

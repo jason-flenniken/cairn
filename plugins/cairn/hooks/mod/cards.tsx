@@ -1,27 +1,11 @@
-// The pane's agent cards and the main session's card (FR-01..FR-06), and the press helpers the
-// other pane modules share. A press views that agent's conversation.
+// The pane's agent cards and the main session's card (FR-01..FR-06). A press views that agent's conversation.
 import type { EngineInterface } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
-import { fmtDuration, type MainActivity } from './activity.ts'
-import { cells } from './bar.tsx'
+import type { MainActivity } from './activity.ts'
 import { STAGE_LABEL, type Ui } from './header.tsx'
-
-export const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
-
-/** A press's work; a failure is a toast, never a throw (NFR-07). */
-export function act($: EngineInterface, work: () => Promise<unknown>): void {
-  void work().catch(err => $.ui.toast(`cairn: ${message(err)}`))
-}
-
-/** Puts an agent's conversation in the main view, or the main one for no id; a refusal is a toast. */
-export async function viewPress($: EngineInterface, agentId?: string): Promise<void> {
-  const shown = await $.ui.view(agentId === undefined ? {} : { agentId })
-  if (shown.deny === undefined) return
-  $.ui.toast(agentId === undefined ? `cairn: ${shown.deny}` : `cairn: that agent's transcript isn't available (${shown.deny})`)
-}
+import { act, cells, fit, fitting, fmtDuration, tokenCount, viewPress } from './util.ts'
 
 const steps = (n: number) => `${n} step${n === 1 ? '' : 's'}`
-const tokenCount = (n: number) => `${n >= 1000 ? `${Math.round(n / 1000)}k` : n} tokens`
 
 /** What an agent has used: its tokens, and "~$0.42" beside them when the model has a price; empty before any are known. */
 function usage(tokens: number | undefined, usd: number | undefined): string {
@@ -58,23 +42,8 @@ export function agentRole(title: string, stage?: string, taskNames: string[] = [
   return { title: what.charAt(0).toUpperCase() + what.slice(1), step: where === undefined ? step : `${where} · ${step}` }
 }
 
-/** The first of the texts that fits `columns`; the last one when none does. */
-const fitting = (columns: number, texts: string[]) => texts.find(x => cells(x) <= columns) ?? (texts.at(-1) as string)
-
 /** The main session's action while a turn runs; null while it waits for the person. */
 export type Main = MainActivity | null
-
-/** Cut to `columns` cells, with an ellipsis, then padded with spaces to exactly `columns`. */
-function fit(text: string, columns: number): string {
-  const isCut = cells(text) > columns
-  let out = ''
-  for (const ch of text) {
-    if (cells(out + ch) > columns - (isCut ? 1 : 0)) break
-    out += ch
-  }
-  if (isCut) out += '…'
-  return out + ' '.repeat(Math.max(0, columns - cells(out)))
-}
 
 /** One line of a card; pressing it views the agent. A blank line keeps its row so every card is 3 lines. */
 function cardLine($: EngineInterface, cx: CardContext, key: string, text: string, agentId: string | undefined, isDim: boolean) {

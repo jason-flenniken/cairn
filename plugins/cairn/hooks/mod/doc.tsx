@@ -2,8 +2,8 @@
 // and Approve while the document is waiting on approval. It only draws text; nothing in the text acts.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
-import { message } from './cards.tsx'
 import type { Ui } from './header.tsx'
+import { message } from './util.ts'
 
 export type Doc = { file: string; title: string; kind?: string }
 
