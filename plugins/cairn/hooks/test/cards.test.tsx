@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { estimateUsd } from '../mod/prices.ts'
+import { fmtClock } from '../mod/util.ts'
 import { drawn, mount, mountAs, plan, row, start, task, until, world, WT } from './world.tsx'
 
 const EXECUTE = plan({
@@ -20,6 +21,16 @@ function stepUsage(on: any, model: string, input: number, output: number) {
 
 const label = (b: { label?: string; text?: string }) => b.label ?? b.text ?? ''
 
+/** The text of every card line of one row ('status', 'model', 'activity'), in the order drawn. */
+async function rowsOf(ui: any, row: string): Promise<string[]> {
+  return (await ui.findAll({ type: 'Button' })).filter((b: { key: string }) => b.key.endsWith(`:${row}`)).map(label)
+}
+
+/** The five lines of the card keyed `key`, as the Buttons the pane drew. */
+async function cardOf(ui: any, key: string): Promise<any[]> {
+  return (await ui.findAll({ type: 'Button' })).filter((b: { key: string }) => b.key === key || b.key.startsWith(`${key}:`))
+}
+
 describe('agent card presses (FR-11)', () => {
   test('every row of a card is one full-width press that views the agent', async ($, on) => {
     const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
@@ -29,11 +40,11 @@ describe('agent card presses (FR-11)', () => {
     await $.agent.spawn({ prompt: 'p', description: 'Review · a title', subagentType: 'cairn:task-reviewer' })
     await clock.advance(1_000)
     const buttons = (await ui.findAll({ type: 'Button' })).filter((b: { key: string }) => b.key.startsWith('agent:agent-1'))
-    expect(buttons.map((b: { key: string }) => b.key)).toEqual(['agent:agent-1', 'agent:agent-1:status', 'agent:agent-1:activity'])
+    expect(buttons.map((b: { key: string }) => b.key)).toEqual(['agent:agent-1', 'agent:agent-1:status', 'agent:agent-1:model', 'agent:agent-1:activity', 'agent:agent-1:end'])
     // The press lands on the label's own cells, so each row's label fills the card's width.
-    for (const b of buttons) expect([...label(b)].length).toBe(54)
+    for (const b of buttons) expect([...label(b)].length).toBe(58)
     for (const b of buttons) await ui.press({ key: b.key })
-    expect(w.views).toEqual([{ agentId: 'agent-1' }, { agentId: 'agent-1' }, { agentId: 'agent-1' }])
+    expect(w.views).toEqual(buttons.map(() => ({ agentId: 'agent-1' })))
     await ui.unmount()
   })
 
@@ -69,10 +80,10 @@ describe('where an agent is in the process', () => {
     await $.agent.spawn({ prompt: 'p', description: 'Review · Cart (security)', subagentType: 'cairn:security-reviewer' })
     await clock.advance(1_000)
     const text = await drawn(ui)
-    expect(text).toContain('● Build · task review · 1s')
-    expect(text).toContain('● Build · security review · 1s')
+    expect(text).toContain('Build · task review')
+    expect(text).toContain('Build · security review')
     expect(text).not.toContain('Review · Cart')
-    expect(text).not.toContain('● working')
+    expect((await ui.findAll({ type: 'Button' })).filter((b: { key: string }) => /^agent:.*:status$/.test(b.key))).toHaveLength(2)
     await ui.unmount()
   })
 
@@ -87,10 +98,10 @@ describe('where an agent is in the process', () => {
     await $.agent.spawn({ prompt: 'p', description: 'Look around the repo', subagentType: 'Explore' })
     await clock.advance(1_000)
     const text = await drawn(ui)
-    expect(text).toContain('● Build · building')
-    expect(text).toContain('● Build · fixing')
+    expect(text).toContain('Build · building')
+    expect(text).toContain('Build · fixing')
     expect(text).toContain('Look around the repo')
-    expect(text).toContain('● working · 1s')
+    expect((await rowsOf(ui, 'status')).some(l => /^│ working +● running 0:01 │$/.test(l))).toBe(true)
     await ui.unmount()
   })
 
@@ -103,7 +114,7 @@ describe('where an agent is in the process', () => {
     await clock.advance(1_000)
     const text = await drawn(ui)
     expect(text).toContain('Whole branch')
-    expect(text).toContain('● Review · review · 1s')
+    expect((await rowsOf(ui, 'status')).some(l => /^│ Review · review +● running 0:01 │$/.test(l))).toBe(true)
     await ui.unmount()
   })
 
@@ -120,8 +131,8 @@ describe('where an agent is in the process', () => {
 })
 
 describe('card rows follow the body width', () => {
-  for (const [columns, width] of [[60, 54], [40, 34]] as const) {
-    test(`at ${columns} columns every row is ${width} cells and the card stays 3 lines`, async ($, on) => {
+  for (const [columns, width] of [[60, 58], [40, 38]] as const) {
+    test(`at ${columns} columns every row is ${width} cells and the card stays 5 lines`, async ($, on) => {
       const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
       on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
       await start($, WT)
@@ -129,7 +140,7 @@ describe('card rows follow the body width', () => {
       await $.agent.spawn({ prompt: 'p', description: 'Build · a very long task title that cannot fit on one line', subagentType: 'cairn:implementer' })
       await clock.advance(1_000)
       const buttons = (await ui.findAll({ type: 'Button' })).filter((b: { key: string }) => b.key.startsWith('agent:agent-1'))
-      expect(buttons).toHaveLength(3)
+      expect(buttons).toHaveLength(5)
       for (const b of buttons) expect([...label(b)].length).toBe(width)
       await ui.unmount()
     })
@@ -154,7 +165,8 @@ describe('agent card tokens and cost (FR-12)', () => {
     await clock.advance(1_000)
     expect(await drawn(ui)).toContain('84k tokens ~$0.30')
     await $.turn.complete({ turnId: 't1', agentId: 'agent-1', reason: 'answer', answer: 'done', durationMs: 60_000, usage: { model: 'claude-sonnet-5-5', input_tokens: 80_000, output_tokens: 4_000 } } as never)
-    expect(await drawn(ui)).toContain('✓ finished · 1m 0s · 84k tokens ~$0.30')
+    expect(await rowsOf(ui, 'status')).toContainEqual(expect.stringMatching(/✓ completed 1:00 │$/))
+    expect(await drawn(ui)).toContain('84k tokens ~$0.30')
     await ui.unmount()
   })
 
@@ -183,8 +195,8 @@ describe('agent card tokens and cost (FR-12)', () => {
     await runStep($, 'agent-1')
     await clock.advance(1_000)
     const buttons = (await ui.findAll({ type: 'Button' })).filter((x: { key: string }) => x.key.startsWith('agent:agent-1'))
-    for (const b of buttons) expect([...label(b)].length).toBe(54)
-    expect(label(buttons.find((x: { key: string }) => x.key.endsWith(':status')))).toContain('420k tokens ~$1.50')
+    for (const b of buttons) expect([...label(b)].length).toBe(58)
+    expect(label(buttons.find((x: { key: string }) => x.key.endsWith(':model')))).toContain('420k tokens ~$1.50')
     await ui.unmount()
   })
 })
@@ -226,7 +238,7 @@ describe('the main session card says waiting only while it asks you', () => {
     const ui = await mount($, 'terminal')
     await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
     await clock.advance(1_000)
-    expect(await drawn(ui)).toContain('idle · 1 agent working')
+    expect(await drawn(ui)).toContain('1 agent working')
     await ui.unmount()
   })
 
@@ -239,13 +251,13 @@ describe('the main session card says waiting only while it asks you', () => {
     const asked = $.tool.call({ tool: 'AskUserQuestion', questions: [QUESTION] } as never)
     await until(clock, () => w.asked.length > 0)
     await clock.advance(1_000)
-    expect(await drawn(ui)).toContain('● waiting for you · 1s')
+    expect(await rowsOf(ui, 'status')).toContainEqual(expect.stringMatching(/◷ waiting for you 0:01 │$/))
     w.release.forEach(r => r())
     await asked
     await clock.advance(1_000)
     const text = await drawn(ui)
     expect(text).not.toContain('waiting for you')
-    expect(text).toContain('● working')
+    expect((await rowsOf(ui, 'status')).some(l => /● working 0:0\d │$/.test(l))).toBe(true)
     await ui.unmount()
   })
 
@@ -278,5 +290,150 @@ describe('the main session card says waiting only while it asks you', () => {
     w.release.forEach(r => r())
     await asked
     await ui.unmount()
+  })
+})
+
+describe('the card frame (FR-01, FR-03, FR-08, FR-11, FR-13, FR-14)', () => {
+  test('a working agent draws five lines of 46 cells at 48 columns, each a press, the border orange', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 48 })
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await clock.advance(1_000)
+    const lines = await cardOf(ui, 'agent:agent-1')
+    expect(lines).toHaveLength(5)
+    const texts = lines.map(label)
+    for (const t of texts) expect([...t].length).toBe(46)
+    expect(texts[0]).toMatch(/^╭ 1 · Cart ─+╮$/)
+    expect(texts[1]).toMatch(/● running 0:01 │$/)
+    expect(texts[2]).toMatch(/^│ claude-sonnet-5-5 +│$/)
+    expect(texts[4]).toMatch(/0 steps ───╯$/)
+    for (const i of [0, 4]) expect(lines[i].children.every((c: any) => c.props.color === '#ff8700')).toBe(true)
+    for (const l of lines) await ui.press({ key: l.key })
+    expect(w.views).toEqual(lines.map(() => ({ agentId: 'agent-1' })))
+    await ui.unmount()
+  })
+
+  test('done is green with completed and the total time; failed is red; every line stays 46 cells', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    let n = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++n}` }))
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 48 })
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await $.turn.complete({ turnId: 't1', agentId: 'agent-1', reason: 'answer', answer: 'x', durationMs: 372_000 } as never)
+    await $.turn.complete({ turnId: 't2', agentId: 'agent-2', reason: 'error', answer: 'x', durationMs: 5_000 } as never)
+    await clock.advance(1_000)
+    for (const [id, word, color] of [['agent-1', '✓ completed 6:12', 'green'], ['agent-2', '✗ failed 0:05', 'red']] as const) {
+      const lines = await cardOf(ui, `agent:${id}`)
+      expect(lines).toHaveLength(5)
+      for (const l of lines) expect([...label(l)].length).toBe(46)
+      expect(label(lines[1])).toMatch(new RegExp(`${word} │$`))
+      expect(lines[0].children.every((c: any) => c.props.color === color)).toBe(true)
+    }
+    await ui.unmount()
+  })
+
+  test('the Main card is five lines of 46 cells in each of its three states', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 48 })
+    const check = async (word: RegExp, color: string) => {
+      const lines = await cardOf(ui, 'main')
+      expect(lines).toHaveLength(5)
+      for (const l of lines) expect([...label(l)].length).toBe(46)
+      expect(label(lines[0])).toMatch(/^╭ Main session ─+╮$/)
+      expect(label(lines[1])).toMatch(word)
+      expect(lines[0].children.every((c: any) => c.props.color === color)).toBe(true)
+    }
+    await check(/○ idle │$/, 'gray')
+    w.holdAsks = true
+    w.answer = 'Clinical'
+    const asked = $.tool.call({ tool: 'AskUserQuestion', questions: [{ question: 'Q?', header: 'Pick', multiSelect: false, options: [{ label: 'Clinical', description: 'a' }, { label: 'Modern', description: 'b' }] }] } as never)
+    await until(clock, () => w.asked.length > 0)
+    await clock.advance(1_000)
+    await check(/◷ waiting for you 0:01 │$/, 'yellow')
+    w.release.forEach(r => r())
+    await asked
+    await clock.advance(1_000)
+    await check(/● working 0:0\d │$/, '#ff8700')
+    await ui.unmount()
+  })
+
+  test('with no model known the second row starts with the tokens; with no tokens it is blank and the card keeps its height', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: '', agentId: 'agent-1' }))
+    stepUsage(on, 'mystery-1', 40_000, 2_000)
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 48 })
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await clock.advance(1_000)
+    expect((await rowsOf(ui, 'model'))[1]).toBe(`│ ${' '.repeat(42)} │`)
+    await runStep($, 'agent-1')
+    await clock.advance(1_000)
+    expect((await rowsOf(ui, 'model'))[1]).toMatch(/^│ 42k tokens +│$/)
+    expect(await cardOf(ui, 'agent:agent-1')).toHaveLength(5)
+    await ui.unmount()
+  })
+
+  test('numbers are given once at start; a card leaving does not renumber the others', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    let n = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++n}` }))
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 48 })
+    for (let i = 0; i < 3; i++) await $.agent.spawn({ prompt: 'p', description: `Build · Task ${i + 1}`, subagentType: 'cairn:implementer' })
+    await clock.advance(1_000)
+    const tops = async () => (await ui.findAll({ type: 'Button' })).map(label).filter((t: string) => t.startsWith('╭ ')).map((t: string) => /^╭ (\d+|Main)/.exec(t)?.[1])
+    expect(await tops()).toEqual(['Main', '1', '2', '3'])
+    await $.turn.complete({ turnId: 't', agentId: 'agent-2', reason: 'answer', answer: 'x', durationMs: 1_000 } as never)
+    await clock.advance(11_000)
+    expect(await tops()).toEqual(['Main', '1', '3'])
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Task 4', subagentType: 'cairn:implementer' })
+    await clock.advance(1_000)
+    expect(await tops()).toEqual(['Main', '1', '3', '4'])
+    await ui.unmount()
+  })
+
+  test('after a session restart the rebuilt cards are numbered in the engine list order and the counter continues', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.list', () => ({ value: [{ id: 'old-a', description: 'Build · Alpha', type: 'cairn:implementer', status: 'running' }, { id: 'old-b', description: 'Build · Beta', type: 'cairn:implementer', status: 'running' }] }) as never)
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-new' }))
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 48 })
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Gamma', subagentType: 'cairn:implementer' })
+    await clock.advance(1_000)
+    const tops = (await ui.findAll({ type: 'Button' })).map(label).filter((t: string) => t.startsWith('╭ ')).map((t: string) => t.slice(0, 12))
+    expect(tops.join('|')).toContain('╭ 1 · Alpha')
+    expect(tops.join('|')).toContain('╭ 2 · Beta')
+    expect(tops.join('|')).toContain('╭ 3 · Gamma')
+    await ui.unmount()
+  })
+
+  test('narrower than 48 columns the lines shrink, the status keeps its place and the step is cut first', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 30 })
+    await $.agent.spawn({ prompt: 'p', description: 'Review · Cart (security)', subagentType: 'cairn:security-reviewer' })
+    await clock.advance(1_000)
+    const texts = (await cardOf(ui, 'agent:agent-1')).map(label)
+    expect(texts).toHaveLength(5)
+    for (const t of texts) expect([...t].length).toBe(28)
+    expect(texts[1]).toMatch(/● running 0:01 │$/)
+    expect(texts[1]).toMatch(/^│ Build…? ?/)
+    await ui.unmount()
+  })
+})
+
+describe('fmtClock', () => {
+  test('m:ss, then h:mm:ss from one hour', () => {
+    expect(fmtClock(0)).toBe('0:00')
+    expect(fmtClock(592_000)).toBe('9:52')
+    expect(fmtClock(372_000)).toBe('6:12')
+    expect(fmtClock(3_723_000)).toBe('1:02:03')
+    expect(fmtClock(-5)).toBe('0:00')
   })
 })

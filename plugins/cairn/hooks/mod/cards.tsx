@@ -3,7 +3,7 @@ import type { EngineInterface } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
 import type { MainActivity } from './activity.ts'
 import { STAGE_LABEL, type Ui } from './header.tsx'
-import { act, cells, fit, fitting, fmtDuration, tokenCount, viewPress } from './util.ts'
+import { act, cells, fit, fitting, fmtClock, fmtDuration, tokenCount, viewPress } from './util.ts'
 
 const steps = (n: number) => `${n} step${n === 1 ? '' : 's'}`
 
@@ -13,11 +13,14 @@ function usage(tokens: number | undefined, usd: number | undefined): string {
   return usd === undefined ? tokenCount(tokens) : `${tokenCount(tokens)} ~$${usd.toFixed(2)}`
 }
 
-/** The docked pane's 48 columns less the pane's padding (2), the card's border (2) and its padding (2). */
-const CARD_COLUMNS = 42
+/** The docked pane's 48 columns less the pane's padding (2): the width of every card line. */
+const CARD_COLUMNS = 46
+
+/** A card's border and status glyph take the status's color: running orange, completed green, failed red, waiting yellow, idle grey. */
+export const STATUS_COLOR = { running: '#ff8700', completed: 'green', failed: 'red', waiting: 'yellow', idle: 'gray' } as const
 
 /**
- * What every card draws with: the elements, the stage color, the time now, the card's inner width, and the
+ * What every card draws with: the elements, the stage color, the time now, the card's width, and the
  * shown plan's stage and task names, which place an agent in the process.
  */
 export type CardContext = { ui: Ui; accent: string; nowMs: number; columns?: number; stage?: string; taskNames?: string[] }
@@ -45,50 +48,103 @@ export function agentRole(title: string, stage?: string, taskNames: string[] = [
 /** The main session's action while a turn runs; null while it waits for the person. */
 export type Main = MainActivity | null
 
-/** One line of a card; pressing it views the agent. A blank line keeps its row so every card is 3 lines. */
-function cardLine($: EngineInterface, cx: CardContext, key: string, text: string, agentId: string | undefined, isDim: boolean) {
+/** A run of a card line: its text, and the color or dimness it draws with. */
+type Seg = { text: string; color?: string; isDim?: boolean }
+
+/** Cut to `columns` cells with an ellipsis, not padded; empty when there is no room. */
+const cut = (text: string, columns: number) => (columns <= 0 ? '' : fit(text, columns).trimEnd())
+
+/** A label set in with a space either side, cut to leave `spare` cells; empty for no label or no room. */
+function labelled(label: string, spare: number): string {
+  const text = cut(label, spare - 2)
+  return text === '' ? '' : ` ${text} `
+}
+
+/** The top border: `╭ 1 · Cart API ───╮`, the label at the left. */
+function topBorder(label: string, columns: number): string {
+  const text = labelled(label, columns - 3)
+  return `╭${text}${'─'.repeat(Math.max(0, columns - 2 - cells(text)))}╮`
+}
+
+/** The bottom border: `╰──── 14 steps ───╯`, the label at the right. */
+function bottomBorder(label: string, columns: number): string {
+  const text = labelled(label, columns - 6)
+  return `╰${'─'.repeat(Math.max(0, columns - 5 - cells(text)))}${text}───╯`
+}
+
+/** What a card row says: the step on the left, the status on the right (its first glyph in the status color); the left is cut first. */
+function sides(left: string, right: string, inner: number, color: string): Seg[] {
+  if (cells(right) + 1 > inner) return [{ text: fit(right, inner) }]
+  const glyph = [...right][0] ?? ''
+  const room = inner - cells(right) - 1
+  return [{ text: (room > 0 ? fit(left, room) : '') + ' ' }, { text: glyph, color }, { text: right.slice(glyph.length) }]
+}
+
+/** One line of a card: a full-width press that views the agent. The press lands on the label's own cells, so the pieces fill the card. */
+function line($: EngineInterface, cx: CardContext, key: string, segs: Seg[], agentId: string | undefined) {
   const { Button, Text } = cx.ui
-  // The press lands on the label's own cells, so the text is padded to the card's width: the whole row presses.
   return (
     <Button key={key} plain onPress={() => act($, () => viewPress($, agentId))}>
-      <Text dimColor={isDim} wrap="truncate-end">{fit(text, cx.columns ?? CARD_COLUMNS)}</Text>
+      {segs.map((g, i) => <Text key={i} color={g.color} dimColor={g.isDim}>{g.text}</Text>)}
     </Button>
   )
 }
 
-/** One agent as a bordered card of 3 lines: title and model, status, activity; the main session is the same card. Every line is a full-width press. */
-function card($: EngineInterface, cx: CardContext, key: string, border: string, title: string, model: string, status: string, activity: string, agentId?: string) {
-  const { Box, Button, Text } = cx.ui
+/** What a card says on each row; `right` begins with its status glyph. */
+export type CardRows = {
+  number?: number
+  title: string
+  color: string
+  left: string
+  right: string
+  line2: string
+  line3: string
+  line3Dim: boolean
+  footer: string
+}
+
+/**
+ * A card as five full-width presses in one column: a top border with the number and title, the step and
+ * status, the model and usage, the action, and a bottom border with the footer. An engine border can't
+ * hold text, so the frame is drawn as text; the border and the status glyph take `color`.
+ */
+export function cardRows($: EngineInterface, cx: CardContext, key: string, r: CardRows, agentId?: string) {
+  const { Box } = cx.ui
   const columns = cx.columns ?? CARD_COLUMNS
-  const room = columns - cells(model) - (model === '' ? 0 : 1)
+  const inner = columns - 4
+  const edge = (text: string): Seg => ({ text, color: r.color })
+  const body = (segs: Seg[]): Seg[] => [edge('│ '), ...segs, edge(' │')]
+  const top = topBorder(r.number === undefined ? r.title : `${r.number} · ${r.title}`, columns)
+  const bottom = bottomBorder(r.footer, columns)
   return (
-    <Box key={`${key}:card`} flexDirection="column" borderStyle="round" borderColor={border} paddingX={1}>
-      <Button key={key} plain onPress={() => act($, () => viewPress($, agentId))}>
-        <Text wrap="truncate-end">{fit(title, room)}</Text>
-        {model !== '' && <Text dimColor>{` ${model}`}</Text>}
-      </Button>
-      {cardLine($, cx, `${key}:status`, status, agentId, false)}
-      {cardLine($, cx, `${key}:activity`, activity, agentId, true)}
+    <Box key={`${key}:card`} flexDirection="column">
+      {line($, cx, key, [edge(top)], agentId)}
+      {line($, cx, `${key}:status`, body(sides(r.left, r.right, inner, r.color)), agentId)}
+      {line($, cx, `${key}:model`, body([{ text: fit(r.line2, inner), isDim: true }]), agentId)}
+      {line($, cx, `${key}:activity`, body([{ text: fit(r.line3, inner), isDim: r.line3Dim }]), agentId)}
+      {line($, cx, `${key}:end`, [edge(bottom)], agentId)}
     </Box>
   )
 }
 
+/** The model, then the tokens, then the cost; the cost, then the tokens, drop first, and no gap shows for an empty model. */
+function modelRow(model: string, tokens: number | undefined, usd: number | undefined, inner: number): string {
+  const join = (...parts: string[]) => parts.filter(p => p !== '').join(' · ')
+  return fitting(inner, [join(model, usage(tokens, usd)), join(model, usage(tokens, undefined)), model])
+}
+
 export function agentCard($: EngineInterface, cx: CardContext, c: AgentCard) {
-  const { accent, nowMs } = cx
   const role = agentRole(c.title, cx.stage, cx.taskNames)
   const title = role?.title ?? c.title
+  const inner = (cx.columns ?? CARD_COLUMNS) - 4
+  const key = `agent:${c.agentId}`
+  const base = { number: c.number, title, left: role?.step ?? 'working', footer: steps(c.steps), line3Dim: true }
   if (c.status === 'working') {
-    // Steps lead the activity line: the status line holds where the agent is, its time, tokens and cost; the cost,
-    // then the tokens, give way before the card's width cuts the line.
-    const lead = `● ${role?.step ?? 'working'} · ${fmtDuration(nowMs - c.startedAt)}`
-    const tokens = usage(c.tokensLive, undefined)
-    const used = usage(c.tokensLive, c.usd)
-    const status = fitting(cx.columns ?? CARD_COLUMNS, [used === '' ? lead : `${lead} · ${used}`, tokens === '' ? lead : `${lead} · ${tokens}`, lead])
-    return card($, cx, `agent:${c.agentId}`, accent, title, c.model, status, c.action === undefined ? steps(c.steps) : `${steps(c.steps)} · ${c.action}`, c.agentId)
+    return cardRows($, cx, key, { ...base, color: STATUS_COLOR.running, right: `● running ${fmtClock(cx.nowMs - c.startedAt)}`, line2: modelRow(c.model, c.tokensLive, c.usd, inner), line3: c.action ?? '' }, c.agentId)
   }
-  const used = usage(c.tokens, c.usd)
-  const took = fmtDuration(c.durationMs ?? 0)
-  return card($, cx, `agent:${c.agentId}`, c.status === 'done' ? 'green' : 'red', title, c.model, `${c.status === 'done' ? '✓ finished' : '✗ stopped'} · ${took}${used === '' ? '' : ` · ${used}`}`, steps(c.steps), c.agentId)
+  const isDone = c.status === 'done'
+  const right = `${isDone ? '✓ completed' : '✗ failed'} ${fmtClock(c.durationMs ?? 0)}`
+  return cardRows($, cx, key, { ...base, color: isDone ? STATUS_COLOR.completed : STATUS_COLOR.failed, right, line2: modelRow(c.model, c.tokens, c.usd, inner), line3: '' }, c.agentId)
 }
 
 /** "idle", with how many agents still work: the main session's turn ended but it is not asking you anything. */
@@ -98,10 +154,14 @@ function idle(cards: AgentCard[]): string {
 }
 
 export function mainCard($: EngineInterface, cx: CardContext, main: Main, cards: AgentCard[]) {
-  const { accent, nowMs } = cx
-  if (main === null) return card($, cx, 'main', 'gray', 'Main session', '', idle(cards), '')
-  if (main.isWaiting) return card($, cx, 'main', 'yellow', 'Main session', '', `● waiting for you · ${fmtDuration(nowMs - main.since)}`, 'answer in the chat')
-  return card($, cx, 'main', accent, 'Main session', '', `● working · ${fmtDuration(nowMs - main.since)}`, main.action)
+  const { nowMs } = cx
+  const base = { title: 'Main session', left: '', footer: '', line3Dim: true }
+  if (main === null) {
+    const n = cards.filter(c => c.status === 'working').length
+    return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.idle, right: '○ idle', line2: n === 0 ? '' : `${n} agent${n === 1 ? '' : 's'} working`, line3: '' })
+  }
+  if (main.isWaiting) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.waiting, right: `◷ waiting for you ${fmtClock(nowMs - main.since)}`, line2: 'answer in the chat', line3: '' })
+  return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - main.since)}`, line2: '', line3: main.action })
 }
 
 /**

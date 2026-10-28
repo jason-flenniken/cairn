@@ -46,6 +46,15 @@ export function fmtDuration(ms: number, isCoarse = false): string {
   return m > 0 ? `${m}m ${total % 60}s` : `${total}s`
 }
 
+/** The clock a card's timer shows: 9:52, and 1:02:03 from one hour. */
+export function fmtClock(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(total / 3600)
+  const mm = Math.floor((total % 3600) / 60)
+  const ss = String(total % 60).padStart(2, '0')
+  return h > 0 ? `${h}:${String(mm).padStart(2, '0')}:${ss}` : `${mm}:${ss}`
+}
+
 /** 850 tokens, 41k tokens: the one token count the mod shows in full. */
 export const tokenCount = (n: number) => `${n >= 1000 ? `${Math.round(n / 1000)}k` : n} tokens`
 

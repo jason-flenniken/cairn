@@ -15,7 +15,7 @@ async function buttonKeys(ui: any): Promise<string[]> {
 }
 
 async function cardKeys(ui: any): Promise<string[]> {
-  return (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter((k: string) => isCardPress(k) && !k.includes(':status') && !k.includes(':activity'))
+  return (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter((k: string) => isCardPress(k) && !/:(status|model|activity|end)$/.test(k))
 }
 
 // The fixtures of FR-09 and FR-12: what each draws and exactly which buttons it shows.
@@ -707,14 +707,16 @@ describe('agent cards', () => {
     expect(text).toContain('Pane cards')
     expect(text).not.toContain('Build · Pane cards')
     expect(text).toContain('sonnet')
-    expect(text).toContain('● Build · building')
-    expect(text).toContain('1 step')
+    expect(text).toContain('Build · building')
+    expect(text).toContain(' 1 step ───╯')
     expect(text).not.toContain('1 steps')
     await $.turn.complete({ turnId: 't1', agentId: 'agent-1', reason: 'answer', answer: 'done', durationMs: 372_000, usage: { input_tokens: 40_000, output_tokens: 2_000 } } as never)
     text = await drawn(ui)
-    expect(text).toContain('✓ finished · 6m 12s · 42k tokens')
+    const lines = (await ui.findAll({ type: 'Button' })).map((b: { text: string }) => b.text)
+    expect(lines.some((l: string) => l.endsWith('✓ completed 6:12 │'))).toBe(true)
+    expect(text).toContain('42k tokens')
     await clock.advance(11_000)
-    expect(await drawn(ui)).not.toContain('✓ finished')
+    expect(await drawn(ui)).not.toContain(' completed ')
     await ui.unmount()
   })
 
@@ -821,7 +823,7 @@ describe('tabs and the Now view (FR-01..FR-06, FR-19)', () => {
     await ui.unmount()
   })
 
-  test('an agent card is 3 lines before, during and after a tool call, and every line views that agent', async ($, on) => {
+  test('an agent card is 5 lines before, during and after a tool call, and every line views that agent', async ($, on) => {
     const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
     ids(on, ['agent-1'])
     await start($, WT)
@@ -829,14 +831,14 @@ describe('tabs and the Now view (FR-01..FR-06, FR-19)', () => {
     await spawn($, ['agent-1'])
     await clock.advance(1_000)
     const cardLines = async () => (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key).filter((k: string) => k.startsWith('agent:agent-1'))
-    const expected = ['agent:agent-1', 'agent:agent-1:status', 'agent:agent-1:activity']
+    const expected = ['agent:agent-1', 'agent:agent-1:status', 'agent:agent-1:model', 'agent:agent-1:activity', 'agent:agent-1:end']
     expect(await cardLines()).toEqual(expected)
     await $.turn.start({ text: 'p', turnId: 't1', agentId: 'agent-1' })
     await $.tool.call({ tool: 'Bash', command: 'npm test', agentId: 'agent-1' } as never)
     await clock.advance(1_000)
     expect(await cardLines()).toEqual(expected)
     for (const key of expected) await ui.press({ key })
-    expect(w.views).toEqual([{ agentId: 'agent-1' }, { agentId: 'agent-1' }, { agentId: 'agent-1' }])
+    expect(w.views).toEqual(expected.map(() => ({ agentId: 'agent-1' })))
     await ui.unmount()
   })
 
@@ -845,7 +847,7 @@ describe('tabs and the Now view (FR-01..FR-06, FR-19)', () => {
     ['verify', 'greenBright'], ['review', 'magentaBright'], ['ship', 'cyanBright'], ['learn', 'blueBright'],
   ]
   for (const [stage, color] of COLORS) {
-    test(`${stage}: the header, bar and a working card's border use ${color}`, async ($, on) => {
+    test(`${stage}: the header and bar use ${color}; a working card's border stays orange`, async ($, on) => {
       const done = task('a', 'A', { status: 'done' })
       const { clock } = world(on, { rows: [row(plan({ stage, phases: [{ id: 'p1', name: 'Core', status: 'in_progress', tasks: [done] }] }), WT)] })
     ids(on, ['agent-1'])
@@ -856,7 +858,9 @@ describe('tabs and the Now view (FR-01..FR-06, FR-19)', () => {
       const inColor = (await ui.findAll({ type: 'Text' })).filter((n: { props: { color?: string } }) => n.props.color === color).map((t: { text: string }) => t.text)
       expect(inColor.some((t: string) => t.includes('Acme Storefront'))).toBe(true)
       expect(inColor.some((t: string) => t.includes('1/1 tasks'))).toBe(true)
-      expect((await ui.findAll({ type: 'Box' })).filter((n: { props: { borderColor?: string } }) => n.props.borderColor === color)).toHaveLength(1)
+      expect(inColor.some((t: string) => t.startsWith('╭ 1 · '))).toBe(false)
+      const border = (await ui.findAll({ type: 'Text' })).find((n: { text: string }) => n.text.startsWith('╭ 1 · '))
+      expect(border.props.color).toBe('#ff8700')
       await ui.unmount()
     })
   }

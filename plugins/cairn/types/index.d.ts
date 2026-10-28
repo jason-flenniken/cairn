@@ -74,6 +74,8 @@ export type CairnView = { plans: CairnPlanRow[]; here?: string; isFallback?: boo
 /** One subagent's card in the pane's NOW section (hooks/mod/activity.ts). */
 export type AgentCard = {
   agentId: string
+  /** Assigned once when the agent starts, counting up from 1 for the session; never reused. */
+  number: number
   title: string
   type: string
   model: string
@@ -115,6 +117,8 @@ declare module 'claude-code' {
       view: CairnView | null
       isTurnRunning: boolean
       agents: AgentCard[]
+      /** How many agents have been numbered this session; the next card is this plus one. */
+      agentSeq: number
       /** The main session's current action; null while no turn runs. */
       mainActivity: { action: string; since: number; isWaiting?: boolean } | null
       /** The last few finished-agent lines. */
