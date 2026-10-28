@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T01:59:44.990Z",
+  "updated": "2026-10-28T02:03:10.659Z",
   "stage": "plan",
   "stageHistory": [
     {
@@ -31,7 +31,168 @@
       "hash": "b1d410f52e43b834"
     }
   },
-  "phases": [],
+  "phases": [
+    {
+      "id": "new-card",
+      "name": "The new card",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "shared-helpers",
+          "name": "Shared pane helpers",
+          "covers": [
+            "FR-17"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/**",
+            "plugins/cairn/hooks/test/**"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "card-frame",
+          "name": "Card frame",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-08",
+            "FR-11",
+            "FR-13",
+            "FR-14"
+          ],
+          "blockedBy": [
+            "shared-helpers"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/util.ts",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/NOTES.md"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    },
+    {
+      "id": "live-detail",
+      "name": "Real tool calls, the Main card and the polish",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "tool-calls",
+          "name": "Real tool calls on cards",
+          "covers": [
+            "FR-05",
+            "FR-06",
+            "FR-07"
+          ],
+          "blockedBy": [
+            "card-frame"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/util.ts",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/toolcall.test.tsx",
+            "plugins/cairn/hooks/NOTES.md"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "draws agent-supplied text (tool arguments, Bash commands, titles) on screen"
+        },
+        {
+          "id": "doc-viewer",
+          "name": "Doc viewer after Approve",
+          "covers": [
+            "FR-18"
+          ],
+          "blockedBy": [
+            "card-frame"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/doc.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/approval.tsx",
+            "plugins/cairn/hooks/test/doc.test.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "main-card",
+          "name": "Main card, order and wording",
+          "covers": [
+            "FR-09",
+            "FR-10",
+            "FR-12",
+            "FR-16"
+          ],
+          "blockedBy": [
+            "tool-calls",
+            "doc-viewer"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/header.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/util.ts",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/late-header.test.tsx",
+            "plugins/cairn/hooks/test/active.test.tsx",
+            "plugins/cairn/hooks/NOTES.md"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "inline-fit",
+          "name": "Inline view fits 7 rows",
+          "covers": [
+            "FR-15"
+          ],
+          "blockedBy": [
+            "main-card"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/inline.test.tsx"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    }
+  ],
   "evidence": {},
   "drift": [],
   "log": [
@@ -58,6 +219,11 @@
       "at": "2026-10-28T01:59:44.990Z",
       "event": "advanced",
       "detail": "plan"
+    },
+    {
+      "at": "2026-10-28T02:03:10.659Z",
+      "event": "plan loaded",
+      "detail": "2 phases, 6 tasks"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -115,5 +281,6 @@
       ],
       "at": "2026-10-28T01:56:20.245Z"
     }
-  ]
+  ],
+  "planHash": "59c7dab4943e87ed"
 }
