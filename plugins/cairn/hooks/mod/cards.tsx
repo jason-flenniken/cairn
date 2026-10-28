@@ -191,7 +191,7 @@ export function agentLines(cx: CardContext, main: Main, cards: AgentCard[], max 
     ...cards.filter(c => c.status === 'working').map(c => {
       const title = clean(c.title)
       const role = agentRole(title, cx.stage, cx.taskNames)
-      const doing = [role?.step, c.action === undefined ? (role === undefined ? 'running' : undefined) : clean(c.action)].filter(Boolean).join(' · ')
+      const doing = [role?.step, c.action === undefined ? (role === undefined ? 'working' : undefined) : clean(c.action)].filter(Boolean).join(' · ')
       return <Text key={c.agentId} wrap="truncate-end">{`● ${role?.title ?? title} · ${doing} · ${fmtDuration(nowMs - c.startedAt)}`}</Text>
     }),
   ]
