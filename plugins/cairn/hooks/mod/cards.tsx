@@ -148,21 +148,35 @@ export function agentCard($: EngineInterface, cx: CardContext, c: AgentCard) {
   return cardRows($, cx, key, { ...base, color: isDone ? STATUS_COLOR.completed : STATUS_COLOR.failed, right, line2: modelRow(model, c.tokens, c.usd, inner), line3: c.call ?? c.lastCall ?? '' }, c.agentId)
 }
 
-/** "idle", with how many agents still work: the main session's turn ended but it is not asking you anything. */
+/** "idle", with how many agents still run: the main session's turn ended but it is not asking you anything. */
 function idle(cards: AgentCard[]): string {
   const n = cards.filter(c => c.status === 'working').length
-  return n === 0 ? 'idle' : `idle · ${n} agent${n === 1 ? '' : 's'} working`
+  return n === 0 ? 'idle' : `idle · ${n} agent${n === 1 ? '' : 's'} running`
 }
 
-export function mainCard($: EngineInterface, cx: CardContext, main: Main, cards: AgentCard[]) {
+/** The cards in draw order: running ones oldest first, then finished ones newest first (the Main card is drawn above both). */
+export function orderCards(cards: AgentCard[]): AgentCard[] {
+  const running = cards.filter(c => c.status === 'working').sort((a, b) => a.startedAt - b.startedAt)
+  const ended = cards.filter(c => c.status !== 'working').sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0))
+  return [...running, ...ended]
+}
+
+/** The Main card's bottom border: `2 running · 6 done` (and failed ones), counted from the cards shown; empty with none. */
+function agentCounts(cards: AgentCard[]): string {
+  const count = (status: AgentCard['status']) => cards.filter(c => c.status === status).length
+  return [[count('working'), 'running'], [count('done'), 'done'], [count('failed'), 'failed']].filter(([n]) => n !== 0).map(([n, w]) => `${n} ${w}`).join(' · ')
+}
+
+/**
+ * The Main card: working from the turn's start, waiting for you while a question of its is open (even with
+ * agents running), idle from the turn's end. Row 3 is its tool call, or `answer in the chat` while waiting.
+ */
+export function mainCard($: EngineInterface, cx: CardContext, main: Main, cards: AgentCard[], idleSince = 0) {
   const { nowMs } = cx
-  const base = { title: 'Main session', left: '', footer: '', line3Dim: true }
-  if (main === null) {
-    const n = cards.filter(c => c.status === 'working').length
-    return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.idle, right: '○ idle', line2: n === 0 ? '' : `${n} agent${n === 1 ? '' : 's'} working`, line3: '' })
-  }
-  if (main.isWaiting) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.waiting, right: `◷ waiting for you ${fmtClock(nowMs - main.since)}`, line2: 'answer in the chat', line3: '' })
-  return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - main.since)}`, line2: '', line3: main.call ?? clean(main.action), line3Dim: main.call === undefined })
+  const base = { title: 'Main session', left: '', line2: '', footer: agentCounts(cards), line3Dim: true }
+  if (main === null) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.idle, right: idleSince > 0 ? `○ idle ${fmtClock(nowMs - idleSince)}` : '○ idle', line3: '' })
+  if (main.isWaiting) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.waiting, right: `◷ waiting for you ${fmtClock(nowMs - main.since)}`, line3: 'answer in the chat' })
+  return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - (main.turnAt ?? main.since))}`, line3: main.call ?? clean(main.action), line3Dim: main.call === undefined })
 }
 
 /**

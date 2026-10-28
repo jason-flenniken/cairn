@@ -3,12 +3,12 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
-import { LINGER_MS, readAgents, readFeed, readMain, readTick } from './activity.ts'
+import { LINGER_MS, readAgents, readFeed, readMain, readMainIdleSince, readTick } from './activity.ts'
 import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel, readBackCard } from './approval.tsx'
 import { levelOrStandard, readReadBack } from './approve.ts'
 import { isWorking, readActive, startActive, trackActive } from './active.ts'
 import { activeStep, Bar, stageSteps, type BarLine } from './bar.tsx'
-import { agentCard, agentLines, mainCard, type CardContext } from './cards.tsx'
+import { agentCard, agentLines, mainCard, orderCards, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
 import { closeDoc, docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
 import { gitLine, readGit, startGit, trackGit } from './git.ts'
@@ -350,6 +350,7 @@ export function install(on: On): void {
     const status = <Button key="status" label="Status" onPress={() => act($, () => $.command.run({ command: 'cairn:status' }))} />
     const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
     const main = await readMain($)
+    const idleSince = await readMainIdleSince($)
     const used = await readUsage($)
     const baseline = await readBaseline($)
     const gitState = await readGit($)
@@ -441,8 +442,8 @@ export function install(on: On): void {
       return [
         header,
         approve,
-        mainCard($, cx, main, cards),
-        ...cards.map(c => agentCard($, cx, c)),
+        mainCard($, cx, main, cards, idleSince),
+        ...orderCards(cards).map(c => agentCard($, cx, c)),
         upNext.length > 0 && <Text key="next" wrap="truncate-end">{`UP NEXT  ${upNext.join(' · ')}`}</Text>,
         drift.length > 0 && (
           <Box key="drift:box" flexDirection="column">
@@ -559,7 +560,7 @@ export function install(on: On): void {
               <Text key="head" bold>cairn</Text>
               <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>
             </Box>,
-            ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - barLines.length) : [mainCard($, cx, main, cards), ...cards.map(c => agentCard($, cx, c))]),
+            ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - barLines.length) : [mainCard($, cx, main, cards, idleSince), ...orderCards(cards).map(c => agentCard($, cx, c))]),
             <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
           ],
       others.length > 0 && isInline && (
