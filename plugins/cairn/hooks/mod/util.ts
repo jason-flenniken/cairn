@@ -7,7 +7,7 @@ import type { BarLine } from './bar.tsx'
 export function cells(text: string): number {
   let n = 0
   for (const ch of text) {
-    if (/[‍︀-️]|\p{Mn}/u.test(ch)) continue
+    if (/[\u200d\ufe00-\ufe0f]|\p{Mn}/u.test(ch)) continue
     n += /\p{Emoji_Presentation}/u.test(ch) ? 2 : 1
   }
   return n
