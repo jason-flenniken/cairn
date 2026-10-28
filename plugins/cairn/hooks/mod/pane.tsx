@@ -8,7 +8,7 @@ import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel, read
 import { levelOrStandard, readReadBack } from './approve.ts'
 import { isWorking, readActive, startActive, trackActive } from './active.ts'
 import { activeStep, Bar, stageSteps, type BarLine } from './bar.tsx'
-import { agentCard, agentLines, mainCard, orderCards, type CardContext } from './cards.tsx'
+import { agentCard, agentLines, foldedLine, mainCard, orderCards, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
 import { closeDoc, docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
 import { gitLine, readGit, startGit, trackGit } from './git.ts'
@@ -366,6 +366,8 @@ export function install(on: On): void {
     const step = here === undefined ? [] : activeStep(here.state, here.prOpen)
     // Inline, the other plans fold into one line, so the budget below counts one row for them.
     const othersRows = isInline && others.length > 0 ? 1 : 0
+    // Set by the plan view when its agents and other-plans lines merge into one row; the other-plans line then is not drawn alone.
+    let othersFolded = false
     const barLines: BarLine[] = isInline
       ? step.length === 0
         ? []
@@ -421,7 +423,8 @@ export function install(on: On): void {
           {status}
         </Box>
       )
-      const header = planHeader(ui, row, accent, e.props.bodyColumns, t, v?.isFallback ? v.plans.filter(isActive).length : undefined, cards.filter(c => c.status === 'working').length)
+      const working = cards.filter(c => c.status === 'working').length
+      const fallback = v?.isFallback ? v.plans.filter(isActive).length : undefined
       // The stop waiting on the person: a document to approve, or the read-back question open in the chat.
       const rb = await readReadBack($)
       const approve = ready !== undefined
@@ -429,15 +432,20 @@ export function install(on: On): void {
         : rb !== null && rb.slug === s.slug && readBackCard(ui, rb, isInline)
 
       if (isInline) {
-        // One budget over every inline row: title and progress, the fallback and paused notes, the approval, the
-        // other-plans line, the buttons and the bar are fixed; the agents take what is left, and the tip only
-        // shows while a row is still free after them.
-        const fixed = 2 + (v?.isFallback ? 1 : 0) + (isPaused ? 1 : 0) + (approve ? 1 : 0) + othersRows + 1 + barLines.length
-        const lines = agentLines(cx, main, cards, INLINE_ROWS - fixed)
-        const rows = fixed + lines.length
+        // One budget over the seven inline rows. Title and progress, paused note, approval, buttons and bar are
+        // fixed. The "Showing" line goes first, then the agents take what is left; with no room for even one
+        // agent line, the other-plans line merges into the agents' fold line.
+        const fixedRows = 2 + (isPaused ? 1 : 0) + (approve ? 1 : 0) + 1 + barLines.length
+        const showFallback = fallback !== undefined && fixedRows + 1 + othersRows + 1 + working <= INLINE_ROWS
+        const room = INLINE_ROWS - fixedRows - (showFallback ? 1 : 0) - othersRows
+        othersFolded = room < 1
+        const lines = othersFolded ? [foldedLine(cx, cards, others.length)] : agentLines(cx, main, cards, room)
+        const rows = fixedRows + (showFallback ? 1 : 0) + (othersFolded ? 0 : othersRows) + lines.length
         const tip = rows < INLINE_ROWS && <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>
+        const header = planHeader(ui, row, accent, e.props.bodyColumns, t, showFallback ? fallback : undefined, working)
         return [header, approve, ...lines, tip, buttons]
       }
+      const header = planHeader(ui, row, accent, e.props.bodyColumns, t, fallback, working)
 
       return [
         header,
@@ -563,7 +571,7 @@ export function install(on: On): void {
             ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - barLines.length) : [mainCard($, cx, main, cards, idleSince), ...orderCards(cards).map(c => agentCard($, cx, c))]),
             <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
           ],
-      others.length > 0 && isInline && (
+      others.length > 0 && isInline && !othersFolded && (
         <Text key="others" dimColor wrap="truncate-end">{`+${others.length} other active plan${others.length === 1 ? '' : 's'}`}</Text>
       ),
       others.length > 0 && !isInline && (
