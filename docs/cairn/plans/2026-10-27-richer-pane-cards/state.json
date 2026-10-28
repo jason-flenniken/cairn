@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T10:01:18.586Z",
+  "updated": "2026-10-28T10:03:50.997Z",
   "stage": "ship",
   "stageHistory": [
     {
@@ -51,6 +51,11 @@
       "via": "human",
       "source": "mod",
       "hash": "59c7dab4943e87ed"
+    },
+    "ship": {
+      "at": "2026-10-28T10:03:50.996Z",
+      "via": "human",
+      "source": "mod"
     }
   },
   "phases": [
@@ -575,6 +580,16 @@
       "at": "2026-10-28T10:01:18.586Z",
       "event": "advanced",
       "detail": "ship"
+    },
+    {
+      "at": "2026-10-28T10:02:55.851Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-10-28T10:03:50.997Z",
+      "event": "ship approved",
+      "detail": "mod"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -837,6 +852,102 @@
       ],
       "from": "branch-review",
       "at": "2026-10-28T09:57:44.520Z"
+    },
+    {
+      "id": "s26",
+      "area": "tests",
+      "text": "More pane card tests: the model row dropping cost then tokens on a narrow card, the no-plan inline view fitting 7 rows, and one shared card-row helper for the test files",
+      "where": [
+        "plugins/cairn/hooks/test/world.tsx",
+        "plugins/cairn/hooks/test/inline.test.tsx",
+        "plugins/cairn/hooks/test/cards.test.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s6",
+        "richer-pane-cards:s17",
+        "richer-pane-cards:s20"
+      ],
+      "at": "2026-10-28T10:01:43.862Z"
+    },
+    {
+      "id": "s27",
+      "area": "security",
+      "text": "Harden pane text further: wider clean() set (zero-width, line separators, tag characters, DCS/APC strings), drop npx from the Bash subcommand list, clean plan-log details and toasts, and close the doc viewer only for the doc that was approved",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approval.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s12",
+        "richer-pane-cards:s13",
+        "richer-pane-cards:s14",
+        "richer-pane-cards:s21",
+        "richer-pane-cards:s22"
+      ],
+      "at": "2026-10-28T10:01:44.268Z"
+    },
+    {
+      "id": "s28",
+      "area": "quality",
+      "text": "Tidy the pane code: one token rounding with an M tier, a typed approval result instead of matching message text, no side effects for card numbering or the inline fold flag, split Bash on whitespace before cleaning, import order",
+      "where": [
+        "plugins/cairn/hooks/mod/usage.ts",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/approve.ts",
+        "plugins/cairn/hooks/mod/util.ts"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s3",
+        "richer-pane-cards:s5",
+        "richer-pane-cards:s8",
+        "richer-pane-cards:s10",
+        "richer-pane-cards:s11",
+        "richer-pane-cards:s18",
+        "richer-pane-cards:s24"
+      ],
+      "at": "2026-10-28T10:01:44.635Z"
+    },
+    {
+      "id": "s29",
+      "area": "ux",
+      "text": "Card polish: overlapping tool calls on one agent, the Main card's blank second row (session model), status glyph color when cut at narrow widths, one position for the merged inline count line",
+      "where": [
+        "plugins/cairn/hooks/mod/cards.tsx",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s9",
+        "richer-pane-cards:s15",
+        "richer-pane-cards:s19",
+        "richer-pane-cards:s23"
+      ],
+      "at": "2026-10-28T10:01:45.036Z"
+    },
+    {
+      "id": "s30",
+      "area": "docs",
+      "text": "Pane notes: confirm full-width card presses in a live terminal, document the inline row budget order, fix the stale header color comment, doc comment for message()",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts",
+        "plugins/cairn/hooks/NOTES.md",
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s4",
+        "richer-pane-cards:s7",
+        "richer-pane-cards:s16",
+        "richer-pane-cards:s25"
+      ],
+      "at": "2026-10-28T10:01:45.414Z"
     }
   ],
   "lasting": [
@@ -864,5 +975,10 @@
     }
   ],
   "planHash": "59c7dab4943e87ed",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "step": {
+    "stage": "ship",
+    "name": "approving",
+    "at": "2026-10-28T10:02:55.851Z"
+  }
 }
