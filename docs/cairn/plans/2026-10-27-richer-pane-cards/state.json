@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T02:08:04.487Z",
+  "updated": "2026-10-28T02:14:13.064Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -45,7 +45,7 @@
     {
       "id": "new-card",
       "name": "The new card",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "shared-helpers",
@@ -99,9 +99,18 @@
             "plugins/cairn/hooks/NOTES.md"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/richer-pane-cards/card-frame",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--card-frame",
+          "base": "2aa6d52848e5bf2fa92f982d44c82164df059f6d",
+          "startedAt": "2026-10-28T02:08:07.564Z",
+          "level": "standard",
+          "doneAt": "2026-10-28T02:14:13.064Z",
+          "tip": "d53f32c",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "68b1be5a22f973dfb3380b10ea0456d87bcfd47d"
         }
       ]
     },
@@ -288,6 +297,31 @@
       "at": "2026-10-28T02:08:04.487Z",
       "event": "task done",
       "detail": "Shared pane helpers"
+    },
+    {
+      "at": "2026-10-28T02:08:07.564Z",
+      "event": "task started",
+      "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:08:07.652Z",
+      "event": "task implementing",
+      "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:13:03.452Z",
+      "event": "task reviewing",
+      "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:13:42.513Z",
+      "event": "task merging",
+      "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:14:13.064Z",
+      "event": "task done",
+      "detail": "Card frame"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -350,6 +384,46 @@
       ],
       "from": "task-review",
       "at": "2026-10-28T02:06:51.911Z"
+    },
+    {
+      "id": "s6",
+      "area": "tests",
+      "text": "shared helper for card line text and row lookup; cards.test.tsx and pane.test.tsx each define their own",
+      "where": [
+        "plugins/cairn/hooks/test/world.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-28T02:13:03.298Z"
+    },
+    {
+      "id": "s7",
+      "area": "docs",
+      "text": "check in a live terminal that multi-Text Button card rows press across the whole width",
+      "where": [
+        "plugins/cairn/hooks/NOTES.md"
+      ],
+      "from": "implementer",
+      "at": "2026-10-28T02:13:03.376Z"
+    },
+    {
+      "id": "s8",
+      "area": "quality",
+      "text": "agent number assigned via a side effect inside the agentSeq updater; read then update as the rebuild does",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T02:13:42.365Z"
+    },
+    {
+      "id": "s9",
+      "area": "ux",
+      "text": "at very narrow widths the cut status text loses its glyph color",
+      "where": [
+        "plugins/cairn/hooks/mod/cards.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T02:13:42.440Z"
     }
   ],
   "lasting": [
