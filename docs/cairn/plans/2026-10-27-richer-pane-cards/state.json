@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T02:14:13.064Z",
+  "updated": "2026-10-28T02:14:18.703Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -45,7 +45,7 @@
     {
       "id": "new-card",
       "name": "The new card",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "shared-helpers",
@@ -117,7 +117,7 @@
     {
       "id": "live-detail",
       "name": "Real tool calls, the Main card and the polish",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "tool-calls",
@@ -322,6 +322,11 @@
       "at": "2026-10-28T02:14:13.064Z",
       "event": "task done",
       "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:14:18.702Z",
+      "event": "phase finished",
+      "detail": "The new card (tests green (0 fail))"
     }
   ],
   "cairnVersion": "0.6.0",
