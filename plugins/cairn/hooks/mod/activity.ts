@@ -8,6 +8,7 @@ import { fmtDuration, tokenCount } from './util.ts'
 
 // What the pane draws lives in $.state, so a hot reload keeps the cards.
 const agents = atom({ plugin: 'cairn', key: 'agents' } as const, [] as AgentCard[])
+const agentSeq = atom({ plugin: 'cairn', key: 'agentSeq' } as const, 0)
 const mainActivity = atom({ plugin: 'cairn', key: 'mainActivity' } as const, null as MainActivity | null)
 const feed = atom({ plugin: 'cairn', key: 'feed' } as const, [] as { at: number; text: string }[])
 const now = atom({ plugin: 'cairn', key: 'now' } as const, 0)
@@ -221,8 +222,11 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
   if ((await read($, agents)).length === 0) {
     const t = await $.clock.now()
     const live = (await $.agent.list()).filter(a => ACTIVE.includes(a.status))
-    const cards: AgentCard[] = live.map(a => ({ agentId: a.id, title: a.description, type: a.type, model: '', startedAt: t, steps: 0, status: 'working' }))
+    // Numbered in the engine's list order; the counter continues from the last.
+    const first = await read($, agentSeq)
+    const cards: AgentCard[] = live.map((a, i) => ({ agentId: a.id, number: first + i + 1, title: a.description, type: a.type, model: '', startedAt: t, steps: 0, status: 'working' }))
     await update($, agents, () => cards)
+    await update($, agentSeq, () => first + cards.length)
   }
   if (await isBusy($)) await touch($)
 }
@@ -239,7 +243,11 @@ export function install(on: On): void {
       if (r.deny !== undefined || r.agentId === undefined) return
       const id = r.agentId
       const t = await $.clock.now()
-      const card: AgentCard = { agentId: id, title: e.description, type: e.subagentType, model: r.model, startedAt: t, steps: 0, status: 'working' }
+      // A new id takes the next number; a spawn that reuses an id keeps its card's.
+      const known = (await read($, agents)).find(c => c.agentId === id)
+      let number = known?.number ?? 0
+      if (known === undefined) await update($, agentSeq, seq => (number = seq + 1))
+      const card: AgentCard = { agentId: id, number, title: e.description, type: e.subagentType, model: r.model, startedAt: t, steps: 0, status: 'working' }
       await update($, agents, list => [...list.filter(c => c.agentId !== id), card])
       await touch($)
     })
