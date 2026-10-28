@@ -6,12 +6,16 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T01:39:33.906Z",
-  "stage": "discover",
+  "updated": "2026-10-28T01:56:40.019Z",
+  "stage": "prd",
   "stageHistory": [
     {
       "stage": "discover",
       "at": "2026-10-28T01:39:33.906Z"
+    },
+    {
+      "stage": "prd",
+      "at": "2026-10-28T01:56:40.018Z"
     }
   ],
   "paused": null,
@@ -28,8 +32,67 @@
       "at": "2026-10-28T01:39:33.906Z",
       "event": "level",
       "detail": "standard"
+    },
+    {
+      "at": "2026-10-28T01:56:40.019Z",
+      "event": "advanced",
+      "detail": "prd"
     }
   ],
   "cairnVersion": "0.6.0",
-  "level": "standard"
+  "level": "standard",
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "ux",
+      "text": "Resolved pane-status-bar-and-polish:s34",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx",
+        "plugins/cairn/hooks/mod/doc.tsx",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "resolves": "pane-status-bar-and-polish:s34",
+      "note": "brought into richer-pane-cards",
+      "at": "2026-10-28T01:42:45.811Z"
+    },
+    {
+      "id": "s2",
+      "area": "security",
+      "text": "Declined pane-status-bar-and-polish:s32",
+      "where": [
+        "plugins/cairn/cli/src/render.ts",
+        "plugins/cairn/hooks/mod/doc.tsx",
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "user",
+      "declines": "pane-status-bar-and-polish:s32",
+      "at": "2026-10-28T01:42:46.129Z"
+    }
+  ],
+  "lasting": [
+    {
+      "n": 17,
+      "question": "Card border color",
+      "answer": "By status, like the reference: running orange, done green, failed red, waiting yellow, idle grey; the stage stays in the header and bottom bar",
+      "why": "user picked status colors over the earlier one-color-per-stage rule for card borders",
+      "areas": [],
+      "paths": [
+        "plugins/cairn/hooks/mod/**"
+      ],
+      "at": "2026-10-28T01:55:10.424Z"
+    },
+    {
+      "n": 19,
+      "question": "Trust boundary: tool arguments shown on cards",
+      "answer": "Strip control and bidi characters from every shown argument; Bash shows only the program and subcommand (npm test, git commit, curl), never flags or values; paths and Grep patterns shown as-is, cut to fit",
+      "why": "agent tool arguments are outside text and Bash commands can carry secrets",
+      "areas": [],
+      "paths": [
+        "plugins/cairn/hooks/mod/**"
+      ],
+      "at": "2026-10-28T01:56:20.245Z"
+    }
+  ]
 }
