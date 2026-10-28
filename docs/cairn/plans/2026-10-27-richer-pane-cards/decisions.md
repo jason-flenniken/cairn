@@ -108,3 +108,28 @@ _2026-10-28 01:56_
 **Decision:** Outcome: the pane agent and Main session cards redrawn in the reference design at 48 docked columns: number + title in the top border, status word + timer right-aligned (running, completed, failed, waiting for you, idle), border colored by status, model / tokens / cost line, the real tool call kept dimmed between calls, step count in the bottom border; finished cards linger longer; carries in the pane polish follow-up. User: the developer watching the docked pane during a live cairn build. Why now: saw a better reference; nothing is broken, pane work fresh. Success: next to the screenshot a docked card reads as the same design; every agent state reads in one glance. Constraint: fixed card height, 48 columns, inline 7-row view keeps working, font-safe glyphs, whole card clickable. Out of scope: tool-call log and key-hint bar; inline restyle; one card per unit of work; per-card stage trail; Bash shows program + subcommand only.
 **Why:** confirmed by the user
 _2026-10-28 01:56_
+
+### 22. How long finished cards stay
+**Decision:** completed 60 s (was 10 s), failed 120 s (was 60 s)
+**Why:** user wanted finished cards to linger longer; failures stay longer so they are not missed
+_2026-10-28 01:58_
+
+### 23. Card layout
+**Decision:** five lines: number + title in the top border; step left and status + m:ss timer right; model / tokens / cost; tool call; step count in the bottom border. The Main card has no number and shows agent counts (2 running · 6 done) in its bottom border
+**Why:** the mockup the user picked for success, with the reference's timer format and footer counts
+_2026-10-28 01:58_
+
+### 24. One word for running agents
+**Decision:** running, everywhere the pane counts or labels agents
+**Why:** the carried-in follow-up asks for one word; the reference says running
+_2026-10-28 01:58_
+
+### 25. Card order
+**Decision:** Main card, then running agents oldest first, then finished ones newest first; no cap, the pane scrolls as today
+**Why:** user: a running card is never below a finished one
+_2026-10-28 01:59_
+
+### 26. Set aside: exact Bash subcommand rule, path shortening edge cases, token rounding, orange fallback, long-title cutting, plurals
+**Decision:** builder's call, each covered by the requirement's check and tests; orange must stay distinct from waiting yellow
+**Why:** PRD builder check
+_2026-10-28 01:59_
