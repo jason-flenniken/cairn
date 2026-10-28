@@ -4,7 +4,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, SessionStartInput, Timer } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
 import { estimateUsd } from './prices.ts'
-import { fmtDuration, tokenCount } from './util.ts'
+import { clean, fmtDuration, tokenCount } from './util.ts'
 
 // What the pane draws lives in $.state, so a hot reload keeps the cards.
 const agents = atom({ plugin: 'cairn', key: 'agents' } as const, [] as AgentCard[])
@@ -23,7 +23,7 @@ const ACTIVE = ['running', 'pending', 'waiting']
 const ASKS_YOU = new Set(['AskUserQuestion', 'ExitPlanMode'])
 
 /** What the main session is doing; `isWaiting` while a question of its is open for you. */
-export type MainActivity = { action: string; since: number; isWaiting?: boolean }
+export type MainActivity = { action: string; since: number; isWaiting?: boolean; call?: string }
 
 let ticking: Timer | undefined
 
@@ -79,6 +79,65 @@ export function phrase(e: Record<string, unknown>): string {
     }
   }
   return tool.toLowerCase()
+}
+
+// Programs whose first bare word is a subcommand worth showing (`git commit`); for any other program that
+// word is a value (`cd x`, `echo secret`) and is never shown.
+const SUBCOMMANDS = new Set(['git', 'npm', 'pnpm', 'yarn', 'bun', 'npx', 'cargo', 'go', 'docker', 'kubectl', 'gh', 'cairn', 'make', 'brew', 'pip', 'pip3', 'systemctl'])
+const RUNNERS = new Set(['npm', 'pnpm', 'yarn', 'bun'])
+const PROGRAM = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/
+const BARE_WORD = /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
+
+/**
+ * What a Bash call shows: its program and, for a few programs, the subcommand, taken from the first command
+ * only. Everything else (flags, values, paths, quoted text, URLs) is never shown, so a token can't reach the
+ * screen. Empty when the command can't be read that safely.
+ */
+function bashCall(command: string): string {
+  const first = command.split(/\|\||&&|[|;&\r\n]/)[0] ?? ''
+  const words = clean(first).split(/\s+/).filter(Boolean)
+  while (words[0] !== undefined && (ASSIGNMENT.test(words[0]) || words[0] === 'sudo')) {
+    // A quoted or escaped value may hold spaces, so the words after it can't be told apart from its text.
+    if (/["'\\`$]/.test(words[0])) return ''
+    words.shift()
+  }
+  const program = (words[0] ?? '').split('/').pop() ?? ''
+  if (!PROGRAM.test(program)) return ''
+  const sub = words[1]
+  if (!SUBCOMMANDS.has(program) || sub === undefined || !BARE_WORD.test(sub)) return program
+  const script = RUNNERS.has(program) && sub === 'run' && words[2] !== undefined && BARE_WORD.test(words[2]) ? ` ${words[2]}` : ''
+  return `${program} ${sub}${script}`
+}
+
+/** The tool call as `Tool arg` for a card's third row: the argument by tool, cleaned; the name alone when it has none (FR-05, FR-06). */
+export function toolCall(e: Record<string, unknown>): string {
+  const tool = clean(String(e.tool))
+  const text = (key: string) => (typeof e[key] === 'string' ? (e[key] as string) : '')
+  let arg: string
+  switch (tool) {
+    case 'Edit':
+    case 'Write':
+    case 'MultiEdit':
+    case 'NotebookEdit':
+    case 'Read':
+      arg = last2(clean(text('file_path') || text('notebook_path')))
+      break
+    case 'Grep':
+    case 'Glob':
+      arg = clean(text('pattern'))
+      break
+    case 'Agent':
+    case 'Task':
+      arg = clean(text('description'))
+      break
+    case 'Bash':
+      arg = bashCall(text('command'))
+      break
+    default:
+      arg = ''
+  }
+  return arg === '' ? tool : `${tool} ${arg}`
 }
 
 const FALLBACK_MIN: Record<string, number> = { simple: 5, standard: 12, complex: 25 }
@@ -150,9 +209,10 @@ export function before($: EngineInterface, e: Call): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
     const action = phrase(e)
+    const call = toolCall(e)
     if (e.agentId === undefined && ASKS_YOU.has(String(e.tool))) await update($, mainActivity, () => ({ action: 'waiting for you', since: t, isWaiting: true }))
-    else if (e.agentId === undefined) await update($, mainActivity, () => ({ action, since: t }))
-    else await patch($, e.agentId, c => ({ ...c, action, actionSince: t }))
+    else if (e.agentId === undefined) await update($, mainActivity, () => ({ action, since: t, call }))
+    else await patch($, e.agentId, c => ({ ...c, action, actionSince: t, call }))
     await touch($)
   })
 }
@@ -162,7 +222,7 @@ export function after($: EngineInterface, e: Call): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
     if (e.agentId === undefined) await update($, mainActivity, m => (m === null ? m : { action: 'thinking', since: t }))
-    else await patch($, e.agentId, c => ({ ...c, steps: c.steps + 1, action: undefined, actionSince: undefined }))
+    else await patch($, e.agentId, c => ({ ...c, steps: c.steps + 1, action: undefined, actionSince: undefined, call: undefined, lastCall: c.call ?? c.lastCall }))
   })
 }
 
@@ -206,7 +266,7 @@ export function turnComplete($: EngineInterface, e: Complete): Promise<void> {
     await update($, agents, list =>
       list
         .filter(c => c.status === 'working' || c.endedAt === undefined || t - c.endedAt < KEEP_ENDED_MS)
-        .map(c => (c.agentId === id ? { ...c, status: ok ? 'done' : 'failed', endedAt: t, durationMs, tokens, tokensLive: undefined, usd: cost ?? c.usd, action: undefined } : c)),
+        .map(c => (c.agentId === id ? { ...c, status: ok ? 'done' : 'failed', endedAt: t, durationMs, tokens, tokensLive: undefined, usd: cost ?? c.usd, action: undefined, call: undefined, lastCall: c.call ?? c.lastCall } : c)),
     )
     const size = tokens === undefined ? '' : ` · ${tokenCount(tokens)}`
     const line = `${ok ? 'Finished' : 'Stopped'} ${card.title} · ${fmtDuration(durationMs, true)}${size}`
