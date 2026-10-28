@@ -5,7 +5,7 @@
 ## Links
 - PRD: docs/cairn/plans/2026-10-27-richer-pane-cards/prd.md
 - Plan: docs/cairn/plans/2026-10-27-richer-pane-cards/plan.md
-- PR: pending
+- PR: https://github.com/jason-flenniken/cairn/pull/6
 - Tracker: none
 
 ## Why
