@@ -244,7 +244,7 @@ describe('polling (FR-10, NFR-01)', () => {
     isStateDown = false
     await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
     await clock.advance(2_000)
-    expect(w.statuses.at(-1)).toMatch(/1 working/)
+    expect(w.statuses.at(-1)).toMatch(/1 running/)
   })
 
   test('ten idle polls stat files and start no process', async ($, on) => {
@@ -715,7 +715,7 @@ describe('agent cards', () => {
     const lines = (await ui.findAll({ type: 'Button' })).map((b: { text: string }) => b.text)
     expect(lines.some((l: string) => l.endsWith('✓ completed 6:12 │'))).toBe(true)
     expect(text).toContain('42k tokens')
-    await clock.advance(11_000)
+    await clock.advance(61_000)
     expect(await drawn(ui)).not.toContain(' completed ')
     await ui.unmount()
   })
@@ -726,7 +726,7 @@ describe('agent cards', () => {
     await start($, WT)
     await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
     await clock.advance(2_000)
-    expect(w.statuses.at(-1)).toBe('cairn · Build 1/4 tasks · 1 working · ~18m left')
+    expect(w.statuses.at(-1)).toBe('cairn · Build 1/4 tasks · 1 running · ~18m left')
   })
 
   test('a closed plan still opens the pane, showing no plan in progress', async ($, on) => {

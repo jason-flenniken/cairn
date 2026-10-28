@@ -10,20 +10,22 @@ import { clean, fmtDuration, tokenCount } from './util.ts'
 const agents = atom({ plugin: 'cairn', key: 'agents' } as const, [] as AgentCard[])
 const agentSeq = atom({ plugin: 'cairn', key: 'agentSeq' } as const, 0)
 const mainActivity = atom({ plugin: 'cairn', key: 'mainActivity' } as const, null as MainActivity | null)
+/** When the main turn last ended (0 before any has); the Main card's idle clock counts from it. */
+const mainIdleSince = atom({ plugin: 'cairn', key: 'mainIdleSince' } as const, 0)
 const feed = atom({ plugin: 'cairn', key: 'feed' } as const, [] as { at: number; text: string }[])
 const now = atom({ plugin: 'cairn', key: 'now' } as const, 0)
 
 const TICK_MS = 1_000
 const FEED_KEPT = 200
-const KEEP_ENDED_MS = 120_000
+const KEEP_ENDED_MS = 180_000
 /** How long a finished card stays on screen; a failure stays longer so it is not missed. */
-export const LINGER_MS = { done: 10_000, failed: 60_000 }
+export const LINGER_MS = { done: 60_000, failed: 120_000 }
 const ACTIVE = ['running', 'pending', 'waiting']
 /** Tools whose call stays open until you answer, so the main session is waiting for you while one runs. */
 const ASKS_YOU = new Set(['AskUserQuestion', 'ExitPlanMode'])
 
-/** What the main session is doing; `isWaiting` while a question of its is open for you. */
-export type MainActivity = { action: string; since: number; isWaiting?: boolean; call?: string }
+/** What the main session is doing; `isWaiting` while a question of its is open for you. `turnAt` is when its turn began; a tool call does not move it. */
+export type MainActivity = { action: string; since: number; isWaiting?: boolean; call?: string; turnAt?: number }
 
 let ticking: Timer | undefined
 
@@ -33,6 +35,9 @@ export function readAgents($: EngineInterface): Promise<AgentCard[]> {
 }
 export function readMain($: EngineInterface): Promise<MainActivity | null> {
   return read($, mainActivity)
+}
+export function readMainIdleSince($: EngineInterface): Promise<number> {
+  return read($, mainIdleSince)
 }
 export function readFeed($: EngineInterface): Promise<{ at: number; text: string }[]> {
   return read($, feed)
@@ -210,8 +215,8 @@ export function before($: EngineInterface, e: Call): Promise<void> {
     const t = await $.clock.now()
     const action = phrase(e)
     const call = toolCall(e)
-    if (e.agentId === undefined && ASKS_YOU.has(String(e.tool))) await update($, mainActivity, () => ({ action: 'waiting for you', since: t, isWaiting: true }))
-    else if (e.agentId === undefined) await update($, mainActivity, () => ({ action, since: t, call }))
+    if (e.agentId === undefined && ASKS_YOU.has(String(e.tool))) await update($, mainActivity, m => ({ action: 'waiting for you', since: t, isWaiting: true, turnAt: m?.turnAt ?? t }))
+    else if (e.agentId === undefined) await update($, mainActivity, m => ({ action, since: t, call, turnAt: m?.turnAt ?? t }))
     else await patch($, e.agentId, c => ({ ...c, action, actionSince: t, call }))
     await touch($)
   })
@@ -221,7 +226,7 @@ export function before($: EngineInterface, e: Call): Promise<void> {
 export function after($: EngineInterface, e: Call): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
-    if (e.agentId === undefined) await update($, mainActivity, m => (m === null ? m : { action: 'thinking', since: t }))
+    if (e.agentId === undefined) await update($, mainActivity, m => (m === null ? m : { action: 'thinking', since: t, turnAt: m.turnAt }))
     else await patch($, e.agentId, c => ({ ...c, steps: c.steps + 1, action: undefined, actionSince: undefined, call: undefined, lastCall: c.call ?? c.lastCall }))
   })
 }
@@ -230,7 +235,7 @@ export function after($: EngineInterface, e: Call): Promise<void> {
 export function turnStart($: EngineInterface, e: { agentId?: string }): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
-    if (e.agentId === undefined) await update($, mainActivity, () => ({ action: 'thinking', since: t }))
+    if (e.agentId === undefined) await update($, mainActivity, () => ({ action: 'thinking', since: t, turnAt: t }))
     else await patch($, e.agentId, c => (c.status === 'working' ? c : { ...c, status: 'working', startedAt: t, endedAt: undefined, durationMs: undefined, tokens: undefined, tokensLive: undefined, usd: undefined }))
     await touch($)
   })
@@ -255,7 +260,10 @@ type Complete = { agentId?: string; reason?: string; durationMs?: number; usage?
 export function turnComplete($: EngineInterface, e: Complete): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
-    if (e.agentId === undefined) return void (await update($, mainActivity, () => null))
+    if (e.agentId === undefined) {
+      await update($, mainIdleSince, () => t)
+      return void (await update($, mainActivity, () => null))
+    }
     const id = e.agentId
     const card = (await read($, agents)).find(c => c.agentId === id)
     if (card === undefined) return

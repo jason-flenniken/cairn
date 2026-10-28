@@ -101,7 +101,7 @@ describe('where an agent is in the process', () => {
     expect(text).toContain('Build · building')
     expect(text).toContain('Build · fixing')
     expect(text).toContain('Look around the repo')
-    expect((await rowsOf(ui, 'status')).some(l => /^│ working +● running 0:01 │$/.test(l))).toBe(true)
+    expect((await rowsOf(ui, 'status')).some(l => /^│ running +● running 0:01 │$/.test(l))).toBe(true)
     await ui.unmount()
   })
 
@@ -238,7 +238,7 @@ describe('the main session card says waiting only while it asks you', () => {
     const ui = await mount($, 'terminal')
     await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
     await clock.advance(1_000)
-    expect(await drawn(ui)).toContain('1 agent working')
+    expect(await drawn(ui)).toContain('1 running')
     await ui.unmount()
   })
 
@@ -389,7 +389,7 @@ describe('the card frame (FR-01, FR-03, FR-08, FR-11, FR-13, FR-14)', () => {
     const tops = async () => (await ui.findAll({ type: 'Button' })).map(label).filter((t: string) => t.startsWith('╭ ')).map((t: string) => /^╭ (\d+|Main)/.exec(t)?.[1])
     expect(await tops()).toEqual(['Main', '1', '2', '3'])
     await $.turn.complete({ turnId: 't', agentId: 'agent-2', reason: 'answer', answer: 'x', durationMs: 1_000 } as never)
-    await clock.advance(11_000)
+    await clock.advance(61_000)
     expect(await tops()).toEqual(['Main', '1', '3'])
     await $.agent.spawn({ prompt: 'p', description: 'Build · Task 4', subagentType: 'cairn:implementer' })
     await clock.advance(1_000)
@@ -435,5 +435,71 @@ describe('fmtClock', () => {
     expect(fmtClock(372_000)).toBe('6:12')
     expect(fmtClock(3_723_000)).toBe('1:02:03')
     expect(fmtClock(-5)).toBe('0:00')
+  })
+})
+
+describe('the Main card in the new frame (FR-09, FR-10, FR-12, FR-16)', () => {
+  const mainStatus = async (ui: any) => (await rowsOf(ui, 'status'))[0]
+  const mainEnd = async (ui: any) => ((await cardOf(ui, 'main')).map(label)).at(-1)
+
+  test('idle 9:37 after the turn ended, with two agents running: the footer and header say 2 running', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    let n = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++n}` }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.turn.start({ text: 'go', turnId: 't0' } as never)
+    await $.turn.complete({ turnId: 't0', reason: 'answer', answer: 'x' } as never)
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Pay', subagentType: 'cairn:implementer' })
+    await clock.advance(577_000)
+    expect(await mainStatus(ui)).toMatch(/○ idle 9:37 │$/)
+    expect(await mainEnd(ui)).toContain('2 running')
+    expect(w.statuses.at(-1)).toMatch(/2 running/)
+    await ui.unmount()
+  })
+
+  test('working counts from the turn start, not the last tool call; waiting shows the chat hint', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.turn.start({ text: 'go', turnId: 't0' } as never)
+    await clock.advance(5_000)
+    await $.tool.call({ tool: 'Read', file_path: '/a/b/c.ts' } as never)
+    await clock.advance(1_000)
+    expect(await mainStatus(ui)).toMatch(/● working 0:06 │$/)
+    w.holdAsks = true
+    w.answer = 'x'
+    const asked = $.tool.call({ tool: 'AskUserQuestion', questions: [{ question: 'q?', header: 'h', multiSelect: false, options: [{ label: 'x', description: 'a' }, { label: 'y', description: 'b' }] }] } as never)
+    await until(clock, () => w.asked.length > 0)
+    await clock.advance(1_000)
+    expect(await mainStatus(ui)).toMatch(/◷ waiting for you 0:01 │$/)
+    expect((await rowsOf(ui, 'activity'))[0]).toContain('answer in the chat')
+    w.release.forEach(r => r())
+    await asked
+    await ui.unmount()
+  })
+
+  test('running cards come first, oldest first, above finished ones; a done card lingers 60 s, a failed one 120 s', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    let n = 0
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++n}` }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    const tops = async () => (await ui.findAll({ type: 'Button' })).map(label).filter((t: string) => t.startsWith('╭ ')).map((t: string) => /^╭ (\d+|Main)/.exec(t)?.[1])
+    for (let i = 0; i < 3; i++) {
+      await $.agent.spawn({ prompt: 'p', description: `Build · T${i + 1}`, subagentType: 'cairn:implementer' })
+      await clock.advance(1_000)
+    }
+    await $.turn.complete({ turnId: 'a', agentId: 'agent-1', reason: 'answer', answer: 'x', durationMs: 1 } as never)
+    await clock.advance(1_000)
+    await $.turn.complete({ turnId: 'b', agentId: 'agent-2', reason: 'error', answer: '', durationMs: 1 } as never)
+    await clock.advance(1_000)
+    expect(await tops()).toEqual(['Main', '3', '2', '1'])
+    await clock.advance(59_500)
+    expect(await tops()).toEqual(['Main', '3', '2'])
+    await clock.advance(60_000)
+    expect(await tops()).toEqual(['Main', '3'])
+    await ui.unmount()
   })
 })
