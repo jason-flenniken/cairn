@@ -31,7 +31,7 @@ const ROLE_STEP: Record<string, string> = { Build: 'building', Review: 'review',
 /**
  * Where an agent is in the process, from its description ("Review · Cart (security)", per reporting.md):
  * the title without the role, and the step with the plan's stage ("Build · security review"). Undefined
- * for a description that names no role, which keeps its title and reads "running".
+ * for a description that names no role, which keeps its title and reads "working".
  */
 export function agentRole(title: string, stage?: string, taskNames: string[] = []): { title: string; step: string } | undefined {
   const m = /^(\w+) · (.+)$/.exec(title)
@@ -139,7 +139,7 @@ export function agentCard($: EngineInterface, cx: CardContext, c: AgentCard) {
   const title = role?.title ?? clean(c.title)
   const inner = (cx.columns ?? CARD_COLUMNS) - 4
   const key = `agent:${c.agentId}`
-  const base = { number: c.number, title, left: role?.step ?? 'running', footer: steps(c.steps), line3Dim: true }
+  const base = { number: c.number, title, left: role?.step ?? 'working', footer: steps(c.steps), line3Dim: true }
   if (c.status === 'working') {
     return cardRows($, cx, key, { ...base, color: STATUS_COLOR.running, right: `● running ${fmtClock(cx.nowMs - c.startedAt)}`, line2: modelRow(model, c.tokensLive, c.usd, inner), line3: c.call ?? c.lastCall ?? '', line3Dim: c.call === undefined }, c.agentId)
   }

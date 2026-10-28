@@ -101,7 +101,7 @@ describe('where an agent is in the process', () => {
     expect(text).toContain('Build · building')
     expect(text).toContain('Build · fixing')
     expect(text).toContain('Look around the repo')
-    expect((await rowsOf(ui, 'status')).some(l => /^│ running +● running 0:01 │$/.test(l))).toBe(true)
+    expect((await rowsOf(ui, 'status')).some(l => /^│ working +● running 0:01 │$/.test(l))).toBe(true)
     await ui.unmount()
   })
 
@@ -500,6 +500,22 @@ describe('the Main card in the new frame (FR-09, FR-10, FR-12, FR-16)', () => {
     expect(await tops()).toEqual(['Main', '3', '2'])
     await clock.advance(60_000)
     expect(await tops()).toEqual(['Main', '3'])
+    await ui.unmount()
+  })
+})
+
+describe('a no-role agent keeps the step label "working" (FR-03)', () => {
+  test('row 1 starts with working while it runs and after it completes', async ($, on) => {
+    const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Look around the repo', subagentType: 'Explore' })
+    await clock.advance(1_000)
+    expect((await rowsOf(ui, 'status')).some(l => /^│ working +● running 0:01 │$/.test(l))).toBe(true)
+    await $.turn.complete({ turnId: 't', agentId: 'agent-1', reason: 'answer', answer: 'x', durationMs: 372_000 } as never)
+    await clock.advance(1_000)
+    expect((await rowsOf(ui, 'status')).some(l => /^│ working +✓ completed 6:12 │$/.test(l))).toBe(true)
     await ui.unmount()
   })
 })
