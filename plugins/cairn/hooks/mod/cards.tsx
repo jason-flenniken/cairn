@@ -197,6 +197,20 @@ export function agentLines(cx: CardContext, main: Main, cards: AgentCard[], max 
   ]
   if (lines.length <= max) return lines
   if (max < 1) return []
-  const hidden = lines.length - (max - 1)
+  // The main line is not an agent: the count is the agents the fold hides, whether or not the main line is kept.
+  const shownAgents = Math.max(0, max - 2)
+  const hidden = lines.length - 1 - shownAgents
   return [...lines.slice(0, max - 1), <Text key="more" wrap="truncate-end">{`● +${hidden} more agent${hidden === 1 ? '' : 's'}`}</Text>]
+}
+
+/**
+ * The inline row that stands in for the agent lines and the other-plans line when there is no room for both:
+ * "● +6 agents · +1 other plan". The agents part drops out with no working agent.
+ */
+export function foldedLine(cx: CardContext, cards: AgentCard[], plans: number) {
+  const { ui } = cx
+  const { Text } = ui
+  const agents = cards.filter(c => c.status === 'working').length
+  const parts = [agents > 0 && `+${agents} agent${agents === 1 ? '' : 's'}`, `+${plans} other plan${plans === 1 ? '' : 's'}`].filter(Boolean)
+  return <Text key="folded" wrap="truncate-end">{`● ${parts.join(' · ')}`}</Text>
 }
