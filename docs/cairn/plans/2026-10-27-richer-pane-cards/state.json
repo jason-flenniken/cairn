@@ -6,8 +6,8 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T09:51:46.458Z",
-  "stage": "verify",
+  "updated": "2026-10-28T09:51:46.564Z",
+  "stage": "review",
   "stageHistory": [
     {
       "stage": "discover",
@@ -28,6 +28,10 @@
     {
       "stage": "verify",
       "at": "2026-10-28T09:49:37.608Z"
+    },
+    {
+      "stage": "review",
+      "at": "2026-10-28T09:51:46.563Z"
     }
   ],
   "paused": null,
@@ -531,6 +535,11 @@
       "at": "2026-10-28T09:51:46.458Z",
       "event": "verify pass",
       "detail": "tests: 349 CLI + 607 mod passing; 18 requirements met, 1 untested (FR-04 narrow-row drop order); FR-15 worst case draws the merged agents/other-plans line per user decision; secret scan: clean; audit: skipped, no manifest or lockfile changed"
+    },
+    {
+      "at": "2026-10-28T09:51:46.563Z",
+      "event": "advanced",
+      "detail": "review"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -770,10 +779,5 @@
     }
   ],
   "planHash": "59c7dab4943e87ed",
-  "configHash": "12129909968d47d2",
-  "step": {
-    "stage": "verify",
-    "name": "scanning",
-    "at": "2026-10-28T09:50:28.522Z"
-  }
+  "configHash": "12129909968d47d2"
 }
