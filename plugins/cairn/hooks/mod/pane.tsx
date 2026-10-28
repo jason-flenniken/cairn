@@ -73,8 +73,9 @@ const planDir = (r: CairnPlanRow) => r.dir ?? `${r.worktree}/docs/cairn/plans/${
  * The docked bar's lines: the git line, the usage lines, then the stage steps at the bottom, with a
  * dim rule between each group shown. Empty lines and groups are left out.
  */
-function docked(git: BarLine, usage: BarLine[], steps: BarLine[], columns: number): BarLine[] {
-  const rule: BarLine = [{ text: '─'.repeat(columns), dim: true }]
+function docked(git: BarLine, usage: BarLine[], steps: BarLine[], columns: number, isGrid: boolean): BarLine[] {
+  // Off a grid of cells a run of rules wraps or falls short, so the groups part with a blank row instead.
+  const rule: BarLine = isGrid ? [{ text: '─'.repeat(columns), dim: true }] : []
   const groups = [[git], usage, steps].map(g => g.filter(line => line.length > 0)).filter(g => g.length > 0)
   return groups.flatMap((g, i) => (i === 0 ? g : [rule, ...g]))
 }
@@ -341,6 +342,8 @@ export function install(on: On): void {
     await readTick($)
     const t = await $.clock.now()
     const isInline = e.props.placement === 'inline'
+    // The terminal draws text as a grid of cells; desktop, the editor and the phone draw it proportional, spaces collapsed.
+    const isGrid = e.surface === 'terminal'
     const here = v?.plans.find(r => r.state.slug === v.here)
     const accent = STAGE_COLOR[here?.state.stage ?? ''] ?? 'cyan'
     const others = (v?.plans ?? []).filter(r => r !== here && isActive(r))
@@ -355,7 +358,7 @@ export function install(on: On): void {
     const baseline = await readBaseline($)
     const gitState = await readGit($)
     const cx: CardContext = {
-      ui, nowMs: t, columns: e.props.bodyColumns - 2,
+      ui, nowMs: t, columns: e.props.bodyColumns - 2, isGrid,
       stage: here !== undefined && isActive(here) ? here.state.stage : undefined,
       taskNames: here === undefined ? [] : tasksOf(here.state).map(x => x.name ?? x.id ?? ''),
     }
@@ -377,6 +380,7 @@ export function install(on: On): void {
           [modelLine(used, baseline, planSlug, e.props.bodyColumns - 2), limitsLine(used, t, e.props.bodyColumns - 2)],
           here === undefined ? [] : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2),
           e.props.bodyColumns - 2,
+          isGrid,
         )
 
     /**
@@ -388,14 +392,14 @@ export function install(on: On): void {
     const frame = (ev: typeof e, content: RenderChildren, lines: BarLine[]) => {
       const columns = ev.props.bodyColumns - 2
       if (ev.props.placement === 'inline' || lines.length === 0) {
-        return <Box {...rootProps}>{content}{lines.length > 0 && Bar({ ui, lines, columns })}</Box>
+        return <Box {...rootProps}>{content}{lines.length > 0 && Bar({ ui, lines, columns, isGrid })}</Box>
       }
       const { offset, bodyRows } = ev.props.scroll
       const rows = lines.length
       return (
         <Box {...rootProps} minHeight={bodyRows} paddingBottom={rows + 1}>
           {content}
-          {Bar({ ui, lines, columns, top: offset + bodyRows - rows })}
+          {Bar({ ui, lines, columns, top: offset + bodyRows - rows, isGrid })}
         </Box>
       )
     }

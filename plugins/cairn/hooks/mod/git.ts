@@ -118,7 +118,7 @@ export function gitLine(g: CairnGit | null, activeMs: number | undefined, column
     const rest = lineCells(left('')) + (timer.length === 0 ? 0 : cells(GAP) + lineCells(timer))
     const line = left(middle(name, Math.max(BRANCH_MIN, columns - rest)))
     if (timer.length === 0) return line
-    return [...line, { text: ' '.repeat(Math.max(cells(GAP), columns - lineCells(line) - lineCells(timer))) }, ...timer]
+    return [...line, { text: ' '.repeat(Math.max(cells(GAP), columns - lineCells(line) - lineCells(timer))), fill: true }, ...timer]
   }
   return firstFit([build(true, true), build(false, true), build(false, false)], columns)
 }

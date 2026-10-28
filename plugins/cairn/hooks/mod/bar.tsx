@@ -4,8 +4,8 @@ import type { CairnPlanState } from '../../types/index.d.ts'
 import { phaseAt, phasesOf, STAGE_COLOR, type Ui } from './header.tsx'
 import { cells, lineCells } from './util.ts'
 
-/** One styled run of a bar line. */
-export type BarSeg = { text: string; color?: string; bold?: boolean; dim?: boolean }
+/** One styled run of a bar line; `fill` marks the spaces that push the rest to the right edge. */
+export type BarSeg = { text: string; color?: string; bold?: boolean; dim?: boolean; fill?: boolean }
 /** One bar line: its runs in order, drawn as one row. */
 export type BarLine = BarSeg[]
 
@@ -60,20 +60,35 @@ export function activeStep(state: CairnPlanState, prOpen?: boolean): BarLine {
 }
 
 /**
- * The bar: one row per line, each padded with spaces to `columns` so a pinned bar covers the content
- * scrolled beneath it. With `top` it leaves the flow and sits that many rows below its parent's top.
+ * The bar: one row per line. On a grid of cells (the terminal) each is padded with spaces to `columns` so a
+ * pinned bar covers the content scrolled beneath it. Elsewhere spaces collapse and text is proportional, so a
+ * `fill` run is a growing gap and an empty line is a blank row. With `top` it leaves the flow and sits that
+ * many rows below its parent's top.
  */
-export function Bar({ ui, lines, columns, top }: { ui: Ui; lines: BarLine[]; columns: number; top?: number }) {
+export function Bar({ ui, lines, columns, top, isGrid = true }: { ui: Ui; lines: BarLine[]; columns: number; top?: number; isGrid?: boolean }) {
   const { Box, Text } = ui
   const place = top === undefined ? {} : ({ position: 'absolute', top, left: 0, right: 0, paddingX: 1 } as const)
+  const run = (i: number, j: number, seg: BarSeg) => <Text key={`statusbar:${i}:${j}`} color={seg.color} bold={seg.bold} dimColor={seg.dim}>{seg.text}</Text>
   return (
     <Box key="statusbar" flexDirection="column" {...place}>
-      {lines.map((line, i) => (
-        <Text key={`statusbar:${i}`} wrap="truncate-end">
-          {line.map((seg, j) => <Text key={`statusbar:${i}:${j}`} color={seg.color} bold={seg.bold} dimColor={seg.dim}>{seg.text}</Text>)}
-          {' '.repeat(Math.max(0, columns - lineCells(line)))}
-        </Text>
-      ))}
+      {lines.map((line, i) => {
+        if (isGrid) {
+          return (
+            <Text key={`statusbar:${i}`} wrap="truncate-end">
+              {line.map((seg, j) => run(i, j, seg))}
+              {' '.repeat(Math.max(0, columns - lineCells(line)))}
+            </Text>
+          )
+        }
+        const at = line.findIndex(seg => seg.fill === true)
+        if (at < 0) return <Text key={`statusbar:${i}`} wrap="truncate-end">{line.length === 0 ? ' ' : line.map((seg, j) => run(i, j, seg))}</Text>
+        return (
+          <Box key={`statusbar:${i}`} flexDirection="row" justifyContent="space-between" gap={1}>
+            <Text key="left" wrap="truncate-end">{line.slice(0, at).map((seg, j) => run(i, j, seg))}</Text>
+            <Text key="right">{line.slice(at + 1).map((seg, j) => run(i, at + 1 + j, seg))}</Text>
+          </Box>
+        )
+      })}
     </Box>
   )
 }

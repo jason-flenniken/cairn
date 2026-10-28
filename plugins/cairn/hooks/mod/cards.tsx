@@ -1,5 +1,5 @@
 // The pane's agent cards and the main session's card (FR-01..FR-06). A press views that agent's conversation.
-import type { EngineInterface } from 'claude-code'
+import type { EngineInterface, RenderChildren } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
 import type { MainActivity } from './activity.ts'
 import { STAGE_LABEL, type Ui } from './header.tsx'
@@ -20,10 +20,11 @@ const CARD_COLUMNS = 46
 export const STATUS_COLOR = { running: '#ff8700', completed: 'green', failed: 'red', waiting: 'yellow', idle: 'gray' } as const
 
 /**
- * What every card draws with: the elements, the stage color, the time now, the card's width, and the
- * shown plan's stage and task names, which place an agent in the process.
+ * What every card draws with: the elements, the stage color, the time now, the card's width, the
+ * shown plan's stage and task names, which place an agent in the process, and whether the surface draws
+ * text as a grid of cells (the terminal; absent reads as one).
  */
-export type CardContext = { ui: Ui; nowMs: number; columns?: number; stage?: string; taskNames?: string[] }
+export type CardContext = { ui: Ui; nowMs: number; columns?: number; stage?: string; taskNames?: string[]; isGrid?: boolean }
 
 /** What a role in an agent's "<Role> · <what>" description does; a review of a task or for security says which. */
 const ROLE_STEP: Record<string, string> = { Build: 'building', Review: 'review', Fix: 'fixing', Check: 'checking', Record: 'writing the record' }
@@ -109,6 +110,7 @@ export type CardRows = {
  * hold text, so the frame is drawn as text; the border and the status glyph take `color`.
  */
 export function cardRows($: EngineInterface, cx: CardContext, key: string, r: CardRows, agentId?: string) {
+  if (cx.isGrid === false) return flexCard($, cx, key, r, agentId)
   const { Box } = cx.ui
   const columns = cx.columns ?? CARD_COLUMNS
   const inner = columns - 4
@@ -123,6 +125,42 @@ export function cardRows($: EngineInterface, cx: CardContext, key: string, r: Ca
       {line($, cx, `${key}:model`, body([{ text: fit(r.line2, inner), isDim: true }]), agentId)}
       {line($, cx, `${key}:activity`, body([{ text: fit(r.line3, inner), isDim: r.line3Dim }]), agentId)}
       {line($, cx, `${key}:end`, [edge(bottom)], agentId)}
+    </Box>
+  )
+}
+
+/**
+ * A card where text is not a grid of cells (desktop, the editor, the phone): proportional text and collapsed
+ * spaces would break a frame drawn as text, so the engine's rounded border takes `color` and flex rows put
+ * the status and the footer at the right. The title row is the press: a desktop draws a Button as its own
+ * native button, which holds no row of parts and drops the colors inside it.
+ */
+function flexCard($: EngineInterface, cx: CardContext, key: string, r: CardRows, agentId?: string) {
+  const { Box, Button, Text } = cx.ui
+  const title = r.number === undefined ? r.title : `${r.number} · ${r.title}`
+  const glyph = [...r.right][0] ?? ''
+  const row = (k: string, left: RenderChildren, right?: RenderChildren) => (
+    <Box key={k} flexDirection="row" justifyContent="space-between" gap={1} minHeight={1}>
+      {left}
+      {right}
+    </Box>
+  )
+  return (
+    <Box key={`${key}:card`} flexDirection="column" borderStyle="round" borderColor={r.color} paddingX={1}>
+      {row(
+        `${key}:head`,
+        <Button key={key} plain onPress={() => act($, () => viewPress($, agentId))}>
+          <Text bold wrap="truncate-end">{title}</Text>
+        </Button>,
+        r.footer !== '' && <Text key="footer" dimColor wrap="truncate-end">{r.footer}</Text>,
+      )}
+      {row(
+        `${key}:status`,
+        <Text key="left" wrap="truncate-end">{r.left}</Text>,
+        <Text key="right" wrap="truncate-end"><Text color={r.color}>{glyph}</Text>{r.right.slice(glyph.length)}</Text>,
+      )}
+      {row(`${key}:model`, <Text key="model" dimColor wrap="truncate-end">{r.line2}</Text>)}
+      {row(`${key}:activity`, <Text key="activity" dimColor={r.line3Dim} wrap="truncate-end">{r.line3}</Text>)}
     </Box>
   )
 }
