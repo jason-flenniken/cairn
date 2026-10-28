@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T02:03:10.659Z",
+  "updated": "2026-10-28T02:03:40.139Z",
   "stage": "plan",
   "stageHistory": [
     {
@@ -25,10 +25,16 @@
   "paused": null,
   "approvals": {
     "prd": {
-      "at": "2026-10-28T01:59:41.872Z",
+      "at": "2026-10-28T02:03:40.139Z",
       "via": "human",
       "source": "mod",
-      "hash": "b1d410f52e43b834"
+      "hash": "dbc5c144fe5d11bc"
+    },
+    "plan": {
+      "at": "2026-10-28T02:03:40.139Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "59c7dab4943e87ed"
     }
   },
   "phases": [
@@ -224,6 +230,16 @@
       "at": "2026-10-28T02:03:10.659Z",
       "event": "plan loaded",
       "detail": "2 phases, 6 tasks"
+    },
+    {
+      "at": "2026-10-28T02:03:40.139Z",
+      "event": "plan approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-28T02:03:40.139Z",
+      "event": "PRD edits accepted with the plan",
+      "detail": "mod"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -282,5 +298,6 @@
       "at": "2026-10-28T01:56:20.245Z"
     }
   ],
-  "planHash": "59c7dab4943e87ed"
+  "planHash": "59c7dab4943e87ed",
+  "configHash": "12129909968d47d2"
 }
