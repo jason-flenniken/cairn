@@ -23,7 +23,7 @@ export const STATUS_COLOR = { running: '#ff8700', completed: 'green', failed: 'r
  * What every card draws with: the elements, the stage color, the time now, the card's width, and the
  * shown plan's stage and task names, which place an agent in the process.
  */
-export type CardContext = { ui: Ui; accent: string; nowMs: number; columns?: number; stage?: string; taskNames?: string[] }
+export type CardContext = { ui: Ui; nowMs: number; columns?: number; stage?: string; taskNames?: string[] }
 
 /** What a role in an agent's "<Role> · <what>" description does; a review of a task or for security says which. */
 const ROLE_STEP: Record<string, string> = { Build: 'building', Review: 'review', Fix: 'fixing', Check: 'checking', Record: 'writing the record' }
@@ -176,7 +176,7 @@ export function mainCard($: EngineInterface, cx: CardContext, main: Main, cards:
   const base = { title: 'Main session', left: '', line2: '', footer: agentCounts(cards), line3Dim: true }
   if (main === null) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.idle, right: idleSince > 0 ? `○ idle ${fmtClock(nowMs - idleSince)}` : '○ idle', line3: '' })
   if (main.isWaiting) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.waiting, right: `◷ waiting for you ${fmtClock(nowMs - main.since)}`, line3: 'answer in the chat' })
-  return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - (main.turnAt ?? main.since))}`, line3: main.call ?? clean(main.action), line3Dim: main.call === undefined })
+  return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - (main.turnAt ?? main.since))}`, line3: main.call ?? main.lastCall ?? clean(main.action), line3Dim: main.call === undefined })
 }
 
 /**

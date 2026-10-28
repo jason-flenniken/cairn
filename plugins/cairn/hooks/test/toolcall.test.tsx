@@ -9,8 +9,8 @@ const EXECUTE = plan({
 })
 
 /** The third row of agent-1's card, with whether its text is dimmed. */
-async function thirdRow(ui: any): Promise<{ text: string; isDim: boolean }> {
-  const b = (await ui.findAll({ type: 'Button' })).find((x: { key: string }) => x.key === 'agent:agent-1:activity')
+async function thirdRow(ui: any, key = 'agent:agent-1:activity'): Promise<{ text: string; isDim: boolean }> {
+  const b = (await ui.findAll({ type: 'Button' })).find((x: { key: string }) => x.key === key)
   const text: string = b.label ?? b.text ?? ''
   const piece = (await ui.findAll({ type: 'Text' })).find((t: { text: string }) => t.text.trim() !== '' && t.text !== '│ ' && t.text !== ' │' && text.includes(t.text) && t.text.length < text.length && !/^[│ ]+$/.test(t.text))
   return { text: text.slice(2, -2).trimEnd(), isDim: piece?.props?.dimColor === true }
@@ -102,7 +102,7 @@ describe('the other places a command or title is drawn', () => {
   })
 
   test('the inline lines show neither a token nor a control character', () => {
-    const cx = { ui: { Text: (p: unknown) => p }, accent: 'x', nowMs: 5_000 } as unknown as CardContext
+    const cx = { ui: { Text: (p: unknown) => p }, nowMs: 5_000 } as unknown as CardContext
     const main = { action: phrase({ tool: 'Bash', command: "curl -H 'Authorization: Bearer abc123' https://x" }), since: 0 }
     const card = { agentId: 'a', number: 1, title: 'Build \x1b[31m\u202ex', type: 't', model: 'm', startedAt: 0, steps: 0, status: 'working' as const, action: phrase({ tool: 'Bash', command: 'echo Bearer abc123' }) }
     const text = JSON.stringify(agentLines(cx, main, [card]))
@@ -157,6 +157,19 @@ describe('a card\'s third row', () => {
     await $.turn.complete({ turnId: 't1', agentId: 'agent-1', reason: 'answer', answer: 'x', durationMs: 5_000 } as never)
     await clock.advance(1_000)
     expect(await thirdRow(ui)).toEqual({ text: 'Read src/cart.ts', isDim: true })
+    await ui.unmount()
+  })
+
+  test('the Main card keeps its last call, dimmed, between calls', async ($, on) => {
+    const { ui, clock } = await setup($, on)
+    await $.turn.start({ text: 'go', turnId: 'm1' })
+    const read = $.tool.call({ tool: 'Read', file_path: '/a/b/c.ts' } as never)
+    await clock.advance(1_000)
+    expect(await thirdRow(ui, 'main:activity')).toEqual({ text: 'Read b/c.ts', isDim: false })
+    finish()
+    await read
+    await clock.advance(1_000)
+    expect(await thirdRow(ui, 'main:activity')).toEqual({ text: 'Read b/c.ts', isDim: true })
     await ui.unmount()
   })
 

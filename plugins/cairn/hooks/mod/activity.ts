@@ -25,7 +25,7 @@ const ACTIVE = ['running', 'pending', 'waiting']
 const ASKS_YOU = new Set(['AskUserQuestion', 'ExitPlanMode'])
 
 /** What the main session is doing; `isWaiting` while a question of its is open for you. `turnAt` is when its turn began; a tool call does not move it. */
-export type MainActivity = { action: string; since: number; isWaiting?: boolean; call?: string; turnAt?: number }
+export type MainActivity = { action: string; since: number; isWaiting?: boolean; call?: string; lastCall?: string; turnAt?: number }
 
 let ticking: Timer | undefined
 
@@ -216,7 +216,7 @@ export function before($: EngineInterface, e: Call): Promise<void> {
     const action = phrase(e)
     const call = toolCall(e)
     if (e.agentId === undefined && ASKS_YOU.has(String(e.tool))) await update($, mainActivity, m => ({ action: 'waiting for you', since: t, isWaiting: true, turnAt: m?.turnAt ?? t }))
-    else if (e.agentId === undefined) await update($, mainActivity, m => ({ action, since: t, call, turnAt: m?.turnAt ?? t }))
+    else if (e.agentId === undefined) await update($, mainActivity, m => ({ action, since: t, call, lastCall: m?.lastCall, turnAt: m?.turnAt ?? t }))
     else await patch($, e.agentId, c => ({ ...c, action, actionSince: t, call }))
     await touch($)
   })
@@ -226,7 +226,7 @@ export function before($: EngineInterface, e: Call): Promise<void> {
 export function after($: EngineInterface, e: Call): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
-    if (e.agentId === undefined) await update($, mainActivity, m => (m === null ? m : { action: 'thinking', since: t, turnAt: m.turnAt }))
+    if (e.agentId === undefined) await update($, mainActivity, m => (m === null ? m : { action: 'thinking', since: t, lastCall: m.call ?? m.lastCall, turnAt: m.turnAt }))
     else await patch($, e.agentId, c => ({ ...c, steps: c.steps + 1, action: undefined, actionSince: undefined, call: undefined, lastCall: c.call ?? c.lastCall }))
   })
 }

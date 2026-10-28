@@ -124,7 +124,7 @@ declare module 'claude-code' {
       /** How many agents have been numbered this session; the next card is this plus one. */
       agentSeq: number
       /** The main session's current action; null while no turn runs. */
-      mainActivity: { action: string; since: number; isWaiting?: boolean; call?: string; turnAt?: number } | null
+      mainActivity: { action: string; since: number; isWaiting?: boolean; call?: string; lastCall?: string; turnAt?: number } | null
       /** When the main turn last ended, epoch ms; 0 before any has. */
       mainIdleSince: number
       /** The last few finished-agent lines. */

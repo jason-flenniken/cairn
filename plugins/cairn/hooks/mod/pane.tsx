@@ -355,7 +355,7 @@ export function install(on: On): void {
     const baseline = await readBaseline($)
     const gitState = await readGit($)
     const cx: CardContext = {
-      ui, accent, nowMs: t, columns: e.props.bodyColumns - 2,
+      ui, nowMs: t, columns: e.props.bodyColumns - 2,
       stage: here !== undefined && isActive(here) ? here.state.stage : undefined,
       taskNames: here === undefined ? [] : tasksOf(here.state).map(x => x.name ?? x.id ?? ''),
     }
