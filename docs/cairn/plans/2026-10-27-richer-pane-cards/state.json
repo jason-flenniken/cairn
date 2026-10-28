@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T02:14:18.703Z",
+  "updated": "2026-10-28T02:18:46.408Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -140,10 +140,16 @@
             "plugins/cairn/hooks/NOTES.md"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "draws agent-supplied text (tool arguments, Bash commands, titles) on screen"
+          "riskReason": "draws agent-supplied text (tool arguments, Bash commands, titles) on screen",
+          "substep": "implementing",
+          "branch": "task/richer-pane-cards/tool-calls",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--tool-calls",
+          "base": "c2a94480c6dd888f6d9e2a2709d6220bbbbb489e",
+          "startedAt": "2026-10-28T02:14:23.038Z",
+          "level": "standard"
         },
         {
           "id": "doc-viewer",
@@ -162,9 +168,18 @@
             "plugins/cairn/hooks/test/pane.test.tsx"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/richer-pane-cards/doc-viewer",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--doc-viewer",
+          "base": "c2a94480c6dd888f6d9e2a2709d6220bbbbb489e",
+          "startedAt": "2026-10-28T02:14:23.636Z",
+          "level": "standard",
+          "doneAt": "2026-10-28T02:18:46.407Z",
+          "tip": "6056afb",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "ca8abf26c005ee51d269574929d365a52b24150c"
         },
         {
           "id": "main-card",
@@ -222,7 +237,14 @@
     }
   ],
   "evidence": {},
-  "drift": [],
+  "drift": [
+    {
+      "path": "plugins/cairn/hooks/NOTES.md",
+      "at": "2026-10-28T02:16:35.403Z",
+      "reason": "edited outside task \"Doc viewer after Approve\" scope",
+      "task": "doc-viewer"
+    }
+  ],
   "log": [
     {
       "at": "2026-10-28T01:39:33.906Z",
@@ -327,6 +349,46 @@
       "at": "2026-10-28T02:14:18.702Z",
       "event": "phase finished",
       "detail": "The new card (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-28T02:14:23.039Z",
+      "event": "task started",
+      "detail": "Real tool calls on cards"
+    },
+    {
+      "at": "2026-10-28T02:14:23.637Z",
+      "event": "task started",
+      "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:14:23.740Z",
+      "event": "task implementing",
+      "detail": "Real tool calls on cards"
+    },
+    {
+      "at": "2026-10-28T02:14:23.826Z",
+      "event": "task implementing",
+      "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:16:35.404Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/NOTES.md"
+    },
+    {
+      "at": "2026-10-28T02:17:45.636Z",
+      "event": "task reviewing",
+      "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:18:13.347Z",
+      "event": "task merging",
+      "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:18:46.408Z",
+      "event": "task done",
+      "detail": "Doc viewer after Approve"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -429,6 +491,16 @@
       ],
       "from": "task-review",
       "at": "2026-10-28T02:13:42.440Z"
+    },
+    {
+      "id": "s10",
+      "area": "quality",
+      "text": "return a typed result from approveAs so approvePress does not parse the message text to know the approval succeeded",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-28T02:17:45.518Z"
     }
   ],
   "lasting": [
