@@ -4,24 +4,28 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, SessionStartInput, Timer } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
 import { estimateUsd } from './prices.ts'
+import { clean, fmtDuration, tokenCount } from './util.ts'
 
 // What the pane draws lives in $.state, so a hot reload keeps the cards.
 const agents = atom({ plugin: 'cairn', key: 'agents' } as const, [] as AgentCard[])
+const agentSeq = atom({ plugin: 'cairn', key: 'agentSeq' } as const, 0)
 const mainActivity = atom({ plugin: 'cairn', key: 'mainActivity' } as const, null as MainActivity | null)
+/** When the main turn last ended (0 before any has); the Main card's idle clock counts from it. */
+const mainIdleSince = atom({ plugin: 'cairn', key: 'mainIdleSince' } as const, 0)
 const feed = atom({ plugin: 'cairn', key: 'feed' } as const, [] as { at: number; text: string }[])
 const now = atom({ plugin: 'cairn', key: 'now' } as const, 0)
 
 const TICK_MS = 1_000
 const FEED_KEPT = 200
-const KEEP_ENDED_MS = 120_000
+const KEEP_ENDED_MS = 180_000
 /** How long a finished card stays on screen; a failure stays longer so it is not missed. */
-export const LINGER_MS = { done: 10_000, failed: 60_000 }
+export const LINGER_MS = { done: 60_000, failed: 120_000 }
 const ACTIVE = ['running', 'pending', 'waiting']
 /** Tools whose call stays open until you answer, so the main session is waiting for you while one runs. */
 const ASKS_YOU = new Set(['AskUserQuestion', 'ExitPlanMode'])
 
-/** What the main session is doing; `isWaiting` while a question of its is open for you. */
-export type MainActivity = { action: string; since: number; isWaiting?: boolean }
+/** What the main session is doing; `isWaiting` while a question of its is open for you. `turnAt` is when its turn began; a tool call does not move it. */
+export type MainActivity = { action: string; since: number; isWaiting?: boolean; call?: string; lastCall?: string; turnAt?: number }
 
 let ticking: Timer | undefined
 
@@ -31,6 +35,9 @@ export function readAgents($: EngineInterface): Promise<AgentCard[]> {
 }
 export function readMain($: EngineInterface): Promise<MainActivity | null> {
   return read($, mainActivity)
+}
+export function readMainIdleSince($: EngineInterface): Promise<number> {
+  return read($, mainIdleSince)
 }
 export function readFeed($: EngineInterface): Promise<{ at: number; text: string }[]> {
   return read($, feed)
@@ -46,16 +53,6 @@ const safe = async (work: () => Promise<unknown>): Promise<void> => {
   } catch {
     // Bookkeeping must never reach the tool, turn or spawn it watches.
   }
-}
-
-/** 6m 12s, 45s, 1h 05m; coarse drops the seconds under an hour (12m). */
-export function fmtDuration(ms: number, isCoarse = false): string {
-  const total = Math.max(0, Math.round(ms / 1000))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`
-  if (isCoarse) return `${Math.max(1, Math.round(total / 60))}m`
-  return m > 0 ? `${m}m ${total % 60}s` : `${total}s`
 }
 
 const last2 = (path: string) => path.split('/').filter(Boolean).slice(-2).join('/')
@@ -83,10 +80,69 @@ export function phrase(e: Record<string, unknown>): string {
       if (/npm (run )?test| test|cairn task done/.test(cmd)) return 'running tests'
       if (/git merge/.test(cmd)) return 'merging'
       if (/cairn/.test(cmd)) return 'updating the plan'
-      return cmd.slice(0, 40)
+      return bashCall(text('command')) || 'running a command'
     }
   }
   return tool.toLowerCase()
+}
+
+// Programs whose first bare word is a subcommand worth showing (`git commit`); for any other program that
+// word is a value (`cd x`, `echo secret`) and is never shown.
+const SUBCOMMANDS = new Set(['git', 'npm', 'pnpm', 'yarn', 'bun', 'npx', 'cargo', 'go', 'docker', 'kubectl', 'gh', 'cairn', 'make', 'brew', 'pip', 'pip3', 'systemctl'])
+const RUNNERS = new Set(['npm', 'pnpm', 'yarn', 'bun'])
+const PROGRAM = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/
+const BARE_WORD = /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
+
+/**
+ * What a Bash call shows: its program and, for a few programs, the subcommand, taken from the first command
+ * only. Everything else (flags, values, paths, quoted text, URLs) is never shown, so a token can't reach the
+ * screen. Empty when the command can't be read that safely.
+ */
+function bashCall(command: string): string {
+  const first = command.split(/\|\||&&|[|;&\r\n]/)[0] ?? ''
+  const words = clean(first).split(/\s+/).filter(Boolean)
+  while (words[0] !== undefined && (ASSIGNMENT.test(words[0]) || words[0] === 'sudo')) {
+    // A quoted or escaped value may hold spaces, so the words after it can't be told apart from its text.
+    if (/["'\\`$]/.test(words[0])) return ''
+    words.shift()
+  }
+  const program = (words[0] ?? '').split('/').pop() ?? ''
+  if (!PROGRAM.test(program)) return ''
+  const sub = words[1]
+  if (!SUBCOMMANDS.has(program) || sub === undefined || !BARE_WORD.test(sub)) return program
+  const script = RUNNERS.has(program) && sub === 'run' && words[2] !== undefined && BARE_WORD.test(words[2]) ? ` ${words[2]}` : ''
+  return `${program} ${sub}${script}`
+}
+
+/** The tool call as `Tool arg` for a card's third row: the argument by tool, cleaned; the name alone when it has none (FR-05, FR-06). */
+export function toolCall(e: Record<string, unknown>): string {
+  const tool = clean(String(e.tool))
+  const text = (key: string) => (typeof e[key] === 'string' ? (e[key] as string) : '')
+  let arg: string
+  switch (tool) {
+    case 'Edit':
+    case 'Write':
+    case 'MultiEdit':
+    case 'NotebookEdit':
+    case 'Read':
+      arg = last2(clean(text('file_path') || text('notebook_path')))
+      break
+    case 'Grep':
+    case 'Glob':
+      arg = clean(text('pattern'))
+      break
+    case 'Agent':
+    case 'Task':
+      arg = clean(text('description'))
+      break
+    case 'Bash':
+      arg = bashCall(text('command'))
+      break
+    default:
+      arg = ''
+  }
+  return arg === '' ? tool : `${tool} ${arg}`
 }
 
 const FALLBACK_MIN: Record<string, number> = { simple: 5, standard: 12, complex: 25 }
@@ -158,9 +214,10 @@ export function before($: EngineInterface, e: Call): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
     const action = phrase(e)
-    if (e.agentId === undefined && ASKS_YOU.has(String(e.tool))) await update($, mainActivity, () => ({ action: 'waiting for you', since: t, isWaiting: true }))
-    else if (e.agentId === undefined) await update($, mainActivity, () => ({ action, since: t }))
-    else await patch($, e.agentId, c => ({ ...c, action, actionSince: t }))
+    const call = toolCall(e)
+    if (e.agentId === undefined && ASKS_YOU.has(String(e.tool))) await update($, mainActivity, m => ({ action: 'waiting for you', since: t, isWaiting: true, turnAt: m?.turnAt ?? t }))
+    else if (e.agentId === undefined) await update($, mainActivity, m => ({ action, since: t, call, lastCall: m?.lastCall, turnAt: m?.turnAt ?? t }))
+    else await patch($, e.agentId, c => ({ ...c, action, actionSince: t, call }))
     await touch($)
   })
 }
@@ -169,8 +226,8 @@ export function before($: EngineInterface, e: Call): Promise<void> {
 export function after($: EngineInterface, e: Call): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
-    if (e.agentId === undefined) await update($, mainActivity, m => (m === null ? m : { action: 'thinking', since: t }))
-    else await patch($, e.agentId, c => ({ ...c, steps: c.steps + 1, action: undefined, actionSince: undefined }))
+    if (e.agentId === undefined) await update($, mainActivity, m => (m === null ? m : { action: 'thinking', since: t, lastCall: m.call ?? m.lastCall, turnAt: m.turnAt }))
+    else await patch($, e.agentId, c => ({ ...c, steps: c.steps + 1, action: undefined, actionSince: undefined, call: undefined, lastCall: c.call ?? c.lastCall }))
   })
 }
 
@@ -178,7 +235,7 @@ export function after($: EngineInterface, e: Call): Promise<void> {
 export function turnStart($: EngineInterface, e: { agentId?: string }): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
-    if (e.agentId === undefined) await update($, mainActivity, () => ({ action: 'thinking', since: t }))
+    if (e.agentId === undefined) await update($, mainActivity, () => ({ action: 'thinking', since: t, turnAt: t }))
     else await patch($, e.agentId, c => (c.status === 'working' ? c : { ...c, status: 'working', startedAt: t, endedAt: undefined, durationMs: undefined, tokens: undefined, tokensLive: undefined, usd: undefined }))
     await touch($)
   })
@@ -203,7 +260,10 @@ type Complete = { agentId?: string; reason?: string; durationMs?: number; usage?
 export function turnComplete($: EngineInterface, e: Complete): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
-    if (e.agentId === undefined) return void (await update($, mainActivity, () => null))
+    if (e.agentId === undefined) {
+      await update($, mainIdleSince, () => t)
+      return void (await update($, mainActivity, () => null))
+    }
     const id = e.agentId
     const card = (await read($, agents)).find(c => c.agentId === id)
     if (card === undefined) return
@@ -214,10 +274,10 @@ export function turnComplete($: EngineInterface, e: Complete): Promise<void> {
     await update($, agents, list =>
       list
         .filter(c => c.status === 'working' || c.endedAt === undefined || t - c.endedAt < KEEP_ENDED_MS)
-        .map(c => (c.agentId === id ? { ...c, status: ok ? 'done' : 'failed', endedAt: t, durationMs, tokens, tokensLive: undefined, usd: cost ?? c.usd, action: undefined } : c)),
+        .map(c => (c.agentId === id ? { ...c, status: ok ? 'done' : 'failed', endedAt: t, durationMs, tokens, tokensLive: undefined, usd: cost ?? c.usd, action: undefined, call: undefined, lastCall: c.call ?? c.lastCall } : c)),
     )
-    const size = tokens === undefined ? '' : ` · ${tokens >= 1000 ? `${Math.round(tokens / 1000)}k` : tokens} tokens`
-    const line = `${ok ? 'Finished' : 'Stopped'} ${card.title} · ${fmtDuration(durationMs, true)}${size}`
+    const size = tokens === undefined ? '' : ` · ${tokenCount(tokens)}`
+    const line = `${ok ? 'Finished' : 'Stopped'} ${clean(card.title)} · ${fmtDuration(durationMs, true)}${size}`
     await update($, feed, f => [...f, { at: t, text: line }].slice(-FEED_KEPT))
     await touch($)
   })
@@ -230,8 +290,11 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
   if ((await read($, agents)).length === 0) {
     const t = await $.clock.now()
     const live = (await $.agent.list()).filter(a => ACTIVE.includes(a.status))
-    const cards: AgentCard[] = live.map(a => ({ agentId: a.id, title: a.description, type: a.type, model: '', startedAt: t, steps: 0, status: 'working' }))
+    // Numbered in the engine's list order; the counter continues from the last.
+    const first = await read($, agentSeq)
+    const cards: AgentCard[] = live.map((a, i) => ({ agentId: a.id, number: first + i + 1, title: a.description, type: a.type, model: '', startedAt: t, steps: 0, status: 'working' }))
     await update($, agents, () => cards)
+    await update($, agentSeq, () => first + cards.length)
   }
   if (await isBusy($)) await touch($)
 }
@@ -248,7 +311,11 @@ export function install(on: On): void {
       if (r.deny !== undefined || r.agentId === undefined) return
       const id = r.agentId
       const t = await $.clock.now()
-      const card: AgentCard = { agentId: id, title: e.description, type: e.subagentType, model: r.model, startedAt: t, steps: 0, status: 'working' }
+      // A new id takes the next number; a spawn that reuses an id keeps its card's.
+      const known = (await read($, agents)).find(c => c.agentId === id)
+      let number = known?.number ?? 0
+      if (known === undefined) await update($, agentSeq, seq => (number = seq + 1))
+      const card: AgentCard = { agentId: id, number, title: e.description, type: e.subagentType, model: r.model, startedAt: t, steps: 0, status: 'working' }
       await update($, agents, list => [...list.filter(c => c.agentId !== id), card])
       await touch($)
     })

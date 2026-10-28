@@ -1,0 +1,1007 @@
+{
+  "schema": 1,
+  "slug": "richer-pane-cards",
+  "title": "Richer pane cards",
+  "track": "feature",
+  "branch": "feature/richer-pane-cards",
+  "base": "main",
+  "created": "2026-10-28T01:39:33.906Z",
+  "updated": "2026-10-28T10:04:55.010Z",
+  "stage": "closed",
+  "stageHistory": [
+    {
+      "stage": "discover",
+      "at": "2026-10-28T01:39:33.906Z"
+    },
+    {
+      "stage": "prd",
+      "at": "2026-10-28T01:56:40.018Z"
+    },
+    {
+      "stage": "plan",
+      "at": "2026-10-28T01:59:44.990Z"
+    },
+    {
+      "stage": "execute",
+      "at": "2026-10-28T02:03:42.482Z"
+    },
+    {
+      "stage": "verify",
+      "at": "2026-10-28T09:49:37.608Z"
+    },
+    {
+      "stage": "review",
+      "at": "2026-10-28T09:51:46.563Z"
+    },
+    {
+      "stage": "ship",
+      "at": "2026-10-28T10:01:18.585Z"
+    },
+    {
+      "stage": "learn",
+      "at": "2026-10-28T10:04:10.617Z"
+    },
+    {
+      "stage": "closed",
+      "at": "2026-10-28T10:04:55.010Z"
+    }
+  ],
+  "paused": null,
+  "approvals": {
+    "prd": {
+      "at": "2026-10-28T02:03:40.139Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "dbc5c144fe5d11bc"
+    },
+    "plan": {
+      "at": "2026-10-28T02:03:40.139Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "59c7dab4943e87ed"
+    },
+    "ship": {
+      "at": "2026-10-28T10:03:50.996Z",
+      "via": "human",
+      "source": "mod"
+    }
+  },
+  "phases": [
+    {
+      "id": "new-card",
+      "name": "The new card",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "shared-helpers",
+          "name": "Shared pane helpers",
+          "covers": [
+            "FR-17"
+          ],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/hooks/mod/**",
+            "plugins/cairn/hooks/test/**"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 1,
+          "risky": false,
+          "branch": "task/richer-pane-cards/shared-helpers",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--shared-helpers",
+          "base": "47e6d103e791bd6cd1a980a3f3a406cf781e15fd",
+          "startedAt": "2026-10-28T02:03:48.656Z",
+          "level": "standard",
+          "doneAt": "2026-10-28T02:08:04.486Z",
+          "tip": "48d55ca",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "b7339608fd98a4cab20f5cc0bdc9e76dabd49aea"
+        },
+        {
+          "id": "card-frame",
+          "name": "Card frame",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-08",
+            "FR-11",
+            "FR-13",
+            "FR-14"
+          ],
+          "blockedBy": [
+            "shared-helpers"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/util.ts",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/NOTES.md"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/richer-pane-cards/card-frame",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--card-frame",
+          "base": "2aa6d52848e5bf2fa92f982d44c82164df059f6d",
+          "startedAt": "2026-10-28T02:08:07.564Z",
+          "level": "standard",
+          "doneAt": "2026-10-28T02:14:13.064Z",
+          "tip": "d53f32c",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "68b1be5a22f973dfb3380b10ea0456d87bcfd47d"
+        }
+      ]
+    },
+    {
+      "id": "live-detail",
+      "name": "Real tool calls, the Main card and the polish",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "tool-calls",
+          "name": "Real tool calls on cards",
+          "covers": [
+            "FR-05",
+            "FR-06",
+            "FR-07"
+          ],
+          "blockedBy": [
+            "card-frame"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/util.ts",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/toolcall.test.tsx",
+            "plugins/cairn/hooks/NOTES.md"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "risky": true,
+          "riskReason": "draws agent-supplied text (tool arguments, Bash commands, titles) on screen",
+          "branch": "task/richer-pane-cards/tool-calls",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--tool-calls",
+          "base": "c2a94480c6dd888f6d9e2a2709d6220bbbbb489e",
+          "startedAt": "2026-10-28T02:14:23.038Z",
+          "level": "standard",
+          "doneAt": "2026-10-28T02:22:45.788Z",
+          "tip": "655beda",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "bf90d176a113b182b231a3e985c7e41720291504"
+        },
+        {
+          "id": "doc-viewer",
+          "name": "Doc viewer after Approve",
+          "covers": [
+            "FR-18"
+          ],
+          "blockedBy": [
+            "card-frame"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/doc.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/approval.tsx",
+            "plugins/cairn/hooks/test/doc.test.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/richer-pane-cards/doc-viewer",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--doc-viewer",
+          "base": "c2a94480c6dd888f6d9e2a2709d6220bbbbb489e",
+          "startedAt": "2026-10-28T02:14:23.636Z",
+          "level": "standard",
+          "doneAt": "2026-10-28T02:18:46.407Z",
+          "tip": "6056afb",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "ca8abf26c005ee51d269574929d365a52b24150c"
+        },
+        {
+          "id": "main-card",
+          "name": "Main card, order and wording",
+          "covers": [
+            "FR-09",
+            "FR-10",
+            "FR-12",
+            "FR-16"
+          ],
+          "blockedBy": [
+            "tool-calls",
+            "doc-viewer"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/pause.ts",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/header.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/util.ts",
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/late-header.test.tsx",
+            "plugins/cairn/hooks/test/active.test.tsx",
+            "plugins/cairn/hooks/NOTES.md"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "risky": false,
+          "branch": "task/richer-pane-cards/main-card",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--main-card",
+          "base": "5e6ad7bc93a051d40271adff081485240d7ee775",
+          "startedAt": "2026-10-28T02:22:48.974Z",
+          "level": "standard",
+          "doneAt": "2026-10-28T02:27:09.130Z",
+          "tip": "2bf360b",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "bc28f4afd70a542ccbdc5632039791a3aa8ca182"
+        },
+        {
+          "id": "inline-fit",
+          "name": "Inline view fits 7 rows",
+          "covers": [
+            "FR-15"
+          ],
+          "blockedBy": [
+            "main-card"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx",
+            "plugins/cairn/hooks/test/inline.test.tsx"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/richer-pane-cards/inline-fit",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-richer-pane-cards--inline-fit",
+          "base": "da86fe1356874411c9581b6aabde1327ee3c26bf",
+          "startedAt": "2026-10-28T02:27:09.937Z",
+          "level": "standard",
+          "doneAt": "2026-10-28T09:49:33.466Z",
+          "tip": "471691b",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2e7922e671961bed22c6fca129af4782496b0419"
+        }
+      ]
+    }
+  ],
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-28T09:51:46.458Z",
+      "note": "tests: 349 CLI + 607 mod passing; 18 requirements met, 1 untested (FR-04 narrow-row drop order); FR-15 worst case draws the merged agents/other-plans line per user decision; secret scan: clean; audit: skipped, no manifest or lockfile changed"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-10-28T10:01:18.459Z",
+      "note": "3 required findings fixed (Main card last call, version 0.8.0, dead accent); 11 follow-ups logged",
+      "blocking": 0
+    }
+  },
+  "drift": [
+    {
+      "path": "plugins/cairn/hooks/NOTES.md",
+      "at": "2026-10-28T02:16:35.403Z",
+      "reason": "edited outside task \"Doc viewer after Approve\" scope",
+      "task": "doc-viewer"
+    },
+    {
+      "path": "plugins/cairn/hooks/test/pane.test.tsx",
+      "at": "2026-10-28T02:22:45.787Z",
+      "reason": "changed outside task \"Real tool calls on cards\" scope (found at task done)",
+      "task": "tool-calls"
+    }
+  ],
+  "log": [
+    {
+      "at": "2026-10-28T01:39:33.906Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-10-28T01:39:33.906Z",
+      "event": "level",
+      "detail": "standard"
+    },
+    {
+      "at": "2026-10-28T01:56:40.019Z",
+      "event": "advanced",
+      "detail": "prd"
+    },
+    {
+      "at": "2026-10-28T01:59:41.873Z",
+      "event": "PRD approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-28T01:59:44.990Z",
+      "event": "advanced",
+      "detail": "plan"
+    },
+    {
+      "at": "2026-10-28T02:03:10.659Z",
+      "event": "plan loaded",
+      "detail": "2 phases, 6 tasks"
+    },
+    {
+      "at": "2026-10-28T02:03:40.139Z",
+      "event": "plan approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-28T02:03:40.139Z",
+      "event": "PRD edits accepted with the plan",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-28T02:03:42.483Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-10-28T02:03:48.657Z",
+      "event": "task started",
+      "detail": "Shared pane helpers"
+    },
+    {
+      "at": "2026-10-28T02:04:02.428Z",
+      "event": "task implementing",
+      "detail": "Shared pane helpers"
+    },
+    {
+      "at": "2026-10-28T02:06:08.595Z",
+      "event": "task reviewing",
+      "detail": "Shared pane helpers"
+    },
+    {
+      "at": "2026-10-28T02:06:51.986Z",
+      "event": "task fixing",
+      "detail": "Shared pane helpers (attempt 1)"
+    },
+    {
+      "at": "2026-10-28T02:07:32.248Z",
+      "event": "task merging",
+      "detail": "Shared pane helpers"
+    },
+    {
+      "at": "2026-10-28T02:08:04.487Z",
+      "event": "task done",
+      "detail": "Shared pane helpers"
+    },
+    {
+      "at": "2026-10-28T02:08:07.564Z",
+      "event": "task started",
+      "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:08:07.652Z",
+      "event": "task implementing",
+      "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:13:03.452Z",
+      "event": "task reviewing",
+      "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:13:42.513Z",
+      "event": "task merging",
+      "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:14:13.064Z",
+      "event": "task done",
+      "detail": "Card frame"
+    },
+    {
+      "at": "2026-10-28T02:14:18.702Z",
+      "event": "phase finished",
+      "detail": "The new card (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-28T02:14:23.039Z",
+      "event": "task started",
+      "detail": "Real tool calls on cards"
+    },
+    {
+      "at": "2026-10-28T02:14:23.637Z",
+      "event": "task started",
+      "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:14:23.740Z",
+      "event": "task implementing",
+      "detail": "Real tool calls on cards"
+    },
+    {
+      "at": "2026-10-28T02:14:23.826Z",
+      "event": "task implementing",
+      "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:16:35.404Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/NOTES.md"
+    },
+    {
+      "at": "2026-10-28T02:17:45.636Z",
+      "event": "task reviewing",
+      "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:18:13.347Z",
+      "event": "task merging",
+      "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:18:46.408Z",
+      "event": "task done",
+      "detail": "Doc viewer after Approve"
+    },
+    {
+      "at": "2026-10-28T02:19:16.583Z",
+      "event": "task reviewing",
+      "detail": "Real tool calls on cards"
+    },
+    {
+      "at": "2026-10-28T02:20:15.514Z",
+      "event": "task fixing",
+      "detail": "Real tool calls on cards (attempt 1)"
+    },
+    {
+      "at": "2026-10-28T02:22:15.324Z",
+      "event": "task merging",
+      "detail": "Real tool calls on cards"
+    },
+    {
+      "at": "2026-10-28T02:22:45.788Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/pane.test.tsx"
+    },
+    {
+      "at": "2026-10-28T02:22:45.788Z",
+      "event": "task done",
+      "detail": "Real tool calls on cards"
+    },
+    {
+      "at": "2026-10-28T02:22:48.975Z",
+      "event": "task started",
+      "detail": "Main card, order and wording"
+    },
+    {
+      "at": "2026-10-28T02:22:49.064Z",
+      "event": "task implementing",
+      "detail": "Main card, order and wording"
+    },
+    {
+      "at": "2026-10-28T02:25:22.282Z",
+      "event": "task reviewing",
+      "detail": "Main card, order and wording"
+    },
+    {
+      "at": "2026-10-28T02:25:57.018Z",
+      "event": "task fixing",
+      "detail": "Main card, order and wording (attempt 1)"
+    },
+    {
+      "at": "2026-10-28T02:26:37.913Z",
+      "event": "task merging",
+      "detail": "Main card, order and wording"
+    },
+    {
+      "at": "2026-10-28T02:27:09.131Z",
+      "event": "task done",
+      "detail": "Main card, order and wording"
+    },
+    {
+      "at": "2026-10-28T02:27:09.938Z",
+      "event": "task started",
+      "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T02:27:10.024Z",
+      "event": "task implementing",
+      "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T09:48:18.799Z",
+      "event": "task reviewing",
+      "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T09:49:01.611Z",
+      "event": "task merging",
+      "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T09:49:33.467Z",
+      "event": "task done",
+      "detail": "Inline view fits 7 rows"
+    },
+    {
+      "at": "2026-10-28T09:49:37.607Z",
+      "event": "phase finished",
+      "detail": "Real tool calls, the Main card and the polish (tests green (0 fail))"
+    },
+    {
+      "at": "2026-10-28T09:49:37.608Z",
+      "event": "advanced",
+      "detail": "verify"
+    },
+    {
+      "at": "2026-10-28T09:49:47.687Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-10-28T09:50:28.523Z",
+      "event": "step",
+      "detail": "scanning"
+    },
+    {
+      "at": "2026-10-28T09:51:46.458Z",
+      "event": "verify pass",
+      "detail": "tests: 349 CLI + 607 mod passing; 18 requirements met, 1 untested (FR-04 narrow-row drop order); FR-15 worst case draws the merged agents/other-plans line per user decision; secret scan: clean; audit: skipped, no manifest or lockfile changed"
+    },
+    {
+      "at": "2026-10-28T09:51:46.563Z",
+      "event": "advanced",
+      "detail": "review"
+    },
+    {
+      "at": "2026-10-28T09:51:53.708Z",
+      "event": "step",
+      "detail": "reviewing"
+    },
+    {
+      "at": "2026-10-28T09:57:44.592Z",
+      "event": "step",
+      "detail": "fixing (3)"
+    },
+    {
+      "at": "2026-10-28T10:00:27.843Z",
+      "event": "step",
+      "detail": "rechecking"
+    },
+    {
+      "at": "2026-10-28T10:01:18.460Z",
+      "event": "review pass",
+      "detail": "3 required findings fixed (Main card last call, version 0.8.0, dead accent); 11 follow-ups logged"
+    },
+    {
+      "at": "2026-10-28T10:01:18.586Z",
+      "event": "advanced",
+      "detail": "ship"
+    },
+    {
+      "at": "2026-10-28T10:02:55.851Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-10-28T10:03:50.997Z",
+      "event": "ship approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-10-28T10:03:54.309Z",
+      "event": "step",
+      "detail": "opening-pr"
+    },
+    {
+      "at": "2026-10-28T10:04:10.617Z",
+      "event": "advanced",
+      "detail": "learn"
+    },
+    {
+      "at": "2026-10-28T10:04:55.010Z",
+      "event": "warning: close",
+      "detail": "no area docs under docs/cairn/system; run /cairn:map to set them up"
+    },
+    {
+      "at": "2026-10-28T10:04:55.010Z",
+      "event": "closed"
+    }
+  ],
+  "cairnVersion": "0.6.0",
+  "level": "standard",
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "ux",
+      "text": "Resolved pane-status-bar-and-polish:s34",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx",
+        "plugins/cairn/hooks/mod/doc.tsx",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "user",
+      "resolves": "pane-status-bar-and-polish:s34",
+      "note": "brought into richer-pane-cards",
+      "at": "2026-10-28T01:42:45.811Z"
+    },
+    {
+      "id": "s2",
+      "area": "security",
+      "text": "Declined pane-status-bar-and-polish:s32",
+      "where": [
+        "plugins/cairn/cli/src/render.ts",
+        "plugins/cairn/hooks/mod/doc.tsx",
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "user",
+      "declines": "pane-status-bar-and-polish:s32",
+      "at": "2026-10-28T01:42:46.129Z"
+    },
+    {
+      "id": "s3",
+      "area": "quality",
+      "text": "tokensText and tokenCount both round thousands; share the rounding step if the compact tok form changes",
+      "where": [
+        "plugins/cairn/hooks/mod/usage.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-28T02:06:08.524Z"
+    },
+    {
+      "id": "s4",
+      "area": "docs",
+      "text": "message() in util.ts has no doc comment unlike its siblings",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T02:06:51.835Z"
+    },
+    {
+      "id": "s5",
+      "area": "quality",
+      "text": "the ./util.ts import in pane.tsx breaks the alphabetical import order",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T02:06:51.911Z"
+    },
+    {
+      "id": "s6",
+      "area": "tests",
+      "text": "shared helper for card line text and row lookup; cards.test.tsx and pane.test.tsx each define their own",
+      "where": [
+        "plugins/cairn/hooks/test/world.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-10-28T02:13:03.298Z"
+    },
+    {
+      "id": "s7",
+      "area": "docs",
+      "text": "check in a live terminal that multi-Text Button card rows press across the whole width",
+      "where": [
+        "plugins/cairn/hooks/NOTES.md"
+      ],
+      "from": "implementer",
+      "at": "2026-10-28T02:13:03.376Z"
+    },
+    {
+      "id": "s8",
+      "area": "quality",
+      "text": "agent number assigned via a side effect inside the agentSeq updater; read then update as the rebuild does",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T02:13:42.365Z"
+    },
+    {
+      "id": "s9",
+      "area": "ux",
+      "text": "at very narrow widths the cut status text loses its glyph color",
+      "where": [
+        "plugins/cairn/hooks/mod/cards.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T02:13:42.440Z"
+    },
+    {
+      "id": "s10",
+      "area": "quality",
+      "text": "return a typed result from approveAs so approvePress does not parse the message text to know the approval succeeded",
+      "where": [
+        "plugins/cairn/hooks/mod/approve.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-10-28T02:17:45.518Z"
+    },
+    {
+      "id": "s11",
+      "area": "quality",
+      "text": "clean() strips tabs before the Bash word split, so git<TAB>commit shows as gitcommit; split on whitespace first",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T02:19:57.041Z"
+    },
+    {
+      "id": "s12",
+      "area": "security",
+      "text": "clean() could also drop U+061C, U+2028/2029, U+200B-200D, U+FEFF, U+206A-206F, tag characters U+E0000-E007F, and whole DCS/PM/APC strings",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T02:20:15.290Z"
+    },
+    {
+      "id": "s13",
+      "area": "security",
+      "text": "drop npx from the Bash subcommand allow-list so a package name in second position is never shown",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T02:20:15.364Z"
+    },
+    {
+      "id": "s14",
+      "area": "security",
+      "text": "clean() log detail text in recentLines too; plan-log text is outside text",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T02:20:15.440Z"
+    },
+    {
+      "id": "s15",
+      "area": "ux",
+      "text": "Main card row 2 is blank; it could show the session model",
+      "where": [
+        "plugins/cairn/hooks/mod/cards.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T02:25:56.945Z"
+    },
+    {
+      "id": "s16",
+      "area": "docs",
+      "text": "add the inline budget order (Showing, then agents folded into +N more, then merged with other plans) to the inline note",
+      "where": [
+        "plugins/cairn/hooks/NOTES.md"
+      ],
+      "from": "implementer",
+      "at": "2026-10-28T09:48:18.725Z"
+    },
+    {
+      "id": "s17",
+      "area": "tests",
+      "text": "test the no-plan inline path with another plan and five agents fits 7 rows with a +N more line",
+      "where": [
+        "plugins/cairn/hooks/test/inline.test.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T09:49:01.386Z"
+    },
+    {
+      "id": "s18",
+      "area": "quality",
+      "text": "othersFolded is a mutable let set inside planLines and read later; return the fold decision instead",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T09:49:01.463Z"
+    },
+    {
+      "id": "s19",
+      "area": "ux",
+      "text": "the merged agents/other-plans line sits above the buttons while the normal other-plans line sits below; keep one position",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-10-28T09:49:01.537Z"
+    },
+    {
+      "id": "s20",
+      "area": "tests",
+      "text": "no test narrows a card so the model row drops the cost, then the tokens (FR-04): long model id, bodyColumns 30-40",
+      "where": [
+        "plugins/cairn/hooks/test/cards.test.tsx"
+      ],
+      "from": "check",
+      "at": "2026-10-28T09:51:46.386Z"
+    },
+    {
+      "id": "s21",
+      "area": "security",
+      "text": "viewer Approve closes whatever doc is open when the confirm returns; close only if the same file is still open",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T09:53:13.919Z"
+    },
+    {
+      "id": "s22",
+      "area": "security",
+      "text": "toasts show CLI output and engine deny text without clean(); wrap toast text in clean()",
+      "where": [
+        "plugins/cairn/hooks/mod/approval.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-10-28T09:53:14.008Z"
+    },
+    {
+      "id": "s23",
+      "area": "ux",
+      "text": "overlapping tool calls: after(A) clears call while B still runs; track open calls or clear only the matching call",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-28T09:57:44.372Z"
+    },
+    {
+      "id": "s24",
+      "area": "quality",
+      "text": "tokenCount has no M tier and rounds differently from usage.ts tokensText; build it on tokensText",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-28T09:57:44.450Z"
+    },
+    {
+      "id": "s25",
+      "area": "docs",
+      "text": "header.tsx stage-color comment still says borders of working cards",
+      "where": [
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "branch-review",
+      "at": "2026-10-28T09:57:44.520Z"
+    },
+    {
+      "id": "s26",
+      "area": "tests",
+      "text": "More pane card tests: the model row dropping cost then tokens on a narrow card, the no-plan inline view fitting 7 rows, and one shared card-row helper for the test files",
+      "where": [
+        "plugins/cairn/hooks/test/world.tsx",
+        "plugins/cairn/hooks/test/inline.test.tsx",
+        "plugins/cairn/hooks/test/cards.test.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s6",
+        "richer-pane-cards:s17",
+        "richer-pane-cards:s20"
+      ],
+      "at": "2026-10-28T10:01:43.862Z"
+    },
+    {
+      "id": "s27",
+      "area": "security",
+      "text": "Harden pane text further: wider clean() set (zero-width, line separators, tag characters, DCS/APC strings), drop npx from the Bash subcommand list, clean plan-log details and toasts, and close the doc viewer only for the doc that was approved",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approval.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s12",
+        "richer-pane-cards:s13",
+        "richer-pane-cards:s14",
+        "richer-pane-cards:s21",
+        "richer-pane-cards:s22"
+      ],
+      "at": "2026-10-28T10:01:44.268Z"
+    },
+    {
+      "id": "s28",
+      "area": "quality",
+      "text": "Tidy the pane code: one token rounding with an M tier, a typed approval result instead of matching message text, no side effects for card numbering or the inline fold flag, split Bash on whitespace before cleaning, import order",
+      "where": [
+        "plugins/cairn/hooks/mod/usage.ts",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/approve.ts",
+        "plugins/cairn/hooks/mod/util.ts"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s3",
+        "richer-pane-cards:s5",
+        "richer-pane-cards:s8",
+        "richer-pane-cards:s10",
+        "richer-pane-cards:s11",
+        "richer-pane-cards:s18",
+        "richer-pane-cards:s24"
+      ],
+      "at": "2026-10-28T10:01:44.635Z"
+    },
+    {
+      "id": "s29",
+      "area": "ux",
+      "text": "Card polish: overlapping tool calls on one agent, the Main card's blank second row (session model), status glyph color when cut at narrow widths, one position for the merged inline count line",
+      "where": [
+        "plugins/cairn/hooks/mod/cards.tsx",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s9",
+        "richer-pane-cards:s15",
+        "richer-pane-cards:s19",
+        "richer-pane-cards:s23"
+      ],
+      "at": "2026-10-28T10:01:45.036Z"
+    },
+    {
+      "id": "s30",
+      "area": "docs",
+      "text": "Pane notes: confirm full-width card presses in a live terminal, document the inline row budget order, fix the stale header color comment, doc comment for message()",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts",
+        "plugins/cairn/hooks/NOTES.md",
+        "plugins/cairn/hooks/mod/header.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "richer-pane-cards:s4",
+        "richer-pane-cards:s7",
+        "richer-pane-cards:s16",
+        "richer-pane-cards:s25"
+      ],
+      "at": "2026-10-28T10:01:45.414Z"
+    }
+  ],
+  "lasting": [
+    {
+      "n": 17,
+      "question": "Card border color",
+      "answer": "By status, like the reference: running orange, done green, failed red, waiting yellow, idle grey; the stage stays in the header and bottom bar",
+      "why": "user picked status colors over the earlier one-color-per-stage rule for card borders",
+      "areas": [],
+      "paths": [
+        "plugins/cairn/hooks/mod/**"
+      ],
+      "at": "2026-10-28T01:55:10.424Z"
+    },
+    {
+      "n": 19,
+      "question": "Trust boundary: tool arguments shown on cards",
+      "answer": "Strip control and bidi characters from every shown argument; Bash shows only the program and subcommand (npm test, git commit, curl), never flags or values; paths and Grep patterns shown as-is, cut to fit",
+      "why": "agent tool arguments are outside text and Bash commands can carry secrets",
+      "areas": [],
+      "paths": [
+        "plugins/cairn/hooks/mod/**"
+      ],
+      "at": "2026-10-28T01:56:20.245Z"
+    }
+  ],
+  "planHash": "59c7dab4943e87ed",
+  "configHash": "12129909968d47d2",
+  "areasTouched": []
+}

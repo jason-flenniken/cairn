@@ -2,7 +2,8 @@
 // and the plan-reading helpers the other pane modules share.
 import type { Elements, EngineInterface, RenderSurface } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnView } from '../../types/index.d.ts'
-import { etaMs, fmtDuration, readAgents, type EtaTask } from './activity.ts'
+import { etaMs, readAgents, type EtaTask } from './activity.ts'
+import { fmtDuration } from './util.ts'
 
 /** The element table a render hook resolved, as the pane modules draw with it. */
 export type Ui = Elements[RenderSurface]
@@ -55,7 +56,7 @@ export function etaText(row: CairnPlanRow, nowMs: number): string | undefined {
   return `~${fmtDuration(Math.ceil(ms / 60_000) * 60_000, true)} left`
 }
 
-/** `cairn · Build 9/19 tasks · 3 working · ~40m left`; away from a plan, how many are active. */
+/** `cairn · Build 9/19 tasks · 3 running · ~40m left`; away from a plan, how many are active. */
 export async function statusLine($: EngineInterface, v: CairnView): Promise<string | undefined> {
   const row = v.isFallback ? undefined : v.plans.find(r => r.state.slug === v.here)
   const active = v.plans.filter(isActive).length
@@ -65,7 +66,7 @@ export async function statusLine($: EngineInterface, v: CairnView): Promise<stri
   const late = LATE_STAGES.includes(row.state.stage ?? '')
   const parts = late ? [`${stageOf(row.state, row.prOpen)}${lateTail(row, working)}`, row.state.paused && 'paused'] : [
     tasks.length > 0 ? `${stageOf(row.state, row.prOpen)} ${tasks.filter(x => x.status === 'done').length}/${tasks.length} tasks` : stageOf(row.state, row.prOpen),
-    working > 0 && `${working} working`,
+    working > 0 && `${working} running`,
     row.state.paused ? 'paused' : etaText(row, await $.clock.now()),
   ]
   return ['cairn', ...parts.filter(Boolean)].join(' · ')

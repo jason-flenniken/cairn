@@ -3,8 +3,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ProcessRunInit } from 'claude-code'
 import type { CairnGit } from '../../types/index.d.ts'
-import { fmtDuration } from './activity.ts'
-import { BAR_COLUMNS, cells, firstFit, lineCells, type BarLine, type BarSeg } from './bar.tsx'
+import { BAR_COLUMNS, type BarLine, type BarSeg } from './bar.tsx'
+import { cells, firstFit, fmtDuration, lineCells } from './util.ts'
 
 // What the bar draws lives in $.state, so a hot reload keeps it.
 const git = atom({ plugin: 'cairn', key: 'git' } as const, null as CairnGit | null)

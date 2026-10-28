@@ -74,6 +74,8 @@ export type CairnView = { plans: CairnPlanRow[]; here?: string; isFallback?: boo
 /** One subagent's card in the pane's NOW section (hooks/mod/activity.ts). */
 export type AgentCard = {
   agentId: string
+  /** Assigned once when the agent starts, counting up from 1 for the session; never reused. */
+  number: number
   title: string
   type: string
   model: string
@@ -81,6 +83,10 @@ export type AgentCard = {
   steps: number
   action?: string
   actionSince?: number
+  /** The tool call under way, as `Tool arg` (activity.ts `toolCall`). */
+  call?: string
+  /** The last tool call that ended, kept for the card's third row once `call` is gone. */
+  lastCall?: string
   status: 'working' | 'done' | 'failed'
   endedAt?: number
   durationMs?: number
@@ -115,8 +121,12 @@ declare module 'claude-code' {
       view: CairnView | null
       isTurnRunning: boolean
       agents: AgentCard[]
+      /** How many agents have been numbered this session; the next card is this plus one. */
+      agentSeq: number
       /** The main session's current action; null while no turn runs. */
-      mainActivity: { action: string; since: number; isWaiting?: boolean } | null
+      mainActivity: { action: string; since: number; isWaiting?: boolean; call?: string; lastCall?: string; turnAt?: number } | null
+      /** When the main turn last ended, epoch ms; 0 before any has. */
+      mainIdleSince: number
       /** The last few finished-agent lines. */
       feed: { at: number; text: string }[]
       /** Ticked while anything is active, so the pane redraws its timers. */

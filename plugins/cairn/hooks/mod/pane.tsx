@@ -3,17 +3,18 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartInput, Timer } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
-import { LINGER_MS, readAgents, readFeed, readMain, readTick } from './activity.ts'
+import { LINGER_MS, readAgents, readFeed, readMain, readMainIdleSince, readTick } from './activity.ts'
 import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel, readBackCard } from './approval.tsx'
 import { levelOrStandard, readReadBack } from './approve.ts'
 import { isWorking, readActive, startActive, trackActive } from './active.ts'
-import { activeStep, Bar, cells, stageSteps, type BarLine } from './bar.tsx'
-import { act, agentCard, agentLines, mainCard, message, type CardContext } from './cards.tsx'
+import { activeStep, Bar, stageSteps, type BarLine } from './bar.tsx'
+import { agentCard, agentLines, foldedLine, mainCard, orderCards, type CardContext } from './cards.tsx'
 import { cairn } from './cli.ts'
-import { docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
+import { closeDoc, docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
 import { gitLine, readGit, startGit, trackGit } from './git.ts'
 import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
+import { act, cells, message } from './util.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
 import { inlineUsage, install as installUsage, limitsLine, modelLine, readBaseline, readUsage, syncBaseline } from './usage.ts'
 
@@ -349,11 +350,12 @@ export function install(on: On): void {
     const status = <Button key="status" label="Status" onPress={() => act($, () => $.command.run({ command: 'cairn:status' }))} />
     const cards = (await readAgents($)).filter(c => c.status === 'working' || t - (c.endedAt ?? 0) < LINGER_MS[c.status])
     const main = await readMain($)
+    const idleSince = await readMainIdleSince($)
     const used = await readUsage($)
     const baseline = await readBaseline($)
     const gitState = await readGit($)
     const cx: CardContext = {
-      ui, accent, nowMs: t, columns: e.props.bodyColumns - 6,
+      ui, nowMs: t, columns: e.props.bodyColumns - 2,
       stage: here !== undefined && isActive(here) ? here.state.stage : undefined,
       taskNames: here === undefined ? [] : tasksOf(here.state).map(x => x.name ?? x.id ?? ''),
     }
@@ -364,6 +366,8 @@ export function install(on: On): void {
     const step = here === undefined ? [] : activeStep(here.state, here.prOpen)
     // Inline, the other plans fold into one line, so the budget below counts one row for them.
     const othersRows = isInline && others.length > 0 ? 1 : 0
+    // Set by the plan view when its agents and other-plans lines merge into one row; the other-plans line then is not drawn alone.
+    let othersFolded = false
     const barLines: BarLine[] = isInline
       ? step.length === 0
         ? []
@@ -419,7 +423,8 @@ export function install(on: On): void {
           {status}
         </Box>
       )
-      const header = planHeader(ui, row, accent, e.props.bodyColumns, t, v?.isFallback ? v.plans.filter(isActive).length : undefined, cards.filter(c => c.status === 'working').length)
+      const working = cards.filter(c => c.status === 'working').length
+      const fallback = v?.isFallback ? v.plans.filter(isActive).length : undefined
       // The stop waiting on the person: a document to approve, or the read-back question open in the chat.
       const rb = await readReadBack($)
       const approve = ready !== undefined
@@ -427,21 +432,26 @@ export function install(on: On): void {
         : rb !== null && rb.slug === s.slug && readBackCard(ui, rb, isInline)
 
       if (isInline) {
-        // One budget over every inline row: title and progress, the fallback and paused notes, the approval, the
-        // other-plans line, the buttons and the bar are fixed; the agents take what is left, and the tip only
-        // shows while a row is still free after them.
-        const fixed = 2 + (v?.isFallback ? 1 : 0) + (isPaused ? 1 : 0) + (approve ? 1 : 0) + othersRows + 1 + barLines.length
-        const lines = agentLines(cx, main, cards, INLINE_ROWS - fixed)
-        const rows = fixed + lines.length
+        // One budget over the seven inline rows. Title and progress, paused note, approval, buttons and bar are
+        // fixed. The "Showing" line goes first, then the agents take what is left; with no room for even one
+        // agent line, the other-plans line merges into the agents' fold line.
+        const fixedRows = 2 + (isPaused ? 1 : 0) + (approve ? 1 : 0) + 1 + barLines.length
+        const showFallback = fallback !== undefined && fixedRows + 1 + othersRows + 1 + working <= INLINE_ROWS
+        const room = INLINE_ROWS - fixedRows - (showFallback ? 1 : 0) - othersRows
+        othersFolded = room < 1
+        const lines = othersFolded ? [foldedLine(cx, cards, others.length)] : agentLines(cx, main, cards, room)
+        const rows = fixedRows + (showFallback ? 1 : 0) + (othersFolded ? 0 : othersRows) + lines.length
         const tip = rows < INLINE_ROWS && <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>
+        const header = planHeader(ui, row, accent, e.props.bodyColumns, t, showFallback ? fallback : undefined, working)
         return [header, approve, ...lines, tip, buttons]
       }
+      const header = planHeader(ui, row, accent, e.props.bodyColumns, t, fallback, working)
 
       return [
         header,
         approve,
-        mainCard($, cx, main, cards),
-        ...cards.map(c => agentCard($, cx, c)),
+        mainCard($, cx, main, cards, idleSince),
+        ...orderCards(cards).map(c => agentCard($, cx, c)),
         upNext.length > 0 && <Text key="next" wrap="truncate-end">{`UP NEXT  ${upNext.join(' · ')}`}</Text>,
         drift.length > 0 && (
           <Box key="drift:box" flexDirection="column">
@@ -472,7 +482,10 @@ export function install(on: On): void {
       const followUps = doc.kind === 'record' ? (await read($, records))?.find(x => x.record === doc.file)?.followUps.filter(f => f.status === 'open') ?? [] : []
       return frame(e, await docViewer(
         $, PANE, ui, doc,
-        waiting === undefined || here === undefined ? undefined : () => act($, () => approvePress($, here.state.slug, waiting.kind)),
+        // An approval that went through closes the viewer, so the tab it was opened from shows again; a cancel keeps it open.
+        waiting === undefined || here === undefined ? undefined : () => act($, async () => {
+          if (await approvePress($, here.state.slug, waiting.kind)) await closeDoc($, PANE)
+        }),
         followUps.length > 0 ? `**Follow-ups**\n\n${followUps.map(f => `- ${f.text} (${f.area})`).join('\n')}` : undefined,
       ), barLines)
     }
@@ -555,10 +568,10 @@ export function install(on: On): void {
               <Text key="head" bold>cairn</Text>
               <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>
             </Box>,
-            ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - barLines.length) : [mainCard($, cx, main, cards), ...cards.map(c => agentCard($, cx, c))]),
+            ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - barLines.length) : [mainCard($, cx, main, cards, idleSince), ...orderCards(cards).map(c => agentCard($, cx, c))]),
             <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
           ],
-      others.length > 0 && isInline && (
+      others.length > 0 && isInline && !othersFolded && (
         <Text key="others" dimColor wrap="truncate-end">{`+${others.length} other active plan${others.length === 1 ? '' : 's'}`}</Text>
       ),
       others.length > 0 && !isInline && (

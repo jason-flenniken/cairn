@@ -4,9 +4,9 @@
 import type { EngineInterface } from 'claude-code'
 import type { CairnReadBack, CairnReady } from '../../types/index.d.ts'
 import { answerReadBack, approveAs, isAskedInChat, isDialogOpen, LABEL_OF, levelAs, LEVEL_OF_LABEL, LEVELS, type Kind, type Level } from './approve.ts'
-import { act, viewPress } from './cards.tsx'
 import { openDoc } from './doc.tsx'
 import type { Ui } from './header.tsx'
+import { act, viewPress } from './util.ts'
 
 const DOC_NAME = { prd: 'PRD', plan: 'Plan', ship: 'Ship record' } as const
 
@@ -49,14 +49,18 @@ export async function confirmAndSetLevel($: EngineInterface, slug: string, curre
  * A pane Approve. A confirm is a dialog too, so while the agent's dialog is open it would wait behind it:
  * when that dialog asks for this same stop, the press is the answer and that dialog closes as approved;
  * any other open dialog has to be answered first.
+ * Resolves true when the stop is approved, including one approved already; false for a cancelled confirm or a refusal.
  */
-export async function approvePress($: EngineInterface, slug: string, kind: Kind): Promise<void> {
+export async function approvePress($: EngineInterface, slug: string, kind: Kind): Promise<boolean> {
   const said = SLUG.test(slug) && isAskedInChat(kind, slug)
     ? await approveAs($, slug, kind)
     : isDialogOpen()
       ? 'cairn: answer the open question first; nothing was approved.'
       : await confirmAndApprove($, slug, kind)
   if (said !== undefined) $.ui.toast(said)
+  // approveAs answers undefined for a stop already approved, and `cairn: <slug>: <CLI output>` once it approves.
+  // Its refusals and no-ops use other prefixes, so this is the one success line.
+  return said === undefined || said.startsWith(`cairn: ${slug}: `)
 }
 
 /** The card for the stop waiting on the person; inline, one row with Approve. Read all opens the doc viewer. */
