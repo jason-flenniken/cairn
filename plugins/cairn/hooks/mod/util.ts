@@ -3,6 +3,16 @@
 import type { EngineInterface } from 'claude-code'
 import type { BarLine } from './bar.tsx'
 
+// ESC sequences (CSI, OSC, any other two-byte one), then C0/C1 controls, then bidi overrides and isolates and
+// the left/right marks. ASCII escapes only: a literal invisible character in source hides what it does.
+const ESCAPES = /\u001b\[[0-?]*[ -/]*[@-~]|\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)?|\u001b[\s\S]?/g
+const INVISIBLES = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069\u200e\u200f]/g
+
+/** Outside text made safe to draw: no control characters, escape sequences or bidi overrides/isolates (FR-07). */
+export function clean(text: string): string {
+  return text.replace(ESCAPES, '').replace(INVISIBLES, '')
+}
+
 /** Terminal cells a text takes: an emoji shown as one takes 2, a joiner or variation selector none. */
 export function cells(text: string): number {
   let n = 0

@@ -3,7 +3,7 @@ import type { EngineInterface } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
 import type { MainActivity } from './activity.ts'
 import { STAGE_LABEL, type Ui } from './header.tsx'
-import { act, cells, fit, fitting, fmtClock, fmtDuration, tokenCount, viewPress } from './util.ts'
+import { act, cells, clean, fit, fitting, fmtClock, fmtDuration, tokenCount, viewPress } from './util.ts'
 
 const steps = (n: number) => `${n} step${n === 1 ? '' : 's'}`
 
@@ -134,17 +134,18 @@ function modelRow(model: string, tokens: number | undefined, usd: number | undef
 }
 
 export function agentCard($: EngineInterface, cx: CardContext, c: AgentCard) {
-  const role = agentRole(c.title, cx.stage, cx.taskNames)
-  const title = role?.title ?? c.title
+  const model = clean(c.model)
+  const role = agentRole(clean(c.title), cx.stage, cx.taskNames)
+  const title = role?.title ?? clean(c.title)
   const inner = (cx.columns ?? CARD_COLUMNS) - 4
   const key = `agent:${c.agentId}`
   const base = { number: c.number, title, left: role?.step ?? 'working', footer: steps(c.steps), line3Dim: true }
   if (c.status === 'working') {
-    return cardRows($, cx, key, { ...base, color: STATUS_COLOR.running, right: `● running ${fmtClock(cx.nowMs - c.startedAt)}`, line2: modelRow(c.model, c.tokensLive, c.usd, inner), line3: c.action ?? '' }, c.agentId)
+    return cardRows($, cx, key, { ...base, color: STATUS_COLOR.running, right: `● running ${fmtClock(cx.nowMs - c.startedAt)}`, line2: modelRow(model, c.tokensLive, c.usd, inner), line3: c.call ?? c.lastCall ?? '', line3Dim: c.call === undefined }, c.agentId)
   }
   const isDone = c.status === 'done'
   const right = `${isDone ? '✓ completed' : '✗ failed'} ${fmtClock(c.durationMs ?? 0)}`
-  return cardRows($, cx, key, { ...base, color: isDone ? STATUS_COLOR.completed : STATUS_COLOR.failed, right, line2: modelRow(c.model, c.tokens, c.usd, inner), line3: '' }, c.agentId)
+  return cardRows($, cx, key, { ...base, color: isDone ? STATUS_COLOR.completed : STATUS_COLOR.failed, right, line2: modelRow(model, c.tokens, c.usd, inner), line3: c.call ?? c.lastCall ?? '' }, c.agentId)
 }
 
 /** "idle", with how many agents still work: the main session's turn ended but it is not asking you anything. */
@@ -161,7 +162,7 @@ export function mainCard($: EngineInterface, cx: CardContext, main: Main, cards:
     return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.idle, right: '○ idle', line2: n === 0 ? '' : `${n} agent${n === 1 ? '' : 's'} working`, line3: '' })
   }
   if (main.isWaiting) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.waiting, right: `◷ waiting for you ${fmtClock(nowMs - main.since)}`, line2: 'answer in the chat', line3: '' })
-  return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - main.since)}`, line2: '', line3: main.action })
+  return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - main.since)}`, line2: '', line3: main.call ?? clean(main.action), line3Dim: main.call === undefined })
 }
 
 /**
@@ -172,11 +173,12 @@ export function agentLines(cx: CardContext, main: Main, cards: AgentCard[], max 
   const { ui, nowMs } = cx
   const { Text } = ui
   const lines = [
-    <Text key="main" wrap="truncate-end">{main === null ? `● Main session · ${idle(cards)}` : `● Main session · ${main.action} · ${fmtDuration(nowMs - main.since)}`}</Text>,
+    <Text key="main" wrap="truncate-end">{main === null ? `● Main session · ${idle(cards)}` : `● Main session · ${clean(main.action)} · ${fmtDuration(nowMs - main.since)}`}</Text>,
     ...cards.filter(c => c.status === 'working').map(c => {
-      const role = agentRole(c.title, cx.stage, cx.taskNames)
-      const doing = [role?.step, c.action ?? (role === undefined ? 'working' : undefined)].filter(Boolean).join(' · ')
-      return <Text key={c.agentId} wrap="truncate-end">{`● ${role?.title ?? c.title} · ${doing} · ${fmtDuration(nowMs - c.startedAt)}`}</Text>
+      const title = clean(c.title)
+      const role = agentRole(title, cx.stage, cx.taskNames)
+      const doing = [role?.step, c.action === undefined ? (role === undefined ? 'working' : undefined) : clean(c.action)].filter(Boolean).join(' · ')
+      return <Text key={c.agentId} wrap="truncate-end">{`● ${role?.title ?? title} · ${doing} · ${fmtDuration(nowMs - c.startedAt)}`}</Text>
     }),
   ]
   if (lines.length <= max) return lines

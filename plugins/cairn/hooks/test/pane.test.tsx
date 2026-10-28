@@ -744,7 +744,7 @@ describe('tool phrases and ETA', () => {
     expect(phrase({ tool: 'Bash', command: 'npm test -- --watch' })).toBe('running tests')
     expect(phrase({ tool: 'Bash', command: 'git merge sdlc/x' })).toBe('merging')
     expect(phrase({ tool: 'Bash', command: 'cairn status --json' })).toBe('updating the plan')
-    expect(phrase({ tool: 'Bash', command: 'ls -la /a/very/long/path/that/goes/on/and/on/and/on' })).toBe('ls -la /a/very/long/path/that/goes/on/an')
+    expect(phrase({ tool: 'Bash', command: 'ls -la /a/very/long/path/that/goes/on/and/on/and/on' })).toBe('ls')
     expect(phrase({ tool: 'Agent' })).toBe('starting an agent')
     expect(phrase({ tool: 'WebFetch' })).toBe('webfetch')
   })

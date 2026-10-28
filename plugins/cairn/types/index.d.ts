@@ -83,6 +83,10 @@ export type AgentCard = {
   steps: number
   action?: string
   actionSince?: number
+  /** The tool call under way, as `Tool arg` (activity.ts `toolCall`). */
+  call?: string
+  /** The last tool call that ended, kept for the card's third row once `call` is gone. */
+  lastCall?: string
   status: 'working' | 'done' | 'failed'
   endedAt?: number
   durationMs?: number
@@ -120,7 +124,7 @@ declare module 'claude-code' {
       /** How many agents have been numbered this session; the next card is this plus one. */
       agentSeq: number
       /** The main session's current action; null while no turn runs. */
-      mainActivity: { action: string; since: number; isWaiting?: boolean } | null
+      mainActivity: { action: string; since: number; isWaiting?: boolean; call?: string } | null
       /** The last few finished-agent lines. */
       feed: { at: number; text: string }[]
       /** Ticked while anything is active, so the pane redraws its timers. */
