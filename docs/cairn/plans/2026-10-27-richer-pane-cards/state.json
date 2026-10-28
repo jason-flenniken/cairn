@@ -6,8 +6,8 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T10:04:10.617Z",
-  "stage": "learn",
+  "updated": "2026-10-28T10:04:55.010Z",
+  "stage": "closed",
   "stageHistory": [
     {
       "stage": "discover",
@@ -40,6 +40,10 @@
     {
       "stage": "learn",
       "at": "2026-10-28T10:04:10.617Z"
+    },
+    {
+      "stage": "closed",
+      "at": "2026-10-28T10:04:55.010Z"
     }
   ],
   "paused": null,
@@ -604,6 +608,15 @@
       "at": "2026-10-28T10:04:10.617Z",
       "event": "advanced",
       "detail": "learn"
+    },
+    {
+      "at": "2026-10-28T10:04:55.010Z",
+      "event": "warning: close",
+      "detail": "no area docs under docs/cairn/system; run /cairn:map to set them up"
+    },
+    {
+      "at": "2026-10-28T10:04:55.010Z",
+      "event": "closed"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -989,5 +1002,6 @@
     }
   ],
   "planHash": "59c7dab4943e87ed",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "areasTouched": []
 }
