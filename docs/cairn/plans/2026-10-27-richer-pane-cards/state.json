@@ -6,7 +6,7 @@
   "branch": "feature/richer-pane-cards",
   "base": "main",
   "created": "2026-10-28T01:39:33.906Z",
-  "updated": "2026-10-28T09:49:37.608Z",
+  "updated": "2026-10-28T09:51:46.458Z",
   "stage": "verify",
   "stageHistory": [
     {
@@ -261,7 +261,13 @@
       ]
     }
   ],
-  "evidence": {},
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-10-28T09:51:46.458Z",
+      "note": "tests: 349 CLI + 607 mod passing; 18 requirements met, 1 untested (FR-04 narrow-row drop order); FR-15 worst case draws the merged agents/other-plans line per user decision; secret scan: clean; audit: skipped, no manifest or lockfile changed"
+    }
+  },
   "drift": [
     {
       "path": "plugins/cairn/hooks/NOTES.md",
@@ -510,6 +516,21 @@
       "at": "2026-10-28T09:49:37.608Z",
       "event": "advanced",
       "detail": "verify"
+    },
+    {
+      "at": "2026-10-28T09:49:47.687Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-10-28T09:50:28.523Z",
+      "event": "step",
+      "detail": "scanning"
+    },
+    {
+      "at": "2026-10-28T09:51:46.458Z",
+      "event": "verify pass",
+      "detail": "tests: 349 CLI + 607 mod passing; 18 requirements met, 1 untested (FR-04 narrow-row drop order); FR-15 worst case draws the merged agents/other-plans line per user decision; secret scan: clean; audit: skipped, no manifest or lockfile changed"
     }
   ],
   "cairnVersion": "0.6.0",
@@ -712,6 +733,16 @@
       ],
       "from": "task-review",
       "at": "2026-10-28T09:49:01.537Z"
+    },
+    {
+      "id": "s20",
+      "area": "tests",
+      "text": "no test narrows a card so the model row drops the cost, then the tokens (FR-04): long model id, bodyColumns 30-40",
+      "where": [
+        "plugins/cairn/hooks/test/cards.test.tsx"
+      ],
+      "from": "check",
+      "at": "2026-10-28T09:51:46.386Z"
     }
   ],
   "lasting": [
@@ -739,5 +770,10 @@
     }
   ],
   "planHash": "59c7dab4943e87ed",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "step": {
+    "stage": "verify",
+    "name": "scanning",
+    "at": "2026-10-28T09:50:28.522Z"
+  }
 }
