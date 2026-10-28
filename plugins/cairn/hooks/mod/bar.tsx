@@ -2,6 +2,7 @@
 // and the lines pane.tsx puts with them. pane.tsx pins it to the bottom of the pane's window.
 import type { CairnPlanState } from '../../types/index.d.ts'
 import { phaseAt, phasesOf, STAGE_COLOR, type Ui } from './header.tsx'
+import { cells, lineCells } from './util.ts'
 
 /** One styled run of a bar line. */
 export type BarSeg = { text: string; color?: string; bold?: boolean; dim?: boolean }
@@ -18,24 +19,6 @@ const TRACKS: Record<string, [stage: string, label: string][]> = {
     ['verify', 'Check'], ['review', 'Review'], ['ship', 'Ship'], ['learn', 'Learn'],
   ],
   fix: [['repro', 'Repro'], ['execute', 'Build'], ['review', 'Review'], ['ship', 'Ship']],
-}
-
-/** Terminal cells a text takes: an emoji shown as one takes 2, a joiner or variation selector none. */
-export function cells(text: string): number {
-  let n = 0
-  for (const ch of text) {
-    if (/[\u200d\ufe00-\ufe0f]|\p{Mn}/u.test(ch)) continue
-    n += /\p{Emoji_Presentation}/u.test(ch) ? 2 : 1
-  }
-  return n
-}
-
-/** Terminal cells a line of runs takes. */
-export const lineCells = (line: BarLine) => line.reduce((n, seg) => n + cells(seg.text), 0)
-
-/** The first of the candidates that fits `columns`; the last one when none does. */
-export function firstFit(candidates: BarLine[], columns: number): BarLine {
-  return candidates.find(c => lineCells(c) <= columns) ?? candidates[candidates.length - 1]!
 }
 
 const PR_OPEN: BarSeg = { text: 'PR open', color: 'yellow' }

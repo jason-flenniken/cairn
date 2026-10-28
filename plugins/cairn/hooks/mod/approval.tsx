@@ -4,9 +4,9 @@
 import type { EngineInterface } from 'claude-code'
 import type { CairnReadBack, CairnReady } from '../../types/index.d.ts'
 import { answerReadBack, approveAs, isAskedInChat, isDialogOpen, LABEL_OF, levelAs, LEVEL_OF_LABEL, LEVELS, type Kind, type Level } from './approve.ts'
-import { act, viewPress } from './cards.tsx'
 import { openDoc } from './doc.tsx'
 import type { Ui } from './header.tsx'
+import { act, viewPress } from './util.ts'
 
 const DOC_NAME = { prd: 'PRD', plan: 'Plan', ship: 'Ship record' } as const
 

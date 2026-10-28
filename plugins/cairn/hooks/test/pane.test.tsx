@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { etaMs, fmtDuration, phrase } from '../mod/activity.ts'
+import { etaMs, phrase } from '../mod/activity.ts'
+import { fmtDuration } from '../mod/util.ts'
 import {
   command, drawn, MAIN, mount, mountAs, plan, ready, row, SURFACES, start, STATE, task, until, withLevel, world, WT, type Row,
 } from './world.tsx'
