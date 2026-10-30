@@ -565,7 +565,8 @@ export function install(on: On): void {
 
     return frame(e, [
       !isInline && tabs,
-      here !== undefined && isActive(here)
+      // A closed plan still shows while it waits on a stop (the ship approved again after code changed).
+      here !== undefined && (isActive(here) || here.ready !== undefined)
         ? await planLines(here)
         : [
             <Box key="idle" flexDirection="column">

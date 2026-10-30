@@ -7452,6 +7452,11 @@ function git(args, cwd) {
   if (r.status !== 0) throw new CliError(`git ${args.join(" ")} failed: ${(r.stderr || r.stdout).trim()}`);
   return r.stdout.trim();
 }
+var quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: "0", GH_PROMPT_DISABLED: "1" });
+function gitTry(args, cwd) {
+  const r = spawnSync("git", [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: "utf8", env: quietEnv() });
+  return { ok: r.status === 0, out: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() };
+}
 function gitOk(args, cwd) {
   return spawnSync("git", [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: "utf8" }).status === 0;
 }
@@ -7490,7 +7495,6 @@ function directCommits(cwd, base, head) {
   });
 }
 var CLOSE_PUBLISHED = [`${DOCS_DIR}/decisions`, `${DOCS_DIR}/system`, `${DOCS_DIR}/OVERVIEW.md`];
-var quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: "0", GH_PROMPT_DISABLED: "1" });
 function safeRef(cwd, name) {
   if (!name || name.startsWith("-") || name.includes("@{")) return false;
   return gitOk(["check-ref-format", "--branch", name], cwd);
@@ -9458,26 +9462,18 @@ function cmdStep(ctx, name, opts) {
 }
 
 // plugins/cairn/cli/src/commands/merge.ts
-import { spawnSync as spawnSync4 } from "node:child_process";
 import { existsSync as existsSync9, readdirSync as readdirSync4 } from "node:fs";
 import { join as join16, relative as relative3 } from "node:path";
-function gitRun(args, cwd) {
-  const r = spawnSync4("git", ["-c", "gc.auto=0", "-c", "maintenance.auto=false", ...args], {
-    cwd,
-    encoding: "utf8",
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
-  });
-  return { ok: r.status === 0, out: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() };
-}
 var short = (sha) => sha.slice(0, 7);
 var reapproveFixes = (slug, worktree) => [
   `the user approves the ship again in the approval menu tagged [cairn:approve ship ${slug}], or presses Approve in the cairn pane`,
-  `or the user runs, in their own terminal: cd ${worktree} && cairn approve ship --human`,
+  `or the user runs, in their own terminal: cd ${worktree} && ${pluginRoot()}/bin/cairn approve ship --human`,
   "then run cairn merge-check again"
 ];
+var isPublished = (f) => CLOSE_PUBLISHED.some((p) => f === p || f.startsWith(`${p}/`));
 function changesSince(cwd, sha, planRel2, vouched) {
-  if (!gitOk(["merge-base", "--is-ancestor", sha, "HEAD"], cwd)) return [`the approved commit ${short(sha)} is no longer in the branch's history`];
-  const exempt = (f) => f === "REVIEW.md" || [planRel2, ...CLOSE_PUBLISHED].some((p) => f === p || f.startsWith(`${p}/`));
+  if (!gitOk(["merge-base", "--is-ancestor", sha, "HEAD"], cwd)) return [`commit ${short(sha)} is no longer in the branch's history`];
+  const exempt = (f) => f === "REVIEW.md" || f === planRel2 || f.startsWith(`${planRel2}/`) || isPublished(f);
   const reasons = [];
   const files = /* @__PURE__ */ new Set();
   for (const c of git(["rev-list", "--first-parent", `${sha}..HEAD`], cwd).split("\n").filter(Boolean)) {
@@ -9493,6 +9489,18 @@ function changesSince(cwd, sha, planRel2, vouched) {
   if (files.size) reasons.push(`commits changed ${[...files].slice(0, 5).join(", ")}${files.size > 5 ? ` and ${files.size - 5} more` : ""}`);
   return reasons;
 }
+function mergeBase(pc, baseRef, message) {
+  const wt = pc.plan.worktree;
+  const m = gitTry(["merge", "--no-ff", "--no-edit", "-q", "-m", message, baseRef], wt);
+  if (m.ok) return { ok: true };
+  const conflicted = gitTry(["diff", "--name-only", "--diff-filter=U"], wt).out.split("\n").filter(Boolean);
+  if (conflicted.length && conflicted.every(isPublished)) {
+    const settled = conflicted.every((f) => gitTry(["checkout", "--theirs", "--", f], wt).ok) && (refreshMemory(wt, pc.ctx), gitTry(["add", "--", ...conflicted], wt).ok) && gitTry(["commit", "-q", "--no-edit"], wt).ok;
+    if (settled) return { ok: true };
+  }
+  gitTry(["merge", "--abort"], wt);
+  return { ok: false, conflicted, out: m.out };
+}
 function cmdMergeCheck(ctx, _opts) {
   const pc = planCtx(ctx);
   const wt = pc.plan.worktree;
@@ -9503,15 +9511,16 @@ function cmdMergeCheck(ctx, _opts) {
   if (!s0.approvals.ship) throw new Refusal("shipping is not approved", ["cairn approve ship"]);
   if (!safeRef(wt, s0.base)) throw new Refusal(`the plan's base "${s0.base}" is not a valid branch name`);
   if (currentBranch(wt) !== s0.branch) throw new Refusal(`the plan worktree is on ${currentBranch(wt)}, not the plan branch ${s0.branch}`);
-  const dirty = git(["status", "--porcelain"], wt).split("\n").filter((l) => l && !l.slice(3).startsWith(rel));
+  const dirty = git(["status", "--porcelain"], wt).split("\n").filter((l) => l && !l.slice(3).startsWith(`${rel}/`));
   if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.map((l) => l.slice(3)).join(", ")}`, ["commit or remove them, then run cairn merge-check again"]);
   const notes = [];
   let baseRef = s0.base;
   if (gitOk(["remote", "get-url", "origin"], wt)) {
-    const fetched = gitRun(["fetch", "-q", "origin", s0.base], wt);
+    const fetched = gitTry(["fetch", "-q", "origin", `+refs/heads/${s0.base}:refs/remotes/origin/${s0.base}`], wt);
     if (!fetched.ok) throw new Refusal(`could not fetch origin/${s0.base}, so it may have moved unseen: ${fetched.out}`, ["check the network or credentials, then run cairn merge-check again"]);
     baseRef = `origin/${s0.base}`;
   } else notes.push(`No origin remote: checked against the local ${s0.base}.`);
+  if (gitOk(["merge-base", "--is-ancestor", "HEAD", baseRef], wt)) throw new Refusal(`${s0.branch} is already in ${baseRef}: the pull request has been merged`);
   const approved = s0.approvals.ship.sha;
   if (approved) {
     const reasons = changesSince(wt, approved, rel, s0.baseMerges ?? []);
@@ -9528,36 +9537,40 @@ function cmdMergeCheck(ctx, _opts) {
   let merged;
   if (!gitOk(["merge-base", "--is-ancestor", baseRef, "HEAD"], wt)) {
     const behind = Number(git(["rev-list", "--count", `HEAD..${baseRef}`], wt));
-    const m = gitRun(["merge", "--no-edit", "-q", "-m", `Merge ${s0.base} into ${s0.branch} before merging`, baseRef], wt);
-    if (!m.ok) {
-      const conflicted = gitRun(["diff", "--name-only", "--diff-filter=U"], wt).out.split("\n").filter(Boolean);
-      gitRun(["merge", "--abort"], wt);
+    const m = mergeBase(pc, baseRef, `Merge ${s0.base} into ${s0.branch} before merging`);
+    if (!m.ok)
       throw new Refusal(
-        `${s0.base} has ${behind} new commit${behind === 1 ? "" : "s"} that conflict with this branch${conflicted.length ? ` in ${conflicted.join(", ")}` : `: ${m.out}`}. The merge was aborted; nothing changed.`,
+        `${s0.base} has ${behind} new commit${behind === 1 ? "" : "s"} that conflict with this branch${m.conflicted.length ? ` in ${m.conflicted.join(", ")}` : `: ${m.out}`}. The merge was aborted; nothing changed.`,
         [`merge ${s0.base} into ${s0.branch} in the plan worktree, resolve the conflicts, and run the tests`, "then run cairn merge-check again: a merge resolved by hand is new code, so it asks for the ship approval again"]
       );
-    }
     merged = { sha: git(["rev-parse", "HEAD"], wt), behind };
     mutate(pc, `merge ${s0.base} before merging`, (s) => {
       (s.baseMerges ??= []).push(merged.sha);
       log(s, "base merged", `${s0.base}: ${behind} new commit${behind === 1 ? "" : "s"}, merged cleanly`);
     });
   }
-  const tests = merged ? runTests(pc.cfg, wt) : void 0;
+  const lastGreen = s0.mergeChecked;
+  const untested = !lastGreen || changesSince(wt, lastGreen, rel, []).length > 0;
+  const tests = untested ? runTests(pc.cfg, wt) : void 0;
   if (tests && !tests.ok) {
-    mutate(pc, "tests fail with the base merged in", (s) => log(s, "merge check failed", `${tests.cmd}: ${tests.tail}`));
-    throw new Refusal(`tests fail with ${s0.base} merged in: ${tests.tail}`, [
-      "fix it on the plan branch (the clean merge stays)",
+    mutate(pc, "tests fail at merge check", (s) => log(s, "merge check failed", `${tests.cmd}: ${tests.tail}`));
+    throw new Refusal(`tests fail${merged ? ` with ${s0.base} merged in` : ""}: ${tests.tail}`, [
+      merged ? "fix it on the plan branch (the clean merge stays)" : "fix it on the plan branch",
       "then run cairn merge-check again: the fix is new code, so it asks for the ship approval again"
     ]);
   }
-  if (merged && !tests) notes.push("No test command is configured, so the merged tree was not tested.");
-  mutate(pc, "merge checked", (s) => log(s, "merge checked", merged ? `${s0.base} merged, tests pass` : `up to date with ${s0.base}`));
+  if (untested && !tests) notes.push("No test command is configured, so the branch was not tested.");
+  const tested = git(["rev-parse", "HEAD"], wt);
+  mutate(pc, "merge checked", (s) => {
+    if (tests?.ok) s.mergeChecked = tested;
+    log(s, "merge checked", `${merged ? `${s0.base} merged` : `up to date with ${s0.base}`}${tests ? ", tests pass" : ""}`);
+  });
   const head = git(["rev-parse", "HEAD"], wt);
-  const said = merged ? `${s0.base} had moved ${merged.behind} commit${merged.behind === 1 ? "" : "s"}: merged it in cleanly${tests ? ` and the tests pass (${tests.tail})` : ""}.` : `Up to date with ${s0.base}.`;
+  const said = merged ? `${s0.base} had moved ${merged.behind} commit${merged.behind === 1 ? "" : "s"}: merged it in cleanly.` : `Up to date with ${s0.base}.`;
+  const testSaid = tests ? ` The tests pass (${tests.tail}).` : !untested ? " Tests passed on this code at the last check." : "";
   const pinned = approved ? " Nothing changed since the ship approval that it does not cover." : "";
   return {
-    message: [`${said}${pinned}`, ...notes, `Checked ${head}. Push the plan branch, then merge with: gh pr merge <PR> --merge --match-head-commit ${head}`].join("\n"),
+    message: [`${said}${testSaid}${pinned}`, ...notes, `Checked ${head}. Push the plan branch, then merge with: gh pr merge <PR> --merge --match-head-commit ${head}`].join("\n"),
     data: { head, base: baseRef, merged: !!merged, behind: merged?.behind ?? 0, tests: tests ? tests.tail : null, notes }
   };
 }
@@ -9569,7 +9582,7 @@ var TASK_MERGE = /^merge task (\S+)/;
 function planByPr(root, pr) {
   for (const dir of plansDirsIn(root))
     for (const name of readdirSync4(dir))
-      if (new RegExp(`/pull/${pr}(?!\\d)`).test(readText(join16(dir, name, "RECORD.md")) ?? "")) return relative3(root, join16(dir, name));
+      if (new RegExp(`^- PR: \\S*/pull/${pr}(?!\\d)`, "m").test(readText(join16(dir, name, "RECORD.md")) ?? "")) return relative3(root, join16(dir, name));
   return void 0;
 }
 function cmdTrace(ctx, spec, opts) {
@@ -9580,7 +9593,8 @@ function cmdTrace(ctx, spec, opts) {
   const base = typeof opts.base === "string" ? opts.base : ctx.plan?.dir ? loadState(ctx.plan.dir).base : "main";
   if (!safeRef(root, base)) throw new Refusal(`"${base}" is not a valid branch name`);
   const baseRef = branchExists(base, root) ? base : `origin/${base}`;
-  const blame = gitRun(["blame", "--porcelain", "-L", `${start},${end}`, baseRef, "--", path], root);
+  const at = gitTry(["merge-base", baseRef, "HEAD"], root);
+  const blame = gitTry(["blame", "--porcelain", "-L", `${start},${end}`, at.ok ? at.out : baseRef, "--", path], root);
   if (!blame.ok) throw new Refusal(`git blame failed: ${blame.out}`);
   const shas = [...new Set(blame.out.split("\n").map((l) => l.match(/^([0-9a-f]{40}) \d+ \d+/)?.[1]).filter((x) => !!x && !/^0+$/.test(x)))];
   const mainLine = new Set(git(["rev-list", "--first-parent", baseRef], root).split("\n"));
@@ -9611,7 +9625,7 @@ function cmdTrace(ctx, spec, opts) {
     if (landed !== sha)
       for (const c of git(["rev-list", "--ancestry-path", "--merges", "--reverse", `${sha}..${landed}`], root).split("\n").filter((c2) => c2 && c2 !== landed)) {
         const task = git(["log", "-1", "--format=%s", c], root).match(TASK_MERGE)?.[1];
-        if (task) {
+        if (task && gitOk(["merge-base", "--is-ancestor", sha, `${c}^2`], root) && !gitOk(["merge-base", "--is-ancestor", sha, `${c}^1`], root)) {
           t.task = task;
           break;
         }
@@ -9944,7 +9958,7 @@ function hookSessionStart(input) {
   if (ctx.plan?.dir && existsSync11(join19(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === "closed") return startOut(indexFor(ctx));
+    if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", indexFor(ctx));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     if (ctx.task) {
       const sl = findTask(s, ctx.task);

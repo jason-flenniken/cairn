@@ -16,6 +16,15 @@ export function git(args: string[], cwd: string): string {
   return r.stdout.trim();
 }
 
+/** Nothing here may prompt for credentials. */
+const quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: '0', GH_PROMPT_DISABLED: '1' });
+
+/** Like `git`, but returns the outcome instead of throwing, and never prompts for credentials. */
+export function gitTry(args: string[], cwd: string): { ok: boolean; out: string } {
+  const r = spawnSync('git', [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: 'utf8', env: quietEnv() });
+  return { ok: r.status === 0, out: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim() };
+}
+
 export function gitOk(args: string[], cwd: string): boolean {
   return spawnSync('git', [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: 'utf8' }).status === 0;
 }
@@ -79,8 +88,6 @@ export const CLOSE_PUBLISHED = [`${DOCS_DIR}/decisions`, `${DOCS_DIR}/system`, `
 
 export type MergeState = 'merged' | 'open' | 'unknown';
 
-/** Nothing here may prompt for credentials. */
-const quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: '0', GH_PROMPT_DISABLED: '1' });
 
 /** A branch or base name that is safe to hand to git: state.json is committed, so it is untrusted. */
 export function safeRef(cwd: string, name: string): boolean {

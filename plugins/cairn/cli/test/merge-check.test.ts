@@ -111,7 +111,7 @@ test('main moved without conflicts: merges it in, runs the tests, and the merge 
   const r = run(['merge-check'], wt);
   assert.equal(r.data!.merged, true);
   assert.equal(r.data!.behind, 1);
-  assert.match(r.message, /merged it in cleanly and the tests pass/);
+  assert.match(r.message, /merged it in cleanly\. The tests pass/);
   assert.ok(existsSync(join(wt, 'other.txt')));
   assert.equal(stateOf(wt, 'moved').baseMerges.length, 1);
   assert.ok(stateOf(wt, 'moved').approvals.ship, 'a clean merge cairn made keeps the approval');
@@ -170,9 +170,43 @@ test('tests that fail with main merged in refuse, and the clean merge stays', ()
   refused(wt, /tests fail with main merged in[\s\S]*asks for the ship approval again/, 'merge-check');
   assert.ok(existsSync(join(wt, 'broken.txt')));
   assert.ok(stateOf(wt, 'redtests').approvals.ship);
+  // Run again with no fix: the merge is in, but the head never passed, so the tests run and it still refuses.
+  refused(wt, /tests fail: /, 'merge-check');
+  assert.equal(stateOf(wt, 'redtests').mergeChecked, undefined);
   g(repo, 'rm', '-q', 'broken.txt');
   commitAll(repo, 'main: unbreak');
   g(repo, 'push', '-q', 'origin', 'main');
+});
+
+test('a green check is remembered: plan-folder commits after it skip the tests, a merged base runs them again', () => {
+  const wt = shipped('green');
+  assert.match(run(['merge-check'], wt).message, /The tests pass/);
+  assert.match(stateOf(wt, 'green').mergeChecked, /^[0-9a-f]{40}$/);
+  assert.match(run(['merge-check'], wt).message, /Tests passed on this code at the last check/);
+  moveMain('green-main.txt', 'x\n');
+  assert.match(run(['merge-check'], wt).message, /merged it in cleanly\. The tests pass/);
+});
+
+test('a conflict only in OVERVIEW.md is settled by regenerating it, and needs no new approval', () => {
+  const wt = shipped('overview');
+  mkdirSync(join(wt, 'docs/cairn'), { recursive: true });
+  writeFileSync(join(wt, 'docs/cairn/OVERVIEW.md'), '# Changelog\n\nplan side\n');
+  commitAll(wt, 'close writes the changelog');
+  mkdirSync(join(repo, 'docs/cairn'), { recursive: true });
+  moveMain('docs/cairn/OVERVIEW.md', '# Changelog\n\nmain side\n');
+  const r = run(['merge-check'], wt);
+  assert.equal(r.data!.merged, true);
+  assert.equal(g(wt, 'status', '--porcelain'), '');
+  assert.doesNotMatch(readFileSync(join(wt, 'docs/cairn/OVERVIEW.md'), 'utf8'), /<<<<<<<|>>>>>>>/);
+  assert.ok(stateOf(wt, 'overview').approvals.ship);
+  assert.match(run(['merge-check'], wt).message, /Up to date/);
+});
+
+test('a branch already in main refuses: the pull request was merged', () => {
+  const wt = shipped('landed');
+  g(repo, 'merge', '-q', '--no-ff', '-m', 'merge landed', stateOf(wt, 'landed').branch);
+  g(repo, 'push', '-q', 'origin', 'main');
+  refused(wt, /already in origin\/main/, 'merge-check');
 });
 
 test('a failed fetch refuses instead of checking against a stale main', () => {
@@ -200,6 +234,23 @@ test('trace names the PR merge, the plan, its record and the task that brought a
   g(repo, 'merge', '-q', '--no-ff', '-m', 'Merge pull request #12 from me/feature/tracer', 'feature/tracer');
   const r = run(['trace', 'traced.txt:2'], repo);
   assert.match(r.message, /the traced line\n  landed in main with [0-9a-f]{7} \(PR #12\), plan tracer, task t1\n  record: docs\/cairn\/plans\/2026-10-30-tracer\/RECORD\.md/);
+});
+
+test('trace does not credit a commit made on the plan branch to a later task', () => {
+  g(repo, 'switch', '-q', '-c', 'feature/probe');
+  writeFileSync(join(repo, 'direct.txt'), 'direct\n');
+  commitAll(repo, 'a commit straight on the plan branch');
+  g(repo, 'switch', '-q', '-c', 'task/probe/t9');
+  writeFileSync(join(repo, 'later.txt'), 'later\n');
+  commitAll(repo, 'later task work');
+  g(repo, 'switch', '-q', 'feature/probe');
+  g(repo, 'merge', '-q', '--no-ff', '-m', 'merge task t9', 'task/probe/t9');
+  g(repo, 'switch', '-q', 'main');
+  g(repo, 'merge', '-q', '--no-ff', '-m', 'Merge pull request #20 from me/feature/probe', 'feature/probe');
+  const out = run(['trace', 'direct.txt:1'], repo).message;
+  assert.match(out, /\(PR #20\), plan probe$/m);
+  assert.doesNotMatch(out, /task t9/);
+  assert.match(run(['trace', 'later.txt:1'], repo).message, /plan probe, task t9/);
 });
 
 test('trace finds the plan of a squash merge through the PR link in its record', () => {

@@ -16,6 +16,14 @@ test('the Merge step runs merge-check before the push and merges the checked hea
   for (const why of ['Code changed after the approval', 'The base conflicts with the branch', 'Tests fail with the base merged in', 'The fetch failed'])
     assert.ok(merge.includes(why), why);
   assert.match(read('references/cli.md'), /`cairn merge-check \[--json\]`/);
+  assert.match(merge, /bin\/cairn approve ship --human/);
+  assert.match(merge, /not a task: it works on the plan branch/);
+});
+
+test('a plan waiting on the ship again is routed to the Merge step, from ship and from fix', () => {
+  const check = read('procedures/ship.md').split('## 2.')[0];
+  assert.match(check, /When `state\.reapprove` is set[^\n]*Merge section, step 1/);
+  assert.match(read('procedures/fix.md'), /\(run `cairn merge-check`, push the plan branch/);
 });
 
 test('the fix record says where the bug came from, with cairn trace', () => {

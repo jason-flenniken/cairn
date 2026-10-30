@@ -426,6 +426,17 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
     await ui.unmount()
   })
 
+  test('a closed plan waiting on the ship again shows its approval, and Approve runs it', async ($, on) => {
+    const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'closed' }), WT, undefined, ready('ship'))] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect(await drawn(ui)).not.toContain('This session is not in a plan')
+    await ui.press({ key: 'approve' })
+    await until(clock, () => ran('approve').length > 0 && w.toasts.length > 0)
+    expect(ran('approve')).toEqual([['approve', 'ship']])
+    await ui.unmount()
+  })
+
   test('cancelling or dismissing the confirm approves nothing', async ($, on) => {
     const { w, ran } = world(on, { rows: [shipRow()], answer: 'Cancel' })
     await start($, WT)
