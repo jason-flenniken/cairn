@@ -13,6 +13,7 @@ const names = (xs: Task[]) => xs.map((x) => x.name).join(', ');
 
 /** The single correct next step for a plan. */
 export function nextFor(s: State): Next {
+  if (s.reapprove) return { procedure: 'ship', text: `Approve shipping again: ${s.reapprove.why}. Then run cairn merge-check and merge.` };
   if (s.stage === 'closed') return { procedure: 'status', text: 'This plan is closed. Its record is in RECORD.md.' };
   if (s.paused) return { procedure: 'resume', text: `Paused ${day(s.paused.at)}. Resume to pick up where it stopped.` };
   const all = s.phases.flatMap((p) => p.tasks);

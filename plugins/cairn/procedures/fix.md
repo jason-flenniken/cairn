@@ -75,6 +75,8 @@ Run `cd <plan worktree> && cairn step recording`, so the pane does not offer the
 
 The record is at most 200 words. Count the words with headings and HTML comments left out. Trim until it fits.
 
+In Cause, say where the bug came from. Take the lines the fix changed from the old side of `git diff <base>...<plan-branch>` (the lines as they stand on the base) and run `cd <plan worktree> && cairn trace <path>:<start>-<end>`. It prints the commit that brought them in, the pull request and plan it landed with, the task that built it, and that plan's record. Write one line: `Introduced by: <commit>, <plan> (task <task>, PR #<n>)`, leaving out what trace could not find. When the cause is not in changed lines (a missing check, say), trace the lines nearest it. Then open that plan's record: if its review should have caught the bug, that feeds the rule you draft at step 9.
+
 Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, `description` "Record · changelog entry") with `RECORD.md`, the repro, and the plan log. It writes `docs/cairn/plans/<date>-<slug>/changelog.md`: one paragraph of at most 120 words covering what was fixed, why it broke, and any big rocks (API, data model, security or dependency changes a developer must know). Check it with `wc -w`, then commit both files on the plan branch, so they are in the PR the user approves.
 
 **Done when:** `RECORD.md` has the five sections and is at most 200 words, and `changelog.md` exists, is at most 120 words, and is committed.
@@ -93,6 +95,6 @@ Run `cd <plan worktree> && cairn step approving`. Show the user the record in ab
 Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu or the terminal reported, and return to step 8. Then propose review rules as in step 5 of `procedures/ship.md`, with one more source: the bug itself. When a reviewer reading the change that introduced it could have caught it, draft the rule that would have. Then:
 1. Run `cd <plan worktree> && cairn step opening-pr`, then open the PR from the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<bug title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped). Put the PR URL into the record's Links section and commit it on the plan branch.
 2. Run `cairn advance`. It closes the plan (a fix track has no learn stage); `cairn status` and the pane show "Closed · PR open" until the branch is in main.
-3. Merge last, so the closing commits land on main too: follow the "Merge (the last step, after close)" section of `procedures/ship.md` (push the plan branch again, tell the user once about "PR open", then ask "Merge it now (Recommended)" or "I'll merge it").
+3. Merge last, so the closing commits land on main too: follow the "Merge (the last step, after close)" section of `procedures/ship.md` (run `cairn merge-check`, push the plan branch, tell the user once about "PR open", then ask "Merge it now (Recommended)" or "I'll merge it").
 
 **Done when:** `cairn advance` exits 0, `cairn status --json` shows the plan closed, and the PR is merged or the user said they will merge it.

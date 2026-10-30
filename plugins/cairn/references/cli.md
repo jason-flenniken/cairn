@@ -79,7 +79,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
 | (last phase finished) | stage moves to verify automatically |
 | `cairn advance` (to review) | `cairn evidence verify pass` recorded |
 | `cairn advance` (to ship) | `cairn evidence review pass` recorded with no blocking findings |
-| `cairn approve ship` | `RECORD.md` has its six sections (Links, Why, What was built, How it works, Findings, Follow-ups) and is within 600 words |
+| `cairn approve ship` | `RECORD.md` has its six sections (Links, Why, What was built, How it works, Findings, Follow-ups) and is within 600 words. The approval records the plan branch's HEAD (`approvals.ship.sha`). After ship it is accepted only to approve again, when `cairn merge-check` cleared the approval |
 | `cairn advance` (to learn) | ship approved |
 | `cairn close` | stage is learn, `RECORD.md` is valid, tests pass, and the config lock holds |
 
@@ -102,6 +102,17 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn approve prd|plan|ship [--note "…"]`: through the mod's menu, or `--human` in the user's terminal (see Human proof)
   - `cairn advance [--to <stage>]`
   - `cairn level mvp|standard|polished [--human]`: changes a feature plan's level, with the human proof above. It refuses on the fix track, while paused, at ship, learn or closed, and for a lower level once any task has started. Refusals come before the proof is spent. A raise clears plan approval if no task has started, clears recorded Check and review results (a plan in review goes back to Check), and files one hardening item per finished task built below the new level.
+- **Merging**
+  - `cairn merge-check [--json]`: run from the plan worktree right before merging the PR, after the ship approval (at ship, learn or closed). In order:
+    - It refuses on uncommitted changes outside the plan folder.
+    - It fetches `origin/<base>` and refuses when the fetch fails, so it never checks against a stale base. With no `origin` remote it checks the local base and says so.
+    - It refuses when the plan branch is already in the base (the PR was merged).
+    - It walks the plan branch's first-parent commits since `approvals.ship.sha`. Commits that touch only the plan folder, what a close writes (`docs/cairn/OVERVIEW.md`, and the old `docs/cairn/decisions/` and `docs/cairn/system/`) or `REVIEW.md`, and the clean merges it made itself (`baseMerges`), are covered. Anything else (a code commit, or a merge it did not make, such as one resolved by hand) clears the approval, sets `reapprove: {at, why}`, and refuses. The plan then shows `ready.kind: "ship"` and `next` says to approve again, even when closed.
+    - When the base moved, it merges it in with `--no-ff`. A conflict only in what a close writes is settled by taking the base's side and regenerating `OVERVIEW.md`, and counts as a clean merge. Any other conflict aborts the merge (nothing changes) and refuses with the conflicted files. A clean merge is recorded in `baseMerges`.
+    - It runs the `test` command unless the tests already passed at a check on this code: `mergeChecked` is the last head they passed on, and only plan-folder commits since it skip them. A red run refuses (a clean merge stays), and the next run tests again.
+    - It prints the HEAD it checked: merge with `gh pr merge --match-head-commit <sha>`. JSON: `{head, base, merged, behind, tests, notes[]}`.
+    - Plans approved before 0.10.0 have no `approvals.ship.sha`; their changes since the approval are not checked, and a note says so.
+  - `cairn trace <path>:<start>[-<end>] [--base <branch>] [--json]`: read-only. Blames the lines as they stand on the base (the local base, else `origin/<base>`; the plan's base, else `main`), then names each commit, the first commit on the base's first-parent line that brought it in, the PR number, the plan (from a `feature/`, `fix/` or `sdlc/` branch name, or a RECORD.md that links the PR, for squash merges), that plan's record, and the task (the nearest `merge task <id>` above the commit). JSON: `{commits: [{sha, date, subject, landed?, pr?, plan?, record?, task?}], base}`.
 - **Plan and tasks**
   - `cairn plan load [--replan]`: parses `plan.md` into state. Use `--replan` during execute, for example to change later phases. Existing task progress is kept, the stage returns to plan, the plan needs approval again, and verify and review evidence is cleared.
   - `cairn ready [--json]`: tasks that can start now (blockers done, no scope overlap, under the parallel cap).
@@ -143,7 +154,7 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn records [--json]`: lists every plan, in-progress first then closed newest first, with date, title, why line, changelog entry, record path and follow-ups. Works from any worktree.
   - `cairn hook session-start|post-edit`: used by `hooks/hooks.json`. Reads hook JSON on stdin.
 
-The CLI commits the plan dir on the plan branch only at transitions: approve, advance, plan load, task done, phase finish, pause, resume, and close.
+The CLI commits the plan dir on the plan branch only at transitions: approve, advance, plan load, task done, phase finish, pause, resume, close, and merge-check.
 
 ## Fix track
 `cairn new <slug> --track fix` starts a plan at stage repro.
@@ -158,7 +169,7 @@ A blocking review finding has two exits. `cairn task start fix` reopens the task
 - `next`: `{ok, plan, stage, substep, procedure, summary, text, warnings[], planWorktree, modActive}`. On a non-plan branch: `{plan: null, procedure, plans[], modActive}`.
 - `status`: `{ok, state, next, ready?, warnings[], task, planWorktree, modActive, openSuggestions}`.
   - `ready` is present only when approving the current stop would pass its checks: `{kind: "prd"|"plan"|"ship", file, summary}`. `file` is the absolute path of the document; `summary` is a short markdown excerpt.
-  - `state` is the full state.json: `phases[].tasks[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals`, `evidence`, `drift[]`, `suggestions[]`, and `log[]`. A task also has `risky`, `riskReason`, and `startedAt`.
+  - `state` is the full state.json: `phases[].tasks[]` with `id`, `name`, `status`, `substep`, `fixRound`, `worktree`, `branch`, `scope`, `covers`, `blockedBy`, `complexity`, plus `paused`, `approvals` (`approvals.ship.sha` is the HEAD the ship approval covered), `reapprove?` (set when code changed after the ship approval), `baseMerges?` (clean base merges `merge-check` made), `mergeChecked?` (the last head `merge-check` saw the tests pass on), `evidence`, `drift[]`, `suggestions[]`, and `log[]`. A task also has `risky`, `riskReason`, and `startedAt`.
   - `status --all`: `{plans: [{state, live, worktree, next, ready?}], modActive, openSuggestions}`.
 - `records`: `{records: [{slug, title, date, stage, why, entry?, record?, followUps: [{text, area, status}]}]}`. In-progress plans first, then closed plans newest first. Reads the main checkout from any worktree.
 - `ready`: `{paused, phase, phaseStatus, ready: [task + model], inProgress: [task], waiting: [{id, on[]}]}`.

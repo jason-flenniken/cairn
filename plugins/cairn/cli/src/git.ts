@@ -16,6 +16,15 @@ export function git(args: string[], cwd: string): string {
   return r.stdout.trim();
 }
 
+/** Nothing here may prompt for credentials. */
+const quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: '0', GH_PROMPT_DISABLED: '1' });
+
+/** Like `git`, but returns the outcome instead of throwing, and never prompts for credentials. */
+export function gitTry(args: string[], cwd: string): { ok: boolean; out: string } {
+  const r = spawnSync('git', [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: 'utf8', env: quietEnv() });
+  return { ok: r.status === 0, out: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim() };
+}
+
 export function gitOk(args: string[], cwd: string): boolean {
   return spawnSync('git', [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: 'utf8' }).status === 0;
 }
@@ -75,12 +84,10 @@ export function directCommits(cwd: string, base: string, head: string): { sha: s
 }
 
 /** What a close writes outside the plan folder: OVERVIEW.md, plus the decision and area folders that 0.6 closes wrote. They do not count as new work after a merge. */
-const CLOSE_PUBLISHED = [`${DOCS_DIR}/decisions`, `${DOCS_DIR}/system`, `${DOCS_DIR}/OVERVIEW.md`];
+export const CLOSE_PUBLISHED = [`${DOCS_DIR}/decisions`, `${DOCS_DIR}/system`, `${DOCS_DIR}/OVERVIEW.md`];
 
 export type MergeState = 'merged' | 'open' | 'unknown';
 
-/** Nothing here may prompt for credentials. */
-const quietEnv = () => ({ ...process.env, GIT_TERMINAL_PROMPT: '0', GH_PROMPT_DISABLED: '1' });
 
 /** A branch or base name that is safe to hand to git: state.json is committed, so it is untrusted. */
 export function safeRef(cwd: string, name: string): boolean {

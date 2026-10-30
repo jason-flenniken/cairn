@@ -39,7 +39,7 @@ export function hookSessionStart(input: HookInput): string {
   if (ctx.plan?.dir && existsSync(join(ctx.plan.dir, 'state.json'))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === 'closed') return startOut(indexFor(ctx));
+    if (s.stage === 'closed') return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : '', indexFor(ctx));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     if (ctx.task) {
       const sl = findTask(s, ctx.task);

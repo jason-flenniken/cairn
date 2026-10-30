@@ -11,7 +11,7 @@ Read `level` from `cairn status --json`; `references/levels.md` has the full tab
 - Polished: as written below. The captured learning is added when cairn has it.
 
 ## 1. Check
-Run `cairn status --json`. The stage must be `ship`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
+Run `cairn status --json`. When `state.reapprove` is set (the plan can be at learn or closed), code changed after the ship approval: go to the Merge section, step 1, the "Code changed after the approval" case. Otherwise the stage must be `ship`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 
 **Done when:** the stage is `ship` and verify and review evidence are recorded.
 
@@ -68,10 +68,15 @@ Run `cairn advance`. Report the PR URL in one line.
 
 ## Merge (the last step, after close)
 Closing records everything first so every record lands on main with the merge; `cairn status` and the pane show "PR open" until the branch is in main. Run this once the plan is closed:
-1. Push the plan branch again, so the PR carries the closing commits (findings, record, PR link).
-2. Tell the user once, in one line, that the plan shows "PR open" until the PR is merged.
-3. Ask with AskUserQuestion (a plain choice, not an approval):
-   - Merge it now (Recommended): run `gh pr merge <PR URL> --merge`; if the repo disallows merge commits, use the method it allows (`--squash` or `--rebase`). If it fails (checks pending, conflicts, no access), say why and ask again.
-   - I'll merge it: stop; the plan stays "PR open" until the user merges.
+1. Run `cd <plan worktree> && cairn merge-check`. It fetches the base, refuses when code changed after the ship approval, merges the base in when it moved (a clean merge it makes needs no new approval), and runs the tests on the merged tree. On success it prints the HEAD it checked: keep that sha for step 4. On a refusal:
+   - **Code changed after the approval** (a commit, or a merge resolved by hand): the approval is cleared and the plan waits on it, even though it is closed. Tell the user in one line what changed. Then ask for the approval again. When `modActive` is true, ask with AskUserQuestion; the question text holds the reason from the refusal and `[cairn:approve ship <slug>]`, with options Approve (Recommended) and Hold (stop here; the plan waits for the approval). Otherwise tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve ship --human` (real paths, so it runs as printed), and wait for them to say it's done. Then run `cairn merge-check` again.
+   - **The base conflicts with the branch:** the merge was aborted and nothing changed. (A conflict only in `docs/cairn/OVERVIEW.md` never gets here: `merge-check` regenerates that file and finishes the merge itself.) Dispatch one `implementer` (`model: sonnet`, `description` "Fix · merge conflict") on the plan worktree to merge the base in, resolve the conflicts, run the tests and commit. Tell it plainly that this is not a task: it works on the plan branch in the plan worktree, and may resolve conflicts under `docs/cairn/` by keeping both sides' entries. Then run `cairn merge-check` again; it asks for the approval again, since a resolved merge is new code.
+   - **Tests fail with the base merged in:** the clean merge stays. Dispatch one `implementer` (`model: sonnet`, `description` "Fix · after merging the base") on the plan worktree with the failing output; it fixes, adds a test, and commits. Then run `cairn merge-check` again; the fix is new code, so it asks for the approval again.
+   - **The fetch failed:** say why in one line and ask with AskUserQuestion: Retry / Pause.
+2. Push the plan branch, so the PR carries the closing commits (findings, record, PR link) and any merge from the base.
+3. Tell the user once, in one line, that the plan shows "PR open" until the PR is merged.
+4. Ask with AskUserQuestion (a plain choice, not an approval):
+   - Merge it now (Recommended): run `gh pr merge <PR URL> --merge --match-head-commit <sha>`, with the sha `cairn merge-check` printed, so GitHub merges exactly what was checked. If the repo disallows merge commits, use the method it allows (`--squash` or `--rebase`) with the same flag. If it fails (checks pending, the head moved, no access), say why; when the branch moved, run step 1 again before asking again.
+   - I'll merge it: stop; the plan stays "PR open" until the user merges. The pushed branch is the one that was checked.
 
 **Done when:** the PR is merged (`gh pr view <PR URL> --json state` says `MERGED`) or the user chose to merge it themselves.

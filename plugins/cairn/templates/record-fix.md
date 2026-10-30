@@ -13,7 +13,8 @@
 <!-- What a user saw, in one or two sentences. Include the repro command. -->
 
 ## Cause
-<!-- Why it happened, with path:line. Two sentences. -->
+<!-- Why it happened, with path:line. Two sentences. Then where it came from, from `cairn trace`. -->
+Introduced by: <commit>, <plan> (task <task>, PR #<n>)
 
 ## Fix
 <!-- What changed and why this change, not a larger one. Name the files. -->
