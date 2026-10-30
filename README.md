@@ -192,7 +192,7 @@ The idea comes from Dave Rensin's essay [Elephants, Goldfish and the New Golden 
 
 ## Review rules
 
-Every reviewer cairn starts reads the shared review checklist and, when your repo has one, `REVIEW.md` at its root: what failure looks like in this project, what to skip, and rules learned from earlier plans. Claude Code's `/code-review` and Code Review for GitHub read the same file, so one set of rules covers all of them.
+Every reviewer cairn starts reads the shared review checklist and, when your repo has one, `REVIEW.md` at its root: what failure looks like in this project, what to skip, and rules learned from earlier plans. Code Review for GitHub uses a `REVIEW.md` too, and the local `/code-review` loads it when your `CLAUDE.md` imports it with `@REVIEW.md`, so one set of rules can cover all of them.
 
 Reviews are tuned to cut noise rather than add rounds:
 

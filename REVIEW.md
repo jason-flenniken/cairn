@@ -1,7 +1,7 @@
 # Reviewing cairn
 
 <!--
-Every cairn reviewer reads this file before the diff, and so do the built-in /code-review and Code Review for GitHub.
+Every cairn reviewer reads this file before the diff. Code Review for GitHub reads REVIEW.md too; for the local /code-review, import it from CLAUDE.md with @REVIEW.md.
 Keep it short: what failure looks like here, what to skip, and the rules learned over time.
 -->
 

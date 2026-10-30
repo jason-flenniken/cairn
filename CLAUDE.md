@@ -8,7 +8,7 @@ A public Claude Code marketplace (`.claude-plugin/marketplace.json`, installed f
 
 The repo dogfoods cairn: `.cairn/config.json` is cairn's own config for this repo, and `docs/cairn/plans/<date>-<slug>/` holds the plans (PRD, plan, decisions, RECORD, changelog.md) that built each version. Those plan folders and their `state.json` are written by the CLI; don't hand-edit them.
 
-`REVIEW.md` at the root holds this repo's review rules; cairn's reviewers and `/code-review` read it. `sources/` is reference material borrowed from other projects, not part of the build. `graft/` is a gitignored code index.
+`REVIEW.md` at the root holds this repo's review rules; cairn's reviewers read it. `sources/` is reference material borrowed from other projects, not part of the build. `graft/` is a gitignored code index.
 
 ## Commands
 
