@@ -10,11 +10,13 @@ const read = (p: string) => readFileSync(join(root, p), 'utf8');
 
 // FR-10: each procedure runs `cairn step <name>` at every step its stage has.
 const PROCEDURES: Record<string, string[]> = {
+  'procedures/prd.md': [...STEPS.prd!],
+  'procedures/plan.md': [...STEPS.plan!],
   'procedures/verify.md': [...STEPS.verify!],
   'procedures/review.md': [...STEPS.review!],
   'procedures/ship.md': [...STEPS.ship!],
   // The fix track goes through review and ship; it has no verify stage.
-  'procedures/fix.md': ['reviewing', 'rechecking', 'approving', 'opening-pr'],
+  'procedures/fix.md': ['reviewing', 'rechecking', 'recording', 'approving', 'opening-pr'],
 };
 
 for (const [file, names] of Object.entries(PROCEDURES)) {

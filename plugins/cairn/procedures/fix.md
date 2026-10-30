@@ -70,7 +70,7 @@ Run `cairn advance` only when there were no Critical or Required findings. It is
 **Done when:** `cairn status --json` shows a review pass with `--blocking 0` and the stage is ship.
 
 ## 7. Draft the record
-Write `docs/cairn/plans/<date>-<slug>/RECORD.md` from `templates/record-fix.md`. Keep the five sections, in that order. Fill Links with the plan path; the PR URL goes in once step 9 opens the PR.
+Run `cd <plan worktree> && cairn step recording`, so the pane does not offer the record for approval while it is written. Then write `docs/cairn/plans/<date>-<slug>/RECORD.md` from `templates/record-fix.md`. Keep the five sections, in that order. Fill Links with the plan path; the PR URL goes in once step 9 opens the PR.
 
 The record is at most 200 words. Count the words with headings and HTML comments left out. Trim until it fits.
 
@@ -82,7 +82,7 @@ Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, 
 Run `cd <plan worktree> && cairn step approving`. Show the user the record in about five lines, the changelog entry, plus the count of open recommended follow-ups when there are any. Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to step 9. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output. Options:
   - Approve (Recommended): approve the record
-  - Revise the record or the entry: ask what to change, edit, recheck the word counts, and show it again
+  - Revise the record or the entry: run `cd <plan worktree> && cairn step recording`, ask what to change, edit, recheck the word counts, and return to step 8
   - Hold: stop here; the plan stays at ship
 - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve ship --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 

@@ -26,7 +26,7 @@ Follow-ups declined twice, or older than 60 days, expire on their own and need n
 **Done when:** at most 5 open follow-ups remain from this plan (`cairn close` refuses otherwise and names them).
 
 ## 3. Draft the record
-Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open follow-up counts, the list of dropped follow-ups, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, the plan log (the `log` array in `state.json`), and `git log <base>..<plan-branch>`. It writes `docs/cairn/plans/<date>-<slug>/RECORD.md` from the record template in at most 600 words, Findings included.
+Run `cd <plan worktree> && cairn step recording`, so the pane does not offer the record for approval while it is written. Then run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open follow-up counts, the list of dropped follow-ups, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, the plan log (the `log` array in `state.json`), and `git log <base>..<plan-branch>`. It writes `docs/cairn/plans/<date>-<slug>/RECORD.md` from the record template in at most 600 words, Findings included.
 
 Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, `description` "Record · changelog entry") with the finished `RECORD.md`, `prd.md`, and the plan log. It writes `docs/cairn/plans/<date>-<slug>/changelog.md`: one paragraph of at most 120 words covering what was built, why, and the big rocks (API, data model, security or dependency changes a developer must know). Check it with `wc -w`, then commit `RECORD.md` and `changelog.md` on the plan branch, so both are in the PR the user approves. After approval the entry belongs to the user: cairn reads it and never rewrites it.
 
@@ -36,7 +36,7 @@ Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, 
 Run `cd <plan worktree> && cairn step approving`. Then show the user the record and the changelog entry, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output:
   - Approve (Recommended): approve the record, then open the PR
-  - Revise the record or the entry: ask what to change, edit, recheck the word counts
+  - Revise the record or the entry: run `cd <plan worktree> && cairn step recording`, ask what to change, edit, recheck the word counts, and return to step 4
   - Hold: stop here; the plan stays at ship
 - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve ship --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 

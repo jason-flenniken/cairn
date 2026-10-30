@@ -86,12 +86,16 @@ export function prdEditedSinceApproval(s: State, prd: string | undefined): boole
 
 const PRD_EDITED_NOTE = '**prd.md changed after you approved it; approving the plan also accepts those edits.**';
 
+// Steps during which the stop's document is still being written or checked, so it is not ready yet.
+const WRITING_STEPS = ['drafting', 'checking', 'recording'];
+
 /** The stop the plan is waiting on, when approving it now would pass its checks. Never throws. */
 export function readyFor(pc: { plan: { dir: string } }): Ready | undefined {
   try {
     const s = loadState(pc.plan.dir);
     const file = (name: string) => join(pc.plan.dir, name);
     const pcLike = pc as PlanCtx;
+    if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return undefined;
     if (s.stage === 'prd' && !s.approvals.prd) {
       const md = readText(file('prd.md'));
       return md && !prdProblems(md).length ? { kind: 'prd', file: file('prd.md'), summary: prdSummary(md) } : undefined;

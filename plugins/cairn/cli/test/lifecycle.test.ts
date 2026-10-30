@@ -132,6 +132,11 @@ test('full lifecycle with every checkpoint', () => {
   refusedByUser(wt, /open question/, 'approve', 'prd');
   refused(wt, /not approved/, 'advance');
   write(join(planDir(), 'prd.md'), PRD.replace('- [ ] which', '- [x] which'));
+  for (const step of ['drafting', 'checking']) {
+    ok(wt, 'step', step);
+    assert.equal(ok(wt, 'status').data!.ready, undefined, `a complete prd.md is not ready while ${step}`);
+  }
+  ok(wt, 'step', 'approving');
   const prdReady = ok(wt, 'status').data!.ready as { kind: string; file: string; summary: string };
   assert.equal(prdReady.kind, 'prd');
   assert.equal(prdReady.file, join(planDir(), 'prd.md'));
@@ -150,6 +155,9 @@ test('full lifecycle with every checkpoint', () => {
   write(join(planDir(), 'plan.md'), PLAN + '\nedit\n');
   refusedByUser(wt, /changed since it was loaded/, 'approve', 'plan');
   ok(wt, 'plan', 'load');
+  ok(wt, 'step', 'checking');
+  assert.equal(ok(wt, 'status').data!.ready, undefined, 'a loaded plan is not ready during the builder check');
+  ok(wt, 'step', 'approving');
   assert.equal((ok(wt, 'status').data!.ready as { kind: string }).kind, 'plan');
   byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
