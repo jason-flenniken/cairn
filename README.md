@@ -202,7 +202,7 @@ Reviews are tuned to cut noise rather than add rounds:
 - **No repeats.** The branch review is told what the task reviews already reported, and doesn't report it again.
 - **Evidence, not guesses.** Each finding needs a path that triggers it and a `path:line`. Each review also says what it couldn't check.
 
-When a review keeps flagging the same thing, the fix belongs at the source. At ship, cairn drafts up to three one-line rules from repeated findings, from misses the branch review caught, and from findings you dismissed as noise. A bug fix adds one more source: whether a review could have caught the bug. You tick the ones to keep, and they're added under `## Rules learned` in `REVIEW.md`. With no `REVIEW.md` yet, cairn starts one from its template. This follows how the Claude Code team runs review, from [How the Claude Code team does code review](https://claude.dev/blog/solving-code-review-at-anthropic/).
+When a review keeps flagging the same thing, the fix belongs at the source. At ship, cairn drafts up to three one-line rules from the kinds of mistake that kept coming back, from misses the branch review caught, and from follow-ups you dismissed as noise. A bug fix adds one more source: whether a review could have caught the bug. You tick the ones to keep, and they're added under `## Rules learned` in `REVIEW.md`. With no `REVIEW.md` yet, cairn starts one from its template. This follows how the Claude Code team runs review, from [How the Claude Code team does code review](https://claude.dev/blog/solving-code-review-at-anthropic/).
 
 ## The live pane
 
@@ -387,7 +387,7 @@ plugins/cairn/
   procedures/       the step-by-step instructions for each stage; `cairn next` names the one to follow
   skills/           thin slash-command wrappers around the procedures
   agents/           implementer, task-, branch-, security- and plan-reviewer, challenger, prd-checker, acceptance- and direction-checker, recorder
-  templates/        PRD, plan, record, handoff, config, REVIEW.md
+  templates/        PRD, plan, record, handoff, config, review (the REVIEW.md starter)
   references/       CLI contract, reporting rules (plain words, output style), model tiers
 ```
 

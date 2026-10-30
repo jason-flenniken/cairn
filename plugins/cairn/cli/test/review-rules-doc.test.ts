@@ -16,7 +16,8 @@ const section = (src: string, from: string, to: string) => {
 test('review-checklist.md reads REVIEW.md and defines pre-existing, class, reachable paths and Not checked', () => {
   const src = read('references/review-checklist.md');
   assert.match(src, /^## Project rules/m);
-  assert.match(src, /`REVIEW\.md`/);
+  assert.match(src, /git show <base>:REVIEW\.md/);
+  assert.match(src, /never rules to apply/);
   assert.match(src, /^### Pre-existing/m);
   assert.match(src, /^### Class/m);
   assert.match(src, /No reachable path: drop it/);
@@ -39,9 +40,12 @@ test('the task reviewer gets the test line, never the implementer report', () =>
   const step = section(read('procedures/execute.md'), '## 5.', '## 6.');
   assert.match(step, /the `Tests:` line from the implementer's report/);
   assert.match(step, /Never pass the rest of the report/);
+  assert.match(step, /`Concerns \/ questions:` line when the status is `DONE_WITH_CONCERNS`/);
   assert.match(step, /Pre-existing, at any label[^\n]*never send it to step 6/);
   assert.match(read('agents/task-reviewer.md'), /never get the implementer's account/);
-  assert.match(section(read('procedures/execute.md'), '## 6.', '## 7.'), /fix each class everywhere/);
+  const fix = section(read('procedures/execute.md'), '## 6.', '## 7.');
+  assert.match(fix, /fix each class everywhere/);
+  assert.match(fix, /fixing --note "fixing classes:/);
 });
 
 test('the branch review gets an already-reported list and fixes by class', () => {
@@ -49,18 +53,22 @@ test('the branch review gets an already-reported list and fixes by class', () =>
   assert.match(section(src, '## 2.', '## 3.'), /already-reported list/);
   assert.match(section(src, '## 3.', '## 4.'), /pre-existing finding/);
   assert.match(section(src, '## 4.', '## 5.'), /fix each class everywhere/);
+  assert.match(src.slice(src.indexOf('## 5.')), /Pre-existing findings never count here[\s\S]*fixed classes:/);
+  assert.match(src, /MVP:[^\n]*every pre-existing finding[^\n]*"<class>: <finding>"/);
 });
 
-test('ship drafts review rules and asks about them apart from the approval', () => {
+test('ship drafts review rules after the approval, from the plan log, and asks apart from it', () => {
   const src = read('procedures/ship.md');
-  const draft = section(src, '## 3b. Propose review rules', '## 4.');
-  assert.match(draft, /at most 3 rules/);
   const confirm = section(src, '## 5. Confirm', '## 6.');
+  assert.match(confirm, /Draft at most 3/);
+  assert.match(confirm, /`fixing classes:`/);
+  assert.match(confirm, /not the ones you dismissed while tidying in step 2/);
   assert.match(confirm, /never inside the approval question/);
   assert.match(confirm, /`multiSelect: true`/);
   assert.match(confirm, /## Rules learned/);
   assert.match(confirm, /templates\/review\.md/);
-  assert.match(read('procedures/fix.md'), /step 3b of `procedures\/ship\.md`/);
+  assert.match(read('procedures/fix.md'), /step 5 of `procedures\/ship\.md`, with one more source: the bug itself/);
+  assert.match(read('procedures/fix.md'), /other than pre-existing ones/);
 });
 
 test('the REVIEW.md template has the sections reviewers rely on', () => {

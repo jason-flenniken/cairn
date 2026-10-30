@@ -261,6 +261,10 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'advance');
   refusedByUser(wt, /RECORD\.md does not exist/, 'approve', 'ship');
   write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
+  ok(wt, 'step', 'recording');
+  assert.equal(ok(wt, 'status').data!.ready, undefined, 'a valid RECORD.md is not ready while it is being written');
+  ok(wt, 'step', 'approving');
+  assert.equal((ok(wt, 'status').data!.ready as { kind: string }).kind, 'ship');
   byUser(wt, 'approve', 'ship');
   ok(wt, 'advance');
   ok(wt, 'close');

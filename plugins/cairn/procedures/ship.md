@@ -32,16 +32,6 @@ Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, 
 
 **Done when:** `RECORD.md` exists with every template heading and is within 600 words (`wc -w`), and `changelog.md` exists, is at most 120 words, and is committed.
 
-## 3b. Propose review rules
-When a review keeps flagging the same thing, fix it at the source: a one-line rule in the repo's `REVIEW.md` that every later review reads. Draft at most 3 rules, and none when nothing qualifies. Sources:
-- a class of finding that came up in two or more tasks, or in a task review and again in the branch review (this plan's follow-ups start with their class; the record's Findings lists repeated findings);
-- a Critical or Required finding the branch review caught that a task review should have;
-- follow-ups dismissed as noise, when the same kind was raised more than once: the rule says what not to flag.
-
-A rule is a check an agent can act on, written about the project, not about this plan's code: "A new CLI command is listed in the CLI reference in the same change", not "the pane was buggy". Skip a rule `REVIEW.md` already states. Hold the drafts for step 5; they are not part of the record.
-
-**Done when:** you hold 0 to 3 drafted rules, each with a one-line why.
-
 ## 4. Show and stop
 Run `cd <plan worktree> && cairn step approving`. Then show the user the record and the changelog entry, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output:
@@ -55,7 +45,14 @@ Run `cd <plan worktree> && cairn step approving`. Then show the user the record 
 ## 5. Confirm
 Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names a missing section or an over-budget record, fix `RECORD.md`, recheck the word count, and return to step 4.
 
-Then, when step 3b drafted rules, ask with AskUserQuestion as its own question (a plain choice, not an approval, and never inside the approval question), `multiSelect: true`, one option per rule, with the why as its description: "Add these rules to REVIEW.md? Later reviews will check them." Add only the ones the user ticks, under `## Rules learned` in `REVIEW.md` at the repo root, as `- **YYYY-MM-DD · <area>** — <rule>. *Why:* <what happened>.` With no `REVIEW.md` yet, create it from `${CLAUDE_PLUGIN_ROOT}/templates/review.md` first and tell the user once that its other sections are theirs to fill in. Commit the change on the plan branch, so it is in the PR. Nothing ticked: add nothing.
+Then propose review rules. When a review keeps flagging the same thing, the fix belongs at the source: a one-line rule in the repo's `REVIEW.md` that every later review reads. Draft them now, from what the plan kept, so a pause or a Hold loses nothing. Draft at most 3, and none when nothing qualifies. Sources:
+- the plan log (the `log` array in `state.json`): a class in the `fixing classes:` notes of two or more tasks, or in a task's notes and again in the branch review's evidence note (`fixed classes:`), which is a finding the branch review caught that a task review should have;
+- this plan's follow-ups (`cairn suggest list --json`, keys starting with `<slug>:`, whose text starts with its class): a class logged two or more times;
+- follow-ups the user dismissed (not the ones you dismissed while tidying in step 2), when the same kind was raised more than once: the rule says what not to flag.
+
+A rule is a check an agent can act on, written about the project, not about this plan's code: "A new CLI command is listed in the CLI reference in the same change", not "the pane was buggy". Skip a rule `REVIEW.md` already states.
+
+When you drafted any, ask with AskUserQuestion as its own question (a plain choice, not an approval, and never inside the approval question), `multiSelect: true`, one option per rule, with its one-line why as the description: "Add these rules to REVIEW.md? Later reviews will check them." Add only the ones the user ticks, under `## Rules learned` in `REVIEW.md` at the repo root, as `- **YYYY-MM-DD · <area>** — <rule>. *Why:* <what happened>.` With no `REVIEW.md` yet, create it from `${CLAUDE_PLUGIN_ROOT}/templates/review.md` first and tell the user once that its other sections are theirs to fill in. Commit the change on the plan branch, so it is in the PR. Nothing ticked: add nothing.
 
 **Done when:** `cairn status --json` shows the ship approval, and any rules the user ticked are committed.
 

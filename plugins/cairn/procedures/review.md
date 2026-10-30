@@ -6,7 +6,7 @@ Templates live in `templates/`, next to this `procedures/` folder. Talk to the u
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
-- MVP: in step 2 dispatch the `branch-reviewer` with `model: sonnet` instead of opus (the `security-reviewer` runs as written). In step 3 file Optional and Nit findings as hardening items: `cairn suggest add --kind hardening --area <area> --from branch-review --where <path> --text "<finding>"`.
+- MVP: in step 2 dispatch the `branch-reviewer` with `model: sonnet` instead of opus (the `security-reviewer` runs as written). In step 3 file Optional, Nit and every pre-existing finding as hardening items: `cairn suggest add --kind hardening --area <area> --from branch-review --where <path> --text "<class>: <finding>"`.
 - Standard: as written below.
 - Polished: as written below. The simplify pass and focused reviewers are added when cairn has them.
 - The whole-branch security review runs at every level.
@@ -31,10 +31,11 @@ Skip when there are none. Otherwise run `cd <plan worktree> && cairn step fixing
 
 If tests fail or a Critical or Required finding is still open after that one attempt, ask with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Pause.
 
-**Done when:** tests are green and no Critical or Required finding is open, or the user chose how to proceed.
+**Done when:** tests are green and no Critical or Required finding is open, other than pre-existing ones, or the user chose how to proceed.
 
 ## 5. Record and advance
-- No Critical or Required finding is open: run `cd <plan worktree> && cairn evidence review pass --blocking 0 --note "<N follow-ups logged>"`, then `cd <plan worktree> && cairn advance`.
+Pre-existing findings never count here: they were logged in step 3. The note names the classes of every Critical and Required finding this review raised, so the plan log keeps them for the review rules drafted at ship.
+- No Critical or Required finding is open: run `cd <plan worktree> && cairn evidence review pass --blocking 0 --note "<N follow-ups logged>; fixed classes: <class>, <class> or none"`, then `cd <plan worktree> && cairn advance`.
 - The user accepted open Critical or Required findings as is (N of them, which is the blocking count): run `cd <plan worktree> && cairn evidence review fail --blocking N --note "<N blocking left>"`, then `cd <plan worktree> && cairn advance`. The advance is refused. Ask with AskUserQuestion, once for all of them. The question text lists each finding with its `path:line`, and includes `[cairn:override <slug>]`. Options: "Fix it" or "Override". "Fix it" returns to step 4.
   - Only after the user picks "Override": run `cairn advance --override "blocking findings accepted by the user, with the reason in plain words"` on its own: no `cd`, no `&&`, because the mod refuses compound commands and resolves the plan itself. Write the reason as plain words and digits. It must hold none of ``; | & $ ` > <``, a backslash, or `# * ? ~ ( ) { } [ ]`, or the mod won't run it.
   - Note each accepted finding for the record.

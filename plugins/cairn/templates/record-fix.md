@@ -7,7 +7,7 @@
 - Plan: <path>
 - Issue: <url or none>
 - PR: <url>
-- Revert: revert the PR's merge commit (`git revert -m 1 <merge sha>`); <what a revert does not undo, or "nothing else">
+- Revert: revert the PR (`git revert -m 1 <sha>` for a merge commit, `git revert <sha>` for a squash); <what a revert does not undo, or "nothing else">
 
 ## Bug
 <!-- What a user saw, in one or two sentences. Include the repro command. -->
