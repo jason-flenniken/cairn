@@ -53,10 +53,11 @@ Run `cd <plan worktree> && cairn step reviewing`. Every fix is reviewed, risky o
 
 When the fix touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data, also dispatch the `security-reviewer` agent in the same message, so both run in parallel (`model: sonnet`, `description` "Review · fix (security)"), with the same brief.
 
-Each reviewer returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI, each with `path:line` and a proposed fix. Route them:
-- Optional and Nit: log each with `cd <plan worktree> && cairn suggest add --area <area> --from task-review --where <path> --text "<finding>"` (`--from security-review` for the security reviewer's).
+Each reviewer returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI, each with a class, `path:line` and a proposed fix, some marked `pre-existing`. Route them:
+- Optional and Nit: log each with `cd <plan worktree> && cairn suggest add --area <area> --from task-review --where <path> --text "<class>: <finding>"` (`--from security-review` for the security reviewer's).
+- Pre-existing, at any label (in code the fix did not touch): log it the same way; it does not block the fix. Name a pre-existing Critical to the user in one line.
 - FYI: mention once to the user. Do not log it.
-- Critical and Required: these block the fix.
+- Critical and Required, not pre-existing: these block the fix.
 
 Record the result with the existing evidence command:
 - No Critical or Required findings: `cairn evidence review pass --blocking 0 --note "<N follow-ups logged>"`.
@@ -79,7 +80,7 @@ Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, 
 **Done when:** `RECORD.md` has the five sections and is at most 200 words, and `changelog.md` exists, is at most 120 words, and is committed.
 
 ## 8. Ship stop
-Run `cd <plan worktree> && cairn step approving`. Show the user the record in about five lines, the changelog entry, plus the count of open recommended follow-ups when there are any. Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to step 9. Otherwise read `modActive`.
+First draft review rules as in step 3b of `procedures/ship.md`, with one more source: the bug itself. When a reviewer reading the change that introduced it could have caught it, draft the rule that would have. Then run `cd <plan worktree> && cairn step approving`. Show the user the record in about five lines, the changelog entry, plus the count of open recommended follow-ups when there are any. Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to step 9. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output. Options:
   - Approve (Recommended): approve the record
   - Revise the record or the entry: run `cd <plan worktree> && cairn step recording`, ask what to change, edit, recheck the word counts, and return to step 8
@@ -89,7 +90,7 @@ Run `cd <plan worktree> && cairn step approving`. Show the user the record in ab
 **Done when:** the ship approval is already recorded, or the user chose Approve, or said the terminal approval ran.
 
 ## 9. Confirm, open the PR, advance, merge
-Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu or the terminal reported, and return to step 8. Then:
+Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu or the terminal reported, and return to step 8. Then ask about the drafted rules and commit the ticked ones, as in step 5 of `procedures/ship.md`. Then:
 1. Run `cd <plan worktree> && cairn step opening-pr`, then open the PR from the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<bug title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped). Put the PR URL into the record's Links section and commit it on the plan branch.
 2. Run `cairn advance`. It closes the plan (a fix track has no learn stage); `cairn status` and the pane show "Closed · PR open" until the branch is in main.
 3. Merge last, so the closing commits land on main too: follow the "Merge (the last step, after close)" section of `procedures/ship.md` (push the plan branch again, tell the user once about "PR open", then ask "Merge it now (Recommended)" or "I'll merge it").

@@ -134,8 +134,8 @@ The mod adds these commands, which run instantly without a Claude turn:
 | **Plan** | The PRD is broken into phases of small vertical **tasks**. Each task lists its files, what it waits on, its size (which picks the model), and whether it's risky. Recommended follow-ups that touch the same files are offered as extra tasks. | **Yes: approve the plan** |
 | **Build** | Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic and gets a reviewer. Risky tasks also get thorough tests and a security review, with at most two fix attempts before cairn asks you. Every task is merged and the full test suite runs. A finished phase continues on its own when tests pass. | Only if tests fail or something is blocked |
 | **Check** | Tests and build, then one pass over the PRD's checks. A requirement that isn't met gets fixed. One that works but has no test becomes a recommended follow-up. | Only if something is broken |
-| **Review** | One review of the whole branch. Blocking means a bug, a security hole, data loss, or an unmet requirement, and those are fixed in place. Everything else becomes a recommended follow-up. | Only if something is blocking |
-| **Ship** | A one-page `RECORD.md`: links, why, what was built, how it works, follow-ups. | **Yes: approve the ship** |
+| **Review** | One review of the whole branch. Blocking means a bug, a security hole, data loss, or an unmet requirement, and those are fixed in place. Problems in code the plan didn't touch, and everything else, become recommended follow-ups. | Only if something is blocking |
+| **Ship** | A one-page `RECORD.md`: links (including how to revert it), why, what was built, how it works, follow-ups. When reviews kept flagging the same kind of mistake, cairn offers up to three rules for `REVIEW.md`, and adds only the ones you tick. | **Yes: approve the ship** |
 | **Learn** | Checks the follow-ups are tidied, then closes the plan. It asks you nothing. | No |
 
 The `cairn` CLI checks each move between stages. If something is missing, such as an approval, a required PRD section, or a passing test run, it refuses and prints the exact fix. You can overrule a refusal from an **Override** menu, and every override is logged with its reason.
@@ -189,6 +189,20 @@ Both return a list, not a pass or fail, because a reviewer asked for a verdict t
 **Cost and limits.** About two Sonnet passes per plan; MVP skips both. A fresh agent gives you a second view, not a smarter one: it's the same kind of model without your backstory. Fresh eyes on the finished code (a reader that sees the diff but not the PRD) are planned next.
 
 The idea comes from Dave Rensin's essay [Elephants, Goldfish and the New Golden Age of Software Engineering](https://medium.com/@drensin/elephants-goldfish-and-the-new-golden-age-of-software-engineering-c33641a48874) and Google's [Elephant-Goldfish Model](https://github.com/google/elephant-goldfish-model) plugin: design with an elephant that never forgets, test with a goldfish that remembers nothing. cairn takes the theory, not the plugin. It adds no review rounds or stops, and it splits agents by what they aren't told rather than by persona, following Anthropic's advice to [split subagents by context, not by problem type](https://claude.com/blog/building-agents-when-to-fold-subagents-into-your-main-agent-loop). Anthropic's [harness design post](https://www.anthropic.com/engineering/harness-design-long-running-apps) makes the same case for keeping the agent that judges separate from the one that built.
+
+## Review rules
+
+Every reviewer cairn starts reads the shared review checklist and, when your repo has one, `REVIEW.md` at its root: what failure looks like in this project, what to skip, and rules learned from earlier plans. Claude Code's `/code-review` and Code Review for GitHub read the same file, so one set of rules covers all of them.
+
+Reviews are tuned to cut noise rather than add rounds:
+
+- **Reviewers judge the code, not the story.** A task reviewer gets the task, its requirements, the diff and the test command the builder ran, never the builder's account of what it did.
+- **Old problems don't block new work.** A finding in code the change didn't introduce is marked pre-existing and becomes a follow-up.
+- **Fix the kind of mistake, not the line.** Every finding names its class (say, `missing-ownership-check`), and the fixer fixes that class everywhere in scope.
+- **No repeats.** The branch review is told what the task reviews already reported, and doesn't report it again.
+- **Evidence, not guesses.** Each finding needs a path that triggers it and a `path:line`. Each review also says what it couldn't check.
+
+When a review keeps flagging the same thing, the fix belongs at the source. At ship, cairn drafts up to three one-line rules from repeated findings, from misses the branch review caught, and from findings you dismissed as noise. A bug fix adds one more source: whether a review could have caught the bug. You tick the ones to keep, and they're added under `## Rules learned` in `REVIEW.md`. With no `REVIEW.md` yet, cairn starts one from its template. This follows how the Claude Code team runs review, from [How the Claude Code team does code review](https://claude.dev/blog/solving-code-review-at-anthropic/).
 
 ## The live pane
 
@@ -328,6 +342,7 @@ The `setup`, `test`, and `build` commands are locked when you approve the plan. 
 | A task's branch | `task/<slug>/<task>`, in its own worktree (folder: the plan folder plus `--<task>`, e.g. `feature-billing--cart-api`) |
 | The product PRD | `docs/cairn/product/` on main |
 | Repo config | `.cairn/config.json` |
+| Review rules | `REVIEW.md` at the repo root (yours; cairn adds rules only when you tick them) |
 
 When a plan ships, its branch merges back and its record lands on main with it.
 
@@ -372,7 +387,7 @@ plugins/cairn/
   procedures/       the step-by-step instructions for each stage; `cairn next` names the one to follow
   skills/           thin slash-command wrappers around the procedures
   agents/           implementer, task-, branch-, security- and plan-reviewer, challenger, prd-checker, acceptance- and direction-checker, recorder
-  templates/        PRD, plan, record, handoff, config
+  templates/        PRD, plan, record, handoff, config, REVIEW.md
   references/       CLI contract, reporting rules (plain words, output style), model tiers
 ```
 
