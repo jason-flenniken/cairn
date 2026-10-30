@@ -14,7 +14,7 @@ The path to `prd.md` and the plan worktree path. Work inside that worktree.
 1. List every requirement under **Requirements** in the PRD with its `Check:` line. (An older PRD may list acceptance criteria separately: use those.) Add any item under an optional Unhappy paths or Security section.
 2. For each, find the code that implements it and a test that exercises it. Read what the code does, including limits and messages, and compare with the PRD's exact values. A function with the right name is not evidence.
 3. Judge:
-   - **met:** the code does what the PRD says and a test would fail if it broke.
+   - **met:** the code does what the PRD says and a test would fail if it broke. Read that test: it must assert what the `Check:` line says, not only exist and pass. A green test that checks something else leaves the requirement met but untested.
    - **met but untested:** the code does what the PRD says and no test pins it.
    - **not met:** missing, or the behavior differs from the PRD.
 

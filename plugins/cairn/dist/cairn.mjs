@@ -7879,11 +7879,16 @@ var STAGE_LABEL = {
   closed: "Closed"
 };
 var STEPS = {
+  prd: ["drafting", "checking", "approving"],
+  plan: ["drafting", "checking", "approving"],
   verify: ["testing", "scanning", "fixing"],
   review: ["reviewing", "fixing", "rechecking"],
-  ship: ["approving", "opening-pr"]
+  ship: ["recording", "approving", "opening-pr"]
 };
 var STEP_LABEL = {
+  drafting: "drafting",
+  checking: "builder check",
+  recording: "writing the record",
   testing: "running tests",
   scanning: "scanning for secrets",
   fixing: "fixing",
@@ -8553,11 +8558,13 @@ function prdEditedSinceApproval(s, prd) {
   return !!s.approvals.prd?.hash && !!prd && hashText(prd) !== s.approvals.prd.hash;
 }
 var PRD_EDITED_NOTE = "**prd.md changed after you approved it; approving the plan also accepts those edits.**";
+var WRITING_STEPS = ["drafting", "checking", "recording"];
 function readyFor(pc) {
   try {
     const s = loadState(pc.plan.dir);
     const file = (name) => join9(pc.plan.dir, name);
     const pcLike = pc;
+    if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return void 0;
     if (s.stage === "prd" && !s.approvals.prd) {
       const md = readText(file("prd.md"));
       return md && !prdProblems(md).length ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0;

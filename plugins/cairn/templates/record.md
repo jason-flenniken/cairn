@@ -7,6 +7,7 @@
 - Plan: <path>
 - PR: <url>
 - Tracker: <url or none>
+- Revert: revert the PR (`git revert -m 1 <sha>` for a merge commit, `git revert <sha>` for a squash); <what a revert does not undo, such as a data migration, a config change or external state, or "nothing else">
 
 ## Why
 Two or three sentences from the PRD: the problem and the goal.

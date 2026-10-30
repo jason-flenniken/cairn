@@ -14,11 +14,16 @@ export const STAGE_LABEL: Record<Stage, string> = {
 };
 /** The steps `cairn step` can record, by stage. The fix track uses review and ship. */
 export const STEPS: Partial<Record<Stage, readonly string[]>> = {
+  prd: ['drafting', 'checking', 'approving'],
+  plan: ['drafting', 'checking', 'approving'],
   verify: ['testing', 'scanning', 'fixing'],
   review: ['reviewing', 'fixing', 'rechecking'],
-  ship: ['approving', 'opening-pr'],
+  ship: ['recording', 'approving', 'opening-pr'],
 };
 export const STEP_LABEL: Record<string, string> = {
+  drafting: 'drafting',
+  checking: 'builder check',
+  recording: 'writing the record',
   testing: 'running tests',
   scanning: 'scanning for secrets',
   fixing: 'fixing',

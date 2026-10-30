@@ -88,6 +88,7 @@ test('the other stages take their own steps; the fix track uses review and ship'
     assert.equal(p.state().step?.name, name);
   }
   assert.match(summary((() => { const p = plan('ship'); run(['step', 'approving'], p.wt); return p.state(); })()), /Ship · waiting on approval/);
+  assert.equal((() => { const p = plan('prd'); run(['step', 'checking'], p.wt); return p.state().step?.name; })(), 'checking');
   const f = plan('review', 'fix');
   run(['step', 'reviewing'], f.wt);
   assert.equal(f.state().step?.name, 'reviewing');

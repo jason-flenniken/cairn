@@ -8,7 +8,7 @@ Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLU
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
 - MVP: few, large vertical tasks, usually one phase, and no Test cases lists. Still set `risky: true` on every task that touches a trust boundary: that is what brings in the security review. File the areas you leave untested with `cairn suggest add --kind hardening --area tests --from plan --where <glob> --text "<what to cover and why>"` instead of the up-to-5 suggestions rule below.
 - Standard: as written below.
-- Polished: every task lists Test cases, each naming the failure mode it pins. Before the approval stop, dispatch `plan-reviewer` (`model: sonnet`, `description` "Review · plan") with the paths to `prd.md` and `plan.md`. Fix what it lists as answered by the plan, settle the minor ones yourself, and ask the user about the ones that are theirs, then rerun `cairn plan load`.
+- Polished: every task lists Test cases, each naming the failure mode it pins. Before the approval stop, run `cd <plan worktree> && cairn step checking`, then dispatch `plan-reviewer` (`model: sonnet`, `description` "Review · plan") with the paths to `prd.md` and `plan.md`. Fix what it lists as answered by the plan, settle the minor ones yourself, and ask the user about the ones that are theirs, then rerun `cairn plan load`.
 - A level raised after the plan was approved clears the approval: run the plan again at the new level and ask for approval again.
 
 ## 1. Check
@@ -22,7 +22,7 @@ Dispatch Explore agents (`model: sonnet`, `description` per `references/reportin
 **Done when:** you can name, for each FR, the files and seams it lands in.
 
 ## 3. Write plan.md
-Write `docs/cairn/plans/<date>-<slug>/plan.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. Required headings: Goal, Architecture, Phases. Keep the plan short. Slicing rules:
+Run `cd <plan worktree> && cairn step drafting`, so the pane does not offer the plan for approval while you write it. Then write `docs/cairn/plans/<date>-<slug>/plan.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. Required headings: Goal, Architecture, Phases. Keep the plan short. Slicing rules:
 
 - **Vertical:** each task is a narrow, complete path through every layer. A horizontal layer alone is never a task.
 - **Right-sized:** each task fits one fresh context window. Split further when it would not.
@@ -45,7 +45,7 @@ Run `cairn plan load`. On refusal, read what it names (a cycle, an unknown FR id
 **Done when:** `cairn plan load` exits 0.
 
 ## 5. Stop for approval
-Show a tree preview and about three lines of summary:
+Run `cd <plan worktree> && cairn step approving`; the pane offers the plan for approval from here on. Then show a tree preview and about three lines of summary:
 
 ```
 Phase 1: Foundations
@@ -58,7 +58,7 @@ Phase 2: Checkout
 Run `cairn status --json`. If `state.approvals.plan` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. If `warnings` says prd.md changed after it was approved, approving the plan also accepts those PRD edits: say so in the question and name what changed in the PRD in plain words. There is no separate PRD re-approval. Otherwise read `modActive`.
 - True: ask with AskUserQuestion, with the tree as the preview on the first option. The question text includes `[cairn:approve plan <slug>]`, with the plan slug from the status output:
   - Approve (Recommended)
-  - Revise: ask what to change; edit `plan.md`; rerun step 4
+  - Revise: run `cd <plan worktree> && cairn step drafting`, ask what to change, edit `plan.md`, rerun step 4, and return to step 5
   - Pause: go to the pause procedure
 - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve plan --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed; it also accepts any PRD edits), then wait for them to say it's done.
 

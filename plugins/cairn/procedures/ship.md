@@ -26,7 +26,7 @@ Follow-ups declined twice, or older than 60 days, expire on their own and need n
 **Done when:** at most 5 open follow-ups remain from this plan (`cairn close` refuses otherwise and names them).
 
 ## 3. Draft the record
-Run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open follow-up counts, the list of dropped follow-ups, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, the plan log (the `log` array in `state.json`), and `git log <base>..<plan-branch>`. It writes `docs/cairn/plans/<date>-<slug>/RECORD.md` from the record template in at most 600 words, Findings included.
+Run `cd <plan worktree> && cairn step recording`, so the pane does not offer the record for approval while it is written. Then run `cairn suggest list --open` and note the count by area. Dispatch the `recorder` agent (`model: sonnet`, `description` "Record · completion"). Give it: the output of `cairn status --json`, the open follow-up counts, the list of dropped follow-ups, and the paths to `prd.md`, `plan.md`, `decisions.md`, the evidence notes, any accepted findings, the plan log (the `log` array in `state.json`), and `git log <base>..<plan-branch>`. It writes `docs/cairn/plans/<date>-<slug>/RECORD.md` from the record template in at most 600 words, Findings included.
 
 Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, `description` "Record · changelog entry") with the finished `RECORD.md`, `prd.md`, and the plan log. It writes `docs/cairn/plans/<date>-<slug>/changelog.md`: one paragraph of at most 120 words covering what was built, why, and the big rocks (API, data model, security or dependency changes a developer must know). Check it with `wc -w`, then commit `RECORD.md` and `changelog.md` on the plan branch, so both are in the PR the user approves. After approval the entry belongs to the user: cairn reads it and never rewrites it.
 
@@ -36,7 +36,7 @@ Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, 
 Run `cd <plan worktree> && cairn step approving`. Then show the user the record and the changelog entry, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output:
   - Approve (Recommended): approve the record, then open the PR
-  - Revise the record or the entry: ask what to change, edit, recheck the word counts
+  - Revise the record or the entry: run `cd <plan worktree> && cairn step recording`, ask what to change, edit, recheck the word counts, and return to step 4
   - Hold: stop here; the plan stays at ship
 - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve ship --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
@@ -45,10 +45,19 @@ Run `cd <plan worktree> && cairn step approving`. Then show the user the record 
 ## 5. Confirm
 Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu outcome or the terminal output reported. When it names a missing section or an over-budget record, fix `RECORD.md`, recheck the word count, and return to step 4.
 
-**Done when:** `cairn status --json` shows the ship approval.
+Then propose review rules. When a review keeps flagging the same thing, the fix belongs at the source: a one-line rule in the repo's `REVIEW.md` that every later review reads. Draft them now, from what the plan kept, so a pause or a Hold loses nothing. Draft at most 3, and none when nothing qualifies. Sources:
+- the plan log (the `log` array in `state.json`): a class in the `fixing classes:` notes of two or more tasks, or in a task's notes and again in the branch review's evidence note (`fixed classes:`), which is a finding the branch review caught that a task review should have;
+- this plan's follow-ups (`cairn suggest list --json`, keys starting with `<slug>:`, whose text starts with its class): a class logged two or more times;
+- follow-ups the user dismissed (not the ones you dismissed while tidying in step 2), when the same kind was raised more than once: the rule says what not to flag.
+
+A rule is a check an agent can act on, written about the project, not about this plan's code: "A new CLI command is listed in the CLI reference in the same change", not "the pane was buggy". Skip a rule `REVIEW.md` already states.
+
+When you drafted any, ask with AskUserQuestion as its own question (a plain choice, not an approval, and never inside the approval question), `multiSelect: true`, one option per rule, with its one-line why as the description: "Add these rules to REVIEW.md? Later reviews will check them." Add only the ones the user ticks, under `## Rules learned` in `REVIEW.md` at the repo root, as `- **YYYY-MM-DD · <area>** — <rule>. *Why:* <what happened>.` With no `REVIEW.md` yet, create it from `${CLAUDE_PLUGIN_ROOT}/templates/review.md` first and tell the user once that its other sections are theirs to fill in. Commit the change on the plan branch, so it is in the PR. Nothing ticked: add nothing.
+
+**Done when:** `cairn status --json` shows the ship approval, and any rules the user ticked are committed.
 
 ## 6. Open the PR
-Run `cd <plan worktree> && cairn step opening-pr`. Then, from the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan). Put the PR URL into the record's Links section and commit it on the plan branch.
+Run `cd <plan worktree> && cairn step opening-pr`. Then, from the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan, and keeping its Revert line). Put the PR URL into the record's Links section and commit it on the plan branch.
 
 **Done when:** `gh pr create` printed a URL, and `RECORD.md` links to it.
 

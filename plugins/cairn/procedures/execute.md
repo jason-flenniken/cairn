@@ -57,19 +57,20 @@ When an implementer reports, read its status line.
 - `NEEDS_CONTEXT`: answer from the PRD, plan, or `decisions.md` and send it to the implementer with SendMessage. Ask the user only when the documents don't answer it (AskUserQuestion, recommended first; record with `cd <plan worktree> && cairn decide`).
 - `BLOCKED`: step 8.
 - `DONE` or `DONE_WITH_CONCERNS`: first log the report's `Suggestions:` lines (up to 3) with `cd <plan worktree> && cairn suggest add --area <area> --where <path> --from implementer --text "<text>"`. Then review the task, risky or not: run `cd <plan worktree> && cairn task step <id> reviewing`.
-  - Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the plugin root path (`${CLAUDE_PLUGIN_ROOT}`), the task section, the covered requirements, the implementer's report, and the diff command `git -C <worktree> diff <plan-branch>...HEAD`.
+  - Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the plugin root path (`${CLAUDE_PLUGIN_ROOT}`), the task section, the covered requirements, the `Tests:` line from the implementer's report, its `Concerns / questions:` line when the status is `DONE_WITH_CONCERNS` (the reviewer checks each concern against the diff), and the diff command `git -C <worktree> diff <plan-branch>...HEAD`. Never pass the rest of the report: a reviewer who reads the builder's account grades the account instead of the code.
   - When the task is `risky` (or the report or the diff shows auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data), dispatch the `security-reviewer` agent in the same message, so both run in parallel (`model: sonnet`, `description` "Review · <task name> (security)"), with the same brief and diff.
-  - Each reviewer returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI. Route them:
+  - Each reviewer returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI, each with a class, and some marked `pre-existing` (in code the task did not introduce). Route them:
     - Critical and Required: step 6. Each one names its proposed fix.
-    - Optional and Nit: log each with `cd <plan worktree> && cairn suggest add --area <area> --from task-review --where <path> --text "<finding>"` (`--from security-review` for the security reviewer's).
+    - Optional and Nit: log each with `cd <plan worktree> && cairn suggest add --area <area> --from task-review --where <path> --text "<class>: <finding>"` (`--from security-review` for the security reviewer's).
+    - Pre-existing, at any label: log it the same way and never send it to step 6. Name a pre-existing Critical to the user in one line.
     - FYI: mention once in your progress line. Do not log it.
-  - No Critical or Required finding from either reviewer: step 7.
+  - No Critical or Required finding from either reviewer, other than pre-existing ones: step 7.
 
 **Done when:** each reported task is ready to merge, or in step 6 or 8.
 
 ## 6. Fix (Critical and Required findings)
-Only Critical and Required findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing`. Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
-- Send those findings, with their proposed fixes, back to the same implementer with SendMessage (or a fresh implementer on the same worktree when the old one has ended), `description` "Fix · <task name>".
+Only Critical and Required findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing --note "fixing classes: <class>, <class>"`, so the plan log keeps which kinds of mistake needed fixing (ship drafts review rules from it). Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
+- Send those findings, with their proposed fixes, back to the same implementer with SendMessage (or a fresh implementer on the same worktree when the old one has ended), `description` "Fix · <task name>". Group them by class and tell it to fix each class everywhere in the task's scope, not only at the lines cited, and to list the other places it fixed.
 - After it reports DONE, re-review once with the reviewer that raised them (both when both did), limited to those findings and the fix diff.
 - When a Critical or Required finding is still open after that attempt (or the CLI refuses another), stop work on the task and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Re-plan this task / Pause.
 

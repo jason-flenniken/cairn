@@ -7,7 +7,7 @@ import { mutate, planCtx, type Opts, type Result } from '../shared.ts';
 const NAME = /^[a-z-]{1,20}$/;
 const COUNT = /^\d{1,6}$/;
 
-/** `cairn step <name> [--count N]`: record what the check, review or ship stage is doing now. */
+/** `cairn step <name> [--count N]`: record what the current stage (prd, plan, check, review or ship) is doing now. */
 export function cmdStep(ctx: Ctx, name: string | undefined, opts: Opts): Result {
   const pc = planCtx(ctx);
   const count = opts.count;
