@@ -75,7 +75,7 @@ export function directCommits(cwd: string, base: string, head: string): { sha: s
 }
 
 /** What a close writes outside the plan folder: OVERVIEW.md, plus the decision and area folders that 0.6 closes wrote. They do not count as new work after a merge. */
-const CLOSE_PUBLISHED = [`${DOCS_DIR}/decisions`, `${DOCS_DIR}/system`, `${DOCS_DIR}/OVERVIEW.md`];
+export const CLOSE_PUBLISHED = [`${DOCS_DIR}/decisions`, `${DOCS_DIR}/system`, `${DOCS_DIR}/OVERVIEW.md`];
 
 export type MergeState = 'merged' | 'open' | 'unknown';
 

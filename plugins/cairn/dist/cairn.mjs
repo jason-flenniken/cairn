@@ -7907,6 +7907,7 @@ var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer"
 // plugins/cairn/cli/src/render.ts
 var day = (iso) => iso ? iso.slice(0, 10) : "";
 function nextFor(s) {
+  if (s.reapprove) return { procedure: "ship", text: `Approve shipping again: ${s.reapprove.why}. Then run cairn merge-check and merge.` };
   if (s.stage === "closed") return { procedure: "status", text: "This plan is closed. Its record is in RECORD.md." };
   if (s.paused) return { procedure: "resume", text: `Paused ${day(s.paused.at)}. Resume to pick up where it stopped.` };
   const all = s.phases.flatMap((p) => p.tasks);
@@ -8363,6 +8364,7 @@ function cmdEscalate(ctx, opts) {
     setStage(s, "prd");
     delete s.evidence.review;
     delete s.approvals.ship;
+    delete s.reapprove;
     log(s, "escalated", "fix \u2192 feature plan at prd");
     return { message: `"${s.title}" is now a feature plan at the PRD stage. The fix task keeps its work, with its scope narrowed to the files it changed. Next: write the PRD.` };
   });
@@ -8577,6 +8579,7 @@ function readyFor(pc) {
 ` : "";
       return { kind: "plan", file: file("plan.md"), summary: note + planSummary(s) };
     }
+    if (s.reapprove && !s.approvals.ship) return { kind: "ship", file: file("RECORD.md"), summary: `**Approve shipping again:** ${s.reapprove.why}.` };
     if (s.stage === "ship" && !s.approvals.ship && s.evidence.review?.result === "pass") {
       if (recordCheck(pcLike, fastLane(s) ? "fix" : "feature").problems.length) return void 0;
       const md = readText(file("RECORD.md")) ?? "";
@@ -8630,12 +8633,15 @@ function cmdApprove(ctx, kind, opts, io) {
     }
     case "ship":
       return mutate(pc, "ship approved", (s) => {
-        gate(s.stage === "ship", s, "approve ship", opts, `the plan is in ${s.stage}, not ship`);
+        const again = !!s.reapprove;
+        gate(s.stage === "ship" || again, s, "approve ship", opts, `the plan is in ${s.stage}, not ship`);
         gate(s.evidence.review?.result === "pass", s, "approve ship", opts, "review has not passed", ["run the review procedure, then cairn evidence review pass"]);
         const record = recordCheck(pc, fastLane(s) ? "fix" : "feature");
         gate(!record.problems.length, s, "approve ship", opts, record.problems.join("; "), [record.fix]);
-        s.approvals.ship = approval();
-        log(s, "ship approved", source);
+        s.approvals.ship = { ...approval(), sha: git(["rev-parse", "HEAD"], pc.plan.worktree) };
+        delete s.reapprove;
+        log(s, again ? "ship approved again" : "ship approved", source);
+        if (again) return { message: "Ship approved again. Next: `cairn merge-check`, then merge." };
         return { message: "Ship approved. Next: open the PR, then `cairn advance`; offer the merge last." };
       });
     default:
@@ -9451,6 +9457,176 @@ function cmdStep(ctx, name, opts) {
   });
 }
 
+// plugins/cairn/cli/src/commands/merge.ts
+import { spawnSync as spawnSync4 } from "node:child_process";
+import { existsSync as existsSync9, readdirSync as readdirSync4 } from "node:fs";
+import { join as join16, relative as relative3 } from "node:path";
+function gitRun(args, cwd) {
+  const r = spawnSync4("git", ["-c", "gc.auto=0", "-c", "maintenance.auto=false", ...args], {
+    cwd,
+    encoding: "utf8",
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
+  });
+  return { ok: r.status === 0, out: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() };
+}
+var short = (sha) => sha.slice(0, 7);
+var reapproveFixes = (slug, worktree) => [
+  `the user approves the ship again in the approval menu tagged [cairn:approve ship ${slug}], or presses Approve in the cairn pane`,
+  `or the user runs, in their own terminal: cd ${worktree} && cairn approve ship --human`,
+  "then run cairn merge-check again"
+];
+function changesSince(cwd, sha, planRel2, vouched) {
+  if (!gitOk(["merge-base", "--is-ancestor", sha, "HEAD"], cwd)) return [`the approved commit ${short(sha)} is no longer in the branch's history`];
+  const exempt = (f) => f === "REVIEW.md" || [planRel2, ...CLOSE_PUBLISHED].some((p) => f === p || f.startsWith(`${p}/`));
+  const reasons = [];
+  const files = /* @__PURE__ */ new Set();
+  for (const c of git(["rev-list", "--first-parent", `${sha}..HEAD`], cwd).split("\n").filter(Boolean)) {
+    const parents = git(["rev-list", "--parents", "-n", "1", c], cwd).split(" ").slice(1);
+    if (parents.length > 1) {
+      if (vouched.includes(c)) continue;
+      const touched = git(["diff", "--name-only", parents[0], c], cwd).split("\n").filter((f) => f && !exempt(f));
+      if (touched.length) reasons.push(`merge ${short(c)}, which cairn did not make, changed ${touched.length} file${touched.length === 1 ? "" : "s"}`);
+      continue;
+    }
+    for (const f of git(["diff-tree", "--no-commit-id", "--name-only", "-r", "--root", c], cwd).split("\n")) if (f && !exempt(f)) files.add(f);
+  }
+  if (files.size) reasons.push(`commits changed ${[...files].slice(0, 5).join(", ")}${files.size > 5 ? ` and ${files.size - 5} more` : ""}`);
+  return reasons;
+}
+function cmdMergeCheck(ctx, _opts) {
+  const pc = planCtx(ctx);
+  const wt = pc.plan.worktree;
+  const rel = planRelOf(pc.plan);
+  const s0 = loadState(pc.plan.dir);
+  if (!["ship", "learn", "closed"].includes(s0.stage)) throw new Refusal(`merge-check runs after the ship approval; the plan is in ${s0.stage}`);
+  if (s0.reapprove) throw new Refusal(`the ship needs approving again: ${s0.reapprove.why}`, reapproveFixes(s0.slug, wt));
+  if (!s0.approvals.ship) throw new Refusal("shipping is not approved", ["cairn approve ship"]);
+  if (!safeRef(wt, s0.base)) throw new Refusal(`the plan's base "${s0.base}" is not a valid branch name`);
+  if (currentBranch(wt) !== s0.branch) throw new Refusal(`the plan worktree is on ${currentBranch(wt)}, not the plan branch ${s0.branch}`);
+  const dirty = git(["status", "--porcelain"], wt).split("\n").filter((l) => l && !l.slice(3).startsWith(rel));
+  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.map((l) => l.slice(3)).join(", ")}`, ["commit or remove them, then run cairn merge-check again"]);
+  const notes = [];
+  let baseRef = s0.base;
+  if (gitOk(["remote", "get-url", "origin"], wt)) {
+    const fetched = gitRun(["fetch", "-q", "origin", s0.base], wt);
+    if (!fetched.ok) throw new Refusal(`could not fetch origin/${s0.base}, so it may have moved unseen: ${fetched.out}`, ["check the network or credentials, then run cairn merge-check again"]);
+    baseRef = `origin/${s0.base}`;
+  } else notes.push(`No origin remote: checked against the local ${s0.base}.`);
+  const approved = s0.approvals.ship.sha;
+  if (approved) {
+    const reasons = changesSince(wt, approved, rel, s0.baseMerges ?? []);
+    if (reasons.length) {
+      const why = `code changed after you approved shipping (${reasons.join("; ")})`;
+      mutate(pc, "ship needs approving again", (s) => {
+        delete s.approvals.ship;
+        s.reapprove = { at: now(), why };
+        log(s, "ship approval cleared", why);
+      });
+      throw new Refusal(`the ship needs approving again: ${why}`, reapproveFixes(s0.slug, wt));
+    }
+  } else notes.push("This plan was approved before cairn pinned approvals to a commit, so changes since then were not checked.");
+  let merged;
+  if (!gitOk(["merge-base", "--is-ancestor", baseRef, "HEAD"], wt)) {
+    const behind = Number(git(["rev-list", "--count", `HEAD..${baseRef}`], wt));
+    const m = gitRun(["merge", "--no-edit", "-q", "-m", `Merge ${s0.base} into ${s0.branch} before merging`, baseRef], wt);
+    if (!m.ok) {
+      const conflicted = gitRun(["diff", "--name-only", "--diff-filter=U"], wt).out.split("\n").filter(Boolean);
+      gitRun(["merge", "--abort"], wt);
+      throw new Refusal(
+        `${s0.base} has ${behind} new commit${behind === 1 ? "" : "s"} that conflict with this branch${conflicted.length ? ` in ${conflicted.join(", ")}` : `: ${m.out}`}. The merge was aborted; nothing changed.`,
+        [`merge ${s0.base} into ${s0.branch} in the plan worktree, resolve the conflicts, and run the tests`, "then run cairn merge-check again: a merge resolved by hand is new code, so it asks for the ship approval again"]
+      );
+    }
+    merged = { sha: git(["rev-parse", "HEAD"], wt), behind };
+    mutate(pc, `merge ${s0.base} before merging`, (s) => {
+      (s.baseMerges ??= []).push(merged.sha);
+      log(s, "base merged", `${s0.base}: ${behind} new commit${behind === 1 ? "" : "s"}, merged cleanly`);
+    });
+  }
+  const tests = merged ? runTests(pc.cfg, wt) : void 0;
+  if (tests && !tests.ok) {
+    mutate(pc, "tests fail with the base merged in", (s) => log(s, "merge check failed", `${tests.cmd}: ${tests.tail}`));
+    throw new Refusal(`tests fail with ${s0.base} merged in: ${tests.tail}`, [
+      "fix it on the plan branch (the clean merge stays)",
+      "then run cairn merge-check again: the fix is new code, so it asks for the ship approval again"
+    ]);
+  }
+  if (merged && !tests) notes.push("No test command is configured, so the merged tree was not tested.");
+  mutate(pc, "merge checked", (s) => log(s, "merge checked", merged ? `${s0.base} merged, tests pass` : `up to date with ${s0.base}`));
+  const head = git(["rev-parse", "HEAD"], wt);
+  const said = merged ? `${s0.base} had moved ${merged.behind} commit${merged.behind === 1 ? "" : "s"}: merged it in cleanly${tests ? ` and the tests pass (${tests.tail})` : ""}.` : `Up to date with ${s0.base}.`;
+  const pinned = approved ? " Nothing changed since the ship approval that it does not cover." : "";
+  return {
+    message: [`${said}${pinned}`, ...notes, `Checked ${head}. Push the plan branch, then merge with: gh pr merge <PR> --merge --match-head-commit ${head}`].join("\n"),
+    data: { head, base: baseRef, merged: !!merged, behind: merged?.behind ?? 0, tests: tests ? tests.tail : null, notes }
+  };
+}
+var PR_MERGE = /^Merge pull request #(\d+) from [^/\s]+\/(\S+)/;
+var PLAN_BRANCH = /^(?:feature|fix|sdlc)\/(\S+)$/;
+var BRANCH_MERGE = /^Merge branch '(?:feature|fix|sdlc)\/([^']+)'/;
+var SQUASH = /\(#(\d+)\)$/;
+var TASK_MERGE = /^merge task (\S+)/;
+function planByPr(root, pr) {
+  for (const dir of plansDirsIn(root))
+    for (const name of readdirSync4(dir))
+      if (new RegExp(`/pull/${pr}(?!\\d)`).test(readText(join16(dir, name, "RECORD.md")) ?? "")) return relative3(root, join16(dir, name));
+  return void 0;
+}
+function cmdTrace(ctx, spec, opts) {
+  const m = spec?.match(/^(.+):(\d+)(?:-(\d+))?$/);
+  if (!m) throw new Refusal("usage: cairn trace <path>:<start>[-<end>] [--base <branch>]");
+  const [, path, start, end = start] = m;
+  const root = ctx.top;
+  const base = typeof opts.base === "string" ? opts.base : ctx.plan?.dir ? loadState(ctx.plan.dir).base : "main";
+  if (!safeRef(root, base)) throw new Refusal(`"${base}" is not a valid branch name`);
+  const baseRef = branchExists(base, root) ? base : `origin/${base}`;
+  const blame = gitRun(["blame", "--porcelain", "-L", `${start},${end}`, baseRef, "--", path], root);
+  if (!blame.ok) throw new Refusal(`git blame failed: ${blame.out}`);
+  const shas = [...new Set(blame.out.split("\n").map((l) => l.match(/^([0-9a-f]{40}) \d+ \d+/)?.[1]).filter((x) => !!x && !/^0+$/.test(x)))];
+  const mainLine = new Set(git(["rev-list", "--first-parent", baseRef], root).split("\n"));
+  const traced = shas.map((sha) => {
+    const [date, subject] = git(["log", "-1", "--format=%ad%x00%s", "--date=short", sha], root).split("\0");
+    const t = { sha: short(sha), date, subject };
+    let landed;
+    if (mainLine.has(sha)) landed = sha;
+    else landed = git(["rev-list", "--ancestry-path", "--merges", "--reverse", `${sha}..${baseRef}`], root).split("\n").find((c) => mainLine.has(c));
+    if (!landed) return t;
+    t.landed = short(landed);
+    const landedSubject = git(["log", "-1", "--format=%s", landed], root);
+    const pr = landedSubject.match(PR_MERGE);
+    const slug = (pr ? pr[2].match(PLAN_BRANCH)?.[1] : void 0) ?? landedSubject.match(BRANCH_MERGE)?.[1];
+    const prNo = pr?.[1] ?? landedSubject.match(SQUASH)?.[1];
+    if (prNo) t.pr = Number(prNo);
+    if (slug) {
+      t.plan = slug;
+      const rel = planRelIn(slug, root);
+      if (existsSync9(join16(root, rel))) t.record = `${rel}/RECORD.md`;
+    } else if (t.pr) {
+      const rel = planByPr(root, t.pr);
+      if (rel) {
+        t.record = `${rel}/RECORD.md`;
+        t.plan = rel.split("/").pop()?.replace(/^\d{4}-\d{2}-\d{2}-/, "");
+      }
+    }
+    if (landed !== sha)
+      for (const c of git(["rev-list", "--ancestry-path", "--merges", "--reverse", `${sha}..${landed}`], root).split("\n").filter((c2) => c2 && c2 !== landed)) {
+        const task = git(["log", "-1", "--format=%s", c], root).match(TASK_MERGE)?.[1];
+        if (task) {
+          t.task = task;
+          break;
+        }
+      }
+    return t;
+  });
+  if (!traced.length) return { message: `No commit on ${baseRef} brought ${spec} in.`, data: { commits: [] } };
+  const lines = traced.flatMap((t) => [
+    `${t.sha} ${t.date} ${t.subject}`,
+    t.landed ? `  landed in ${base} with ${t.landed}${t.pr ? ` (PR #${t.pr})` : ""}${t.plan ? `, plan ${t.plan}` : ""}${t.task ? `, task ${t.task}` : ""}` : `  not in ${baseRef} yet`,
+    ...t.record ? [`  record: ${t.record}`] : []
+  ]);
+  return { message: lines.join("\n"), data: { commits: traced, base: baseRef } };
+}
+
 // plugins/cairn/cli/src/commands/phase.ts
 function newSuggestionsText(s) {
   const since = [...s.log].reverse().find((l) => l.event === "phase finished" || l.event === "advanced" && l.detail === "execute")?.at ?? s.created;
@@ -9520,34 +9696,34 @@ function cmdTest(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/migrate.ts
-import { existsSync as existsSync9, lstatSync, mkdirSync as mkdirSync3, readdirSync as readdirSync4, renameSync as renameSync2, rmdirSync as rmdirSync2 } from "node:fs";
-import { dirname as dirname4, join as join16 } from "node:path";
+import { existsSync as existsSync10, lstatSync, mkdirSync as mkdirSync3, readdirSync as readdirSync5, renameSync as renameSync2, rmdirSync as rmdirSync2 } from "node:fs";
+import { dirname as dirname4, join as join17 } from "node:path";
 var PAIRS = [
   [LEGACY_CAIRN_DIR, CAIRN_DIR],
   [LEGACY_DOCS_DIR, DOCS_DIR]
 ];
 function isCairns(root, old) {
-  if (old === LEGACY_CAIRN_DIR) return existsSync9(join16(root, old, "config.json"));
-  if (existsSync9(join16(root, old, "product"))) return true;
-  const plans = join16(root, old, "plans");
-  return existsSync9(plans) && readdirSync4(plans).some((n) => existsSync9(join16(plans, n, "state.json")));
+  if (old === LEGACY_CAIRN_DIR) return existsSync10(join17(root, old, "config.json"));
+  if (existsSync10(join17(root, old, "product"))) return true;
+  const plans = join17(root, old, "plans");
+  return existsSync10(plans) && readdirSync5(plans).some((n) => existsSync10(join17(plans, n, "state.json")));
 }
 var legacyLayout = (root) => PAIRS.map(([old]) => old).filter((p) => isCairns(root, p));
 var tracked = (root, rel) => git(["ls-files", "--", rel], root) !== "";
 function move(root, from, to) {
-  mkdirSync3(dirname4(join16(root, to)), { recursive: true });
+  mkdirSync3(dirname4(join17(root, to)), { recursive: true });
   if (tracked(root, from)) git(["mv", from, to], root);
-  else renameSync2(join16(root, from), join16(root, to));
+  else renameSync2(join17(root, from), join17(root, to));
 }
 var present = (root, rel) => {
   try {
-    lstatSync(join16(root, rel));
+    lstatSync(join17(root, rel));
     return true;
   } catch {
     return false;
   }
 };
-var isDir = (root, rel) => lstatSync(join16(root, rel)).isDirectory();
+var isDir = (root, rel) => lstatSync(join17(root, rel)).isDirectory();
 function plan(root, old, next, out) {
   if (!present(root, next)) {
     out.moves.push([old, next]);
@@ -9558,10 +9734,10 @@ function plan(root, old, next, out) {
     return;
   }
   out.dirs.push(old);
-  for (const n of readdirSync4(join16(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
+  for (const n of readdirSync5(join17(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
 }
 var prune = (root, dirs) => {
-  for (const d of [...dirs].reverse()) if (existsSync9(join16(root, d)) && !readdirSync4(join16(root, d)).length) rmdirSync2(join16(root, d));
+  for (const d of [...dirs].reverse()) if (existsSync10(join17(root, d)) && !readdirSync5(join17(root, d)).length) rmdirSync2(join17(root, d));
 };
 function cmdMigrate(ctx) {
   if (ctx.plan) throw new Refusal("run cairn migrate on the main branch, outside any plan");
@@ -9692,7 +9868,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join17 } from "node:path";
+import { join as join18 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -9716,7 +9892,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join17(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join18(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -9749,8 +9925,8 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync10 } from "node:fs";
-import { dirname as dirname5, isAbsolute, join as join18, relative as relative3, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync11 } from "node:fs";
+import { dirname as dirname5, isAbsolute, join as join19, relative as relative4, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function indexFor(ctx) {
   try {
@@ -9765,7 +9941,7 @@ var startOut = (...parts) => {
 };
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync10(join18(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync11(join19(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return startOut(indexFor(ctx));
@@ -9788,10 +9964,10 @@ function hookPostEdit(input) {
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
   let dir = dirname5(abs);
-  while (!existsSync10(dir) && dirname5(dir) !== dir) dir = dirname5(dir);
+  while (!existsSync11(dir) && dirname5(dir) !== dir) dir = dirname5(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync10(join18(ctx.plan.dir, "state.json"))) return "";
-  const rel = relative3(ctx.top, abs);
+  if (!ctx.plan?.dir || !existsSync11(join19(ctx.plan.dir, "state.json"))) return "";
+  const rel = relative4(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (isCairnPath(rel)) return "";
   const pc = planCtx(ctx);
@@ -9870,6 +10046,7 @@ var USAGE3 = `cairn: plan state for the agent-driven lifecycle. See references/c
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
   index | pause [--now] | resume [<slug>] | close | render | records | migrate
+  merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 function run(argv, cwd = process.cwd()) {
@@ -9934,6 +10111,10 @@ function run(argv, cwd = process.cwd()) {
       return cmdRecords(ctx());
     case "migrate":
       return cmdMigrate(ctx());
+    case "merge-check":
+      return cmdMergeCheck(ctx(), opts);
+    case "trace":
+      return cmdTrace(ctx(), a, opts);
     case "render":
       return cmdRender(ctx());
     case void 0:

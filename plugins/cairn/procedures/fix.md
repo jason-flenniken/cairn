@@ -75,6 +75,8 @@ Run `cd <plan worktree> && cairn step recording`, so the pane does not offer the
 
 The record is at most 200 words. Count the words with headings and HTML comments left out. Trim until it fits.
 
+In Cause, say where the bug came from. Take the lines the fix changed from the old side of `git diff <base>...<plan-branch>` (the lines as they stand on the base) and run `cd <plan worktree> && cairn trace <path>:<start>-<end>`. It prints the commit that brought them in, the pull request and plan it landed with, the task that built it, and that plan's record. Write one line: `Introduced by: <commit>, <plan> (task <task>, PR #<n>)`, leaving out what trace could not find. When the cause is not in changed lines (a missing check, say), trace the lines nearest it. Then open that plan's record: if its review should have caught the bug, that feeds the rule you draft at step 9.
+
 Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, `description` "Record · changelog entry") with `RECORD.md`, the repro, and the plan log. It writes `docs/cairn/plans/<date>-<slug>/changelog.md`: one paragraph of at most 120 words covering what was fixed, why it broke, and any big rocks (API, data model, security or dependency changes a developer must know). Check it with `wc -w`, then commit both files on the plan branch, so they are in the PR the user approves.
 
 **Done when:** `RECORD.md` has the five sections and is at most 200 words, and `changelog.md` exists, is at most 120 words, and is committed.

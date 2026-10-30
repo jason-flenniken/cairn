@@ -55,6 +55,8 @@ export interface Approval {
   note?: string;
   hash?: string;
   source?: 'mod' | 'terminal' | 'agent';
+  /** Ship only: the plan branch's HEAD when it was approved. Code committed after it needs the approval again. */
+  sha?: string;
 }
 
 export interface Task {
@@ -161,6 +163,10 @@ export interface State {
   stageHistory?: { stage: Stage; at: string }[];
   paused: { at: string; mode: 'drain' | 'now'; handoffHash?: string } | null;
   approvals: { prd?: Approval; plan?: Approval; ship?: Approval };
+  /** Set by `cairn merge-check` when code changed after the ship approval: the ship needs approving again. */
+  reapprove?: { at: string; why: string };
+  /** Merges of the base that `cairn merge-check` made itself, cleanly: commits it can vouch for after the approval. */
+  baseMerges?: string[];
   planHash?: string;
   /** What the check, review or ship stage is doing now. Cleared when the stage changes. */
   step?: Step;

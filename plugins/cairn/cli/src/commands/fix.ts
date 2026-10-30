@@ -125,6 +125,7 @@ export function cmdEscalate(ctx: Ctx, opts: Opts): Result {
     setStage(s, 'prd');
     delete s.evidence.review;
     delete s.approvals.ship;
+    delete s.reapprove;
     log(s, 'escalated', 'fix → feature plan at prd');
     return { message: `"${s.title}" is now a feature plan at the PRD stage. The fix task keeps its work, with its scope narrowed to the files it changed. Next: write the PRD.` };
   });

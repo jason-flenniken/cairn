@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { commitPath } from '../git.ts';
+import { commitPath, git } from '../git.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
 import { allTasks, currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
@@ -106,6 +106,7 @@ export function readyFor(pc: { plan: { dir: string } }): Ready | undefined {
       const note = prdEditedSinceApproval(s, readText(file('prd.md'))) ? `${PRD_EDITED_NOTE}\n\n` : '';
       return { kind: 'plan', file: file('plan.md'), summary: note + planSummary(s) };
     }
+    if (s.reapprove && !s.approvals.ship) return { kind: 'ship', file: file('RECORD.md'), summary: `**Approve shipping again:** ${s.reapprove.why}.` };
     if (s.stage === 'ship' && !s.approvals.ship && s.evidence.review?.result === 'pass') {
       if (recordCheck(pcLike, fastLane(s) ? 'fix' : 'feature').problems.length) return undefined;
       const md = readText(file('RECORD.md')) ?? '';
@@ -164,12 +165,16 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
     }
     case 'ship':
       return mutate(pc, 'ship approved', (s) => {
-        gate(s.stage === 'ship', s, 'approve ship', opts, `the plan is in ${s.stage}, not ship`);
+        // After the ship stage, only a cleared approval (code changed since it) can be given again.
+        const again = !!s.reapprove;
+        gate(s.stage === 'ship' || again, s, 'approve ship', opts, `the plan is in ${s.stage}, not ship`);
         gate(s.evidence.review?.result === 'pass', s, 'approve ship', opts, 'review has not passed', ['run the review procedure, then cairn evidence review pass']);
         const record = recordCheck(pc, fastLane(s) ? 'fix' : 'feature');
         gate(!record.problems.length, s, 'approve ship', opts, record.problems.join('; '), [record.fix]);
-        s.approvals.ship = approval();
-        log(s, 'ship approved', source);
+        s.approvals.ship = { ...approval(), sha: git(['rev-parse', 'HEAD'], pc.plan.worktree) };
+        delete s.reapprove;
+        log(s, again ? 'ship approved again' : 'ship approved', source);
+        if (again) return { message: 'Ship approved again. Next: `cairn merge-check`, then merge.' };
         return { message: 'Ship approved. Next: open the PR, then `cairn advance`; offer the merge last.' };
       });
     default:

@@ -282,6 +282,8 @@ Approvals have to come from you, not from the model. Only you can provide either
 
 Behind the scenes, the mod holds a one-time secret in memory and the CLI checks it against a hash on disk, so a used secret can't be replayed. Guards also stop the model from running `cairn approve` or editing plan state directly.
 
+**Your ship approval covers one commit.** cairn records the commit you approved. Right before the PR merges, `cairn merge-check` makes sure nothing changed since then that your approval doesn't cover. The record, the PR link and review rules you ticked are covered. So is a clean merge of main that cairn made itself, when main moved while the PR waited: cairn merges main in, reruns the tests, and the merge goes through with `--match-head-commit`, so GitHub merges exactly what was checked. A code commit after your approval, or a merge conflict someone resolved by hand, is new code: cairn asks you to approve the ship again before it merges. This matters most with several plans in flight, where two branches can each pass on their own and break main together.
+
 ## Pause and resume
 
 - **Pause** (`/cairn:pause`, the pane's Pause button, or `/cairn-pause-mod`) lets running work reach a safe point, then writes `handoff.md`: what's in flight, open questions, the next action.
@@ -295,7 +297,7 @@ Behind the scenes, the mod holds a one-time secret in memory and the CLI checks 
 1. **Repro first.** cairn records a command that fails because of the bug, and refuses to go on until it has one.
 2. **The fix.** One task, which must make the repro pass with tests green.
 3. **Review** of the fix, every time.
-4. **A short record** of at most 200 words, then ship.
+4. **A short record** of at most 200 words, then ship. The record says where the bug came from: `cairn trace` follows the broken lines to the commit, pull request, plan and task that brought them in. When that plan's review should have caught it, cairn offers a review rule so the next review does.
 
 If the fix grows past 8 files, or turns out to need new requirements, `cairn escalate` turns it into a full plan.
 

@@ -9,6 +9,8 @@ import {
   cmdEscalate,
   cmdLevel,
   cmdMigrate,
+  cmdMergeCheck,
+  cmdTrace,
   cmdEvidence,
   cmdIndex,
   cmdNew,
@@ -83,6 +85,7 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
   index | pause [--now] | resume [<slug>] | close | render | records | migrate
+  merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 
@@ -148,6 +151,10 @@ export function run(argv: string[], cwd = process.cwd()): Result {
       return cmdRecords(ctx());
     case 'migrate':
       return cmdMigrate(ctx());
+    case 'merge-check':
+      return cmdMergeCheck(ctx(), opts);
+    case 'trace':
+      return cmdTrace(ctx(), a, opts);
     case 'render':
       return cmdRender(ctx());
     case undefined:
