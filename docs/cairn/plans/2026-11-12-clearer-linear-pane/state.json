@@ -6,8 +6,8 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:59:15.810Z",
-  "stage": "execute",
+  "updated": "2026-11-12T21:59:16.067Z",
+  "stage": "verify",
   "stageHistory": [
     {
       "stage": "discover",
@@ -24,6 +24,10 @@
     {
       "stage": "execute",
       "at": "2026-11-12T21:18:49.947Z"
+    },
+    {
+      "stage": "verify",
+      "at": "2026-11-12T21:59:16.067Z"
     }
   ],
   "paused": null,
@@ -173,7 +177,7 @@
     {
       "id": "pane",
       "name": "The pane draws them",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "linear-tab",
@@ -602,6 +606,16 @@
       "at": "2026-11-12T21:59:15.810Z",
       "event": "task done",
       "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:59:16.066Z",
+      "event": "phase finished",
+      "detail": "The pane draws them (tests green (0 fail))"
+    },
+    {
+      "at": "2026-11-12T21:59:16.067Z",
+      "event": "advanced",
+      "detail": "verify"
     }
   ],
   "cairnVersion": "0.12.1",
