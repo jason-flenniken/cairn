@@ -313,7 +313,7 @@ describe('menu approval (FR-02)', () => {
     openThenAnswered(on, { [q]: 'Approve' })
     const open = $.tool.call(ask(q))
     let settled = false
-    void open.then(() => (settled = true))
+    void open.then(() => (settled = true), () => undefined)
     await settleSoon()
     expect(settled).toBe(false)
     const approving = await $.tool.call(ask(q))
@@ -333,7 +333,7 @@ describe('menu approval (FR-02)', () => {
     openThenAnswered(on, { [qb]: 'Approve' })
     const open = $.tool.call(ask('Approve? [cairn:approve prd a]'))
     let settled = false
-    void open.then(() => (settled = true))
+    void open.then(() => (settled = true), () => undefined)
     await $.tool.call(ask(qb))
     await settleSoon()
     expect(settled).toBe(false)
@@ -345,7 +345,7 @@ describe('menu approval (FR-02)', () => {
     openThenAnswered(on, { [q]: 'Approve' })
     const open = $.tool.call(ask(q))
     let settled = false
-    void open.then(() => (settled = true))
+    void open.then(() => (settled = true), () => undefined)
     await settleSoon()
     const refused = await $.tool.call(ask(q))
     expect(approveRuns()).toHaveLength(1)
