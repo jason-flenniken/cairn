@@ -6,12 +6,16 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:10:27.252Z",
-  "stage": "discover",
+  "updated": "2026-11-12T21:14:43.337Z",
+  "stage": "prd",
   "stageHistory": [
     {
       "stage": "discover",
       "at": "2026-11-12T21:10:27.252Z"
+    },
+    {
+      "stage": "prd",
+      "at": "2026-11-12T21:14:43.336Z"
     }
   ],
   "paused": null,
@@ -28,8 +32,58 @@
       "at": "2026-11-12T21:10:27.252Z",
       "event": "level",
       "detail": "standard"
+    },
+    {
+      "at": "2026-11-12T21:14:43.337Z",
+      "event": "advanced",
+      "detail": "prd"
     }
   ],
   "cairnVersion": "0.12.1",
-  "level": "standard"
+  "level": "standard",
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "ux",
+      "text": "Resolved richer-pane-cards:s29",
+      "where": [
+        "plugins/cairn/hooks/mod/cards.tsx",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "user",
+      "resolves": "richer-pane-cards:s29",
+      "note": "brought into clearer-linear-pane",
+      "at": "2026-11-12T21:11:55.289Z"
+    },
+    {
+      "id": "s2",
+      "area": "security",
+      "text": "Declined richer-pane-cards:s27",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approval.tsx"
+      ],
+      "from": "user",
+      "declines": "richer-pane-cards:s27",
+      "at": "2026-11-12T21:11:55.602Z"
+    },
+    {
+      "id": "s3",
+      "area": "quality",
+      "text": "Declined richer-pane-cards:s28",
+      "where": [
+        "plugins/cairn/hooks/mod/usage.ts",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/approve.ts",
+        "plugins/cairn/hooks/mod/util.ts"
+      ],
+      "from": "user",
+      "declines": "richer-pane-cards:s28",
+      "at": "2026-11-12T21:11:55.603Z"
+    }
+  ]
 }
