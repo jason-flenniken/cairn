@@ -132,6 +132,15 @@ describe('Linear tab', () => {
     expect(text).not.toMatch(/[\x1b\u202e]/)
   })
 
+  test('with every milestone done there is no Ready section, only the header lines and the done count', async ($, on) => {
+    const done = { name: 'Alpha', counts: { total: 2, done: 2, inPlan: 0, ready: 0, blocked: 0 }, epics: [], issues: [] }
+    const text = await tab($, on, { ...BOARD, focus: null, plans: [], milestones: [done], inProgress: [], ready: [], waiting: [], wideLinks: [], done: 2 })
+    expect(text).toContain('✓ Alpha')
+    expect(text).toContain('✓ DONE 2 issues')
+    expect(text).not.toContain('READY TO START')
+    expect(text).not.toContain('Nothing ready')
+  })
+
   test('with no snapshot it says how to read one', async ($, on) => {
     const { w } = world(on, { rows: [row(plan({ stage: 'execute' }), WT)] })
     w.files.set(CONFIG, JSON.stringify({ linear: { team: 'SAV' } }))

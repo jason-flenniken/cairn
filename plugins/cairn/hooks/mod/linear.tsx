@@ -70,7 +70,8 @@ export function linearRows(ui: Ui, board: CairnBoard | null, note: string | null
     })
   }
 
-  if (board.ready !== undefined) {
+  // With every milestone done there is nothing to start, so the section is left out rather than saying nothing is ready.
+  if (board.ready !== undefined && board.focus !== null) {
     rows.push(<Text key="linear:rd" bold wrap="truncate-end">○ READY TO START</Text>)
     if (board.ready.length === 0) {
       rows.push(indent('linear:rd:none', <Text wrap="wrap">○ Nothing ready: everything open waits on work in progress or blocked</Text>))
