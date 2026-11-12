@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:17:22.351Z",
+  "updated": "2026-11-12T21:18:24.188Z",
   "stage": "plan",
   "stageHistory": [
     {
@@ -31,7 +31,196 @@
       "hash": "6baf03a0fc834a1f"
     }
   },
-  "phases": [],
+  "phases": [
+    {
+      "id": "groundwork",
+      "name": "Groundwork",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "shared-shapes",
+          "name": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file",
+          "kind": "prefactor",
+          "covers": [],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/mod/linear.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    },
+    {
+      "id": "cli-facts",
+      "name": "The CLI computes the sections and ticket keys",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "board-sections",
+          "name": "Board sections, unblocks counts and wide links",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-05"
+          ],
+          "blockedBy": [
+            "shared-shapes"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/board.ts",
+            "plugins/cairn/cli/test/board.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "plan-row-tickets",
+          "name": "Ticket keys per task on plan rows",
+          "covers": [
+            "FR-07"
+          ],
+          "blockedBy": [
+            "shared-shapes"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/commands/status.ts",
+            "plugins/cairn/cli/test/status-tickets.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "board-text",
+          "name": "Text board in the same sections",
+          "covers": [
+            "FR-06"
+          ],
+          "blockedBy": [
+            "board-sections"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/commands/linear.ts",
+            "plugins/cairn/cli/test/linear.test.ts",
+            "plugins/cairn/references/cli.md",
+            "plugins/cairn/procedures/board.md"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    },
+    {
+      "id": "pane",
+      "name": "The pane draws them",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "linear-tab",
+          "name": "Linear tab by status",
+          "covers": [
+            "FR-08",
+            "FR-09",
+            "FR-10",
+            "FR-11",
+            "FR-12",
+            "FR-13",
+            "FR-14"
+          ],
+          "blockedBy": [
+            "board-text"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/linear.tsx",
+            "plugins/cairn/hooks/test/linear.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "draws ticket titles and names written in Linear by other people in the user's terminal"
+        },
+        {
+          "id": "card-tickets",
+          "name": "Ticket keys on cards, header and UP NEXT",
+          "covers": [
+            "FR-15",
+            "FR-16"
+          ],
+          "blockedBy": [
+            "plan-row-tickets"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/header.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "card-fixes",
+          "name": "Card fixes from the earlier pane plan",
+          "covers": [
+            "FR-17",
+            "FR-18",
+            "FR-19",
+            "FR-20"
+          ],
+          "blockedBy": [
+            "card-tickets"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/toolcall.test.tsx",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/inline.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        },
+        {
+          "id": "release",
+          "name": "Version, README and bundle",
+          "kind": "prefactor",
+          "covers": [],
+          "blockedBy": [
+            "linear-tab",
+            "card-fixes"
+          ],
+          "scope": [
+            "plugins/cairn/.claude-plugin/plugin.json",
+            "README.md",
+            "plugins/cairn/dist/**"
+          ],
+          "complexity": "simple",
+          "status": "pending",
+          "fixRound": 0,
+          "risky": false
+        }
+      ]
+    }
+  ],
   "evidence": {},
   "drift": [],
   "log": [
@@ -73,6 +262,16 @@
       "at": "2026-11-12T21:17:22.351Z",
       "event": "advanced",
       "detail": "plan"
+    },
+    {
+      "at": "2026-11-12T21:17:44.684Z",
+      "event": "step",
+      "detail": "drafting"
+    },
+    {
+      "at": "2026-11-12T21:18:24.187Z",
+      "event": "plan loaded",
+      "detail": "3 phases, 8 tasks"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -121,5 +320,11 @@
       "declines": "richer-pane-cards:s28",
       "at": "2026-11-12T21:11:55.603Z"
     }
-  ]
+  ],
+  "step": {
+    "stage": "plan",
+    "name": "drafting",
+    "at": "2026-11-12T21:17:44.683Z"
+  },
+  "planHash": "59c841c822efeebf"
 }
