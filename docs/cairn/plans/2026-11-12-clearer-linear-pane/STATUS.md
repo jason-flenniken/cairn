@@ -31,6 +31,7 @@ Branch `feature/clearer-linear-pane` from `main` · started 2026-11-12 · update
 - `plugins/cairn/hooks/test/pane.test.tsx`: edited outside the current phase's scope
 
 ## Recent activity
+- 2026-11-12 22:17 merge checked: up to date with main, tests pass
 - 2026-11-12 22:16 closed
 - 2026-11-12 22:15 advanced: learn
 - 2026-11-12 22:15 step: opening-pr
@@ -38,4 +39,3 @@ Branch `feature/clearer-linear-pane` from `main` · started 2026-11-12 · update
 - 2026-11-12 22:14 step: approving
 - 2026-11-12 22:13 step: recording
 - 2026-11-12 22:13 advanced: ship
-- 2026-11-12 22:13 review pass: 5 follow-ups open for this plan; fixed classes: empty-waits-on-rendered, near-duplicate-helper, dead-code, stale-doc; security review: pass

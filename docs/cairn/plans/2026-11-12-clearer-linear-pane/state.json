@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T22:16:30.192Z",
+  "updated": "2026-11-12T22:17:15.576Z",
   "stage": "closed",
   "stageHistory": [
     {
@@ -729,6 +729,11 @@
     {
       "at": "2026-11-12T22:16:30.192Z",
       "event": "closed"
+    },
+    {
+      "at": "2026-11-12T22:17:15.576Z",
+      "event": "merge checked",
+      "detail": "up to date with main, tests pass"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -1065,5 +1070,6 @@
     }
   ],
   "planHash": "59c841c822efeebf",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "mergeChecked": "56b83af50c58870c8992a72a4a3d8c04f30e4eac"
 }
