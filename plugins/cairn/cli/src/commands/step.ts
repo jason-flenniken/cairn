@@ -1,6 +1,6 @@
 import { type Ctx } from '../locate.ts';
 import { log } from '../state.ts';
-import { STEPS } from '../types.ts';
+import { STEPS, STEP_CLEAR } from '../types.ts';
 import { now, readText, Refusal } from '../util.ts';
 import { mutate, planCtx, planFile, type Opts, type Result } from '../shared.ts';
 import { prdApprovalProblems } from './stages.ts';
@@ -16,7 +16,12 @@ export function cmdStep(ctx: Ctx, name: string | undefined, opts: Opts): Result 
   return mutate(pc, undefined, (s) => {
     const valid = STEPS[s.stage];
     if (!valid) throw new Refusal(`there are no steps at ${s.stage}; steps exist at ${Object.keys(STEPS).join(', ')}`);
-    const list = valid.join(', ');
+    const list = [...valid, STEP_CLEAR].join(', ');
+    if (name === STEP_CLEAR) {
+      delete s.step;
+      log(s, 'step', 'cleared');
+      return { message: `Step at ${s.stage} cleared.`, data: { step: null } };
+    }
     if (!name) throw new Refusal(`usage: cairn step <name> [--count N]; at ${s.stage}: ${list}`);
     // Never echo a name that is not plain lowercase text.
     if (!NAME.test(name) || !valid.includes(name))

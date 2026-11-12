@@ -4,6 +4,8 @@ Turn the approved PRD into phases of vertical tasks, load it, then stop for appr
 
 Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLUGIN_ROOT}/templates/plan.md`). Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, put the step back: `cd <plan worktree> && cairn step <drafting or checking, whichever you were on>`.
+
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
 - MVP: few, large vertical tasks, usually one phase, and no Test cases lists. Still set `risky: true` on every task that touches a trust boundary: that is what brings in the security review. File the areas you leave untested with `cairn suggest add --kind hardening --area tests --from plan --where <glob> --text "<what to cover and why>"` instead of the up-to-5 suggestions rule below.

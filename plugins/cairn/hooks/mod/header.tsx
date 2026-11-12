@@ -47,6 +47,11 @@ export const tasksOf = (s: CairnPlanState) => phasesOf(s).flatMap(p => list<Task
 export const phaseAt = (s: CairnPlanState) => phasesOf(s).findIndex(p => p.status !== 'done')
 export const stageOf = (s: CairnPlanState, prOpen?: boolean) => `${STAGE_LABEL[s.stage ?? ''] ?? String(s.stage ?? '?')}${prOpen === true ? ' · PR open' : ''}`
 export const isActive = (r: CairnPlanRow) => r.state.stage !== 'closed'
+/** True while the plan's agent has put a question to the person that only its own session can take. */
+export const isAsking = (r: CairnPlanRow) => r.state.step?.name === 'asking' && r.state.step.stage === r.state.stage
+/** The plans other than `here` that want the person: a document waits on approval, or the plan asks in its own session. */
+export const waitingOn = (plans: CairnPlanRow[], here: string | undefined) =>
+  plans.filter(r => r.state.slug !== here && (r.ready !== undefined || (isActive(r) && isAsking(r))))
 
 /** "~40m left" in Build while tasks remain; otherwise nothing. */
 export function etaText(row: CairnPlanRow, nowMs: number): string | undefined {
@@ -60,7 +65,9 @@ export function etaText(row: CairnPlanRow, nowMs: number): string | undefined {
 export async function statusLine($: EngineInterface, v: CairnView): Promise<string | undefined> {
   const row = v.isFallback ? undefined : v.plans.find(r => r.state.slug === v.here)
   const active = v.plans.filter(isActive).length
-  if (row === undefined) return active > 0 ? `${active} active plan${active === 1 ? '' : 's'}` : undefined
+  const waiting = waitingOn(v.plans, v.here).length
+  const waits = waiting === 0 ? '' : ` · ${waiting} plan${waiting === 1 ? ' waits' : 's wait'} on you`
+  if (row === undefined) return active > 0 ? `${active} active plan${active === 1 ? '' : 's'}${waits}` : undefined
   const tasks = tasksOf(row.state)
   const working = (await readAgents($)).filter(c => c.status === 'working').length
   const late = LATE_STAGES.includes(row.state.stage ?? '')
@@ -69,7 +76,7 @@ export async function statusLine($: EngineInterface, v: CairnView): Promise<stri
     working > 0 && `${working} running`,
     row.state.paused ? 'paused' : etaText(row, await $.clock.now()),
   ]
-  return ['cairn', ...parts.filter(Boolean)].join(' · ')
+  return ['cairn', ...parts.filter(Boolean)].join(' · ') + waits
 }
 
 /**

@@ -4,6 +4,8 @@ Interview the user until cairn can predict their next answers: the goal first, t
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, run `cd <plan worktree> && cairn step clear`; Discover has no other step.
+
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
 - MVP: run a short interview. Ask the goal questions in step 4, then only the one flow that must work and the trust boundaries in step 6. Skip step 4b (fresh-eyes challenge, unless `cairn status --json` shows `foundational: true`), step 5 (goal implications) and the 2b follow-up match; still show the read-back card (step 7) and record it.

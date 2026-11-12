@@ -75,6 +75,8 @@ export function world(on: On, init: WorldInit = {}) {
     linearBoard: undefined as Record<string, unknown> | undefined,
     mtimes: new Map<string, number>([[STATE, 1]]),
     runs: [] as string[][],
+    /** The cwd each `cairn approve` ran in, in order. */
+    approveCwds: [] as (string | undefined)[],
     toasts: [] as string[],
     statuses: [] as (string | undefined)[],
     opens: [] as string[],
@@ -128,6 +130,7 @@ export function world(on: On, init: WorldInit = {}) {
         : answer(0, JSON.stringify({ ok: true, state: here.state, planWorktree: here.worktree, ready: here.ready }))
     }
     if (args[0] === 'approve') {
+      w.approveCwds.push(e.init?.cwd)
       const given = e.init?.env?.CAIRN_APPROVER
       if (given !== undefined) w.secrets.push(given)
       if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {

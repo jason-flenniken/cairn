@@ -52,6 +52,8 @@ export type CairnPlanRow = {
   maxParallel?: number
   /** Set only while the plan's document is ready for the human; absent while it is still being drafted. */
   ready?: CairnReady
+  /** True when the plan wants the person: a document is ready, or its step is `approving` or `asking`; the CLI works it out. */
+  needsUser?: boolean
   /** The Linear issue keys each task of the plan builds, by task name; absent until the plan is linked to Linear. */
   taskIssues?: Record<string, string[]>
   /** The Linear epic key the plan belongs to; absent when it has none. */

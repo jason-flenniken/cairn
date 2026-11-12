@@ -125,11 +125,12 @@ The fix track (`cairn new <slug> --track fix`) is shorter and has no learn stage
   - `cairn task step <id> implementing|reviewing|fixing|merging|blocked [--note "…"]`: `fixing` increments the fix attempt. After 2 attempts it is refused: stop and ask the user.
   - `cairn task done <id>`
   - `cairn step <name> [--count N]`: records what the current stage is doing, shown as "Review · fixing 3 findings" in `cairn status`, STATUS.md and `status --json` (`state.step`). The step clears when the stage changes. While the step is `drafting`, `checking` or `recording`, the stop's document is still being written, so `ready` stays empty and the pane offers no approval. Names by stage:
+    - every stage from repro to ship also has `asking`: the plan waits on a question only the user can answer in its own session. Run it before the question and `cairn step clear` (or the step you were on) once it is answered; `clear` drops the recorded step at any stage that has steps. A stage change clears it too;
     - prd and plan: `drafting` (writing the document), `checking` (the builder check), `approving`;
     - check: `testing` (running tests), `scanning` (scanning for secrets), `fixing`;
     - review: `reviewing`, `fixing`, `rechecking`;
     - ship: `recording` (writing the record and changelog entry), `approving` (waiting on approval), `opening-pr`.
-    - The fix track uses review and ship. A name not valid for the current stage exits 2 and lists the valid ones. `--count` is a whole number, shown with `fixing` ("fixing 3 findings").
+    - The fix track uses review and ship. A name not valid for the current stage exits 2 and lists the valid ones. `--count` is a whole number, shown with `fixing` ("fixing 3 findings"). Every row of `status --all --json` also carries `needsUser`: true while the plan's document is `ready`, or its step is `approving` or `asking`. The pane lists the other plans that have a `ready` document or are `asking` in its Waiting on you block.
   - `cairn test`: runs the configured test command in the plan worktree and prints the result. At MVP a red run files one hardening item per command (a repeat only logs, a green run resolves it) and the command still succeeds; at Standard and Polished a red run is only reported. `status --json` lists the open failing-suite items as `knownFailures`.
   - `cairn phase finish`: finishes the current phase with no human proof and prints one summary line (tasks, tests, new suggestions, out-of-scope edits). It opens the next phase, or moves the plan to Check after the last one.
 - **Linear** (only on a repo with a `linear` config block; a plan has Linear issues after `cairn linear import`)
