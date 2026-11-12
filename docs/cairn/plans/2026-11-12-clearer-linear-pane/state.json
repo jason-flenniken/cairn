@@ -6,8 +6,8 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T22:15:23.171Z",
-  "stage": "ship",
+  "updated": "2026-11-12T22:15:40.255Z",
+  "stage": "learn",
   "stageHistory": [
     {
       "stage": "discover",
@@ -36,6 +36,10 @@
     {
       "stage": "ship",
       "at": "2026-11-12T22:13:36.682Z"
+    },
+    {
+      "stage": "learn",
+      "at": "2026-11-12T22:15:40.254Z"
     }
   ],
   "paused": null,
@@ -707,6 +711,16 @@
       "at": "2026-11-12T22:15:23.171Z",
       "event": "ship approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-11-12T22:15:31.706Z",
+      "event": "step",
+      "detail": "opening-pr"
+    },
+    {
+      "at": "2026-11-12T22:15:40.255Z",
+      "event": "advanced",
+      "detail": "learn"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -1043,10 +1057,5 @@
     }
   ],
   "planHash": "59c841c822efeebf",
-  "configHash": "12129909968d47d2",
-  "step": {
-    "stage": "ship",
-    "name": "approving",
-    "at": "2026-11-12T22:14:05.756Z"
-  }
+  "configHash": "12129909968d47d2"
 }
