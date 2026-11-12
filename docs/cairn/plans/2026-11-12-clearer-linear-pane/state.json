@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:38:49.692Z",
+  "updated": "2026-11-12T21:44:47.982Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -77,7 +77,7 @@
     {
       "id": "cli-facts",
       "name": "The CLI computes the sections and ticket keys",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "board-sections",
@@ -154,9 +154,19 @@
             "plugins/cairn/procedures/board.md"
           ],
           "complexity": "standard",
-          "status": "pending",
-          "fixRound": 0,
-          "risky": false
+          "status": "done",
+          "fixRound": 1,
+          "risky": false,
+          "branch": "task/clearer-linear-pane/board-text",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--board-text",
+          "base": "4710f3dd1834ccbd495329b44bf1787b11cf80ae",
+          "startedAt": "2026-11-12T21:38:53.222Z",
+          "level": "standard",
+          "note": "fixing classes: regression-crash-on-unvalidated-lookup",
+          "doneAt": "2026-11-12T21:44:47.982Z",
+          "tip": "a929a7f",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "f77b30457817c1ea1f15162c4199c9262346882f"
         }
       ]
     },
@@ -421,6 +431,36 @@
       "at": "2026-11-12T21:38:49.692Z",
       "event": "task done",
       "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:38:53.222Z",
+      "event": "task started",
+      "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:39:12.911Z",
+      "event": "task implementing",
+      "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:42:22.717Z",
+      "event": "task reviewing",
+      "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:43:10.650Z",
+      "event": "task fixing",
+      "detail": "Text board in the same sections (attempt 1): fixing classes: regression-crash-on-unvalidated-lookup"
+    },
+    {
+      "at": "2026-11-12T21:44:13.430Z",
+      "event": "task merging",
+      "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:44:47.982Z",
+      "event": "task done",
+      "detail": "Text board in the same sections"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -528,6 +568,36 @@
       ],
       "from": "task-review",
       "at": "2026-11-12T21:36:46.240Z"
+    },
+    {
+      "id": "s10",
+      "area": "tests",
+      "text": "Add a fixture with a finished milestone before the focus to cover the ✓ milestone lines in the text board",
+      "where": [
+        "plugins/cairn/cli/test/linear.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-11-12T21:42:22.635Z"
+    },
+    {
+      "id": "s11",
+      "area": "quality",
+      "text": "duplicated-logic: the --epic branch rebuilds the epic row and counts by hand; give buildBoard an epic option or export epicOf/count",
+      "where": [
+        "plugins/cairn/cli/src/commands/linear.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:43:10.727Z"
+    },
+    {
+      "id": "s12",
+      "area": "quality",
+      "text": "Board snapshot readAt is stamped at import time, not when the Linear listing was fetched: Savvyling's SAV-10 was completed at 20:06:06, the listing missed it, and readAt says 20:06:59. Stamp readAt from the fetch start (the procedure passes it) so the age and the changed-since-last-read check for links are not overstated",
+      "where": [
+        "plugins/cairn/cli/src/linear.ts"
+      ],
+      "from": "user",
+      "at": "2026-11-12T21:44:03.205Z"
     }
   ],
   "planHash": "59c841c822efeebf",
