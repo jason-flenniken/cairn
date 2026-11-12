@@ -87,6 +87,13 @@ describe('Linear tab', () => {
   test('nothing ready draws the one explaining line', async ($, on) => {
     const text = await tab($, on, { ...BOARD, ready: [] })
     expect(text).toContain('○ Nothing ready: everything open waits on work in progress or blocked')
+    expect(text).not.toContain('READY TO START')
+  })
+
+  test('an epic whose issues wait only on each other says so instead of an empty list', async ($, on) => {
+    const text = await tab($, on, { ...BOARD, waiting: [mk('SAV-60', 'Chain', { kind: 'epic', done: 0, total: 3, waitsOn: [] })] })
+    expect(text).toContain('SAV-60 Chain  0/3  waits on its own issues')
+    expect(text).not.toMatch(/SAV-60 Chain .* on\s*$/m)
   })
 
   test('a waiting epic with 9 sub-issues is one row and none of its sub-issues appear', async ($, on) => {

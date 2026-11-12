@@ -9153,7 +9153,6 @@ function wellFormed(l) {
   const issuesOk = (v) => Array.isArray(v) && v.every((i) => i && typeof i.key === "string" && Array.isArray(i.blockedBy) && i.blockedBy.every((b) => typeof b === "string"));
   return issuesOk(x.issues) && issuesOk(x.known) && Array.isArray(x.depends) && x.depends.every((d) => d && typeof d.key === "string" && typeof d.on === "string") && Array.isArray(x.outbox) && Array.isArray(x.changes);
 }
-var ownerOf2 = (plans, k) => plans.find((p) => p.state.linear.issues.some((i) => i.key === k && !i.released) && p.stage !== "closed") ?? plans.find((p) => p.state.linear.issues.some((i) => i.key === k && !i.released));
 function importPlan(ctx, opts) {
   const pc = planCtx(ctx);
   const cfg = linearConfig(pc.cfg);
@@ -9182,11 +9181,11 @@ function importPlan(ctx, opts) {
     if (ob.length)
       lines.push(
         `Blockers outside the plan and not done: ${blockersText(ob, (b) => {
-          const o = ownerOf2(others, b);
+          const o = ownerOf(others, b);
           return o ? ` [in plan ${o.slug}, ${o.stage}]` : "";
         })}. Discover decides each: pull it in, leave the blocked issues out, or go ahead with a reason (## Outside blockers).`
       );
-    const claimed = doc.issues.map((i) => ({ i, o: ownerOf2(others, i.key) })).filter((x) => x.o && x.o.stage !== "closed");
+    const claimed = doc.issues.map((i) => ({ i, o: ownerOf(others, i.key) })).filter((x) => x.o && x.o.stage !== "closed");
     if (claimed.length) lines.push(`Warning: already in another active plan: ${claimed.map((x) => `${x.i.key} (${x.o.slug}, ${x.o.stage})`).join(", ")}.`);
     const cycle = findIssueCycle(doc.issues);
     if (cycle) lines.push(`Warning: these issues block each other in a loop: ${cycle.join(" \u2192 ")}. The plan can't load until one link is removed in Linear.`);
@@ -9603,7 +9602,7 @@ function crossPlanBlockers(ctx, s) {
   for (const i of takenIssues(l))
     for (const b of effectiveBlockers(i, byKey, l.depends)) {
       if (inPlan.has(b) || isDone(byKey.get(b))) continue;
-      const o = ownerOf2(others, b);
+      const o = ownerOf(others, b);
       if (!o) continue;
       if (o.stage !== "learn" && o.stage !== "closed") out.push(`${i.key} needs ${b}, which plan ${o.slug} has not shipped (it is in ${o.stage})`);
       else if (!merged(ctx, o.state)) out.push(`${i.key} needs ${b}, which plan ${o.slug} has not merged yet`);
@@ -9704,14 +9703,15 @@ function board(ctx, opts) {
     lines.push("Waiting:");
     for (const w of data.waiting) {
       const x = w.kind === "issue" ? issueOf.get(w.key) : void 0;
-      lines.push(`  ${w.key} ${w.title}${w.kind === "epic" ? ` ${w.done}/${w.total}, waits on ${w.waitsOn.join(", ")}` : x ? `, ${blockedText(x)}` : `, waits on ${w.waitsOn.join(", ")}`}`);
+      const on = w.waitsOn.length ? `, waits on ${w.waitsOn.join(", ")}` : ", waits on its own issues";
+      lines.push(`  ${w.key} ${w.title}${w.kind === "epic" ? ` ${w.done}/${w.total}${on}` : x ? `, ${blockedText(x)}` : on}`);
     }
   }
   lines.push(`Done: ${data.done} ${data.done === 1 ? "issue" : "issues"}`);
   for (const m of later) lines.push(`${m.name}: ${m.counts.done}/${m.counts.total} done${m.waitsOn?.length ? `, waits on ${m.waitsOn.join(", ")}` : ""}`);
   for (const p of data.plans.filter((p2) => p2.stalled)) lines.push(`Plan ${p.slug} (${p.stage}) has had no change in over a week.`);
-  if (data.cycle) lines.push(`Loop in blocked-by links: ${data.cycle.join(" \u2192 ")}. Remove one link in Linear.`);
   for (const w of data.wideLinks) lines.push(`${w.epic}'s blocked-by link to ${w.on} makes all ${w.holds} of its open issues wait. Link only the sub-issues that need ${w.on}.`);
+  if (data.cycle) lines.push(`Loop in blocked-by links: ${data.cycle.join(" \u2192 ")}. Remove one link in Linear.`);
   if (fullHint) lines.push(fullHint);
   return { message: lines.join("\n"), data: { ...data, ...extra } };
 }

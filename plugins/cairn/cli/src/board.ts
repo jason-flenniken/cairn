@@ -50,13 +50,14 @@ export interface BoardData {
   wideLinks: { epic: string; on: string; holds: number }[];
 }
 
-type BoardPlan = { slug: string; stage: string; state: State };
+export type BoardPlan = { slug: string; stage: string; state: State };
 
 /** An epic's own link that holds this many open sub-issues is worth narrowing. */
 const WIDE_LINK_HOLDS = 3;
 const NO_MILESTONE = 'No milestone';
 
-const ownerOf = (plans: BoardPlan[], k: string) =>
+/** The plan that owns an issue: an open plan first, else a closed one that took it. */
+export const ownerOf = (plans: BoardPlan[], k: string) =>
   plans.find((p) => (p.state.linear?.issues ?? []).some((i) => i.key === k && !i.released) && p.stage !== 'closed') ??
   plans.find((p) => (p.state.linear?.issues ?? []).some((i) => i.key === k && !i.released));
 

@@ -426,7 +426,7 @@ test('linear: an epic from import to merged, with every check and queued write',
   assert.match(b.message, /SAV-100's blocked-by link to SAV-90 makes all 3 of its open issues wait\. Link only the sub-issues that need SAV-90\./);
   // FR-06: the sections come in a fixed order.
   const at = (re: RegExp) => b.message.search(re);
-  const order = [/^Checkout: read from/m, /^M1: 1\/3 done/m, /^In progress:/m, /^Ready to start:/m, /^Done: /m, /^M2: 0\/6/m, /^Loop in blocked-by/m, /blocked-by link to SAV-90 makes/, /No full read/].map(at);
+  const order = [/^Checkout: read from/m, /^M1: 1\/3 done/m, /^In progress:/m, /^Ready to start:/m, /^Done: /m, /^M2: 0\/6/m, /blocked-by link to SAV-90 makes/, /^Loop in blocked-by/m, /No full read/].map(at);
   assert.ok(order.every((n) => n >= 0) && order.every((n, i) => !i || n > order[i - 1]), `sections out of order: ${order}`);
   const m2 = (b.data!.milestones as { name: string; counts: Record<string, number> }[]).find((m) => m.name === 'M2')!;
   assert.deepEqual(m2.counts, { total: 6, done: 0, inPlan: 2, ready: 2, blocked: 2 }, 'OPS-2 is not counted, and done');

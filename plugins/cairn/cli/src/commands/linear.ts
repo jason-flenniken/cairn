@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildBoard, type BoardIssue } from '../board.ts';
+import { buildBoard, ownerOf, type BoardIssue } from '../board.ts';
 import { loadConfig } from '../config.ts';
 import { commonDir, landedState } from '../git.ts';
 import {
@@ -32,11 +32,10 @@ import {
   WRITE_TOOL,
   ISSUE_KEY,
   type BoardSnapshot,
-  type IssueProgress,
 } from '../linear.ts';
 import { planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { loadState, log } from '../state.ts';
-import type { LinearChange, LinearIssue, LinearLink, State } from '../types.ts';
+import type { LinearChange, LinearLink, State } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal, writeText } from '../util.ts';
 import { gate, mutate, planCtx, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { collectSuggestions } from './suggest.ts';
@@ -119,10 +118,6 @@ function wellFormed(l: unknown): l is LinearLink {
   const issuesOk = (v: unknown) => Array.isArray(v) && v.every((i) => i && typeof i.key === 'string' && Array.isArray(i.blockedBy) && i.blockedBy.every((b: unknown) => typeof b === 'string'));
   return issuesOk(x.issues) && issuesOk(x.known) && Array.isArray(x.depends) && x.depends.every((d) => d && typeof d.key === 'string' && typeof d.on === 'string') && Array.isArray(x.outbox) && Array.isArray(x.changes);
 }
-
-const ownerOf = (plans: ReturnType<typeof otherPlans>, k: string) =>
-  plans.find((p) => p.state.linear!.issues.some((i) => i.key === k && !i.released) && p.stage !== 'closed') ??
-  plans.find((p) => p.state.linear!.issues.some((i) => i.key === k && !i.released));
 
 function importPlan(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
@@ -794,15 +789,16 @@ function board(ctx: Ctx, opts: Opts): Result {
     lines.push('Waiting:');
     for (const w of data.waiting) {
       const x = w.kind === 'issue' ? issueOf.get(w.key) : undefined;
-      lines.push(`  ${w.key} ${w.title}${w.kind === 'epic' ? ` ${w.done}/${w.total}, waits on ${w.waitsOn.join(', ')}` : x ? `, ${blockedText(x)}` : `, waits on ${w.waitsOn.join(', ')}`}`);
+      const on = w.waitsOn.length ? `, waits on ${w.waitsOn.join(', ')}` : ', waits on its own issues';
+      lines.push(`  ${w.key} ${w.title}${w.kind === 'epic' ? ` ${w.done}/${w.total}${on}` : x ? `, ${blockedText(x)}` : on}`);
     }
   }
   lines.push(`Done: ${data.done} ${data.done === 1 ? 'issue' : 'issues'}`);
   for (const m of later) lines.push(`${m.name}: ${m.counts.done}/${m.counts.total} done${m.waitsOn?.length ? `, waits on ${m.waitsOn.join(', ')}` : ''}`);
 
   for (const p of data.plans.filter((p) => p.stalled)) lines.push(`Plan ${p.slug} (${p.stage}) has had no change in over a week.`);
-  if (data.cycle) lines.push(`Loop in blocked-by links: ${data.cycle.join(' → ')}. Remove one link in Linear.`);
   for (const w of data.wideLinks) lines.push(`${w.epic}'s blocked-by link to ${w.on} makes all ${w.holds} of its open issues wait. Link only the sub-issues that need ${w.on}.`);
+  if (data.cycle) lines.push(`Loop in blocked-by links: ${data.cycle.join(' → ')}. Remove one link in Linear.`);
   if (fullHint) lines.push(fullHint);
   return { message: lines.join('\n'), data: { ...data, ...extra } };
 }

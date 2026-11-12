@@ -72,10 +72,8 @@ export function linearRows(ui: Ui, board: CairnBoard | null, note: string | null
 
   // With every milestone done there is nothing to start, so the section is left out rather than saying nothing is ready.
   if (board.ready !== undefined && board.focus !== null) {
-    rows.push(<Text key="linear:rd" bold wrap="truncate-end">○ READY TO START</Text>)
-    if (board.ready.length === 0) {
-      rows.push(indent('linear:rd:none', <Text wrap="wrap">○ Nothing ready: everything open waits on work in progress or blocked</Text>))
-    }
+    if (board.ready.length === 0) rows.push(<Text key="linear:rd:none" wrap="wrap">○ Nothing ready: everything open waits on work in progress or blocked</Text>)
+    else rows.push(<Text key="linear:rd" bold wrap="truncate-end">○ READY TO START</Text>)
     board.ready.forEach(r => {
       const where = r.milestone && r.milestone !== focus ? clean(r.milestone) : ''
       rows.push(indent(`linear:rd:${r.key}`, (
@@ -89,7 +87,8 @@ export function linearRows(ui: Ui, board: CairnBoard | null, note: string | null
     rows.push(<Text key="linear:wt" dimColor wrap="truncate-end">· WAITING</Text>)
     waiting.forEach(w => {
       const count = w.kind === 'epic' && w.total !== undefined ? `  ${w.done ?? 0}/${w.total}` : ''
-      rows.push(indent(`linear:wt:${w.key}`, <Text dimColor wrap="wrap">{clean(`${w.key} ${w.title}`) + count + `  on ${keyList(w.waitsOn)}`}</Text>))
+      const on = w.waitsOn.length > 0 ? `  on ${keyList(w.waitsOn)}` : '  waits on its own issues'
+      rows.push(indent(`linear:wt:${w.key}`, <Text dimColor wrap="wrap">{clean(`${w.key} ${w.title}`) + count + on}</Text>))
     })
   }
 
@@ -101,7 +100,7 @@ export function linearRows(ui: Ui, board: CairnBoard | null, note: string | null
     rows.push(<Text key="linear:stalled" color="yellow" wrap="wrap">{clean(`No change in over a week: ${stalled.map(p => `${p.slug} (${p.stage})`).join(', ')}`)}</Text>)
   }
   for (const l of board.wideLinks ?? []) {
-    rows.push(<Text key={`linear:wide:${l.epic}`} color="yellow" wrap="wrap">{clean(`${l.epic}'s blocked-by link to ${l.on} makes all ${l.holds} of its open issues wait. Link only the sub-issues that need ${l.on}.`)}</Text>)
+    rows.push(<Text key={`linear:wide:${l.epic}:${l.on}`} color="yellow" wrap="wrap">{clean(`${l.epic}'s blocked-by link to ${l.on} makes all ${l.holds} of its open issues wait. Link only the sub-issues that need ${l.on}.`)}</Text>)
   }
   if (board.cycle !== null && board.cycle.length > 0) {
     rows.push(<Text key="linear:cycle" color="red" wrap="wrap">{clean(`Loop in blocked-by links: ${board.cycle.join(' → ')}. Remove one link in Linear.`)}</Text>)
