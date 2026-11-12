@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T22:13:36.682Z",
+  "updated": "2026-11-12T22:15:23.171Z",
   "stage": "ship",
   "stageHistory": [
     {
@@ -51,6 +51,12 @@
       "via": "human",
       "source": "mod",
       "hash": "59c841c822efeebf"
+    },
+    "ship": {
+      "at": "2026-11-12T22:15:23.161Z",
+      "via": "human",
+      "source": "mod",
+      "sha": "7696a58c8c64d5fd607b4dc9c07134741a503c9a"
     }
   },
   "phases": [
@@ -686,6 +692,21 @@
       "at": "2026-11-12T22:13:36.682Z",
       "event": "advanced",
       "detail": "ship"
+    },
+    {
+      "at": "2026-11-12T22:13:36.791Z",
+      "event": "step",
+      "detail": "recording"
+    },
+    {
+      "at": "2026-11-12T22:14:05.757Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-11-12T22:15:23.171Z",
+      "event": "ship approved",
+      "detail": "mod"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -1022,5 +1043,10 @@
     }
   ],
   "planHash": "59c841c822efeebf",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "step": {
+    "stage": "ship",
+    "name": "approving",
+    "at": "2026-11-12T22:14:05.756Z"
+  }
 }
