@@ -6,8 +6,8 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T22:13:36.575Z",
-  "stage": "review",
+  "updated": "2026-11-12T22:13:36.682Z",
+  "stage": "ship",
   "stageHistory": [
     {
       "stage": "discover",
@@ -32,6 +32,10 @@
     {
       "stage": "review",
       "at": "2026-11-12T22:02:53.594Z"
+    },
+    {
+      "stage": "ship",
+      "at": "2026-11-12T22:13:36.682Z"
     }
   ],
   "paused": null,
@@ -677,6 +681,11 @@
       "at": "2026-11-12T22:13:36.575Z",
       "event": "review pass",
       "detail": "5 follow-ups open for this plan; fixed classes: empty-waits-on-rendered, near-duplicate-helper, dead-code, stale-doc; security review: pass"
+    },
+    {
+      "at": "2026-11-12T22:13:36.682Z",
+      "event": "advanced",
+      "detail": "ship"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -1013,10 +1022,5 @@
     }
   ],
   "planHash": "59c841c822efeebf",
-  "configHash": "12129909968d47d2",
-  "step": {
-    "stage": "review",
-    "name": "rechecking",
-    "at": "2026-11-12T22:13:10.305Z"
-  }
+  "configHash": "12129909968d47d2"
 }
