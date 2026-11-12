@@ -165,6 +165,100 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
   }
 })
 
+const BETA_WT = '/repo/.claude/worktrees/sdlc-beta'
+const betaReady = (kind: 'prd' | 'plan' | 'ship') => ({ kind, file: `${BETA_WT}/docs/cairn/plans/beta/${kind}.md`, summary: `beta ${kind} summary` })
+const betaRow = (kind: 'prd' | 'plan' | 'ship' = 'plan') => row(plan({ slug: 'beta', title: 'Beta Search', stage: kind === 'ship' ? 'ship' : kind }), BETA_WT, 'Approve.', betaReady(kind))
+const askingRow = () => row(plan({ slug: 'gamma', title: 'Gamma Pay', stage: 'execute', step: { stage: 'execute', name: 'asking', at: 'x' } }), '/repo/.claude/worktrees/sdlc-gamma', 'Waiting.')
+
+describe('Waiting on you for other plans', () => {
+  for (const surface of SURFACES) {
+    test(`another plan's approval: its title, what waits, Open and Approve (${surface})`, async ($, on) => {
+      world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('plan')] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      const text = await drawn(ui)
+      expect(text).toContain('Waiting on you')
+      expect(text).toMatch(/Beta Search · plan/)
+      expect(await buttonKeys(ui)).toContain('approve:beta')
+      expect(await buttonKeys(ui)).toContain('open:beta')
+      await ui.unmount()
+    })
+
+    test(`a plan asking in its own session: the line and its worktree, no buttons (${surface})`, async ($, on) => {
+      world(on, { rows: [row(plan({ stage: 'discover' }), WT), askingRow()] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      const text = await drawn(ui)
+      expect(text).toContain('Gamma Pay: waiting for you in its session')
+      expect(text).toContain('/repo/.claude/worktrees/sdlc-gamma')
+      expect(await buttonKeys(ui)).toEqual(['pause', 'status'])
+      await ui.unmount()
+    })
+
+    test(`nothing waiting keeps the other-plans line (${surface})`, async ($, on) => {
+      world(on, { rows: [row(plan({ stage: 'discover' }), WT), row(plan({ slug: 'alpha', title: 'Alpha Billing', stage: 'prd' }), undefined, 'Draft the PRD.')] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      const text = await drawn(ui)
+      expect(text).not.toContain('Waiting on you')
+      expect(text).toMatch(/Alpha Billing · PRD/)
+      await ui.unmount()
+    })
+  }
+
+  test('inline: a waiting plan gets a row with Approve, and leaves the other-plans count', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow(), askingRow(), row(plan({ slug: 'alpha', title: 'Alpha Billing', stage: 'prd' }), undefined)] })
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    const text = await drawn(ui)
+    expect(text).toMatch(/Beta Search · plan/)
+    expect(text).toContain('Gamma Pay: waiting for you in its session')
+    expect(text).toMatch(/\+1 other (active )?plan/)
+    expect(await buttonKeys(ui)).toContain('approve:beta')
+    await ui.unmount()
+  })
+
+  test("Approve on another plan confirms with that plan's slug and runs approve in that plan's worktree", async ($, on) => {
+    const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('plan')] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'approve:beta' })
+    await until(clock, () => ran('approve').length > 0 && w.toasts.length > 0)
+    expect(w.asked).toEqual([{ question: 'Approve the plan stop of plan beta?', options: ['Cancel', 'Approve'] }])
+    expect(ran('approve')).toEqual([['approve', 'plan']])
+    expect(w.approveCwds).toEqual([BETA_WT])
+    expect(w.toasts.join('\n')).toMatch(/beta: plan approved/)
+    await ui.unmount()
+  })
+
+  test("Open shows that plan's document in the viewer, with Approve for that plan", async ($, on) => {
+    const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('prd')] })
+    w.files.set(betaReady('prd').file, '# Beta PRD\n\nbody')
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await ui.press({ key: 'open:beta' })
+    const text = await drawn(ui)
+    expect(text).toContain('PRD: beta')
+    expect((await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text)).toEqual(['# Beta PRD\n\nbody'])
+    await ui.press({ key: 'approve' })
+    await until(clock, () => ran('approve').length > 0)
+    expect(w.approveCwds).toEqual([BETA_WT])
+    await ui.unmount()
+  })
+
+  test('the status line names how many other plans wait on you', async ($, on) => {
+    const { w } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow(), askingRow()] })
+    await start($, WT)
+    expect(w.statuses.at(-1)).toMatch(/cairn · Discover · 2 plans wait on you$/)
+  })
+
+  test('one waiting plan reads "1 plan waits on you"; none adds nothing', async ($, on) => {
+    const { w } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow()] })
+    await start($, WT)
+    expect(w.statuses.at(-1)).toMatch(/1 plan waits on you$/)
+  })
+})
+
 test('Stop now shows within one poll of a main-loop turn starting, and goes when it completes; a subagent turn is not one', async ($, on) => {
   const { clock } = world(on, { rows: [row(plan({ stage: 'discover' }), WT)] })
   await start($, WT)

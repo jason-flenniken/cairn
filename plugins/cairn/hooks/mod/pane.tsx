@@ -4,7 +4,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartInput, Timer } from 'claude-code'
 import type { CairnBoard, CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
 import { LINGER_MS, readAgents, readFeed, readMain, readMainIdleSince, readTick } from './activity.ts'
-import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel, readBackCard } from './approval.tsx'
+import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel, INLINE_WAITING, readBackCard, waitingBlock } from './approval.tsx'
 import { levelOrStandard, readReadBack } from './approve.ts'
 import { isWorking, readActive, startActive, trackActive } from './active.ts'
 import { activeStep, Bar, stageSteps, type BarLine } from './bar.tsx'
@@ -13,7 +13,7 @@ import { cairn } from './cli.ts'
 import { closeDoc, docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
 import { gitLine, readGit, startGit, trackGit } from './git.ts'
 import { linearRows, stripControl } from './linear.tsx'
-import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task, type Ui } from './header.tsx'
+import { isActive, list, waitingOn, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task, type Ui } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
 import { act, cells, clean, message } from './util.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
@@ -393,7 +393,12 @@ export function install(on: On): void {
     const isGrid = e.surface === 'terminal'
     const here = v?.plans.find(r => r.state.slug === v.here)
     const accent = STAGE_COLOR[here?.state.stage ?? ''] ?? 'cyan'
-    const others = (v?.plans ?? []).filter(r => r !== here && isActive(r))
+    const waiting = waitingOn(v?.plans ?? [], here?.state.slug)
+    // The waiting plans have their own block; the plain other-plans lines are for the rest.
+    const others = (v?.plans ?? []).filter(r => r !== here && isActive(r) && !waiting.includes(r))
+    // Inline, the block lists a few waiting plans a row each; those past that are counted with the other plans.
+    const waitingRows = isInline ? Math.min(waiting.length, INLINE_WAITING) : 0
+    const othersCount = others.length + (isInline ? waiting.length - waitingRows : 0)
     // Every tab's root: 1 column in from each edge; docked, a blank line between its children (an absent
     // `false` child adds none). Claude Code paints the docked pane's background and the mod has no setting for it.
     const rootProps = { flexDirection: 'column', paddingX: 1, gap: isInline ? 0 : 1 } as const
@@ -417,7 +422,7 @@ export function install(on: On): void {
     const activeMs = planSlug !== undefined && active?.slug === planSlug ? active.ms : undefined
     const step = here === undefined ? [] : activeStep(here.state, here.prOpen)
     // Inline, the other plans fold into one line, so the budget below counts one row for them.
-    const othersRows = isInline && others.length > 0 ? 1 : 0
+    const othersRows = isInline && othersCount > 0 ? 1 : 0
     // Set by the plan view when its agents and other-plans lines merge into one row; the other-plans line then is not drawn alone.
     let othersFolded = false
     const barLines: BarLine[] = isInline
@@ -488,11 +493,11 @@ export function install(on: On): void {
         // One budget over the seven inline rows. Title and progress, paused note, approval, buttons and bar are
         // fixed. The "Showing" line goes first, then the agents take what is left; with no room for even one
         // agent line, the other-plans line merges into the agents' fold line.
-        const fixedRows = 2 + (isPaused ? 1 : 0) + (approve ? 1 : 0) + 1 + barLines.length
+        const fixedRows = 2 + (isPaused ? 1 : 0) + (approve ? 1 : 0) + 1 + barLines.length + waitingRows
         const showFallback = fallback !== undefined && fixedRows + 1 + othersRows + 1 + working <= INLINE_ROWS
         const room = INLINE_ROWS - fixedRows - (showFallback ? 1 : 0) - othersRows
         othersFolded = room < 1
-        const folded = othersFolded ? foldedLine(cx, cards, others.length) : undefined
+        const folded = othersFolded ? foldedLine(cx, cards, othersCount) : undefined
         const lines = folded === undefined ? agentLines(cx, main, cards, room) : []
         const rows = fixedRows + (showFallback ? 1 : 0) + (othersFolded ? 0 : othersRows) + lines.length + (folded === undefined ? 0 : 1)
         const tip = rows < INLINE_ROWS && <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>
@@ -535,13 +540,15 @@ export function install(on: On): void {
     // The viewer takes the tab's place; Approve is in it only while this very document waits on approval.
     const doc = isInline ? null : await readDoc($)
     if (doc !== null) {
-      const waiting = here?.ready?.file === doc.file ? here.ready : undefined
+      // Any plan's document: Approve in the viewer goes to the plan whose document it is.
+      const owner = v?.plans.find(r => r.ready?.file === doc.file)
+      const waiting = owner?.ready
       const followUps = doc.kind === 'record' ? (await read($, records))?.find(x => x.record === doc.file)?.followUps.filter(f => f.status === 'open') ?? [] : []
       return frame(e, await docViewer(
         $, PANE, ui, doc,
         // An approval that went through closes the viewer, so the tab it was opened from shows again; a cancel keeps it open.
-        waiting === undefined || here === undefined ? undefined : () => act($, async () => {
-          if (await approvePress($, here.state.slug, waiting.kind)) await closeDoc($, PANE)
+        waiting === undefined || owner === undefined ? undefined : () => act($, async () => {
+          if (await approvePress($, owner.state.slug, waiting.kind)) await closeDoc($, PANE)
         }),
         followUps.length > 0 ? `**Follow-ups**\n\n${followUps.map(f => `- ${f.text} (${f.area})`).join('\n')}` : undefined,
       ), barLines)
@@ -630,13 +637,14 @@ export function install(on: On): void {
         : [
             <Box key="idle" flexDirection="column">
               <Text key="head" bold>cairn</Text>
-              <Text key="none" dimColor wrap="truncate-end">{others.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>
+              <Text key="none" dimColor wrap="truncate-end">{others.length + waiting.length > 0 ? 'This session is not in a plan.' : 'No plan in progress. Start one with /cairn:new.'}</Text>
             </Box>,
-            ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - barLines.length) : [mainCard($, cx, main, cards, idleSince), ...orderCards(cards).map(c => agentCard($, cx, c))]),
+            ...(isInline ? agentLines(cx, main, cards, INLINE_ROWS - 2 - 1 - othersRows - waitingRows - barLines.length) : [mainCard($, cx, main, cards, idleSince), ...orderCards(cards).map(c => agentCard($, cx, c))]),
             <Box key="buttons" flexDirection="row" gap={1}>{status}</Box>,
           ],
-      others.length > 0 && isInline && !othersFolded && (
-        <Text key="others" dimColor wrap="truncate-end">{`+${others.length} other active plan${others.length === 1 ? '' : 's'}`}</Text>
+      waitingBlock($, ui, waiting, isInline),
+      othersCount > 0 && isInline && !othersFolded && (
+        <Text key="others" dimColor wrap="truncate-end">{`+${othersCount} other active plan${othersCount === 1 ? '' : 's'}`}</Text>
       ),
       others.length > 0 && !isInline && (
         <Box key="others" flexDirection="column">

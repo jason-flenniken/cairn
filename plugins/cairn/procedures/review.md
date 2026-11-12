@@ -4,6 +4,8 @@ One whole-branch review before shipping. Critical and Required findings are fixe
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, put the step back: `cd <plan worktree> && cairn step <reviewing, fixing or rechecking, whichever you were on>`.
+
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
 - MVP: in step 2 dispatch the `branch-reviewer` with `model: sonnet` instead of opus (the `security-reviewer` runs as written). In step 3 file Optional, Nit and every pre-existing finding as hardening items: `cairn suggest add --kind hardening --area <area> --from branch-review --where <path> --text "<class>: <finding>"`.

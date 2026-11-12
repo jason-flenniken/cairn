@@ -4,6 +4,8 @@ Prove the finished build works: tests and build, then one pass over the PRD's ac
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, put the step back: `cd <plan worktree> && cairn step <testing, scanning or fixing, whichever you were on>`.
+
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
 - MVP: in step 2 run the suite with `cd <plan worktree> && cairn test` instead of the bare test command. A red suite is not a blocker: it goes to step 6 with its hardening item (which `cairn test` files) and the note lists it as a known failure, not to the fix loop in step 5. Steps 3 and 4 run as written; the scan and audit are floors.

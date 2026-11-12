@@ -109,12 +109,12 @@ test('prd approving is refused while approval would refuse the PRD, and taken on
 test('refusals list the valid steps and write nothing', () => {
   const p = plan('review');
   const before = p.raw();
-  refused(p.wt, /not a step at review; valid steps: reviewing, fixing, rechecking/, 'step', 'merging');
+  refused(p.wt, /not a step at review; valid steps: reviewing, fixing, rechecking, asking, clear/, 'step', 'merging');
   refused(p.wt, /whole number/, 'step', 'fixing', '--count', '-1');
   refused(p.wt, /whole number/, 'step', 'fixing', '--count', 'three');
   refused(p.wt, /usage/, 'step');
   assert.equal(p.raw(), before);
-  refused(plan('execute').wt, /no steps at execute/, 'step', 'reviewing');
+  refused(plan('learn').wt, /no steps at learn/, 'step', 'reviewing');
 });
 
 test('hostile step names are refused, not echoed, and not written', () => {
@@ -141,4 +141,32 @@ test('status --all --json words the step on each plan row, for the current stage
   assert.equal(rowOf().stepText, 'fixing 3 findings');
   run(['step', 'rechecking'], p.wt);
   assert.equal(rowOf().stepText, 're-checking');
+});
+
+test('asking is a step at every working stage, and clear drops it', () => {
+  for (const stage of ['repro', 'discover', 'prd', 'plan', 'execute', 'verify', 'review', 'ship'] as const) {
+    const p = plan(stage);
+    run(['step', 'asking'], p.wt);
+    assert.equal(p.state().step?.name, 'asking', stage);
+    run(['step', 'clear'], p.wt);
+    assert.equal(p.state().step, undefined, stage);
+  }
+  refused(plan('learn').wt, /there are no steps at learn/, 'step', 'asking');
+});
+
+test('status --all --json sets needsUser while a plan is asking or at its approval step', () => {
+  const p = plan('execute');
+  const rowOf = () => (run(['status', '--all', '--json'], p.wt).data!.plans as { needsUser?: boolean; stepText?: string }[])[0]!;
+  assert.equal(rowOf().needsUser, false);
+  run(['step', 'asking'], p.wt);
+  assert.equal(rowOf().needsUser, true);
+  assert.equal(rowOf().stepText, 'waiting for your answer');
+  run(['step', 'clear'], p.wt);
+  assert.equal(rowOf().needsUser, false);
+  const q = plan('plan');
+  const qRow = () => (run(['status', '--all', '--json'], q.wt).data!.plans as { needsUser?: boolean }[])[0]!;
+  run(['step', 'drafting'], q.wt);
+  assert.equal(qRow().needsUser, false);
+  run(['step', 'approving'], q.wt);
+  assert.equal(qRow().needsUser, true);
 });

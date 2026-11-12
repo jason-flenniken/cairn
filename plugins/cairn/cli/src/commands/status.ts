@@ -99,6 +99,14 @@ function foundationalSafe(s: State, pc: PlanCtx): boolean {
   }
 }
 
+/** A row's `ready` and `needsUser`: the human is wanted when a document waits, or the plan is asking or at its approval stop. */
+function readyRow(r: { state: State; worktree?: string; dir: string }, ctx: Ctx) {
+  const ready = r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined;
+  const st = r.state.step;
+  const asked = st !== undefined && st.stage === r.state.stage && (st.name === 'approving' || st.name === 'asking');
+  return { ready, needsUser: ready !== undefined || asked };
+}
+
 export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
@@ -108,7 +116,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);

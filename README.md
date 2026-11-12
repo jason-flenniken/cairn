@@ -220,11 +220,12 @@ It has four tabs, **Now**, **History**, **Records**, and **Changelog**, and the 
 - **Waiting on you:** a yellow box, only when something needs you.
   - At the PRD, plan, and ship stops it shows the document's summary with **Read all**, which opens the full document in the pane, and **Approve**. Approve asks you to confirm, then records the approval the same way answering in the chat does. The model can't approve for you: the mod blocks it from running the approval itself.
   - During discovery it shows the read-back card while "Is this right?" is open in the chat, with buttons that answer it.
+  - Below this plan's content it also lists every other plan that waits on you, so one pane is the one place to approve from. A plan with a PRD, plan or ship record ready shows its title, what waits, **Open** (the document in the pane) and **Approve**, which goes through the same confirm as above, for that plan. A plan whose agent asked a question in its own session shows "waiting for you in its session" and the folder to go to, with no buttons: the question can only be answered there. The status line counts them ("2 plans wait on you"). Plans with nothing waiting stay in the plain other-plans list.
 - **Main session:** what the orchestrating session is doing (running tests, merging, starting agents) and for how long. It turns yellow and says **waiting for you** only while it has asked you something in the chat; between turns it reads **idle**, with how many agents are still working.
 - **Agent cards:** one per running agent: its role and task (Build, Review, Fix, Check, Record), model, time, tokens and estimated cost, current action, and step count. A finished card turns green (red if it stopped early) and stays a few seconds with its totals.
 - **UP NEXT** lists the next tasks in the phase, marking those still waiting on another task. Files edited outside every task's scope show as **out-of-scope edits**.
 - **Buttons:** **Pause** lets running work reach a safe point and stops, **Stop now** cuts the running turn and saves work in progress, **Resume** continues a paused plan, and **Status** prints where the plan stands.
-- Other plans active in the repo are listed with a **Resume** button each.
+- Other plans active in the repo that are not waiting on you are listed with a **Resume** button each.
 
 ### History
 
