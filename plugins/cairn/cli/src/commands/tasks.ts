@@ -12,6 +12,8 @@ import { SUBSTEPS, type Substep } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
 import { ensureExcluded, gate, mutate, planCtx, runSetup, runTests, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
+import { syncTickets } from './linear.ts';
+import { linearConfig } from '../linear.ts';
 
 const MAX_FIX_ROUNDS = 2;
 const DEFAULT_FIX_MAX_FILES = 8;
@@ -85,6 +87,7 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
     const phase = s.phases.find((p) => p.tasks.includes(sl))!;
     if (phase.status === 'pending') phase.status = 'in_progress';
     log(s, 'task started', sl.name);
+    syncTickets(s, linearConfig(pc.cfg));
     return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: pb } };
   });
   ensureExcluded(ctx.mainRoot, '.claude/worktrees/');
@@ -103,6 +106,7 @@ function taskStep(pc: PlanCtx, id: string, step: string | undefined, opts: Opts)
     sl.substep = step as Substep;
     if (opts.note) sl.note = String(opts.note);
     log(s, `task ${step}`, `${sl.name}${step === 'fixing' ? ` (attempt ${sl.fixRound})` : ''}${opts.note ? `: ${opts.note}` : ''}`);
+    syncTickets(s, linearConfig(pc.cfg));
     return { message: `Task "${sl.name}": ${step}${step === 'fixing' ? `, attempt ${sl.fixRound} of ${MAX_FIX_ROUNDS}` : ''}.` };
   });
 }
@@ -163,6 +167,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
     // The fix track has no phase stop: the single phase is done with its task.
     if (fastLane(s) && phase.status === 'awaiting_approval') phase.status = 'done';
     log(s, 'task done', cur.name);
+    syncTickets(s, linearConfig(pc.cfg));
     const left = phase.tasks.filter((x) => x.status !== 'done').length;
     return {
       message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : `Phase "${phase.name}" is built: run \`cairn phase finish\`.`}`,

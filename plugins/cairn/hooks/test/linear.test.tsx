@@ -61,11 +61,11 @@ describe('Linear tab', () => {
     await ui.unmount()
   })
 
-  test('a plan with 6 issues draws 4 issue lines and +2 more, built and started marked ◐, not started ·', async ($, on) => {
+  test('a plan with 6 issues draws 4 issue lines and +2 more, built marked ◉, started ◐, not started ·', async ($, on) => {
     const text = await tab($, on, BOARD)
     expect(text).toContain('SAV-1 Checkout')
     expect(text).toContain('cart · execute · 1/6')
-    expect(text).toContain('◐ SAV-11 Sub 1')
+    expect(text).toContain('◉ SAV-11 Sub 1')
     expect(text).toContain('◐ SAV-12 Sub 2')
     expect(text).toContain('· SAV-13 Sub 3')
     expect(text).toContain('· SAV-14 Sub 4')

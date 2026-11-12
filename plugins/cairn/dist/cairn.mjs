@@ -8716,6 +8716,9 @@ function issueFile(i, description, readAt) {
   ].join("\n");
 }
 var takenIssues = (l) => l.issues.filter((i) => !i.released);
+var settled = (i, cfg) => isDone(i) && !(cfg?.statuses?.inReview && i?.stateName === cfg.statuses.inReview);
+var hasTicketTasks = (s) => allTasks(s).some((t) => !!t.issue);
+var isPublished = (l) => !!l?.outbox.some((w) => w.publish);
 function parentKeys(issues) {
   const keys = new Set(issues.map((i) => i.key));
   return new Set(issues.map((i) => i.parent).filter((p) => !!p && keys.has(p)));
@@ -8781,6 +8784,11 @@ function issueRequirements(prdMd, keys) {
   }
   return out;
 }
+function requirementOwners(prdMd, keys) {
+  const out = /* @__PURE__ */ new Map();
+  for (const [k, frs] of issueRequirements(prdMd, keys)) for (const fr of frs) out.set(fr, [...out.get(fr) ?? [], k]);
+  return out;
+}
 function reasonFor(body, ...keys) {
   for (const line of (body ?? "").split("\n")) {
     if (!keys.every((k) => new RegExp(`\\b${k}\\b`).test(line))) continue;
@@ -8821,6 +8829,9 @@ function prdLinearProblems(l, prdMd) {
   const untagged = l.issues.filter((i) => !reqs.has(i.key) && !notTaken.has(i.key) && !parents.has(i.key));
   if (untagged.length)
     p.push(`these Linear issues are on no requirement and not under ## Issues not taken: ${untagged.map((i) => i.key).join(", ")}. Tag a requirement with [KEY], or list the issue under ## Issues not taken as "- KEY: <reason>"`);
+  const shared = [...requirementOwners(prdMd, l.issues.map((i) => i.key))].filter(([, ks]) => ks.length > 1);
+  if (shared.length)
+    p.push(`a requirement belongs to one ticket, and ${shared.map(([fr, ks]) => `${fr} is tagged ${ks.join(" and ")}`).join("; ")}. Split each into one requirement per ticket, or keep it under one ticket (plan chores can go under the epic)`);
   const both = l.issues.filter((i) => reqs.has(i.key) && notTakenReason(prdMd, i.key));
   if (both.length) p.push(`${both.map((i) => i.key).join(", ")} ${both.length === 1 ? "is" : "are"} both on a requirement and under ## Issues not taken: keep one`);
   const named = sections(prdMd).get("issues not taken") ?? "";
@@ -8877,7 +8888,22 @@ function issueOrderProblems(l, phases, prdMd, planMd) {
   }
   return p;
 }
-var RANK = ["not started", "in progress", "built", "shipped"];
+function taskTickets(l, phases, prdMd) {
+  const taken = takenIssues(l);
+  const owners = requirementOwners(prdMd, taken.map((i) => i.key));
+  const epic = l.epic && !l.issues.find((i) => i.key === l.epic)?.released ? l.epic : void 0;
+  const issueOf = /* @__PURE__ */ new Map();
+  const spans = [];
+  for (const t of phases.flatMap((p) => p.tasks)) {
+    const keys = [...new Set(t.covers.flatMap((c) => owners.get(c) ?? []))];
+    if (keys.length > 1) spans.push({ task: t.id, keys });
+    else if (keys.length === 1) issueOf.set(t.id, keys[0]);
+    else if (epic) issueOf.set(t.id, epic);
+  }
+  return { issueOf, spans };
+}
+var RANK = ["not started", "in progress", "in review", "built", "shipped"];
+var IN_REVIEW = ["reviewing", "fixing", "merging"];
 function issueProgress(s) {
   const out = /* @__PURE__ */ new Map();
   const l = s.linear;
@@ -8885,18 +8911,20 @@ function issueProgress(s) {
   const tasks = allTasks(s);
   const shipped = s.stage === "learn" || s.stage === "closed";
   const fixLane = s.track === "fix" && !!s.repro;
+  const byTicket = hasTicketTasks(s);
   const leaf = (i) => {
-    const mine = fixLane ? tasks : tasks.filter((t) => t.covers.some((c) => i.requirements?.includes(c)));
+    const mine = fixLane ? tasks : byTicket ? tasks.filter((t) => t.issue === i.key) : tasks.filter((t) => t.covers.some((c) => i.requirements?.includes(c)));
     if (shipped && (mine.length || fixLane)) return "shipped";
     if (!mine.length) return "not started";
     if (mine.every((t) => t.status === "done")) return "built";
+    if (mine.every((t) => t.status === "done" || t.status === "in_progress" && IN_REVIEW.includes(t.substep ?? ""))) return "in review";
     return mine.some((t) => t.status !== "pending") ? "in progress" : "not started";
   };
   const parents = parentKeys(takenIssues(l));
   const children = (k) => takenIssues(l).filter((i) => i.parent === k);
   const of = (i) => {
     if (i.released) return "not taken";
-    if (!parents.has(i.key) || i.requirements?.length) return leaf(i);
+    if (!parents.has(i.key) || !byTicket && i.requirements?.length) return leaf(i);
     const kids = children(i.key).map(of).filter((x) => x !== "not taken");
     if (!kids.length) return "not started";
     const low = kids.reduce((m, k) => Math.min(m, RANK.indexOf(k)), RANK.length - 1);
@@ -9089,10 +9117,120 @@ function buildBoard(input) {
   };
 }
 
+// plugins/cairn/cli/src/commands/publish.ts
+function ticketGroups(s) {
+  const out = /* @__PURE__ */ new Map();
+  for (const p of s.phases)
+    for (const t of p.tasks) {
+      const name = t.ticket ?? p.name;
+      out.set(name, [...out.get(name) ?? [], t]);
+    }
+  return out;
+}
+var STAGES2 = ["plan", "execute"];
+function publish(ctx, opts) {
+  const pc = planCtx(ctx);
+  const cfg = linearConfig(pc.cfg);
+  if (!cfg) throw new Refusal('Linear is not set up for this repo: .cairn/config.json has no "linear" block', ['add "linear": { "team": "<team key, e.g. SAV>" }, then retry']);
+  const project = typeof opts.project === "string" ? opts.project.trim() : "";
+  if (!project) throw new CliError('cairn linear publish needs --project "<Linear project name>" (and optionally --milestone "<name>")');
+  const milestone = typeof opts.milestone === "string" && opts.milestone.trim() ? opts.milestone.trim() : void 0;
+  return mutate(pc, "plan put in Linear", (s) => {
+    if (s.linear?.issues.length) throw new Refusal("this plan already has Linear issues", ["it is in Linear already: cairn linear status"]);
+    if (s.linear?.outbox.some((w) => w.publish)) throw new Refusal("this plan is already being put in Linear", ["send what is queued: cairn linear pending"]);
+    if (!STAGES2.includes(s.stage) || !allTasks(s).length) throw new Refusal(`a plan is put in Linear once its tasks are loaded (it is in ${s.stage})`, ["cairn plan load first"]);
+    const l = s.linear ??= emptyLink(cfg.team);
+    l.project = project;
+    if (milestone) l.milestone = milestone;
+    const groups = ticketGroups(s);
+    queueWrite(l, {
+      kind: "createIssue",
+      target: `${s.slug}:epic`,
+      payload: {
+        team: l.team,
+        title: s.title,
+        description: `Planned in cairn plan "${s.title}" (\`${s.branch}\`). PRD: \`${planRelOf(pc.plan)}/prd.md\`.
+
+${groups.size} ticket${groups.size === 1 ? "" : "s"} follow as sub-issues.`,
+        project,
+        ...milestone ? { milestone } : {}
+      },
+      why: `the epic for plan "${s.title}"`,
+      dedupe: `publish:epic`,
+      publish: { role: "epic" }
+    });
+    log(s, "plan put in Linear", `${project}${milestone ? ` / ${milestone}` : ""}: epic and ${groups.size} tickets`);
+    return {
+      message: `Queued the epic for "${s.title}" in ${project}${milestone ? ` (${milestone})` : ""}. Once it is filed (\`cairn linear sent <id> --ref <KEY>\`), its ${groups.size} ticket${groups.size === 1 ? "" : "s"} are queued: ${[...groups.keys()].join("; ")}.`,
+      data: { tickets: [...groups].map(([name, ts]) => ({ name, tasks: ts.map((t) => t.id) })) }
+    };
+  });
+}
+function publishedTickets(l) {
+  return new Map((l?.outbox ?? []).filter((w) => w.publish?.role === "ticket" && w.ref).map((w) => [w.publish.ticket, w.ref]));
+}
+function keepPublishedTickets(l, phases) {
+  const keys = publishedTickets(l);
+  for (const p of phases)
+    for (const t of p.tasks) {
+      const k = keys.get(t.ticket ?? p.name);
+      if (k) t.issue = k;
+      else delete t.issue;
+    }
+}
+function onPublishSent(s, w, ref, cfg) {
+  const l = s.linear;
+  if (!w.publish) return void 0;
+  if (!ref || !ISSUE_KEY.test(ref)) throw new Refusal(`${w.id} files a new issue: cairn needs its key`, [`cairn linear sent ${w.id} --ref <the new issue key, e.g. SAV-131>`]);
+  const groups = ticketGroups(s);
+  if (w.publish.role === "epic") {
+    l.epic = ref;
+    l.issues.push({ key: ref, title: s.title, blockedBy: [], stateType: "unstarted", requirements: [], ...l.milestone ? { milestone: l.milestone } : {} });
+    if (s.stage === "execute") queueStatus(l, cfg, ref, "inProgress", "the plan is building this epic");
+    for (const [name2, ts2] of groups)
+      queueWrite(l, {
+        kind: "createIssue",
+        target: `${s.slug}:ticket:${name2}`,
+        payload: {
+          team: l.team,
+          title: name2,
+          description: `Part of cairn plan "${s.title}" (\`${s.branch}\`).
+
+${ts2.map((t) => `- ${t.name} (${t.covers.join(", ") || "groundwork"})`).join("\n")}`,
+          parentId: ref,
+          ...l.project ? { project: l.project } : {},
+          ...l.milestone ? { milestone: l.milestone } : {}
+        },
+        why: `ticket "${name2}" under ${ref}`,
+        dedupe: `publish:ticket:${name2}`,
+        publish: { role: "ticket", ticket: name2 }
+      });
+    return `${ref} is the epic; ${groups.size} ticket${groups.size === 1 ? "" : "s"} queued under it.`;
+  }
+  const name = w.publish.ticket;
+  const ts = groups.get(name) ?? [];
+  l.issues.push({ key: ref, title: name, parent: l.epic, blockedBy: [], stateType: "unstarted", requirements: [...new Set(ts.flatMap((t) => t.covers))], ...l.milestone ? { milestone: l.milestone } : {} });
+  for (const t of ts) t.issue = ref;
+  const filed = l.outbox.filter((x) => x.publish?.role === "ticket");
+  if (filed.every((x) => x.sentAt || x === w)) {
+    const keyOf = new Map(allTasks(s).filter((t) => t.issue).map((t) => [t.id, t.issue]));
+    for (const t of allTasks(s))
+      for (const b of t.blockedBy) {
+        const [mine, theirs] = [keyOf.get(t.id), keyOf.get(b)];
+        if (!mine || !theirs || mine === theirs) continue;
+        const issue = l.issues.find((i) => i.key === mine);
+        if (!issue.blockedBy.includes(theirs)) issue.blockedBy.push(theirs);
+        queueWrite(l, { kind: "relation", target: mine, payload: { id: mine, blockedBy: [theirs] }, why: `${mine} needs ${theirs}`, dedupe: `relation:${mine}:${theirs}` });
+      }
+  }
+  syncTickets(s, cfg);
+  return `${ref} is ticket "${name}" (${ts.length} task${ts.length === 1 ? "" : "s"}).`;
+}
+
 // plugins/cairn/cli/src/commands/linear.ts
 var USAGE2 = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "\u2026" | hold <id> --note "\u2026" | depends <KEY> --on <KEY> --reason "\u2026" | ack <change> --as taken|later|noted [--note "\u2026"]
-  | release <KEY> --reason "\u2026" | take <KEY> --reason "\u2026" | board [--project "<name>"] [--json]`;
+  | release <KEY> --reason "\u2026" | take <KEY> --reason "\u2026" | board [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
 var NO_CONFIG = (where) => new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
 function inputText(ctx, opts) {
   if (typeof opts.file === "string") {
@@ -9128,6 +9266,8 @@ function cmdLinear(ctx, sub, arg, opts) {
       return take(ctx, arg, opts);
     case "board":
       return board(ctx, opts);
+    case "publish":
+      return publish(ctx, opts);
     default:
       throw new CliError(USAGE2);
   }
@@ -9293,14 +9433,14 @@ function queueDone(pc, s) {
   const parents = parentKeys(taken);
   const progress2 = issueProgress(s);
   let n = 0;
-  for (const i of taken) if (!parents.has(i.key) && !isDone(i) && progress2.get(i.key) === "shipped" && queueStatus(l, cfg, i.key, "done", "the pull request is merged")) n++;
+  for (const i of taken) if (!parents.has(i.key) && !settled(i, cfg) && progress2.get(i.key) === "shipped" && queueStatus(l, cfg, i.key, "done", "the pull request is merged")) n++;
   const all = [...l.issues, ...l.known];
   const takenKeys = new Set(taken.map((i) => i.key));
   for (const p of parents) {
     const parent = all.find((i) => i.key === p);
-    if (isDone(parent)) continue;
+    if (settled(parent, cfg)) continue;
     const kids = all.filter((i) => i.parent === p);
-    if (kids.length && kids.every((k) => takenKeys.has(k.key) && (parents.has(k.key) || progress2.get(k.key) === "shipped") || isDone(k)) && queueStatus(l, cfg, p, "done", `every sub-issue of ${p} is done`)) n++;
+    if (kids.length && kids.every((k) => takenKeys.has(k.key) && (parents.has(k.key) || progress2.get(k.key) === "shipped") || settled(k, cfg)) && queueStatus(l, cfg, p, "done", `every sub-issue of ${p} is done`)) n++;
   }
   l.mergedAt = now();
   log(s, "Linear: merged", n ? `${n} issue(s) to mark Done` : "nothing to mark Done");
@@ -9330,6 +9470,7 @@ function markSent(ctx, id, opts) {
     if (w.sentAt) return { message: `${w.id} was already sent${w.ref ? ` (${w.ref})` : ""}.`, data: { already: true } };
     if (w.dropped) throw new Refusal(`${w.id} was dropped: ${w.dropped.note}`, ["nothing to do; cairn linear pending lists what is left"]);
     const ref = typeof opts.ref === "string" ? opts.ref.trim() : void 0;
+    const filed = onPublishSent(s, w, ref, linearConfig(pc.cfg));
     w.sentAt = now();
     if (ref) w.ref = ref;
     if (w.kind === "createIssue" && ref) {
@@ -9339,7 +9480,7 @@ function markSent(ctx, id, opts) {
     }
     log(s, "Linear update sent", `${w.id} ${w.kind} ${w.target}${ref ? ` \u2192 ${ref}` : ""}`);
     const left = unsent(l).length;
-    return { message: `Marked ${w.id} sent.${left ? ` ${left} left.` : " Nothing left to send."}`, data: { left } };
+    return { message: `Marked ${w.id} sent.${filed ? ` ${filed}` : ""}${left ? ` ${left} left.` : " Nothing left to send."}`, data: { left } };
   });
 }
 function drop(ctx, id, opts) {
@@ -9470,13 +9611,13 @@ function take(ctx, keyArg, opts) {
   });
 }
 function linearPrdGate(s, prdMd, opts) {
-  if (!s.linear || !prdMd) return;
+  if (!s.linear || !prdMd || isPublished(s.linear)) return;
   const problems = prdLinearProblems(s.linear, prdMd);
   gate(!problems.length, s, "approve prd", opts, problems.join("; "), ["fix prd.md, then approve again"]);
 }
 function recordRequirements(s, prdMd) {
   const l = s.linear;
-  if (!l) return;
+  if (!l || isPublished(l)) return;
   const reqs = issueRequirements(prdMd, l.issues.map((i) => i.key));
   for (const i of l.issues) {
     i.requirements = reqs.get(i.key) ?? [];
@@ -9501,11 +9642,14 @@ function onAdvance(pc, s, from, to, opts, followups) {
   const cfg = linearConfig(pc.cfg);
   const taken = takenIssues(l);
   if (to === "execute") {
-    for (const i of taken) if (!isDone(i) && i.stateType !== "started") queueStatus(l, cfg, i.key, "inProgress", "the plan started building");
+    const parents = parentKeys(taken);
+    const perTicket = hasTicketTasks(s);
+    for (const i of taken) if ((!perTicket || parents.has(i.key)) && !isDone(i) && i.stateType !== "started") queueStatus(l, cfg, i.key, "inProgress", perTicket ? "the plan started building this epic" : "the plan started building");
     if (l.epic && !taken.some((i) => i.key === l.epic)) {
       const epic = l.known.find((i) => i.key === l.epic);
       if (!isDone(epic) && epic?.stateType !== "started") queueStatus(l, cfg, l.epic, "inProgress", "a plan started building part of this epic");
     }
+    syncTickets(s, cfg);
   }
   if (from === "ship" && (to === "learn" || to === "closed")) {
     if (typeof opts.pr === "string" && opts.pr.trim()) l.pr = opts.pr.trim();
@@ -9571,9 +9715,29 @@ Follow-up from cairn plan "${s.title}" (\`${s.branch}\`), ${f.hardening ? "harde
     queueWrite(l, { kind: "statusUpdate", target: l.project, payload: { type: "project", project: l.project, health: "onTrack", body }, why: `project update for "${l.project}"`, dedupe: `update:${s.slug}`, needsApproval: true });
   }
 }
-function onPhaseFinished(s) {
+function syncTickets(s, cfg) {
+  const l = s.linear;
+  if (!l || s.stage !== "execute" || !hasTicketTasks(s)) return;
+  const progress2 = issueProgress(s);
+  const taken = takenIssues(l);
+  const parents = parentKeys(taken);
+  const hasReview = !!statusFor(cfg, "inReview");
+  for (const i of taken) {
+    if (parents.has(i.key) || isDone(i)) continue;
+    const p = progress2.get(i.key);
+    const review = p === "in review" || p === "built";
+    const reviewQueued = l.outbox.some((w) => w.dedupe === `status:${i.key}:inReview`);
+    if ((p === "in progress" || review && !hasReview) && i.stateType !== "started" && !reviewQueued) queueStatus(l, cfg, i.key, "inProgress", `work on ${i.key} started`);
+    if (review) {
+      queueStatus(l, cfg, i.key, "inReview", `every task of ${i.key} is built and in review`);
+      queueComment(l, i.key, `In review in cairn plan "${s.title}" (\`${s.branch}\`): its tasks are built and cairn is checking them. It is done when the pull request merges.`, `${i.key} is in review`, "review");
+    }
+  }
+}
+function onPhaseFinished(s, cfg) {
   const l = s.linear;
   if (!l) return;
+  if (hasTicketTasks(s)) return syncTickets(s, cfg);
   const progress2 = issueProgress(s);
   for (const i of takenIssues(l))
     if (progress2.get(i.key) === "built") queueComment(l, i.key, `Built in cairn plan "${s.title}" (\`${s.branch}\`); checks and review come next.`, `${i.key} is built`, "built");
@@ -10010,12 +10174,14 @@ function taskIssuesOf(s) {
   const l = s.linear;
   if (!l || !l.issues.length) return void 0;
   const taken = takenIssues(l);
+  if (allTasks(s).some((t) => t.issue)) return Object.fromEntries(allTasks(s).map((t) => [t.name, t.issue ? [t.issue] : []]));
   return Object.fromEntries(allTasks(s).map((t) => [t.name, taken.filter((i) => i.requirements?.some((r) => t.covers.includes(r))).map((i) => i.key)]));
 }
 function linearRowFields(s) {
+  const n = due(s.linear).length;
   const taskIssues = taskIssuesOf(s);
-  if (!taskIssues) return {};
-  return { taskIssues, ...s.linear?.epic ? { epic: s.linear.epic } : {} };
+  if (!taskIssues) return n ? { linearDue: n } : {};
+  return { taskIssues, ...s.linear?.epic ? { epic: s.linear.epic } : {}, ...n ? { linearDue: n } : {} };
 }
 function foundationalSafe(s, pc) {
   try {
@@ -10464,7 +10630,9 @@ function parsePlan(planMd, prdMd) {
       const risky = rs?.risky === true;
       if (rs?.risky !== void 0 && typeof rs.risky !== "boolean") problems.push(`${where}: risky must be true or false`);
       const riskReason = typeof rs?.riskReason === "string" && rs.riskReason.trim() ? rs.riskReason.trim() : void 0;
-      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...kind === "prefactor" ? { kind } : {}, covers, blockedBy, scope, complexity, status: "pending", fixRound: 0, risky, ...risky && riskReason ? { riskReason } : {} });
+      const ticket = rs?.ticket === void 0 ? void 0 : typeof rs.ticket === "string" && rs.ticket.trim() ? rs.ticket.trim() : void 0;
+      if (rs?.ticket !== void 0 && !ticket) problems.push(`${where}: ticket must be a short title, or left out`);
+      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...kind === "prefactor" ? { kind } : {}, covers, ...ticket ? { ticket } : {}, blockedBy, scope, complexity, status: "pending", fixRound: 0, risky, ...risky && riskReason ? { riskReason } : {} });
     }
     phases.push({ id: pid, name: String(rp?.name ?? pid), status: "pending", tasks });
   });
@@ -10555,6 +10723,21 @@ function cmdPlanLoad(ctx, opts) {
     if (dropsFix) throw new Refusal('the new plan drops the "fix" task that escalate kept', ['keep a task with id "fix" in plan.md']);
     const { phases, lostDone } = mergeProgress(parsed.phases, s.phases);
     if (lostDone.length) throw new Refusal(`the new plan drops tasks that already started or finished: ${lostDone.join(", ")}`, ["keep them in plan.md"]);
+    if (s.linear && isPublished(s.linear)) keepPublishedTickets(s.linear, phases);
+    else if (s.linear) {
+      const { issueOf, spans } = taskTickets(s.linear, phases, prdMd);
+      const started = new Set(allTasks(s).filter((x) => x.status !== "pending").map((x) => x.id));
+      const open = spans.filter((x) => !started.has(x.task));
+      if (open.length)
+        throw new Refusal(`each task builds one ticket, and ${open.map((x) => `task "${x.task}" covers requirements of ${x.keys.join(" and ")}`).join("; ")}`, [
+          "split each such task into one task per ticket in plan.md, then cairn plan load"
+        ]);
+      for (const t of phases.flatMap((p) => p.tasks)) {
+        const k = issueOf.get(t.id);
+        if (k) t.issue = k;
+        else delete t.issue;
+      }
+    }
     s.phases = phases;
     s.planHash = hashText(planMd);
     onPlanLoaded(s);
@@ -10643,6 +10826,7 @@ function taskStart(pc, id, opts) {
     const phase = s.phases.find((p) => p.tasks.includes(sl));
     if (phase.status === "pending") phase.status = "in_progress";
     log(s, "task started", sl.name);
+    syncTickets(s, linearConfig(pc.cfg));
     return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: pb } };
   });
   ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
@@ -10660,6 +10844,7 @@ function taskStep(pc, id, step, opts) {
     sl.substep = step;
     if (opts.note) sl.note = String(opts.note);
     log(s, `task ${step}`, `${sl.name}${step === "fixing" ? ` (attempt ${sl.fixRound})` : ""}${opts.note ? `: ${opts.note}` : ""}`);
+    syncTickets(s, linearConfig(pc.cfg));
     return { message: `Task "${sl.name}": ${step}${step === "fixing" ? `, attempt ${sl.fixRound} of ${MAX_FIX_ROUNDS}` : ""}.` };
   });
 }
@@ -10709,6 +10894,7 @@ function taskDone(pc, id, opts) {
     phase.status = phaseStatus(phase, phase.status);
     if (fastLane(s) && phase.status === "awaiting_approval") phase.status = "done";
     log(s, "task done", cur.name);
+    syncTickets(s, linearConfig(pc.cfg));
     const left = phase.tasks.filter((x) => x.status !== "done").length;
     return {
       message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : " (no test command configured: nothing was run)"}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? "The fix is built: `cairn advance` to review." : `Phase "${phase.name}" is built: run \`cairn phase finish\`.`}`,
@@ -10753,10 +10939,10 @@ var reapproveFixes = (slug, worktree) => [
   `or the user runs, in their own terminal: cd ${worktree} && ${pluginRoot()}/bin/cairn approve ship --human`,
   "then run cairn merge-check again"
 ];
-var isPublished = (f) => CLOSE_PUBLISHED.some((p) => f === p || f.startsWith(`${p}/`));
+var isPublished2 = (f) => CLOSE_PUBLISHED.some((p) => f === p || f.startsWith(`${p}/`));
 function changesSince(cwd, sha, planRel2, vouched) {
   if (!gitOk(["merge-base", "--is-ancestor", sha, "HEAD"], cwd)) return [`commit ${short(sha)} is no longer in the branch's history`];
-  const exempt = (f) => f === "REVIEW.md" || f === planRel2 || f.startsWith(`${planRel2}/`) || isPublished(f);
+  const exempt = (f) => f === "REVIEW.md" || f === planRel2 || f.startsWith(`${planRel2}/`) || isPublished2(f);
   const reasons = [];
   const files = /* @__PURE__ */ new Set();
   for (const c of git(["rev-list", "--first-parent", `${sha}..HEAD`], cwd).split("\n").filter(Boolean)) {
@@ -10777,9 +10963,9 @@ function mergeBase(pc, baseRef, message) {
   const m = gitTry(["merge", "--no-ff", "--no-edit", "-q", "-m", message, baseRef], wt);
   if (m.ok) return { ok: true };
   const conflicted = gitTry(["diff", "--name-only", "--diff-filter=U"], wt).out.split("\n").filter(Boolean);
-  if (conflicted.length && conflicted.every(isPublished)) {
-    const settled = conflicted.every((f) => gitTry(["checkout", "--theirs", "--", f], wt).ok) && (refreshMemory(wt, pc.ctx), gitTry(["add", "--", ...conflicted], wt).ok) && gitTry(["commit", "-q", "--no-edit"], wt).ok;
-    if (settled) return { ok: true };
+  if (conflicted.length && conflicted.every(isPublished2)) {
+    const settled2 = conflicted.every((f) => gitTry(["checkout", "--theirs", "--", f], wt).ok) && (refreshMemory(wt, pc.ctx), gitTry(["add", "--", ...conflicted], wt).ok) && gitTry(["commit", "-q", "--no-edit"], wt).ok;
+    if (settled2) return { ok: true };
   }
   gitTry(["merge", "--abort"], wt);
   return { ok: false, conflicted, out: m.out };
@@ -10961,7 +11147,7 @@ function cmdPhase(ctx, action, opts) {
     const drift = s.drift.filter((d) => !d.acked);
     cur.status = "done";
     log(s, "phase finished", `${cur.name} (${testText})`);
-    onPhaseFinished(s);
+    onPhaseFinished(s, linearConfig(pc.cfg));
     const following = currentPhase(s);
     let next;
     if (following) {
@@ -11351,7 +11537,26 @@ var USAGE4 = `cairn: plan state for the agent-driven lifecycle. See references/c
   repro "<command>" | escalate (fix plans)
   linear [status] | linear import|pending|sent|drop|depends|ack|release|board \u2026 (plans that pull Linear issues in)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
+var MOVES = /* @__PURE__ */ new Set(["task", "phase", "ready", "advance", "approve", "plan"]);
+function withLinearDue(cmd, cwd, r) {
+  if (!cmd || !MOVES.has(cmd)) return r;
+  try {
+    const ctx = context(cwd);
+    if (!ctx.plan?.dir) return r;
+    const n = due(loadState(ctx.plan.dir).linear).length;
+    if (!n) return r;
+    const line = `${n} Linear update${n === 1 ? "" : "s"} queued: send ${n === 1 ? "it" : "them"} now (follow ${procedurePath("linear-sync")}).`;
+    return { message: r.message ? `${r.message}
+${line}` : line, data: { ...r.data, linearDue: n } };
+  } catch {
+    return r;
+  }
+}
 function run(argv, cwd = process.cwd(), stdin) {
+  const { pos } = parseArgs(argv, cwd);
+  return withLinearDue(pos[0], cwd, dispatch(argv, cwd, stdin));
+}
+function dispatch(argv, cwd, stdin) {
   const { pos, opts } = parseArgs(argv, cwd);
   if (stdin !== void 0) opts.stdin = stdin;
   const [cmd, a, b, ...rest] = pos;

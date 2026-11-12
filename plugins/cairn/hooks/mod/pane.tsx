@@ -13,7 +13,7 @@ import { cairn } from './cli.ts'
 import { closeDoc, docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
 import { gitLine, readGit, startGit, trackGit } from './git.ts'
 import { linearRows, stripControl } from './linear.tsx'
-import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
+import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task, type Ui } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
 import { act, cells, clean, message } from './util.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
@@ -254,9 +254,18 @@ async function findRepo($: EngineInterface): Promise<void> {
   seen = await signature($, watched(v?.plans ?? []))
 }
 
-/** Called by register.tsx's single session.start: commands, the first read, the pane, the poll. */
 /** An UP NEXT task's first ticket key and a space; empty with no key. */
 const ticket = (keys?: string[]) => (keys?.[0] === undefined || clean(keys[0]) === '' ? '' : `${clean(keys[0])} `)
+
+/** A dim line while Linear updates wait to be sent; nothing when none do. */
+function linearDueLine(ui: Ui, row: CairnPlanRow) {
+  const n = Number(row.linearDue)
+  if (!Number.isFinite(n) || n < 1) return false
+  const { Text } = ui
+  return <Text key="linear:due" dimColor wrap="truncate-end">{`↑ ${Math.floor(n)} Linear update${n === 1 ? '' : 's'} waiting to be sent`}</Text>
+}
+
+/** Called by register.tsx's single session.start: commands, the first read, the pane, the poll. */
 
 export async function onSessionStart($: EngineInterface, _e: SessionStartInput): Promise<void> {
   for (const spec of COMMANDS) await $.command.register(spec).catch(() => undefined)
@@ -499,6 +508,7 @@ export function install(on: On): void {
         mainCard($, cx, main, cards, idleSince),
         ...orderCards(cards).map(c => agentCard($, cx, c)),
         upNext.length > 0 && <Text key="next" wrap="truncate-end">{`UP NEXT  ${upNext.join(' · ')}`}</Text>,
+        linearDueLine(ui, row),
         drift.length > 0 && (
           <Box key="drift:box" flexDirection="column">
             <Text key="drift" color="yellow">{`${drift.length} out-of-scope edit${drift.length === 1 ? "" : "s"}:`}</Text>

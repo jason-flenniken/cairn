@@ -79,6 +79,15 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       const text = await drawn(ui)
       expect(text).toContain('SAV-16 Acme Storefront')
       expect(text).toMatch(/UP NEXT  SAV-80 Payments/)
+      expect(text).not.toContain('Linear update')
+      await ui.unmount()
+    })
+
+    test(`queued Linear updates show as one dim line (${surface})`, async ($, on) => {
+      world(on, { rows: [{ ...row(EXECUTE, WT), linearDue: 3 }] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      expect(await drawn(ui)).toContain('↑ 3 Linear updates waiting to be sent')
       await ui.unmount()
     })
 

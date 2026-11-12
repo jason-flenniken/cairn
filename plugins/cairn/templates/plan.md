@@ -39,7 +39,8 @@ phases:
     tasks:
       - id: cart-api           # kebab-case, unique across the plan
         name: Cart API
-        covers: [FR-01, FR-02] # PRD FR ids
+        covers: [FR-01, FR-02] # PRD FR ids; with Linear tickets, all of one ticket
+        # ticket: "Shopping cart"  # no Linear tickets yet: the ticket this task goes under if the plan is put in Linear
         blocked_by: []         # task ids in this or an earlier phase
         scope: ["src/cart/**", "test/cart/**"]   # globs the task may touch
         complexity: standard   # simple | standard | complex -> haiku | sonnet | opus

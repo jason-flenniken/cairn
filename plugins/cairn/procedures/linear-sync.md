@@ -12,7 +12,9 @@ Run `cd <plan worktree> && cairn linear pending --json`. Each entry in `pending`
 **Done when:** you hold the list of unsent entries.
 
 ## 2. Prepare
-Follow-ups are filed per `linear.fileFollowUps`: by default only ordinary ones, and hardening items stay in cairn. Before the first `createIssue` entry, make sure the `cairn-follow-up` label exists: look for it with `list_issue_labels` for the team, and create it with `create_issue_label` when it is missing. Skip this when no entry creates an issue.
+Follow-ups are filed per `linear.fileFollowUps`: by default only ordinary ones, and hardening items stay in cairn. Before the first `createIssue` entry with `labels`, make sure the `cairn-follow-up` label exists: look for it with `list_issue_labels` for the team, and create it with `create_issue_label` when it is missing. Skip this when no entry has labels.
+
+Before the first `status` entry, check the review status once: when `.cairn/config.json` sets `linear.statuses.inReview`, look it up with `list_issue_statuses` for the team. When that status's type is `completed`, tell the user in one line: Linear counts it as done, so a ticket in review looks finished on the board and a later refresh reads it as done; moving it to the Started category in Linear fixes that. Send the entries anyway.
 
 **Done when:** the label exists, or no entry needs it.
 
@@ -20,11 +22,11 @@ Follow-ups are filed per `linear.fileFollowUps`: by default only ordinary ones, 
 Send the entries that need no approval, one at a time, in the order listed. For each, call the tool its `tool` field names with `payload` as given, unchanged:
 - `status` and `relation`: `save_issue`. The payload already holds `id` and `state` (or `blockedBy`, which only adds links).
 - `comment`: `save_comment` with `issueId` and `body`.
-- `createIssue`: `save_issue` with `team`, `title`, `description`, `labels`, and the project and milestone when present.
+- `createIssue`: `save_issue` with `team`, `title`, `description`, and the `labels`, `parentId`, project and milestone when present. Entries that put a plan in Linear come in order: the epic first, then its tickets (queued once the epic has a key), then the links between them.
 
 Put any agent-specific detail you add to a description or comment (file lists, task ids, logs) in a collapsed block at the end: a line `+++ Agent notes`, the detail, then a line `+++`. The text a person reads stays short.
 
-After each send that worked, run `cd <plan worktree> && cairn linear sent <id>`. For `createIssue`, add `--ref <the new issue key>` (for example `--ref SAV-131`): cairn remembers the key so the follow-up is never filed twice.
+After each send that worked, run `cd <plan worktree> && cairn linear sent <id>`. For `createIssue`, add `--ref <the new issue key>` (for example `--ref SAV-131`): cairn remembers the key so the follow-up is never filed twice, and a plan's epic or ticket joins the plan under that key. Marking a plan's epic sent queues its tickets: run `cairn linear pending --json` again and send those too.
 
 A send that fails stays queued: run `cd <plan worktree> && cairn linear hold <id> --note "<the error>"`, note it in one line, and go on to the next entry. A failure never blocks the stage. Entries listed as held were tried before: send them like the rest.
 

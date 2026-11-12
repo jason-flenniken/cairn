@@ -299,6 +299,19 @@ export function issueFile(i: LinearIssue, description: string, readAt: string): 
 /** Issues the plan works on: imported and not released. */
 export const takenIssues = (l: LinearLink): LinearIssue[] => l.issues.filter((i) => !i.released);
 
+/**
+ * Done for the Done move at merge. A ticket sitting in the team's review status is not, even when Linear files that
+ * status under Completed: cairn moved it there itself mid-build, and it still needs Done once the branch merges.
+ */
+export const settled = (i: Pick<LinearIssue, 'stateType' | 'stateName'> | undefined, cfg: LinearConfig | undefined): boolean =>
+  isDone(i) && !(cfg?.statuses?.inReview && i?.stateName === cfg.statuses.inReview);
+
+/** A plan loaded with one ticket per task (`task.issue`): its tickets move one at a time. Older plans move together. */
+export const hasTicketTasks = (s: State): boolean => allTasks(s).some((t) => !!t.issue);
+
+/** A plan cairn put in Linear itself (`cairn linear publish`): its tickets come from the plan, not from [KEY] tags in the PRD. */
+export const isPublished = (l: LinearLink | undefined): boolean => !!l?.outbox.some((w) => w.publish);
+
 /** Keys of in-plan issues that have sub-issues in the plan: their status rolls up from those. */
 export function parentKeys(issues: LinearIssue[]): Set<string> {
   const keys = new Set(issues.map((i) => i.key));
@@ -384,6 +397,13 @@ export function issueRequirements(prdMd: string, keys: Iterable<string>): Map<st
   return out;
 }
 
+/** Each FR id and the issue keys whose tag it carries: the inverse of `issueRequirements`. */
+export function requirementOwners(prdMd: string, keys: Iterable<string>): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const [k, frs] of issueRequirements(prdMd, keys)) for (const fr of frs) out.set(fr, [...(out.get(fr) ?? []), k]);
+  return out;
+}
+
 /** Lines of a PRD or plan section that name the key and give some reason beyond it. */
 function reasonFor(body: string | undefined, ...keys: string[]): string | undefined {
   for (const line of (body ?? '').split('\n')) {
@@ -436,6 +456,10 @@ export function prdLinearProblems(l: LinearLink, prdMd: string): string[] {
   const untagged = l.issues.filter((i) => !reqs.has(i.key) && !notTaken.has(i.key) && !parents.has(i.key));
   if (untagged.length)
     p.push(`these Linear issues are on no requirement and not under ## Issues not taken: ${untagged.map((i) => i.key).join(', ')}. Tag a requirement with [KEY], or list the issue under ## Issues not taken as "- KEY: <reason>"`);
+  // A requirement belongs to one ticket, so each ticket's tasks, and its status in Linear, move on their own.
+  const shared = [...requirementOwners(prdMd, l.issues.map((i) => i.key))].filter(([, ks]) => ks.length > 1);
+  if (shared.length)
+    p.push(`a requirement belongs to one ticket, and ${shared.map(([fr, ks]) => `${fr} is tagged ${ks.join(' and ')}`).join('; ')}. Split each into one requirement per ticket, or keep it under one ticket (plan chores can go under the epic)`);
   const both = l.issues.filter((i) => reqs.has(i.key) && notTakenReason(prdMd, i.key));
   if (both.length) p.push(`${both.map((i) => i.key).join(', ')} ${both.length === 1 ? 'is' : 'are'} both on a requirement and under ## Issues not taken: keep one`);
   const named = sections(prdMd).get('issues not taken') ?? '';
@@ -500,12 +524,36 @@ export function issueOrderProblems(l: LinearLink, phases: Phase[], prdMd: string
   return p;
 }
 
+/**
+ * The ticket each task builds: the one issue its requirements are tagged with. A task with no tagged requirement goes
+ * under the plan's epic when there is one. `spans` lists tasks whose requirements belong to more than one ticket.
+ */
+export function taskTickets(l: LinearLink, phases: Phase[], prdMd: string): { issueOf: Map<string, string>; spans: { task: string; keys: string[] }[] } {
+  const taken = takenIssues(l);
+  const owners = requirementOwners(prdMd, taken.map((i) => i.key));
+  const epic = l.epic && !l.issues.find((i) => i.key === l.epic)?.released ? l.epic : undefined;
+  const issueOf = new Map<string, string>();
+  const spans: { task: string; keys: string[] }[] = [];
+  for (const t of phases.flatMap((p) => p.tasks)) {
+    const keys = [...new Set(t.covers.flatMap((c) => owners.get(c) ?? []))];
+    if (keys.length > 1) spans.push({ task: t.id, keys });
+    else if (keys.length === 1) issueOf.set(t.id, keys[0]);
+    else if (epic) issueOf.set(t.id, epic);
+  }
+  return { issueOf, spans };
+}
+
 // ---------- Progress ----------
 
-export type IssueProgress = 'not taken' | 'not started' | 'in progress' | 'built' | 'shipped';
-const RANK: IssueProgress[] = ['not started', 'in progress', 'built', 'shipped'];
+export type IssueProgress = 'not taken' | 'not started' | 'in progress' | 'in review' | 'built' | 'shipped';
+const RANK: IssueProgress[] = ['not started', 'in progress', 'in review', 'built', 'shipped'];
+/** A task past its build: cairn is reviewing it, fixing what review found, or merging it. */
+const IN_REVIEW: readonly string[] = ['reviewing', 'fixing', 'merging'];
 
-/** Where each pulled-in issue stands, from the tasks that cover its requirements. Nothing is stored for it. */
+/**
+ * Where each pulled-in issue stands, from its tasks. Nothing is stored for it. A plan loaded with tickets per task
+ * (`task.issue`) counts those; an older plan counts the tasks that cover the issue's requirements.
+ */
 export function issueProgress(s: State): Map<string, IssueProgress> {
   const out = new Map<string, IssueProgress>();
   const l = s.linear;
@@ -513,18 +561,21 @@ export function issueProgress(s: State): Map<string, IssueProgress> {
   const tasks = allTasks(s);
   const shipped = s.stage === 'learn' || s.stage === 'closed';
   const fixLane = s.track === 'fix' && !!s.repro;
+  const byTicket = hasTicketTasks(s);
   const leaf = (i: LinearIssue): IssueProgress => {
-    const mine = fixLane ? tasks : tasks.filter((t) => t.covers.some((c) => i.requirements?.includes(c)));
+    const mine = fixLane ? tasks : byTicket ? tasks.filter((t) => t.issue === i.key) : tasks.filter((t) => t.covers.some((c) => i.requirements?.includes(c)));
     if (shipped && (mine.length || fixLane)) return 'shipped';
     if (!mine.length) return 'not started';
     if (mine.every((t) => t.status === 'done')) return 'built';
+    if (mine.every((t) => t.status === 'done' || (t.status === 'in_progress' && IN_REVIEW.includes(t.substep ?? '')))) return 'in review';
     return mine.some((t) => t.status !== 'pending') ? 'in progress' : 'not started';
   };
   const parents = parentKeys(takenIssues(l));
   const children = (k: string) => takenIssues(l).filter((i) => i.parent === k);
   const of = (i: LinearIssue): IssueProgress => {
     if (i.released) return 'not taken';
-    if (!parents.has(i.key) || i.requirements?.length) return leaf(i);
+    // An epic's own chore tasks don't move it: its sub-issues do.
+    if (!parents.has(i.key) || (!byTicket && i.requirements?.length)) return leaf(i);
     const kids = children(i.key).map(of).filter((x) => x !== 'not taken');
     if (!kids.length) return 'not started';
     const low = kids.reduce((m, k) => Math.min(m, RANK.indexOf(k)), RANK.length - 1);

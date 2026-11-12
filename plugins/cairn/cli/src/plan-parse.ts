@@ -68,7 +68,9 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
       const risky = rs?.risky === true;
       if (rs?.risky !== undefined && typeof rs.risky !== 'boolean') problems.push(`${where}: risky must be true or false`);
       const riskReason = typeof rs?.riskReason === 'string' && rs.riskReason.trim() ? rs.riskReason.trim() : undefined;
-      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, blockedBy, scope, complexity, status: 'pending', fixRound: 0, risky, ...(risky && riskReason ? { riskReason } : {}) });
+      const ticket = rs?.ticket === undefined ? undefined : typeof rs.ticket === 'string' && rs.ticket.trim() ? rs.ticket.trim() : undefined;
+      if (rs?.ticket !== undefined && !ticket) problems.push(`${where}: ticket must be a short title, or left out`);
+      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, ...(ticket ? { ticket } : {}), blockedBy, scope, complexity, status: 'pending', fixRound: 0, risky, ...(risky && riskReason ? { riskReason } : {}) });
     }
     phases.push({ id: pid, name: String(rp?.name ?? pid), status: 'pending', tasks });
   });

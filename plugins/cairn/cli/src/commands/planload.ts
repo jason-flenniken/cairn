@@ -3,10 +3,11 @@ import { mergeProgress, parsePlan } from '../plan-parse.ts';
 import { allTasks } from '../ready.ts';
 import { log, setStage } from '../state.ts';
 import { hashText, readText, Refusal } from '../util.ts';
-import { isFoundational, issueOrderProblems, linearConfig } from '../linear.ts';
+import { isFoundational, isPublished, issueOrderProblems, linearConfig, taskTickets } from '../linear.ts';
 import { sections } from '../sections.ts';
 import { loadState } from '../state.ts';
 import { onPlanLoaded } from './linear.ts';
+import { keepPublishedTickets } from './publish.ts';
 import { mutate, planCtx, planFile, type Opts, type Result } from '../shared.ts';
 
 export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
@@ -32,6 +33,22 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
     if (dropsFix) throw new Refusal('the new plan drops the "fix" task that escalate kept', ['keep a task with id "fix" in plan.md']);
     const { phases, lostDone } = mergeProgress(parsed.phases, s.phases);
     if (lostDone.length) throw new Refusal(`the new plan drops tasks that already started or finished: ${lostDone.join(', ')}`, ['keep them in plan.md']);
+    // Each task builds one ticket, so a ticket's status in Linear can move when its own tasks do.
+    if (s.linear && isPublished(s.linear)) keepPublishedTickets(s.linear, phases);
+    else if (s.linear) {
+      const { issueOf, spans } = taskTickets(s.linear, phases, prdMd);
+      const started = new Set(allTasks(s).filter((x) => x.status !== 'pending').map((x) => x.id));
+      const open = spans.filter((x) => !started.has(x.task));
+      if (open.length)
+        throw new Refusal(`each task builds one ticket, and ${open.map((x) => `task "${x.task}" covers requirements of ${x.keys.join(' and ')}`).join('; ')}`, [
+          'split each such task into one task per ticket in plan.md, then cairn plan load',
+        ]);
+      for (const t of phases.flatMap((p) => p.tasks)) {
+        const k = issueOf.get(t.id);
+        if (k) t.issue = k;
+        else delete t.issue;
+      }
+    }
     s.phases = phases;
     s.planHash = hashText(planMd);
     onPlanLoaded(s);

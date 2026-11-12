@@ -305,14 +305,17 @@ test('linear: an epic from import to merged, with every check and queued write',
 
   // plan: tasks follow issue order
   ok(wt, 'advance');
+  write(join(dir, 'plan.md'), PLAN(true).replace('covers: [FR-03]', 'covers: [FR-02, FR-03]'));
+  refused(wt, /each task builds one ticket, and task "receipt" covers requirements of SAV-102 and SAV-103/, 'plan', 'load');
   write(join(dir, 'plan.md'), PLAN(false));
   refused(wt, /task "pay" \(SAV-102\) must come after task "form" \(SAV-101\)/, 'plan', 'load');
   write(join(dir, 'plan.md'), PLAN(true));
   ok(wt, 'plan', 'load');
+  assert.deepEqual(state().phases.flatMap((p) => p.tasks.map((t) => [t.id, t.issue])), [['form', 'SAV-101'], ['pay', 'SAV-102'], ['receipt', 'SAV-103']], 'each task knows its ticket');
   byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   const started = outbox().filter((w) => w.kind === 'status');
-  assert.deepEqual(started.map((w) => w.payload), ['SAV-100', 'SAV-101', 'SAV-102', 'SAV-103'].map((id) => ({ id, state: 'started' })), 'In Progress by status type');
+  assert.deepEqual(started.map((w) => w.payload), ['SAV-100', 'SAV-102'].map((id) => ({ id, state: 'started' })), 'only the epics move at the start, by status type');
   sync(wt);
 
   // a refresh brings a new link and a new sub-issue; the phase can't finish until both are handled
@@ -333,9 +336,14 @@ test('linear: an epic from import to merged, with every check and queued write',
   assert.ok(!outbox().some((w) => w.kind === 'relation'), 'Linear already has that link: nothing to write');
   ok(wt, 'linear', 'ack', 'c2', '--as', 'later');
   assert.equal(state().linear!.issues.find((i) => i.key === 'SAV-106')!.released!.reason, 'later plan');
-  ok(wt, 'phase', 'finish');
-  assert.ok(outbox().some((w) => w.dedupe === 'comment:SAV-101:built'), 'a built issue gets a comment');
-  assert.ok(!outbox().some((w) => w.dedupe === 'comment:SAV-103:built'), 'an unbuilt one does not');
+  const fin = ok(wt, 'phase', 'finish');
+  assert.match(fin.message, /\d+ Linear updates queued: send them now \(follow .*linear-sync\.md\)/, 'a phase finish says updates are waiting');
+  assert.ok((fin.data!.linearDue as number) > 0);
+  const rowDue = (ok(repo, 'status', '--all').data!.plans as { state: { slug: string }; linearDue?: number }[]).find((r) => r.state.slug === 'checkout')!.linearDue;
+  assert.equal(rowDue, fin.data!.linearDue, 'status --all rows carry the waiting count for the pane');
+  assert.ok(outbox().some((w) => w.dedupe === 'status:SAV-101:inProgress'), 'a ticket moves when its own task starts');
+  assert.ok(outbox().some((w) => w.dedupe === 'comment:SAV-101:review'), 'a built ticket gets the in-review comment');
+  assert.ok(!outbox().some((w) => w.target === 'SAV-103' && w.kind !== 'comment'), 'an unstarted one does not move');
 
   // a dependency found while building is linked in Linear, once
   ok(wt, 'linear', 'depends', 'SAV-103', '--on', 'SAV-95', '--reason', 'needs the mailer');
@@ -639,4 +647,57 @@ test('linear board: a merge read keeps links, asks only for what changed, and na
   // A replace without links is not a full read: the board says so.
   run(['linear', 'import', '--board'], repo, JSON.stringify({ project: 'Lean', issues: listing.issues }));
   assert.match(ok(repo, 'linear', 'board', '--project', 'Lean').message, /No full read of the links yet: \/cairn:board Lean --full/);
+});
+
+test('linear publish: a plan without tickets files an epic, then one ticket per group, then their links', () => {
+  const wt = ok(repo, 'new', 'publish-me', '--title', 'Gift cards').data!.worktree as string;
+  const dir = pd(wt, 'publish-me');
+  const state = (): State => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
+  const outbox = () => state().linear!.outbox;
+  ok(wt, 'decide', 'Scope?', 'Gift cards');
+  ok(wt, 'advance');
+  write(join(dir, 'prd.md'), '# Gift\n## Problem\np\n## Solution\ns\n## Requirements\n- **FR-01** schema. Check: x\n- **FR-02** form. Check: y\n- **FR-03** email. Check: z\n## Unhappy paths\n- [FR-01] bad\n## Non-goals\nn\n## Open questions\n- [x] q\n');
+  byUser(wt, 'approve', 'prd');
+  ok(wt, 'advance');
+  refused(wt, /once its tasks are loaded/, 'linear', 'publish', '--project', 'Shop');
+  write(
+    join(dir, 'plan.md'),
+    planMd(
+      '  - id: core\n    name: Core\n    tasks:\n      - { id: schema, covers: [FR-01], scope: ["src/a/**"], ticket: "Gift card data" }\n      - { id: form, covers: [FR-02], scope: ["src/b/**"], blocked_by: [schema], ticket: "Buy a gift card" }\n  - id: mail\n    name: Mail\n    tasks:\n      - { id: email, covers: [FR-03], scope: ["src/c/**"] }\n',
+    ),
+  );
+  ok(wt, 'plan', 'load');
+  assert.throws(() => ok(wt, 'linear', 'publish'), (e: unknown) => e instanceof CliError && /needs --project/.test(e.message));
+  const pub = ok(wt, 'linear', 'publish', '--project', 'Shop', '--milestone', 'M3');
+  assert.match(pub.message, /3 tickets are queued: Gift card data; Buy a gift card; Mail/, 'a task without ticket: goes under its phase');
+  refused(wt, /already being put in Linear/, 'linear', 'publish', '--project', 'Shop');
+  const epic = outbox().find((w) => w.publish?.role === 'epic')!;
+  assert.deepEqual([epic.kind, epic.payload.title, epic.payload.project, epic.payload.milestone], ['createIssue', 'Gift cards', 'Shop', 'M3']);
+  assert.match(ok(wt, 'next').data!.procedure as string, /linear-sync\.md$/);
+  refused(wt, /cairn needs its key/, 'linear', 'sent', epic.id, '--ref', 'https://linear.app/x');
+  assert.match(ok(wt, 'linear', 'sent', epic.id, '--ref', 'SAV-300').message, /SAV-300 is the epic; 3 tickets queued under it/);
+  const tickets = outbox().filter((w) => w.publish?.role === 'ticket');
+  assert.deepEqual(tickets.map((w) => [w.payload.title, w.payload.parentId]), [['Gift card data', 'SAV-300'], ['Buy a gift card', 'SAV-300'], ['Mail', 'SAV-300']]);
+  ok(wt, 'linear', 'sent', tickets[0].id, '--ref', 'SAV-301');
+  assert.ok(!outbox().some((w) => w.kind === 'relation'), 'links wait until every ticket has a key');
+  ok(wt, 'linear', 'sent', tickets[1].id, '--ref', 'SAV-302');
+  ok(wt, 'linear', 'sent', tickets[2].id, '--ref', 'SAV-303');
+  assert.deepEqual(outbox().filter((w) => w.kind === 'relation').map((w) => w.payload), [{ id: 'SAV-302', blockedBy: ['SAV-301'] }]);
+  const s = state();
+  assert.equal(s.linear!.epic, 'SAV-300');
+  assert.deepEqual(s.phases.flatMap((p) => p.tasks.map((t) => [t.id, t.issue])), [['schema', 'SAV-301'], ['form', 'SAV-302'], ['email', 'SAV-303']]);
+  assert.deepEqual(s.linear!.issues.find((i) => i.key === 'SAV-302')!.requirements, ['FR-02']);
+  // A re-plan keeps the filed keys by ticket name.
+  ok(wt, 'plan', 'load', '--replan');
+  assert.equal(state().phases[0].tasks[1].issue, 'SAV-302');
+  sync(wt);
+  // From here it moves like an imported plan: the epic at the start, each ticket with its own tasks.
+  byUser(wt, 'approve', 'plan');
+  ok(wt, 'advance');
+  assert.deepEqual(outbox().filter((w) => w.kind === 'status').map((w) => w.target), ['SAV-300']);
+  ok(wt, 'task', 'start', 'schema');
+  assert.ok(outbox().some((w) => w.dedupe === 'status:SAV-301:inProgress'));
+  assert.ok(!outbox().some((w) => w.dedupe === 'status:SAV-302:inProgress'));
+  g(repo, 'worktree', 'remove', '--force', `${wt}--schema`);
+  g(repo, 'worktree', 'remove', '--force', wt);
 });
