@@ -325,7 +325,20 @@ Linear owns the backlog; cairn owns the execution. A plan pulls in a selection o
 
 A ticket carrying the foundational label makes the plan foundational: `/cairn:new` recommends Polished, the fresh-eyes challenge cannot be skipped, and `plan.md` needs an `## Approaches considered` section (the chosen approach, then each rejected one) that the plan approval names.
 
-**The board.** `/cairn:board <project>` (run on main) reads the project's milestones and issues and shows, per milestone, what is done, in a plan, ready, or blocked, with epics grouped and stalled plans flagged. The snapshot is cached outside git and shared by every worktree. A normal run only re-reads the links of issues that are new or changed; `/cairn:board <project> --full` re-reads them all, and the board suggests it when the last full read is over 3 days old. Epics whose open sub-issues are all ready are listed as ready to start.
+**The board.** `/cairn:board <project>` (run on main) reads the project's milestones and issues and organizes them by status, in this order:
+- **Milestones:** one line each. The first unfinished milestone shows a progress bar, finished ones show ✓, and each later one has one line saying what it waits on.
+- **In progress:** each running plan, with its issues.
+- **Ready to start:** sorted by how many open issues each one unblocks, so the most useful work comes first. Epics whose open sub-issues are all ready are listed here too.
+- **Waiting:** one line per epic, naming what it waits on.
+- **Done:** a count.
+
+Blocked work is dim. Red is only for a loop in the blocked-by links.
+
+A blocked-by link set on an epic makes every one of its sub-issues wait. When such a link holds 3 or more open sub-issues, the board flags it and suggests linking only the sub-issues that need it.
+
+`cairn linear board` prints the same sections in the same order. The snapshot is cached outside git and shared by every worktree. A normal run only re-reads the links of issues that are new or changed; `/cairn:board <project> --full` re-reads them all, and the board suggests it when the last full read is over 3 days old.
+
+**The pane.** The Linear tab in the live pane follows the same layout. Agent cards show the ticket key before the task name (`8 · SAV-66 Move the app…`, with `+1` when a task covers more than one ticket), the plan header shows the epic key, and UP NEXT shows each task's key.
 
 ## Configuration
 
