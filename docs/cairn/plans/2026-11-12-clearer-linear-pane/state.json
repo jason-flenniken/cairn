@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:18:24.188Z",
+  "updated": "2026-11-12T21:18:47.078Z",
   "stage": "plan",
   "stageHistory": [
     {
@@ -29,6 +29,12 @@
       "via": "human",
       "source": "mod",
       "hash": "6baf03a0fc834a1f"
+    },
+    "plan": {
+      "at": "2026-11-12T21:18:47.077Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "59c841c822efeebf"
     }
   },
   "phases": [
@@ -272,6 +278,16 @@
       "at": "2026-11-12T21:18:24.187Z",
       "event": "plan loaded",
       "detail": "3 phases, 8 tasks"
+    },
+    {
+      "at": "2026-11-12T21:18:29.447Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-11-12T21:18:47.078Z",
+      "event": "plan approved",
+      "detail": "mod"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -323,8 +339,9 @@
   ],
   "step": {
     "stage": "plan",
-    "name": "drafting",
-    "at": "2026-11-12T21:17:44.683Z"
+    "name": "approving",
+    "at": "2026-11-12T21:18:29.447Z"
   },
-  "planHash": "59c841c822efeebf"
+  "planHash": "59c841c822efeebf",
+  "configHash": "12129909968d47d2"
 }
