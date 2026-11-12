@@ -73,7 +73,12 @@ Security review of risky work and the three approvals stay at every level. This 
 **Done when:** you hold the level the user picked.
 
 ## 5. Create the plan
-Run `cairn new <slug> --title "<title>" --level <mvp|standard|polished>`. The output prints the plan worktree path.
+With `--from-linear`, first check whether the work can start alongside another plan. Run `cairn linear board --json` (skip this when it refuses because no project has been read). Look in `data.alongside` for the selection: the epic key, or each selected issue key. When every one of them is listed and all name the same plan in `after` (`after[].slug`), the outside blockers are built or in review in that one plan, so the new plan can start on that plan's branch instead of waiting. Ask with AskUserQuestion, the first option marked "(Recommended)":
+- Start on `<after branch>` (Recommended): the new plan begins with that plan's code, and moves onto main once that plan has merged. It cannot ship before then.
+- Wait for it to merge: start from main as usual.
+When the work does not fit one plan (its blockers sit in several plans), or the user waits, start from main.
+
+Run `cairn new <slug> --title "<title>" --level <mvp|standard|polished>`, adding `--after <plan slug>` when the user chose to start on that plan's branch. `--after` refuses unless that plan is built (verify or later) and not closed; pass on its message when it refuses. The output prints the plan worktree path.
 
 **Done when:** the command exits 0 and you have the worktree path.
 

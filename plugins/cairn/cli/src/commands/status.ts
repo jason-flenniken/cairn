@@ -9,8 +9,9 @@ import { levelLabel, nextFor, stepText, summary, timingText, type IndexRow } fro
 import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.ts';
 import { scopesOverlap } from '../glob.ts';
 import type { Phase, State } from '../types.ts';
-import { hashText, pluginRoot, readText, withLock } from '../util.ts';
+import { hashText, pluginRoot, readText, Refusal, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
+import { restack } from './merge.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
 import { due, isFoundational, linearConfig, takenIssues } from '../linear.ts';
@@ -57,6 +58,15 @@ export function crossPlanScopeWarnings(ctx: Ctx, slug: string, phases: Phase[]):
     // Status never fails over another plan's state.
   }
   return out;
+}
+
+/** The plan a stacked plan sits on, by slug: its state and where it is checked out. Undefined when no plan branch of that slug can be read. */
+export function stackBase(ctx: Ctx, slug: string): IndexRow | undefined {
+  try {
+    return listPlans(ctx).find((r) => r.state.slug === slug);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Whether the cairn mod's heartbeat is fresh, so procedures can pick the menu or the terminal path. */
@@ -153,6 +163,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   return {
     message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
       ...(s.level ? [`Level: ${levelLabel(s)}`] : []),
+      ...(s.stackedOn ? [`Stacked on ${s.stackedOn.slug}: it started on that plan's branch and moves onto main once that plan has merged.`] : []),
       ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
       ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
     data: { state: s, next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
@@ -179,6 +190,21 @@ export function cmdNext(ctx: Ctx): Result {
   }
   const pc = planCtx(ctx);
   let s = loadState(pc.plan.dir);
+  // A stacked plan catches up with the plan it sits on, and moves onto main once that plan has merged.
+  let restacked: string | undefined;
+  if (s.stackedOn) {
+    try {
+      restacked = restack(pc);
+    } catch (e) {
+      if (!(e instanceof Refusal)) throw e;
+      const text = `${e.message}${e.fixes.length ? `. ${e.fixes.join('; ')}` : ''}`;
+      return {
+        message: `${summary(s)}\nNext: ${text}`,
+        data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: null, procedure: null, summary: summary(s), text, restackRefused: true, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
+      };
+    }
+    s = loadState(pc.plan.dir);
+  }
   // A merged plan's Done statuses are queued here too, so a PR the user merged later still closes its issues.
   if (mergedAwaitingDone(pc, s)) s = mutate(pc, undefined, (x) => (queueDone(pc, x), x));
   // Queued Linear updates go out before the stage's own work, so none are forgotten.
@@ -186,8 +212,8 @@ export function cmdNext(ctx: Ctx): Result {
   const stageNext = nextFor(s);
   const n = queued ? { procedure: 'linear-sync', text: `Send ${queued} queued Linear update${queued === 1 ? '' : 's'} first. Then: ${stageNext.text}` } : stageNext;
   return {
-    message: `${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
-    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
+    message: `${restacked ? `${restacked}\n` : ''}${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
+    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), ...(restacked ? { restacked } : {}) },
   };
 }
 
