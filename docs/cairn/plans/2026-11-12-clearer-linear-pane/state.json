@@ -6,8 +6,8 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:18:47.078Z",
-  "stage": "plan",
+  "updated": "2026-11-12T21:18:49.948Z",
+  "stage": "execute",
   "stageHistory": [
     {
       "stage": "discover",
@@ -20,6 +20,10 @@
     {
       "stage": "plan",
       "at": "2026-11-12T21:17:22.350Z"
+    },
+    {
+      "stage": "execute",
+      "at": "2026-11-12T21:18:49.947Z"
     }
   ],
   "paused": null,
@@ -41,7 +45,7 @@
     {
       "id": "groundwork",
       "name": "Groundwork",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "shared-shapes",
@@ -288,6 +292,11 @@
       "at": "2026-11-12T21:18:47.078Z",
       "event": "plan approved",
       "detail": "mod"
+    },
+    {
+      "at": "2026-11-12T21:18:49.948Z",
+      "event": "advanced",
+      "detail": "execute"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -337,11 +346,6 @@
       "at": "2026-11-12T21:11:55.603Z"
     }
   ],
-  "step": {
-    "stage": "plan",
-    "name": "approving",
-    "at": "2026-11-12T21:18:29.447Z"
-  },
   "planHash": "59c841c822efeebf",
   "configHash": "12129909968d47d2"
 }
