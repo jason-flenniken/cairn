@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:56:54.492Z",
+  "updated": "2026-11-12T21:59:15.810Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -173,7 +173,7 @@
     {
       "id": "pane",
       "name": "The pane draws them",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "linear-tab",
@@ -289,9 +289,18 @@
             "plugins/cairn/dist/**"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/clearer-linear-pane/release",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--release",
+          "base": "24c52738bd7693eb59b31ae836351d87df5d1b81",
+          "startedAt": "2026-11-12T21:56:55.210Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:59:15.810Z",
+          "tip": "7858456",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "e2d74b5673176aa2a96631b2ed8c29b934ec4ced"
         }
       ]
     }
@@ -568,6 +577,31 @@
       "at": "2026-11-12T21:56:54.492Z",
       "event": "task done",
       "detail": "Card fixes from the earlier pane plan"
+    },
+    {
+      "at": "2026-11-12T21:56:55.211Z",
+      "event": "task started",
+      "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:57:07.304Z",
+      "event": "task implementing",
+      "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:58:32.571Z",
+      "event": "task reviewing",
+      "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:58:39.757Z",
+      "event": "task merging",
+      "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:59:15.810Z",
+      "event": "task done",
+      "detail": "Version, README and bundle"
     }
   ],
   "cairnVersion": "0.12.1",
