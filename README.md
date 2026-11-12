@@ -335,7 +335,7 @@ A ticket carrying the foundational label makes the plan foundational: `/cairn:ne
 - **Done:** a count.
 - **Later milestones:** one line each, saying what it waits on.
 
-A blocked-by link set on an epic makes every one of its sub-issues wait. When such a link holds 3 or more open sub-issues, the board flags it and suggests linking only the sub-issues that need it.
+A blocked-by link set on an epic makes every one of its sub-issues wait. When such a link holds 3 or more open sub-issues, the board flags it. Links belong on the sub-issues that truly need the blocker, so the board then offers to narrow them: for each wide epic link, cairn (`procedures/relink.md`, backed by `cairn linear relink <EPIC>`) reads the tickets on both sides, proposes which sub-issues need which blocker issue, and on your approval adds those links in Linear, removes the epic's own link, comments on the epic, and re-reads the links. The replacement links are always added before the old one is removed.
 
 `cairn linear board` prints the same thing. The snapshot is cached outside git and shared by every worktree. A normal run only re-reads the links of issues that are new or changed; `/cairn:board <project> --full` re-reads them all, and the board suggests it when the last full read is over 3 days old.
 
