@@ -3,7 +3,7 @@
 import type { Elements, EngineInterface, RenderSurface } from 'claude-code'
 import type { CairnPlanRow, CairnPlanState, CairnView } from '../../types/index.d.ts'
 import { etaMs, readAgents, type EtaTask } from './activity.ts'
-import { fmtDuration } from './util.ts'
+import { clean, fmtDuration } from './util.ts'
 
 /** The element table a render hook resolved, as the pane modules draw with it. */
 export type Ui = Elements[RenderSurface]
@@ -91,7 +91,7 @@ export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumn
   const filled = tasks.length === 0 ? 0 : Math.round((done / tasks.length) * bar)
   return (
     <Box key="header" flexDirection="column">
-      <Text key="head" bold color={accent} wrap="truncate-end">{`${s.title ?? s.slug} · ${stageOf(s, row.prOpen)}${where}${levelTail(row)}`}</Text>
+      <Text key="head" bold color={accent} wrap="truncate-end">{`${row.epic === undefined || row.epic === '' ? '' : `${clean(row.epic)} `}${s.title ?? s.slug} · ${stageOf(s, row.prOpen)}${where}${levelTail(row)}`}</Text>
       {fallback !== undefined && <Text key="fallback" dimColor wrap="truncate-end">{`Showing ${s.slug}, ${fallback > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>}
       {!!s.paused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>}
       {tasks.length > 0 ? <Text key="bar" color={accent} wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor color={accent} wrap="truncate-end">{label}</Text>}

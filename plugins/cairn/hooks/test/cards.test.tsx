@@ -519,3 +519,35 @@ describe('a no-role agent keeps the step label "working" (FR-03)', () => {
     await ui.unmount()
   })
 })
+
+describe('the ticket on an agent card (FR-15)', () => {
+  for (const [name, taskIssues, want] of [
+    ['one key', { Cart: ['SAV-66'] }, /SAV-66 Cart/],
+    ['two keys', { Cart: ['SAV-66', 'SAV-67'] }, /SAV-66 \+1 Cart/],
+    ['no key', {}, /· Cart/],
+  ] as const) {
+    test(`the top border shows ${name}`, async ($, on) => {
+      const { clock } = world(on, { rows: [{ ...row(EXECUTE, WT), taskIssues }] })
+      on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+      await start($, WT)
+      const ui = await mount($, 'terminal')
+      await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+      await clock.advance(1_000)
+      const top = label((await cardOf(ui, 'agent:agent-1'))[0])
+      expect(top).toMatch(want)
+      if (name === 'no key') expect(top).not.toMatch(/SAV-/)
+      await ui.unmount()
+    })
+  }
+
+  test('the inline agent line shows the key', async ($, on) => {
+    const { clock } = world(on, { rows: [{ ...row(EXECUTE, WT), taskIssues: { Cart: ['SAV-66'] } }] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await clock.advance(1_000)
+    expect(await drawn(ui)).toContain('● SAV-66 Cart')
+    await ui.unmount()
+  })
+})
