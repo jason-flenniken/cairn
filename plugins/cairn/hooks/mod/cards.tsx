@@ -24,7 +24,7 @@ export const STATUS_COLOR = { running: '#ff8700', completed: 'green', failed: 'r
  * shown plan's stage and task names, which place an agent in the process, and whether the surface draws
  * text as a grid of cells (the terminal; absent reads as one).
  */
-export type CardContext = { ui: Ui; nowMs: number; columns?: number; stage?: string; taskNames?: string[]; isGrid?: boolean }
+export type CardContext = { ui: Ui; nowMs: number; columns?: number; stage?: string; taskNames?: string[]; taskIssues?: Record<string, string[]>; isGrid?: boolean; model?: string }
 
 /** What a role in an agent's "<Role> · <what>" description does; a review of a task or for security says which. */
 const ROLE_STEP: Record<string, string> = { Build: 'building', Review: 'review', Fix: 'fixing', Check: 'checking', Record: 'writing the record' }
@@ -34,7 +34,7 @@ const ROLE_STEP: Record<string, string> = { Build: 'building', Review: 'review',
  * the title without the role, and the step with the plan's stage ("Build · security review"). Undefined
  * for a description that names no role, which keeps its title and reads "working".
  */
-export function agentRole(title: string, stage?: string, taskNames: string[] = []): { title: string; step: string } | undefined {
+export function agentRole(title: string, stage?: string, taskNames: string[] = [], taskIssues: Record<string, string[]> = {}): { title: string; step: string; keys?: string[] } | undefined {
   const m = /^(\w+) · (.+)$/.exec(title)
   const role = m?.[1]
   if (m === null || role === undefined || ROLE_STEP[role] === undefined) return undefined
@@ -43,7 +43,14 @@ export function agentRole(title: string, stage?: string, taskNames: string[] = [
   const isTask = taskNames.includes(what)
   const step = role === 'Review' && isSecurity ? 'security review' : role === 'Review' && isTask ? 'task review' : (ROLE_STEP[role] as string)
   const where = stage === undefined ? undefined : STAGE_LABEL[stage]
-  return { title: what.charAt(0).toUpperCase() + what.slice(1), step: where === undefined ? step : `${where} · ${step}` }
+  const keys = isTask ? taskIssues[what]?.map(clean).filter(k => k !== '') : undefined
+  return { title: what.charAt(0).toUpperCase() + what.slice(1), step: where === undefined ? step : `${where} · ${step}`, ...(keys !== undefined && keys.length > 0 ? { keys } : {}) }
+}
+
+/** A task's ticket in front of its title: the first key, then " +k" for the others; the title alone with no key. */
+export function withKeys(title: string, keys?: string[]): string {
+  const [first, ...more] = keys ?? []
+  return first === undefined ? title : `${first}${more.length > 0 ? ` +${more.length}` : ''} ${title}`
 }
 
 /** The main session's action while a turn runs; null while it waits for the person. */
@@ -75,8 +82,8 @@ function bottomBorder(label: string, columns: number): string {
 
 /** What a card row says: the step on the left, the status on the right (its first glyph in the status color); the left is cut first. */
 function sides(left: string, right: string, inner: number, color: string): Seg[] {
-  if (cells(right) + 1 > inner) return [{ text: fit(right, inner) }]
   const glyph = [...right][0] ?? ''
+  if (cells(right) + 1 > inner) return [{ text: glyph, color }, { text: fit(right.slice(glyph.length), Math.max(0, inner - cells(glyph))) }]
   const room = inner - cells(right) - 1
   return [{ text: (room > 0 ? fit(left, room) : '') + ' ' }, { text: glyph, color }, { text: right.slice(glyph.length) }]
 }
@@ -173,8 +180,8 @@ function modelRow(model: string, tokens: number | undefined, usd: number | undef
 
 export function agentCard($: EngineInterface, cx: CardContext, c: AgentCard) {
   const model = clean(c.model)
-  const role = agentRole(clean(c.title), cx.stage, cx.taskNames)
-  const title = role?.title ?? clean(c.title)
+  const role = agentRole(clean(c.title), cx.stage, cx.taskNames, cx.taskIssues)
+  const title = withKeys(role?.title ?? clean(c.title), role?.keys)
   const inner = (cx.columns ?? CARD_COLUMNS) - 4
   const key = `agent:${c.agentId}`
   const base = { number: c.number, title, left: role?.step ?? 'working', footer: steps(c.steps), line3Dim: true }
@@ -211,7 +218,7 @@ function agentCounts(cards: AgentCard[]): string {
  */
 export function mainCard($: EngineInterface, cx: CardContext, main: Main, cards: AgentCard[], idleSince = 0) {
   const { nowMs } = cx
-  const base = { title: 'Main session', left: '', line2: '', footer: agentCounts(cards), line3Dim: true }
+  const base = { title: 'Main session', left: '', line2: cx.model === undefined ? '' : clean(cx.model), footer: agentCounts(cards), line3Dim: true }
   if (main === null) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.idle, right: idleSince > 0 ? `○ idle ${fmtClock(nowMs - idleSince)}` : '○ idle', line3: '' })
   if (main.isWaiting) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.waiting, right: `◷ waiting for you ${fmtClock(nowMs - main.since)}`, line3: 'answer in the chat' })
   return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - (main.turnAt ?? main.since))}`, line3: main.call ?? main.lastCall ?? clean(main.action), line3Dim: main.call === undefined })
@@ -228,9 +235,9 @@ export function agentLines(cx: CardContext, main: Main, cards: AgentCard[], max 
     <Text key="main" wrap="truncate-end">{main === null ? `● Main session · ${idle(cards)}` : `● Main session · ${clean(main.action)} · ${fmtDuration(nowMs - main.since)}`}</Text>,
     ...cards.filter(c => c.status === 'working').map(c => {
       const title = clean(c.title)
-      const role = agentRole(title, cx.stage, cx.taskNames)
+      const role = agentRole(title, cx.stage, cx.taskNames, cx.taskIssues)
       const doing = [role?.step, c.action === undefined ? (role === undefined ? 'working' : undefined) : clean(c.action)].filter(Boolean).join(' · ')
-      return <Text key={c.agentId} wrap="truncate-end">{`● ${role?.title ?? title} · ${doing} · ${fmtDuration(nowMs - c.startedAt)}`}</Text>
+      return <Text key={c.agentId} wrap="truncate-end">{`● ${withKeys(role?.title ?? title, role?.keys)} · ${doing} · ${fmtDuration(nowMs - c.startedAt)}`}</Text>
     }),
   ]
   if (lines.length <= max) return lines

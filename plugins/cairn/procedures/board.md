@@ -35,7 +35,9 @@ The JSON for both imports:
 **Done when:** every `cairn linear import --board` call exited 0 and `needRelations` was fetched and imported (or `--full` was run).
 
 ## 3. Show it
-Run `cairn linear board --project "<project>"` (for an epic key, add `--epic <KEY>`, which shows only that epic) and show the user the result as printed: milestone counts, epics with their sub-issue counts, the plans that own them, what blocks what, any loop in the blocked-by links, and how old the snapshot is. It prints "Ready to start: <epic> (/cairn:new --from-linear <KEY>)" for each epic whose open sub-issues are all ready; point the user to it. When the board says the project has had no full read yet, or the last one is over 3 days old, pass on its hint to run `/cairn:board <project> --full`.
+Run `cairn linear board --project "<project>"` (for an epic key, add `--epic <KEY>`, which shows only that epic) and show the user the result as printed: the milestones, what is in progress, ready to start, waiting and done, later milestones, any loop in the blocked-by links, and how old the snapshot is. Under "Ready to start:" each epic whose open sub-issues are all ready carries `(/cairn:new --from-linear <KEY>)`; point the user to it. When the board says the project has had no full read yet, or the last one is over 3 days old, pass on its hint to run `/cairn:board <project> --full`.
+
+When the board reports a wide link (an epic's blocked-by link that makes all of its open issues wait), say so in plain words and suggest linking only the sub-issues that need the blocker, in Linear.
 
 Add one line on what to do next when something stands out: stalled plans, ready issues, a loop to fix in Linear.
 

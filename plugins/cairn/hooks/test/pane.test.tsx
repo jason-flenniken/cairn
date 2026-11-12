@@ -72,6 +72,16 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await ui.unmount()
     })
 
+    test(`the epic key leads the title and the first ticket leads each up-next task (${surface})`, async ($, on) => {
+      world(on, { rows: [{ ...row(EXECUTE, WT), epic: 'SAV-16', taskIssues: { Payments: ['SAV-80', 'SAV-81'] } }] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      const text = await drawn(ui)
+      expect(text).toContain('SAV-16 Acme Storefront')
+      expect(text).toMatch(/UP NEXT  SAV-80 Payments/)
+      await ui.unmount()
+    })
+
     test(`six drift entries: the count and only the first five paths (${surface})`, async ($, on) => {
       const drift = [1, 2, 3, 4, 5, 6].map(n => ({ path: `src/stray${n}.ts`, at: 'x', reason: 'outside scope' }))
       world(on, { rows: [row(plan({ stage: 'verify', drift: [...drift, { path: 'src/acked.ts', at: 'x', reason: 'r', acked: { at: 'y' } }] }), WT)] })
@@ -783,15 +793,14 @@ describe('tool phrases and ETA', () => {
   })
 })
 
-test('a throwing pane render leaves tool calls unaffected (NFR-07)', async ($, on) => {
+test('tool calls run while the session state is unreadable (NFR-07)', async ($, on) => {
   world(on, { rows: [row(plan(), WT)] })
-  // Once the session is up, the drawing's state read fails, so the render throws.
+  // Once the session is up, every state read fails. The engine itself skips a ui.render hook that throws (and the
+  // test kit fails any test where one does), so this checks cairn's own tool-call hooks under the same fault.
   let isStateDown = false
   on('state.get', ($, e, next) => (isStateDown ? { deny: 'state is unavailable' } : next(e)))
   await start($, WT)
   isStateDown = true
-  const drew = await mount($, 'terminal').then(() => 'drawn', (err: unknown) => String(err))
-  expect(drew).not.toBe('drawn')
   const got = await $.tool.call({ tool: 'Bash', command: 'ls' })
   expect(got.deny).toBeUndefined()
   expect(got.result).toEqual({ stdout: 'shell ran it', stderr: '', interrupted: false })

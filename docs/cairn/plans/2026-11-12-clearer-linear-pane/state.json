@@ -1,0 +1,1075 @@
+{
+  "schema": 1,
+  "slug": "clearer-linear-pane",
+  "title": "Clearer Linear pane",
+  "track": "feature",
+  "branch": "feature/clearer-linear-pane",
+  "base": "main",
+  "created": "2026-11-12T21:10:27.252Z",
+  "updated": "2026-11-12T22:17:15.576Z",
+  "stage": "closed",
+  "stageHistory": [
+    {
+      "stage": "discover",
+      "at": "2026-11-12T21:10:27.252Z"
+    },
+    {
+      "stage": "prd",
+      "at": "2026-11-12T21:14:43.336Z"
+    },
+    {
+      "stage": "plan",
+      "at": "2026-11-12T21:17:22.350Z"
+    },
+    {
+      "stage": "execute",
+      "at": "2026-11-12T21:18:49.947Z"
+    },
+    {
+      "stage": "verify",
+      "at": "2026-11-12T21:59:16.067Z"
+    },
+    {
+      "stage": "review",
+      "at": "2026-11-12T22:02:53.594Z"
+    },
+    {
+      "stage": "ship",
+      "at": "2026-11-12T22:13:36.682Z"
+    },
+    {
+      "stage": "learn",
+      "at": "2026-11-12T22:15:40.254Z"
+    },
+    {
+      "stage": "closed",
+      "at": "2026-11-12T22:16:30.190Z"
+    }
+  ],
+  "paused": null,
+  "approvals": {
+    "prd": {
+      "at": "2026-11-12T21:17:19.450Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "6baf03a0fc834a1f"
+    },
+    "plan": {
+      "at": "2026-11-12T21:18:47.077Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "59c841c822efeebf"
+    },
+    "ship": {
+      "at": "2026-11-12T22:15:23.161Z",
+      "via": "human",
+      "source": "mod",
+      "sha": "7696a58c8c64d5fd607b4dc9c07134741a503c9a"
+    }
+  },
+  "phases": [
+    {
+      "id": "groundwork",
+      "name": "Groundwork",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "shared-shapes",
+          "name": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file",
+          "kind": "prefactor",
+          "covers": [],
+          "blockedBy": [],
+          "scope": [
+            "plugins/cairn/types/index.d.ts",
+            "plugins/cairn/hooks/mod/linear.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/clearer-linear-pane/shared-shapes",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--shared-shapes",
+          "base": "87e0fcfd0565dc5af3a51c50330f4300c93d78ba",
+          "startedAt": "2026-11-12T21:18:54.458Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:27:19.009Z",
+          "tip": "2b5dc12",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "0c275f54fc8a3632cfc24fa93fe4238843edb30f"
+        }
+      ]
+    },
+    {
+      "id": "cli-facts",
+      "name": "The CLI computes the sections and ticket keys",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "board-sections",
+          "name": "Board sections, unblocks counts and wide links",
+          "covers": [
+            "FR-01",
+            "FR-02",
+            "FR-03",
+            "FR-04",
+            "FR-05"
+          ],
+          "blockedBy": [
+            "shared-shapes"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/board.ts",
+            "plugins/cairn/cli/test/board.test.ts"
+          ],
+          "complexity": "complex",
+          "status": "done",
+          "fixRound": 1,
+          "risky": false,
+          "branch": "task/clearer-linear-pane/board-sections",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--board-sections",
+          "base": "a328db3a10515fdb6977fed2bf44bcd2f39e83f4",
+          "startedAt": "2026-11-12T21:27:29.004Z",
+          "level": "standard",
+          "note": "fixing classes: linear-order-violated",
+          "doneAt": "2026-11-12T21:38:49.691Z",
+          "tip": "a39f3cf",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "84aadf74bb805ba8ff29c30102df30b632fb74ce"
+        },
+        {
+          "id": "plan-row-tickets",
+          "name": "Ticket keys per task on plan rows",
+          "covers": [
+            "FR-07"
+          ],
+          "blockedBy": [
+            "shared-shapes"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/commands/status.ts",
+            "plugins/cairn/cli/test/status-tickets.test.ts"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/clearer-linear-pane/plan-row-tickets",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--plan-row-tickets",
+          "base": "a328db3a10515fdb6977fed2bf44bcd2f39e83f4",
+          "startedAt": "2026-11-12T21:27:29.573Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:31:38.028Z",
+          "tip": "c7e2573",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "6a5bee96632f6f568b9b34c718be8b862b4923e3"
+        },
+        {
+          "id": "board-text",
+          "name": "Text board in the same sections",
+          "covers": [
+            "FR-06"
+          ],
+          "blockedBy": [
+            "board-sections"
+          ],
+          "scope": [
+            "plugins/cairn/cli/src/commands/linear.ts",
+            "plugins/cairn/cli/test/linear.test.ts",
+            "plugins/cairn/references/cli.md",
+            "plugins/cairn/procedures/board.md"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 1,
+          "risky": false,
+          "branch": "task/clearer-linear-pane/board-text",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--board-text",
+          "base": "4710f3dd1834ccbd495329b44bf1787b11cf80ae",
+          "startedAt": "2026-11-12T21:38:53.222Z",
+          "level": "standard",
+          "note": "fixing classes: regression-crash-on-unvalidated-lookup",
+          "doneAt": "2026-11-12T21:44:47.982Z",
+          "tip": "a929a7f",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "f77b30457817c1ea1f15162c4199c9262346882f"
+        }
+      ]
+    },
+    {
+      "id": "pane",
+      "name": "The pane draws them",
+      "status": "done",
+      "tasks": [
+        {
+          "id": "linear-tab",
+          "name": "Linear tab by status",
+          "covers": [
+            "FR-08",
+            "FR-09",
+            "FR-10",
+            "FR-11",
+            "FR-12",
+            "FR-13",
+            "FR-14"
+          ],
+          "blockedBy": [
+            "board-text"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/linear.tsx",
+            "plugins/cairn/hooks/test/linear.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": true,
+          "riskReason": "draws ticket titles and names written in Linear by other people in the user's terminal",
+          "branch": "task/clearer-linear-pane/linear-tab",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--linear-tab",
+          "base": "dfc5cc6cdbb241ec2305e0dfe74f1068cdad8548",
+          "startedAt": "2026-11-12T21:44:52.374Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:54:19.160Z",
+          "tip": "97abbd3",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "11e465287c308cefcfcccb426e929a48fa84e0b5"
+        },
+        {
+          "id": "card-tickets",
+          "name": "Ticket keys on cards, header and UP NEXT",
+          "covers": [
+            "FR-15",
+            "FR-16"
+          ],
+          "blockedBy": [
+            "plan-row-tickets"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/header.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/pane.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/clearer-linear-pane/card-tickets",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--card-tickets",
+          "base": "dfc5cc6cdbb241ec2305e0dfe74f1068cdad8548",
+          "startedAt": "2026-11-12T21:44:52.959Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:52:14.541Z",
+          "tip": "9b68efc",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2dcf6b1fb88ab76b6524164fe8aec789f714a7a2"
+        },
+        {
+          "id": "card-fixes",
+          "name": "Card fixes from the earlier pane plan",
+          "covers": [
+            "FR-17",
+            "FR-18",
+            "FR-19",
+            "FR-20"
+          ],
+          "blockedBy": [
+            "card-tickets"
+          ],
+          "scope": [
+            "plugins/cairn/hooks/mod/activity.ts",
+            "plugins/cairn/hooks/mod/cards.tsx",
+            "plugins/cairn/hooks/mod/pane.tsx",
+            "plugins/cairn/hooks/test/toolcall.test.tsx",
+            "plugins/cairn/hooks/test/cards.test.tsx",
+            "plugins/cairn/hooks/test/inline.test.tsx"
+          ],
+          "complexity": "standard",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/clearer-linear-pane/card-fixes",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--card-fixes",
+          "base": "e3f417e8579eb12ef970a1cc38dfe2bdd99b5d18",
+          "startedAt": "2026-11-12T21:52:15.522Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:56:54.491Z",
+          "tip": "bf0f208",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "dc1e78704a4869bf2335b00610962c574e53db86"
+        },
+        {
+          "id": "release",
+          "name": "Version, README and bundle",
+          "kind": "prefactor",
+          "covers": [],
+          "blockedBy": [
+            "linear-tab",
+            "card-fixes"
+          ],
+          "scope": [
+            "plugins/cairn/.claude-plugin/plugin.json",
+            "README.md",
+            "plugins/cairn/dist/**"
+          ],
+          "complexity": "simple",
+          "status": "done",
+          "fixRound": 0,
+          "risky": false,
+          "branch": "task/clearer-linear-pane/release",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--release",
+          "base": "24c52738bd7693eb59b31ae836351d87df5d1b81",
+          "startedAt": "2026-11-12T21:56:55.210Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:59:15.810Z",
+          "tip": "7858456",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "e2d74b5673176aa2a96631b2ed8c29b934ec4ced"
+        }
+      ]
+    }
+  ],
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-11-12T22:02:53.477Z",
+      "note": "tests: 405 CLI + 638 mod passing; 20 requirements met (1 fixed in check: no Ready section when every milestone is done), 2 untested (FR-09 rule color, FR-20 exact position) logged; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-11-12T22:13:36.575Z",
+      "note": "5 follow-ups open for this plan; fixed classes: empty-waits-on-rendered, near-duplicate-helper, dead-code, stale-doc; security review: pass",
+      "blocking": 0
+    }
+  },
+  "drift": [
+    {
+      "path": "plugins/cairn/hooks/test/pane.test.tsx",
+      "at": "2026-11-12T21:24:11.067Z",
+      "reason": "edited outside the current phase's scope"
+    }
+  ],
+  "log": [
+    {
+      "at": "2026-11-12T21:10:27.252Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-11-12T21:10:27.252Z",
+      "event": "level",
+      "detail": "standard"
+    },
+    {
+      "at": "2026-11-12T21:14:43.337Z",
+      "event": "advanced",
+      "detail": "prd"
+    },
+    {
+      "at": "2026-11-12T21:14:49.380Z",
+      "event": "step",
+      "detail": "drafting"
+    },
+    {
+      "at": "2026-11-12T21:15:56.797Z",
+      "event": "step",
+      "detail": "checking"
+    },
+    {
+      "at": "2026-11-12T21:17:05.424Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-11-12T21:17:19.450Z",
+      "event": "PRD approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-11-12T21:17:22.351Z",
+      "event": "advanced",
+      "detail": "plan"
+    },
+    {
+      "at": "2026-11-12T21:17:44.684Z",
+      "event": "step",
+      "detail": "drafting"
+    },
+    {
+      "at": "2026-11-12T21:18:24.187Z",
+      "event": "plan loaded",
+      "detail": "3 phases, 8 tasks"
+    },
+    {
+      "at": "2026-11-12T21:18:29.447Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-11-12T21:18:47.078Z",
+      "event": "plan approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-11-12T21:18:49.948Z",
+      "event": "advanced",
+      "detail": "execute"
+    },
+    {
+      "at": "2026-11-12T21:18:54.459Z",
+      "event": "task started",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:19:10.128Z",
+      "event": "task implementing",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:23:31.832Z",
+      "event": "task reviewing",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:24:11.067Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/pane.test.tsx"
+    },
+    {
+      "at": "2026-11-12T21:26:41.052Z",
+      "event": "task merging",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:27:19.009Z",
+      "event": "task done",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:27:25.069Z",
+      "event": "phase finished",
+      "detail": "Groundwork (tests green (0 fail))"
+    },
+    {
+      "at": "2026-11-12T21:27:29.006Z",
+      "event": "task started",
+      "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:27:29.573Z",
+      "event": "task started",
+      "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:28:09.862Z",
+      "event": "task implementing",
+      "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:28:09.933Z",
+      "event": "task implementing",
+      "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:30:40.392Z",
+      "event": "task reviewing",
+      "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:31:04.531Z",
+      "event": "task merging",
+      "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:31:38.029Z",
+      "event": "task done",
+      "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:35:09.995Z",
+      "event": "task reviewing",
+      "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:36:46.042Z",
+      "event": "task fixing",
+      "detail": "Board sections, unblocks counts and wide links (attempt 1): fixing classes: linear-order-violated"
+    },
+    {
+      "at": "2026-11-12T21:38:12.607Z",
+      "event": "task merging",
+      "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:38:49.692Z",
+      "event": "task done",
+      "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:38:53.222Z",
+      "event": "task started",
+      "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:39:12.911Z",
+      "event": "task implementing",
+      "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:42:22.717Z",
+      "event": "task reviewing",
+      "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:43:10.650Z",
+      "event": "task fixing",
+      "detail": "Text board in the same sections (attempt 1): fixing classes: regression-crash-on-unvalidated-lookup"
+    },
+    {
+      "at": "2026-11-12T21:44:13.430Z",
+      "event": "task merging",
+      "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:44:47.982Z",
+      "event": "task done",
+      "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:44:48.217Z",
+      "event": "phase finished",
+      "detail": "The CLI computes the sections and ticket keys (tests green (0 fail))"
+    },
+    {
+      "at": "2026-11-12T21:44:52.375Z",
+      "event": "task started",
+      "detail": "Linear tab by status"
+    },
+    {
+      "at": "2026-11-12T21:44:52.959Z",
+      "event": "task started",
+      "detail": "Ticket keys on cards, header and UP NEXT"
+    },
+    {
+      "at": "2026-11-12T21:45:07.137Z",
+      "event": "task implementing",
+      "detail": "Linear tab by status"
+    },
+    {
+      "at": "2026-11-12T21:45:07.211Z",
+      "event": "task implementing",
+      "detail": "Ticket keys on cards, header and UP NEXT"
+    },
+    {
+      "at": "2026-11-12T21:47:19.980Z",
+      "event": "task reviewing",
+      "detail": "Ticket keys on cards, header and UP NEXT"
+    },
+    {
+      "at": "2026-11-12T21:47:45.175Z",
+      "event": "task merging",
+      "detail": "Ticket keys on cards, header and UP NEXT"
+    },
+    {
+      "at": "2026-11-12T21:52:14.542Z",
+      "event": "task done",
+      "detail": "Ticket keys on cards, header and UP NEXT"
+    },
+    {
+      "at": "2026-11-12T21:52:15.522Z",
+      "event": "task started",
+      "detail": "Card fixes from the earlier pane plan"
+    },
+    {
+      "at": "2026-11-12T21:52:15.635Z",
+      "event": "task reviewing",
+      "detail": "Linear tab by status"
+    },
+    {
+      "at": "2026-11-12T21:52:54.539Z",
+      "event": "task implementing",
+      "detail": "Card fixes from the earlier pane plan"
+    },
+    {
+      "at": "2026-11-12T21:53:37.205Z",
+      "event": "task merging",
+      "detail": "Linear tab by status"
+    },
+    {
+      "at": "2026-11-12T21:54:19.160Z",
+      "event": "task done",
+      "detail": "Linear tab by status"
+    },
+    {
+      "at": "2026-11-12T21:55:31.113Z",
+      "event": "task reviewing",
+      "detail": "Card fixes from the earlier pane plan"
+    },
+    {
+      "at": "2026-11-12T21:56:20.522Z",
+      "event": "task merging",
+      "detail": "Card fixes from the earlier pane plan"
+    },
+    {
+      "at": "2026-11-12T21:56:54.492Z",
+      "event": "task done",
+      "detail": "Card fixes from the earlier pane plan"
+    },
+    {
+      "at": "2026-11-12T21:56:55.211Z",
+      "event": "task started",
+      "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:57:07.304Z",
+      "event": "task implementing",
+      "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:58:32.571Z",
+      "event": "task reviewing",
+      "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:58:39.757Z",
+      "event": "task merging",
+      "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:59:15.810Z",
+      "event": "task done",
+      "detail": "Version, README and bundle"
+    },
+    {
+      "at": "2026-11-12T21:59:16.066Z",
+      "event": "phase finished",
+      "detail": "The pane draws them (tests green (0 fail))"
+    },
+    {
+      "at": "2026-11-12T21:59:16.067Z",
+      "event": "advanced",
+      "detail": "verify"
+    },
+    {
+      "at": "2026-11-12T21:59:23.498Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-11-12T22:00:03.451Z",
+      "event": "step",
+      "detail": "scanning"
+    },
+    {
+      "at": "2026-11-12T22:01:48.857Z",
+      "event": "step",
+      "detail": "fixing (1)"
+    },
+    {
+      "at": "2026-11-12T22:02:53.477Z",
+      "event": "verify pass",
+      "detail": "tests: 405 CLI + 638 mod passing; 20 requirements met (1 fixed in check: no Ready section when every milestone is done), 2 untested (FR-09 rule color, FR-20 exact position) logged; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    },
+    {
+      "at": "2026-11-12T22:02:53.595Z",
+      "event": "advanced",
+      "detail": "review"
+    },
+    {
+      "at": "2026-11-12T22:03:01.393Z",
+      "event": "step",
+      "detail": "reviewing"
+    },
+    {
+      "at": "2026-11-12T22:11:47.043Z",
+      "event": "step",
+      "detail": "fixing (4)"
+    },
+    {
+      "at": "2026-11-12T22:13:10.305Z",
+      "event": "step",
+      "detail": "rechecking"
+    },
+    {
+      "at": "2026-11-12T22:13:36.575Z",
+      "event": "review pass",
+      "detail": "5 follow-ups open for this plan; fixed classes: empty-waits-on-rendered, near-duplicate-helper, dead-code, stale-doc; security review: pass"
+    },
+    {
+      "at": "2026-11-12T22:13:36.682Z",
+      "event": "advanced",
+      "detail": "ship"
+    },
+    {
+      "at": "2026-11-12T22:13:36.791Z",
+      "event": "step",
+      "detail": "recording"
+    },
+    {
+      "at": "2026-11-12T22:14:05.757Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-11-12T22:15:23.171Z",
+      "event": "ship approved",
+      "detail": "mod"
+    },
+    {
+      "at": "2026-11-12T22:15:31.706Z",
+      "event": "step",
+      "detail": "opening-pr"
+    },
+    {
+      "at": "2026-11-12T22:15:40.255Z",
+      "event": "advanced",
+      "detail": "learn"
+    },
+    {
+      "at": "2026-11-12T22:16:30.192Z",
+      "event": "closed"
+    },
+    {
+      "at": "2026-11-12T22:17:15.576Z",
+      "event": "merge checked",
+      "detail": "up to date with main, tests pass"
+    }
+  ],
+  "cairnVersion": "0.12.1",
+  "level": "standard",
+  "suggestions": [
+    {
+      "id": "s1",
+      "area": "ux",
+      "text": "Resolved richer-pane-cards:s29",
+      "where": [
+        "plugins/cairn/hooks/mod/cards.tsx",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "user",
+      "resolves": "richer-pane-cards:s29",
+      "note": "brought into clearer-linear-pane",
+      "at": "2026-11-12T21:11:55.289Z"
+    },
+    {
+      "id": "s2",
+      "area": "security",
+      "text": "Declined richer-pane-cards:s27",
+      "where": [
+        "plugins/cairn/hooks/mod/util.ts",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/approval.tsx"
+      ],
+      "from": "user",
+      "declines": "richer-pane-cards:s27",
+      "at": "2026-11-12T21:11:55.602Z"
+    },
+    {
+      "id": "s3",
+      "area": "quality",
+      "text": "Declined richer-pane-cards:s28",
+      "where": [
+        "plugins/cairn/hooks/mod/usage.ts",
+        "plugins/cairn/hooks/mod/pane.tsx",
+        "plugins/cairn/hooks/mod/activity.ts",
+        "plugins/cairn/hooks/mod/approve.ts",
+        "plugins/cairn/hooks/mod/util.ts"
+      ],
+      "from": "user",
+      "declines": "richer-pane-cards:s28",
+      "at": "2026-11-12T21:11:55.603Z"
+    },
+    {
+      "id": "s4",
+      "area": "quality",
+      "text": "Move stripControl from linear.tsx to util.ts; it is not Linear-specific",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-11-12T21:23:31.758Z"
+    },
+    {
+      "id": "s5",
+      "area": "quality",
+      "text": "spec-drift: new CairnBoard fields are optional until the CLI emits them; make them required once board-sections lands, and guard [undefined] where in linear.tsx",
+      "where": [
+        "plugins/cairn/types/index.d.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:26:40.976Z"
+    },
+    {
+      "id": "s6",
+      "area": "tests",
+      "text": "Drive PRD approval (recordRequirements) through the CLI in a task-keys test, instead of setting requirements in state directly",
+      "where": [
+        "plugins/cairn/cli/test/status-tickets.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-11-12T21:30:40.320Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "Add a nested-epic fixture: a sub-epic's own link versus one inherited from a grandparent",
+      "where": [
+        "plugins/cairn/cli/test/board.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-11-12T21:35:09.925Z"
+    },
+    {
+      "id": "s8",
+      "area": "docs",
+      "text": "stale-type-comment: focus is the milestone name or null; wideLinks are an epic's own links holding 3+ open sub-issues; inProgress[].title is the epic title when on the board, else the plan title",
+      "where": [
+        "plugins/cairn/types/index.d.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:36:46.175Z"
+    },
+    {
+      "id": "s9",
+      "area": "quality",
+      "text": "silent-fallback: a no-milestone blocker of an issue with a milestone is tagged 'this project'; consider 'no milestone'",
+      "where": [
+        "plugins/cairn/cli/src/board.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:36:46.240Z"
+    },
+    {
+      "id": "s10",
+      "area": "tests",
+      "text": "Add a fixture with a finished milestone before the focus to cover the ✓ milestone lines in the text board",
+      "where": [
+        "plugins/cairn/cli/test/linear.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-11-12T21:42:22.635Z"
+    },
+    {
+      "id": "s11",
+      "area": "quality",
+      "text": "duplicated-logic: the --epic branch rebuilds the epic row and counts by hand; give buildBoard an epic option or export epicOf/count",
+      "where": [
+        "plugins/cairn/cli/src/commands/linear.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:43:10.727Z"
+    },
+    {
+      "id": "s12",
+      "area": "quality",
+      "text": "Board snapshot readAt is stamped at import time, not when the Linear listing was fetched: Savvyling's SAV-10 was completed at 20:06:06, the listing missed it, and readAt says 20:06:59. Stamp readAt from the fetch start (the procedure passes it) so the age and the changed-since-last-read check for links are not overstated",
+      "where": [
+        "plugins/cairn/cli/src/linear.ts"
+      ],
+      "from": "user",
+      "at": "2026-11-12T21:44:03.205Z"
+    },
+    {
+      "id": "s13",
+      "area": "docs",
+      "text": "misplaced-doc-comment: move the ticket helper above the 'Called by register.tsx' comment so that comment sits on onSessionStart",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:47:45.097Z"
+    },
+    {
+      "id": "s14",
+      "area": "security",
+      "text": "newline-spoofing: clean() keeps \\n and \\t, so a title with a newline can draw a fake section line; collapse [\\n\\t]+ to a space",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-11-12T21:53:30.875Z"
+    },
+    {
+      "id": "s15",
+      "area": "security",
+      "text": "incomplete-invisible-char-strip: also strip U+200B-D, U+2060, U+FEFF, U+2028/9, U+00AD, U+180E, tag characters and variation selectors (or \\p{Cf})",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-11-12T21:53:30.961Z"
+    },
+    {
+      "id": "s16",
+      "area": "security",
+      "text": "unchecked-number-drawn: counts, unblocks, done/total drawn without Number()/clean; the snapshot is not validated at runtime",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-11-12T21:53:31.057Z"
+    },
+    {
+      "id": "s17",
+      "area": "tests",
+      "text": "weak-security-test: assert '[31m' is gone, and put hostile strings in a milestone name and a waitsOn key",
+      "where": [
+        "plugins/cairn/hooks/test/linear.test.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-11-12T21:53:31.135Z"
+    },
+    {
+      "id": "s18",
+      "area": "security",
+      "text": "uncapped-render: ready rows, waiting rows and in-progress plans are drawn in full; cap with +N more",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx"
+      ],
+      "from": "security-review",
+      "at": "2026-11-12T21:53:31.207Z"
+    },
+    {
+      "id": "s19",
+      "area": "ux",
+      "text": "broken-rule-on-wrap: the In progress ┃ rule is a Text beside the row, so a wrapped line loses it; draw it as the Box's cyan left border",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:53:37.057Z"
+    },
+    {
+      "id": "s20",
+      "area": "tests",
+      "text": "untested-branch: empty In progress and empty Waiting leave their headers out; add a test",
+      "where": [
+        "plugins/cairn/hooks/test/linear.test.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:53:37.133Z"
+    },
+    {
+      "id": "s21",
+      "area": "tests",
+      "text": "weak-assertion: the FR-20 tests check each count line is after the buttons but never compare the two offsets; also assert the narrow-card glyph is the first segment (cards.test.tsx)",
+      "where": [
+        "plugins/cairn/hooks/test/inline.test.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:56:20.455Z"
+    },
+    {
+      "id": "s22",
+      "area": "tests",
+      "text": "FR-09: no test finds the ┃ rule or its color; it is cyan by design since the stage accent is not passed to linearRows",
+      "where": [
+        "plugins/cairn/hooks/test/linear.test.tsx"
+      ],
+      "from": "check",
+      "at": "2026-11-12T22:02:11.095Z"
+    },
+    {
+      "id": "s23",
+      "area": "tests",
+      "text": "FR-20: compare the merged line's offset with the lone line's (expect equal), not only > 0",
+      "where": [
+        "plugins/cairn/hooks/test/inline.test.tsx"
+      ],
+      "from": "check",
+      "at": "2026-11-12T22:02:11.173Z"
+    },
+    {
+      "id": "s24",
+      "area": "docs",
+      "text": "Dismissed clearer-linear-pane:s8",
+      "where": [
+        "plugins/cairn/types/index.d.ts"
+      ],
+      "from": "user",
+      "resolves": "clearer-linear-pane:s8",
+      "dismissed": true,
+      "note": "fixed on the branch (types comments now match the CLI)",
+      "at": "2026-11-12T22:04:27.038Z"
+    },
+    {
+      "id": "s25",
+      "area": "security",
+      "text": "Harden the Linear tab against outside text: collapse newlines and tabs in titles, strip zero-width and other format characters, draw numbers through Number(), cap long Ready/Waiting/In progress lists with +N more, and test hostile text in milestone names and waits-on keys",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx",
+        "plugins/cairn/hooks/test/linear.test.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "clearer-linear-pane:s14",
+        "clearer-linear-pane:s15",
+        "clearer-linear-pane:s16",
+        "clearer-linear-pane:s17",
+        "clearer-linear-pane:s18"
+      ],
+      "at": "2026-11-12T22:04:27.363Z"
+    },
+    {
+      "id": "s26",
+      "area": "tests",
+      "text": "Sharper board and pane tests: drive PRD approval for ticket keys, nested-epic and finished-milestone fixtures, empty In progress and Waiting sections, the ┃ rule, the FR-20 offsets compared, and the narrow-card glyph first",
+      "where": [
+        "plugins/cairn/cli/test/status-tickets.test.ts",
+        "plugins/cairn/cli/test/board.test.ts",
+        "plugins/cairn/cli/test/linear.test.ts",
+        "plugins/cairn/hooks/test/linear.test.tsx",
+        "plugins/cairn/hooks/test/inline.test.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "clearer-linear-pane:s6",
+        "clearer-linear-pane:s7",
+        "clearer-linear-pane:s10",
+        "clearer-linear-pane:s20",
+        "clearer-linear-pane:s21",
+        "clearer-linear-pane:s22",
+        "clearer-linear-pane:s23"
+      ],
+      "at": "2026-11-12T22:04:27.697Z"
+    },
+    {
+      "id": "s27",
+      "area": "quality",
+      "text": "Tidy the board and pane code: move stripControl to util.ts, make the new board fields required, one helper for the --epic rows, the no-milestone blocker tag, the misplaced doc comment, and keep the ┃ rule on wrapped lines",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx",
+        "plugins/cairn/types/index.d.ts",
+        "plugins/cairn/cli/src/board.ts",
+        "plugins/cairn/cli/src/commands/linear.ts",
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "clearer-linear-pane:s4",
+        "clearer-linear-pane:s5",
+        "clearer-linear-pane:s9",
+        "clearer-linear-pane:s11",
+        "clearer-linear-pane:s13",
+        "clearer-linear-pane:s19"
+      ],
+      "at": "2026-11-12T22:04:28.011Z"
+    },
+    {
+      "id": "s28",
+      "area": "ux",
+      "text": "partial-overlap-tracking: when calls A and B overlap and the shown B ends first, the card clears while A still runs; keep a list of open calls and show the latest still open",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-11-12T22:13:10.231Z"
+    }
+  ],
+  "planHash": "59c841c822efeebf",
+  "configHash": "12129909968d47d2",
+  "mergeChecked": "56b83af50c58870c8992a72a4a3d8c04f30e4eac"
+}

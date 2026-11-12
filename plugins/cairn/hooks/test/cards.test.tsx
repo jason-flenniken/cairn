@@ -519,3 +519,66 @@ describe('a no-role agent keeps the step label "working" (FR-03)', () => {
     await ui.unmount()
   })
 })
+
+describe('the ticket on an agent card (FR-15)', () => {
+  for (const [name, taskIssues, want] of [
+    ['one key', { Cart: ['SAV-66'] }, /SAV-66 Cart/],
+    ['two keys', { Cart: ['SAV-66', 'SAV-67'] }, /SAV-66 \+1 Cart/],
+    ['no key', {}, /· Cart/],
+  ] as const) {
+    test(`the top border shows ${name}`, async ($, on) => {
+      const { clock } = world(on, { rows: [{ ...row(EXECUTE, WT), taskIssues }] })
+      on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+      await start($, WT)
+      const ui = await mount($, 'terminal')
+      await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+      await clock.advance(1_000)
+      const top = label((await cardOf(ui, 'agent:agent-1'))[0])
+      expect(top).toMatch(want)
+      if (name === 'no key') expect(top).not.toMatch(/SAV-/)
+      await ui.unmount()
+    })
+  }
+
+  test('the inline agent line shows the key', async ($, on) => {
+    const { clock } = world(on, { rows: [{ ...row(EXECUTE, WT), taskIssues: { Cart: ['SAV-66'] } }] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    await $.agent.spawn({ prompt: 'p', description: 'Build · Cart', subagentType: 'cairn:implementer' })
+    await clock.advance(1_000)
+    expect(await drawn(ui)).toContain('● SAV-66 Cart')
+    await ui.unmount()
+  })
+})
+
+describe('card fixes', () => {
+  test('the Main card\'s second row shows the session model', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 1, window: 200_000, percent: 1 }, rateLimits: [] } as never }))
+    on('session.model', () => ({ value: 'claude-opus-5-5' as never }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect((await rowsOf(ui, 'model'))[0]).toContain('Opus 5.5')
+    await ui.unmount()
+  })
+
+  test('a status too long for a narrow card is cut after its glyph, which keeps the status color', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 20 })
+    w.holdAsks = true
+    w.answer = 'Clinical'
+    const asked = $.tool.call({ tool: 'AskUserQuestion', questions: [{ question: 'Q?', header: 'Pick', multiSelect: false, options: [{ label: 'Clinical', description: 'a' }, { label: 'Modern', description: 'b' }] }] } as never)
+    await until(clock, () => w.asked.length > 0)
+    await clock.advance(1_000)
+    const status = (await cardOf(ui, 'main')).find((b: any) => b.key.endsWith(':status'))
+    const pieces = status.children.filter((c: any) => typeof c !== 'string')
+    const glyph = pieces.find((c: any) => c.props.color === 'yellow' && c.children.join('') === '◷')
+    expect(glyph).toBeDefined()
+    expect(label(status)).not.toContain('waiting for you 0:01')
+    w.release.forEach(r => r())
+    await asked
+    await ui.unmount()
+  })
+})

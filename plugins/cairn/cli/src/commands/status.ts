@@ -12,7 +12,8 @@ import { hashText, pluginRoot, readText, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
-import { isFoundational, linearConfig } from '../linear.ts';
+import { isFoundational, linearConfig, takenIssues } from '../linear.ts';
+import { allTasks } from '../ready.ts';
 import { mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
 import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
@@ -68,6 +69,24 @@ function waitingOnMerge(ctx: Ctx, s: State, cwd: string, planRel: string): boole
   return landedState(cwd, s.branch, s.base, planRel, join(commonDir(ctx.mainRoot), 'cairn-pr-state.json')) === 'open';
 }
 
+/**
+ * Each task's name mapped to the keys of the plan's issues (not released) whose requirements it covers, in the order the plan
+ * pulled them in. Undefined when the plan pulled in no Linear issues.
+ */
+export function taskIssuesOf(s: State): Record<string, string[]> | undefined {
+  const l = s.linear;
+  if (!l || !l.issues.length) return undefined;
+  const taken = takenIssues(l);
+  return Object.fromEntries(allTasks(s).map((t) => [t.name, taken.filter((i) => i.requirements?.some((r) => t.covers.includes(r))).map((i) => i.key)]));
+}
+
+/** The Linear fields a plan row carries: its task-to-issue keys and its epic. A plan without Linear issues carries neither. */
+function linearRowFields(s: State): { taskIssues?: Record<string, string[]>; epic?: string } {
+  const taskIssues = taskIssuesOf(s);
+  if (!taskIssues) return {};
+  return { taskIssues, ...(s.linear?.epic ? { epic: s.linear.epic } : {}) };
+}
+
 /** Status never fails over a Linear setting: a bad value shows as a warning (the Linear commands refuse with the fix). */
 function foundationalSafe(s: State, pc: PlanCtx): boolean {
   try {
@@ -86,7 +105,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
