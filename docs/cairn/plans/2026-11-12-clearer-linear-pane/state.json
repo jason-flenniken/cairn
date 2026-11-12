@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:59:16.067Z",
+  "updated": "2026-11-12T22:02:53.477Z",
   "stage": "verify",
   "stageHistory": [
     {
@@ -309,7 +309,13 @@
       ]
     }
   ],
-  "evidence": {},
+  "evidence": {
+    "verify": {
+      "result": "pass",
+      "at": "2026-11-12T22:02:53.477Z",
+      "note": "tests: 405 CLI + 638 mod passing; 20 requirements met (1 fixed in check: no Ready section when every milestone is done), 2 untested (FR-09 rule color, FR-20 exact position) logged; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    }
+  },
   "drift": [
     {
       "path": "plugins/cairn/hooks/test/pane.test.tsx",
@@ -616,6 +622,26 @@
       "at": "2026-11-12T21:59:16.067Z",
       "event": "advanced",
       "detail": "verify"
+    },
+    {
+      "at": "2026-11-12T21:59:23.498Z",
+      "event": "step",
+      "detail": "testing"
+    },
+    {
+      "at": "2026-11-12T22:00:03.451Z",
+      "event": "step",
+      "detail": "scanning"
+    },
+    {
+      "at": "2026-11-12T22:01:48.857Z",
+      "event": "step",
+      "detail": "fixing (1)"
+    },
+    {
+      "at": "2026-11-12T22:02:53.477Z",
+      "event": "verify pass",
+      "detail": "tests: 405 CLI + 638 mod passing; 20 requirements met (1 fixed in check: no Ready section when every milestone is done), 2 untested (FR-09 rule color, FR-20 exact position) logged; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -843,8 +869,34 @@
       ],
       "from": "task-review",
       "at": "2026-11-12T21:56:20.455Z"
+    },
+    {
+      "id": "s22",
+      "area": "tests",
+      "text": "FR-09: no test finds the ┃ rule or its color; it is cyan by design since the stage accent is not passed to linearRows",
+      "where": [
+        "plugins/cairn/hooks/test/linear.test.tsx"
+      ],
+      "from": "check",
+      "at": "2026-11-12T22:02:11.095Z"
+    },
+    {
+      "id": "s23",
+      "area": "tests",
+      "text": "FR-20: compare the merged line's offset with the lone line's (expect equal), not only > 0",
+      "where": [
+        "plugins/cairn/hooks/test/inline.test.tsx"
+      ],
+      "from": "check",
+      "at": "2026-11-12T22:02:11.173Z"
     }
   ],
   "planHash": "59c841c822efeebf",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "step": {
+    "stage": "verify",
+    "name": "fixing",
+    "count": 1,
+    "at": "2026-11-12T22:01:48.857Z"
+  }
 }
