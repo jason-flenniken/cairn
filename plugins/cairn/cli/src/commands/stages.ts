@@ -5,14 +5,14 @@ import { allTasks, currentPhase } from '../ready.ts';
 import { nextFor } from '../render.ts';
 import { FIX_RECORD_SECTIONS, FIX_RECORD_WORD_BUDGET, PRD_SECTIONS, proseWordCount, sections, uncheckedItems } from '../sections.ts';
 import { levelOf, loadState, log, setStage } from '../state.ts';
-import { STAGES, type Stage, type State, type Track } from '../types.ts';
+import { STAGES, type Config, type Stage, type State, type Track } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
 import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { closeMemory } from './memory.ts';
 import { configGate, configHash, fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
-import { prdLinearProblems } from '../linear.ts';
+import { isFoundational, linearConfig, prdLinearProblems } from '../linear.ts';
 import { crossPlanBlockers, followupsFor, linearPrdGate, onAdvance, onPrdApproved, recordRequirements, type FollowupInfo } from './linear.ts';
 
 const STAGE_ORDER: Record<Track, Stage[]> = {
@@ -75,8 +75,22 @@ function prdSummary(md: string): string {
   return [firstSentence(sec.get('problem')), '', '**Requirements**', ...reqs, '', '**Non-goals**', sec.get('non-goals') ?? ''].join('\n').trim();
 }
 
-function planSummary(s: State): string {
-  return s.phases
+/** The approach a foundational plan chose, from the first line of `## Approaches considered`. */
+const chosenApproach = (planMd: string | undefined): string | undefined => {
+  const lines = (sections(planMd ?? '').get('approaches considered') ?? '').replace(/<!--[\s\S]*?-->/g, '').split('\n').map((x) => x.replace(/^\s*[-*]\s+/, '').trim()).filter(Boolean);
+  return lines.find((x) => /^chosen\b/i.test(x)) ?? lines[0];
+};
+
+function planSummary(s: State, planMd?: string, cfg?: Config): string {
+  // Only a foundational plan's card names the approach: the user approves it with the plan.
+  let foundational = false;
+  try {
+    foundational = isFoundational(s.linear, cfg ? linearConfig(cfg) : undefined);
+  } catch {
+    // A bad Linear setting shows as a status warning; the card still shows.
+  }
+  const approach = foundational ? chosenApproach(planMd) : undefined;
+  return (approach ? `**Approach:** ${approach}\n\n` : '') + s.phases
     .flatMap((ph, i) => [`${i + 1}. **${ph.name}**`, ...ph.tasks.map((t) => `   - ${t.name} (${t.complexity})${t.risky ? ' risky' : ''}`)])
     .join('\n');
 }
@@ -92,7 +106,7 @@ const PRD_EDITED_NOTE = '**prd.md changed after you approved it; approving the p
 const WRITING_STEPS = ['drafting', 'checking', 'recording'];
 
 /** The stop the plan is waiting on, when approving it now would pass its checks. Never throws. */
-export function readyFor(pc: { plan: { dir: string } }): Ready | undefined {
+export function readyFor(pc: { plan: { dir: string }; cfg?: Config }): Ready | undefined {
   try {
     const s = loadState(pc.plan.dir);
     const file = (name: string) => join(pc.plan.dir, name);
@@ -107,7 +121,7 @@ export function readyFor(pc: { plan: { dir: string } }): Ready | undefined {
       const md = readText(file('plan.md'));
       if (!s.phases.length || !md || s.planHash !== hashText(md)) return undefined;
       const note = prdEditedSinceApproval(s, readText(file('prd.md'))) ? `${PRD_EDITED_NOTE}\n\n` : '';
-      return { kind: 'plan', file: file('plan.md'), summary: note + planSummary(s) };
+      return { kind: 'plan', file: file('plan.md'), summary: note + planSummary(s, md, pc.cfg) };
     }
     if (s.reapprove && !s.approvals.ship) return { kind: 'ship', file: file('RECORD.md'), summary: `**Approve shipping again:** ${s.reapprove.why}.` };
     if (s.stage === 'ship' && !s.approvals.ship && s.evidence.review?.result === 'pass') {

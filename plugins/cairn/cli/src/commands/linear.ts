@@ -20,6 +20,9 @@ import {
   queueStatus,
   queueWrite,
   readBoardImport,
+  mergeBoard,
+  isFoundational,
+  issueFile,
   blockersText,
   readPlanImport,
   takenIssues,
@@ -33,7 +36,7 @@ import {
 import { planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { loadState, log } from '../state.ts';
 import type { LinearChange, LinearIssue, LinearLink, State } from '../types.ts';
-import { CliError, now, readText, Refusal, writeText } from '../util.ts';
+import { CliError, hashText, now, readText, Refusal, writeText } from '../util.ts';
 import { gate, mutate, planCtx, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { collectSuggestions } from './suggest.ts';
 import { listPlans } from './status.ts';
@@ -129,8 +132,12 @@ function importPlan(ctx: Ctx, opts: Opts): Result {
     if (!['discover', 'prd', 'repro'].includes(s.stage)) throw new Refusal(`issues are pulled in when a plan starts; this one is in ${s.stage}`, ['start a new plan for them with /cairn:new --from-linear']);
     const l: LinearLink = { ...emptyLink(doc.team ?? cfg.team), ...(doc.project ? { project: doc.project } : {}), ...(doc.milestone ? { milestone: doc.milestone } : {}), ...(doc.epic ? { epic: doc.epic } : {}), ...(doc.selection ? { selection: doc.selection } : {}), issues: doc.issues, known: doc.known };
     s.linear = l;
+    writeIssueTexts(pc, s, doc.descriptions);
     log(s, 'Linear issues imported', `${doc.issues.length}: ${keysText(doc.issues)}`);
     const lines = [`Pulled in ${doc.issues.length} Linear issue${doc.issues.length === 1 ? '' : 's'}: ${keysText(doc.issues)}.`];
+    const texts = doc.issues.filter((i) => doc.descriptions.has(i.key)).length;
+    lines.push(texts ? `Saved the text of ${texts} issue${texts === 1 ? '' : 's'} under ${planRelOf(pc.plan)}/issues/.` : 'No issue text was read: fetch the issues with "description" in the fields list and refresh, or discover works from titles only.');
+    if (isFoundational(l, cfg)) lines.push(`Foundational: an issue carries the "${cfg.foundationalLabel ?? 'foundational'}" label, so the plan must name its approach and the ones it rejected (## Approaches considered).`);
     const parents = parentKeys(doc.issues);
     if (parents.size) {
       const leaves = doc.issues.filter((i) => !parents.has(i.key));
@@ -159,7 +166,7 @@ function refreshPlan(ctx: Ctx, opts: Opts): Result {
     const l = linkOf(s);
     if (s.stage === 'closed') throw new Refusal('the plan is closed, so it no longer follows Linear', ['see the project with /cairn:board instead']);
     const fresh = new Map([...doc.known, ...doc.issues].map((i) => [i.key, i]));
-    const has = (k: string) => doc.present.get(k) ?? { blockedBy: false, parent: false };
+    const has = (k: string) => doc.present.get(k) ?? { blockedBy: false, parent: false, description: false, labels: false };
     const taken = new Set(takenIssues(l).map((i) => i.key));
     const noted: string[] = [];
     const added: LinearChange[] = [];
@@ -186,8 +193,10 @@ function refreshPlan(ctx: Ctx, opts: Opts): Result {
         }
       }
       // Links the refresh did not carry are kept as they were: a missing field is not an empty one.
-      Object.assign(i, { title: f.title, url: f.url ?? i.url, stateType: f.stateType ?? i.stateType, stateName: f.stateName ?? i.stateName, milestone: f.milestone ?? i.milestone, ...(has(i.key).parent ? { parent: f.parent } : {}), ...(has(i.key).blockedBy ? { blockedBy: f.blockedBy } : {}) });
+      Object.assign(i, { title: f.title, url: f.url ?? i.url, stateType: f.stateType ?? i.stateType, stateName: f.stateName ?? i.stateName, milestone: f.milestone ?? i.milestone, ...(has(i.key).parent ? { parent: f.parent } : {}), ...(has(i.key).blockedBy ? { blockedBy: f.blockedBy } : {}), ...(has(i.key).labels ? { labels: f.labels } : {}) });
     }
+    // Issue text read again: rewrite the files; text that changed after the PRD approval is noted, not a blocking change.
+    for (const k of writeIssueTexts(pc, s, doc.descriptions)) noted.push(`${k}'s text changed after the PRD was approved: check the PRD against ${issueTextPath(pc, k)}`);
     // A sub-issue is new when the plan had never seen it; one already done in Linear needs no decision.
     const seen = new Set([...l.issues, ...l.known].map((i) => i.key));
     for (const f of [...doc.issues, ...doc.known])
@@ -203,15 +212,52 @@ function refreshPlan(ctx: Ctx, opts: Opts): Result {
   });
 }
 
+/** Where an issue's text lives, relative to the plan worktree. */
+export const issueTextPath = (pc: PlanCtx, k: string) => `${planRelOf(pc.plan)}/issues/${k}.md`;
+
+/**
+ * Write each in-plan issue whose description was read to `issues/<KEY>.md` in the plan folder (committed with the
+ * state). Returns the keys whose text changed after the PRD was approved, so the PRD can be checked against them.
+ */
+function writeIssueTexts(pc: PlanCtx, s: State, descriptions: Map<string, string>): string[] {
+  const l = s.linear!;
+  const changed: string[] = [];
+  const at = now();
+  for (const i of l.issues) {
+    const d = descriptions.get(i.key);
+    if (d === undefined) continue;
+    const h = hashText(d);
+    if (s.approvals.prd && i.descriptionHash && i.descriptionHash !== h) changed.push(i.key);
+    i.descriptionHash = h;
+    writeText(join(pc.plan.dir, 'issues', `${i.key}.md`), issueFile(i, d, at));
+  }
+  return changed;
+}
+
 const changeText = (c: LinearChange) => (c.kind === 'link' ? `${c.key} is now blocked by ${c.on}` : `${c.issue?.key} "${c.issue?.title}" was added under ${c.key}`);
 
 function importBoard(ctx: Ctx, opts: Opts): Result {
   const cfg = linearConfig(loadConfig(ctx.plan?.worktree, ctx.mainRoot));
   if (!cfg) throw NO_CONFIG('.cairn/config.json');
-  const snap = readBoardImport(parseJson(inputText(ctx, opts), 'the board import'));
-  const file = snapshotFile(ctx, snap.project);
+  const { snap: next, present } = readBoardImport(parseJson(inputText(ctx, opts), 'the board import'));
+  const file = snapshotFile(ctx, next.project);
+  // --merge folds a cheap listing (the whole project) into what is stored; --links applies just-read links on top of it;
+  // with neither the import replaces the snapshot.
+  if (opts.links && !existsSync(file)) throw new Refusal(`no snapshot of "${next.project}" to add links to`, ['import the listing first: cairn linear import --board --merge']);
+  const prev = (opts.merge || opts.links) && existsSync(file) ? (JSON.parse(readText(file) ?? '{}') as BoardSnapshot) : undefined;
+  const { snap, needRelations } = mergeBoard(prev, next, present, !!opts.links);
+  // A read of every link starts with a replace or a first read, and may finish in later --links passes; when no open
+  // issue is left without links, it counts as a full read, and the board counts its age.
+  if (!prev) snap.fullPending = true;
+  if (snap.fullPending && !needRelations.length) {
+    snap.fullReadAt = snap.readAt;
+    delete snap.fullPending;
+  }
   writeText(file, JSON.stringify({ ...snap, team: snap.team ?? cfg.team }, null, 2) + '\n');
-  return { message: `Read ${snap.issues.length} issues of "${snap.project}" from Linear. Run cairn linear board to see it.`, data: { file, issues: snap.issues.length } };
+  const more = needRelations.length
+    ? ` ${needRelations.length} open issue${needRelations.length === 1 ? '' : 's'} need their blocked-by links read: ${needRelations.join(', ')}. Read them with get_issue (relations), then import those with --links.`
+    : ' Every open issue has its links.';
+  return { message: `Read ${snap.issues.length} issues of "${snap.project}" from Linear.${more} Run cairn linear board to see it.`, data: { file, issues: snap.issues.length, needRelations, fullReadAt: snap.fullReadAt ?? null } };
 }
 
 // ---------- The queue ----------
@@ -514,10 +560,19 @@ export function followupsFor(pc: PlanCtx, slug: string): FollowupInfo[] {
   }
 }
 
+/** Which open follow-ups a close files in Linear, and how many hardening items stay in cairn. */
+export function followupsToFile(mode: 'ordinary' | 'all' | 'none' | undefined, followups: FollowupInfo[]): { filed: FollowupInfo[]; keptHardening: number } {
+  const m = mode ?? 'ordinary';
+  const filed = m === 'none' ? [] : m === 'all' ? followups : followups.filter((f) => !f.hardening);
+  return { filed, keptHardening: m === 'all' ? 0 : followups.filter((f) => f.hardening && !f.linear).length };
+}
+
 function onClose(pc: PlanCtx, s: State, followups: FollowupInfo[]): void {
   const l = s.linear!;
   const taken = takenIssues(l);
-  for (const f of followups) {
+  // Hardening items stay in cairn by default, where a later plan on the same files is offered them; Linear gets the ordinary ones.
+  const { filed, keptHardening } = followupsToFile(linearConfig(pc.cfg)?.fileFollowUps, followups);
+  for (const f of filed) {
     if (f.linear) continue;
     queueWrite(l, {
       kind: 'createIssue',
@@ -540,7 +595,8 @@ function onClose(pc: PlanCtx, s: State, followups: FollowupInfo[]): void {
       `**${s.title}** is closed${l.pr ? ` (${l.pr})` : ''}.`,
       `Built: ${taken.map((i) => `${i.key} ${i.title}`).join('; ') || 'nothing from Linear'}.`,
       ...(left.length ? [`Left for later: ${left.map((i) => `${i.key} (${i.released!.reason})`).join('; ')}.`] : []),
-      ...(followups.filter((f) => !f.linear).length ? [`Follow-ups filed: ${followups.filter((f) => !f.linear).length}.`] : []),
+      ...(filed.filter((f) => !f.linear).length ? [`Follow-ups filed: ${filed.filter((f) => !f.linear).length}.`] : []),
+      ...(keptHardening ? [`${keptHardening} hardening item${keptHardening === 1 ? '' : 's'} left in cairn.`] : []),
     ].join('\n\n');
     queueWrite(l, { kind: 'statusUpdate', target: l.project, payload: { type: 'project', project: l.project, health: 'onTrack', body }, why: `project update for "${l.project}"`, dedupe: `update:${s.slug}`, needsApproval: true });
   }
@@ -611,13 +667,17 @@ function linearStatus(ctx: Ctx): Result {
   const l = linkOf(s);
   const progress = issueProgress(s);
   const open = l.changes.filter((c) => !c.handled);
+  const foundational = isFoundational(l, linearConfig(pc.cfg));
+  // The issue text files that exist, by key: read them for the descriptions.
+  const texts = Object.fromEntries(l.issues.filter((i) => existsSync(join(pc.plan.dir, 'issues', `${i.key}.md`))).map((i) => [i.key, issueTextPath(pc, i.key)]));
   const lines = [
     `Linear: ${[l.project, l.milestone, l.epic ? `epic ${l.epic}` : undefined].filter(Boolean).join(' · ') || l.team}`,
-    ...l.issues.map((i) => `  ${i.key} ${i.title}: ${progress.get(i.key)}${i.released ? ` (${i.released.reason})` : ''}${i.requirements?.length ? ` [${i.requirements.join(', ')}]` : ''}`),
+    ...(foundational ? [`Foundational: the plan names its approach and the ones it rejected (## Approaches considered), and the user approves it with the plan.`] : []),
+    ...l.issues.map((i) => `  ${i.key} ${i.title}: ${progress.get(i.key)}${i.released ? ` (${i.released.reason})` : ''}${i.requirements?.length ? ` [${i.requirements.join(', ')}]` : ''}${i.labels?.length ? ` · labels: ${i.labels.join(', ')}` : ''}${texts[i.key] ? ` · text: ${texts[i.key]}` : ''}`),
     ...(open.length ? [`Changes to decide: ${open.map((c) => `${c.id} ${changeText(c)}`).join('; ')}`] : []),
     ...(unsent(l).length ? [`${unsent(l).length} update(s) waiting to be sent: cairn linear pending`] : []),
   ];
-  return { message: lines.join('\n'), data: { linear: l, progress: Object.fromEntries(progress), openChanges: open, pending: unsent(l).length } };
+  return { message: lines.join('\n'), data: { linear: l, progress: Object.fromEntries(progress), openChanges: open, pending: unsent(l).length, foundational, texts } };
 }
 
 const projectSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'project';
@@ -637,6 +697,9 @@ function loadSnapshot(ctx: Ctx, project?: string): BoardSnapshot {
   if (!files.length) throw new Refusal('no Linear project has been read yet', ['/cairn:board <project> reads one from Linear']);
   throw new Refusal(`several projects have been read: ${files.map((f) => f.replace(/\.json$/, '')).join(', ')}`, ['pass --project "<name>"']);
 }
+
+/** After this many days, the board suggests reading every link again. */
+const FULL_READ_DAYS = 3;
 
 export type BoardStatus = 'done' | 'in plan' | 'ready' | 'blocked';
 
@@ -705,6 +768,19 @@ function board(ctx: Ctx, opts: Opts): Result {
     .filter((p) => p.stage !== 'closed' && p.state.linear!.issues.some((i) => byKey.has(i.key)))
     .map((p) => ({ slug: p.slug, title: p.state.title, stage: p.stage, issues: takenIssues(p.state.linear!).map((i) => i.key), stalled: Date.now() - Date.parse(p.state.updated) > week }));
   const age = ageMinutes < 60 ? `${ageMinutes} min` : ageMinutes < 2880 ? `${Math.round(ageMinutes / 60)} h` : `${Math.round(ageMinutes / 1440)} days`;
+  // An epic whose open sub-issues are all ready, and none in a plan, can start as its own plan.
+  const readyEpics = milestones.flatMap((m) => m.epics).filter((e) => {
+    const open = e.issues.filter((x) => x.status !== 'done');
+    return open.length > 0 && open.every((x) => x.status === 'ready');
+  });
+  // Incremental reads trust Linear's change time; a link change may not move it, so an old full read is worth redoing.
+  const fullReadDays = snap.fullReadAt ? Math.floor((Date.now() - Date.parse(snap.fullReadAt)) / 86_400_000) : null;
+  const fullHint =
+    fullReadDays === null
+      ? `No full read of the links yet: /cairn:board ${snap.project} --full reads every open issue's links once.`
+      : fullReadDays > FULL_READ_DAYS
+        ? `Last full read of the links was ${fullReadDays} days ago: /cairn:board ${snap.project} --full reads them all again.`
+        : undefined;
   const issueLine = (x: BoardIssue, indent: string) =>
     `${indent}${x.status === 'done' ? '✓' : x.status === 'in plan' ? '▸' : x.status === 'ready' ? '○' : '✗'} ${x.key} ${x.title}${x.plan ? `: ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})` : ''}${x.status === 'blocked' ? `: blocked by ${x.blockedBy.map((b) => `${b.key} [${b.where}]`).join(', ')}` : ''}`;
   const lines = [
@@ -716,8 +792,10 @@ function board(ctx: Ctx, opts: Opts): Result {
     ]),
     ...(planRows.length ? ['Plans:', ...planRows.map((p) => `  ${p.slug} (${p.stage}): ${p.issues.join(', ')}${p.stalled ? ', no change in over a week' : ''}`)] : []),
     ...(cycle ? [`Loop in blocked-by links: ${cycle.join(' → ')}. Remove one link in Linear.`] : []),
+    ...(readyEpics.length ? [`Ready to start: ${readyEpics.map((e) => `${e.key} ${e.title} (/cairn:new --from-linear ${e.key})`).join('; ')}`] : []),
+    ...(fullHint ? [fullHint] : []),
   ];
-  return { message: lines.join('\n'), data: { project: snap.project, readAt: snap.readAt, ageMinutes, milestones, plans: planRows, cycle: cycle ?? null } };
+  return { message: lines.join('\n'), data: { project: snap.project, readAt: snap.readAt, ageMinutes, fullReadAt: snap.fullReadAt ?? null, fullReadDays, milestones, plans: planRows, cycle: cycle ?? null, readyEpics: readyEpics.map((e) => e.key) } };
 }
 
 /**

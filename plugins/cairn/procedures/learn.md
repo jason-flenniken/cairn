@@ -8,7 +8,7 @@ Templates live in `templates/`, next to this `procedures/` folder. Talk to the u
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
 - MVP: no extra learn work. The record is already short: do steps 4 and 5, and steps 2 and 3 only if `cairn close` refuses.
 - Standard and Polished: as written below.
-- Hardening items do not count toward the follow-up limit: only ordinary follow-ups do.
+- Hardening items do not count toward the follow-up limit: only ordinary follow-ups do. On a plan with Linear issues, hardening items stay in cairn by default; only ordinary follow-ups go to Linear (`linear.fileFollowUps`, default `ordinary`).
 
 ## 1. Check
 Run `cairn status --json`. The stage must be `learn`. Any other stage: say which and run `cairn next --json`. Stop this procedure.

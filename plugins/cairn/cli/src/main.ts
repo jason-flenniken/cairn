@@ -39,7 +39,7 @@ import {
 } from './commands.ts';
 import { CliError, Refusal } from './util.ts';
 
-const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board']);
+const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board', 'merge', 'links']);
 /** Flags that may repeat; the values are joined with newlines. */
 const REPEATABLE = new Set(['where', 'for']);
 

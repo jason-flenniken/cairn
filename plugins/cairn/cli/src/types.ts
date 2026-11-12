@@ -201,6 +201,12 @@ export interface LinearIssue {
   parent?: string;
   /** Keys of issues that block this one, in Linear. */
   blockedBy: string[];
+  /** Label names, as last read. */
+  labels?: string[];
+  /** Hash of the description last written to `issues/<KEY>.md`: a change after the PRD approval is noted on refresh. */
+  descriptionHash?: string;
+  /** Linear's last-change time, as last read (board snapshots). */
+  updatedAt?: string;
   /** FR ids tagged with this key in the PRD, recorded when the PRD is approved. */
   requirements?: string[];
   /** Left out of the plan: the PRD lists it under `## Issues not taken`, or `cairn linear release` dropped it. */
@@ -294,4 +300,8 @@ export interface LinearConfig {
   team: string;
   /** Status names to use. By default cairn moves issues by status type (started, completed); review has no type, so without `inReview` that move is a comment. */
   statuses?: { inProgress?: string; inReview?: string; done?: string };
+  /** Issues with this label make the plan foundational: an explicit, approved approach. Default "foundational". */
+  foundationalLabel?: string;
+  /** Which open follow-ups a close files as Linear issues: ordinary ones only (default), all (hardening too), or none. */
+  fileFollowUps?: 'ordinary' | 'all' | 'none';
 }

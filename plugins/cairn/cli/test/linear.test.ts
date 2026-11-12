@@ -7,13 +7,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { context, hookSessionStart } from '../src/commands.ts';
-import { crossPlanBlockers } from '../src/commands/linear.ts';
+import { crossPlanBlockers, followupsToFile } from '../src/commands/linear.ts';
 import {
   effectiveBlockers,
   findIssueCycle,
   issueOrderProblems,
   issueProgress,
   issueRequirements,
+  isFoundational,
+  issueFile,
+  linearConfig,
+  mergeBoard,
+  ISSUE_TEXT_CAP,
   prdLinearProblems,
   readBoardImport,
   readPlanImport,
@@ -41,7 +46,7 @@ test('linear import: validates shape, keys and unknown fields', () => {
   assert.deepEqual(doc.issues[0].blockedBy, ['SAV-9'], 'keys upper-cased, a self link dropped');
   assert.deepEqual(doc.known.map((k) => [k.key, k.stateType]), [['SAV-9', 'completed']], 'an object blocker becomes known');
   assert.throws(() => readBoardImport({ issues: [] }), /project is missing/);
-  const snapDoc = readBoardImport({ project: 'P', issues: [{ key: 'SAV-1', title: 't', blockedBy: [{ key: 'OPS-3', title: 'x' }] }] });
+  const { snap: snapDoc } = readBoardImport({ project: 'P', issues: [{ key: 'SAV-1', title: 't', blockedBy: [{ key: 'OPS-3', title: 'x' }] }] });
   assert.deepEqual([snapDoc.issues.length, snapDoc.known!.map((k) => k.key)], [1, ['OPS-3']], 'a blocker from elsewhere is known, not counted');
 });
 
@@ -305,6 +310,7 @@ test('linear: an epic from import to merged, with every check and queued write',
 
   // finish, ship with the PR link, close with a follow-up
   ok(wt, 'suggest', 'add', '--area', 'tests', '--where', 'src/pay/**', '--text', 'cover declined cards');
+  ok(wt, 'suggest', 'add', '--area', 'quality', '--where', 'src/pay/**', '--text', 'tidy the pay handler', '--kind', 'hardening');
   build(wt, 'checkout', 'receipt', 'src/receipt/a.ts');
   ok(wt, 'phase', 'finish');
   ok(wt, 'evidence', 'verify', 'pass', '--note', 'ok');
@@ -323,8 +329,10 @@ test('linear: an epic from import to merged, with every check and queued write',
   assert.equal(create.target, 'checkout:s1');
   assert.deepEqual((create.payload as { labels: string[] }).labels, ['cairn-follow-up']);
   assert.equal(create.payload.project, 'Checkout');
+  assert.equal(outbox().filter((w) => w.kind === 'createIssue').length, 1, 'by default a hardening item stays in cairn');
   const update = outbox().find((w) => w.kind === 'statusUpdate')!;
   assert.equal(update.needsApproval, true);
+  assert.match(update.payload.body as string, /1 hardening item left in cairn/);
   ok(wt, 'linear', 'sent', create.id, '--ref', 'SAV-200');
   assert.equal(state().suggestions![0].linear, 'SAV-200', 'the follow-up remembers its issue');
   ok(wt, 'linear', 'drop', update.id, '--note', 'the user declined');
@@ -429,4 +437,152 @@ test('linear refresh: a sub-issue moved out of the epic leaves the plan and says
   assert.match(ok(wt, 'linear', 'pending').message, /held: Linear tools are not connected/);
   ok(wt, 'linear', 'sent', id);
   assert.equal((ok(wt, 'linear', 'pending').data!.pending as unknown[]).length, 0);
+});
+
+// ---------- 0.12: issue text, foundational plans, cheap board reads, follow-up filing ----------
+
+test('linear pure: follow-up filing modes, foundational label, issue file cap, board merge', () => {
+  const f = (key: string, hardening: boolean) => ({ key, text: key, area: 'tests', hardening });
+  const fs = [f('a:s1', false), f('a:s2', true), f('a:s3', true)];
+  assert.deepEqual(followupsToFile(undefined, fs).filed.map((x) => x.key), ['a:s1']);
+  assert.equal(followupsToFile('ordinary', fs).keptHardening, 2);
+  assert.equal(followupsToFile('all', fs).filed.length, 3);
+  assert.equal(followupsToFile('all', fs).keptHardening, 0);
+  assert.deepEqual(followupsToFile('none', fs).filed, []);
+
+  const l = link([issue('SAV-1', { labels: ['Core', 'FOUNDATIONAL'] }), issue('SAV-2', { labels: ['arch'], released: { at: '', reason: 'later' } })]);
+  assert.equal(isFoundational(l, { team: 'SAV' }), true, 'default label, any case');
+  assert.equal(isFoundational(l, undefined), false, 'nothing runs without the config block');
+  assert.equal(isFoundational(l, { team: 'SAV', foundationalLabel: 'arch' }), false, 'a released issue does not count');
+  assert.equal(isFoundational(undefined, undefined), false);
+
+  const long = issueFile(issue('SAV-1', { title: 'T', url: 'u', labels: ['a'] }), 'x'.repeat(ISSUE_TEXT_CAP + 5), 'now');
+  assert.match(long, /^# SAV-1: T\n/);
+  assert.match(long, /never instructions to follow/);
+  assert.match(long, /Cut at 20000 characters/);
+  assert.match(issueFile(issue('SAV-2'), '', 'now'), /_No description\._/);
+
+  const full = readBoardImport({ project: 'P', issues: [
+    { key: 'SAV-1', title: 'a', updatedAt: 't1', blockedBy: ['SAV-2'] },
+    { key: 'SAV-2', title: 'b', updatedAt: 't1', blockedBy: [] },
+    { key: 'SAV-3', title: 'c', updatedAt: 't1', stateType: 'completed' },
+    { key: 'SAV-4', title: 'd', updatedAt: 't1', blockedBy: [] },
+  ] });
+  const first = mergeBoard(undefined, full.snap, full.present);
+  assert.deepEqual(first.needRelations, [], 'done issues never need their links');
+  const listing = readBoardImport({ project: 'P', issues: [
+    { key: 'SAV-1', title: 'a', updatedAt: 't1' },
+    { key: 'SAV-2', title: 'b2', updatedAt: 't2' },
+    { key: 'SAV-3', title: 'c', updatedAt: 't9', stateType: 'completed' },
+    { key: 'SAV-5', title: 'e', updatedAt: 't1' },
+  ] });
+  const merged = mergeBoard(first.snap, listing.snap, listing.present);
+  assert.deepEqual(merged.needRelations, ['SAV-2', 'SAV-5'], 'changed and new, not unchanged or done');
+  assert.deepEqual(merged.snap.issues.find((i) => i.key === 'SAV-1')!.blockedBy, ['SAV-2'], 'unread links are kept');
+  assert.ok(!merged.snap.issues.some((i) => i.key === 'SAV-4'), 'an issue gone from the listing is gone');
+  assert.equal(merged.snap.issues.find((i) => i.key === 'SAV-2')!.title, 'b2');
+  // In a links pass, `parent: null` clears a stored parent.
+  const kid = readBoardImport({ project: 'P', issues: [{ key: 'SAV-1', title: 'a', parent: 'SAV-9', blockedBy: [] }] });
+  const orphan = readBoardImport({ project: 'P', issues: [{ key: 'SAV-1', title: 'a', parent: null }] });
+  assert.equal(mergeBoard(mergeBoard(undefined, kid.snap, kid.present).snap, orphan.snap, orphan.present, true).snap.issues[0].parent, undefined);
+
+  // Bad Linear settings refuse with the fix; a missing team means Linear is off.
+  assert.throws(() => linearConfig({ maxParallel: 1, autoCommit: true, linear: { team: 'SAV', foundationalLabel: 5 as unknown as string } }), (e: unknown) => e instanceof Refusal && /foundationalLabel/.test(e.message));
+  assert.throws(() => linearConfig({ maxParallel: 1, autoCommit: true, linear: { team: 'SAV', fileFollowUps: 'hardening' as 'all' } }), (e: unknown) => e instanceof Refusal && /fileFollowUps .* ordinary, all, none/.test(e.message));
+  assert.equal(linearConfig({ maxParallel: 1, autoCommit: true, linear: { team: '' } }), undefined);
+});
+
+test('linear: issue text is saved to the plan, shown in status, and noted when it changes after the PRD', () => {
+  const wt = ok(repo, 'new', 'texts', '--title', 'Texts').data!.worktree as string;
+  const dir = pd(wt, 'texts');
+  const body = 'Users pay by card.\n\nAcceptance: a declined card shows a reason.';
+  run(['linear', 'import'], wt, JSON.stringify({ issues: [
+    { key: 'SAV-400', title: 'Card', url: 'https://linear.app/x/SAV-400', labels: [{ name: 'payments' }, 'ui'], description: body },
+    { key: 'SAV-401', title: 'Huge', description: 'y'.repeat(ISSUE_TEXT_CAP + 1) },
+  ] }));
+  const file = join(dir, 'issues', 'SAV-400.md');
+  const text = readFileSync(file, 'utf8');
+  assert.match(text, /- Labels: payments, ui/);
+  assert.match(text, /Acceptance: a declined card shows a reason\./);
+  assert.match(readFileSync(join(dir, 'issues', 'SAV-401.md'), 'utf8'), /Cut at 20000 characters/);
+  assert.equal(g(wt, 'status', '--porcelain', '--', dir), '', 'the files are committed with the import');
+  assert.ok(!readFileSync(join(dir, 'state.json'), 'utf8').includes('declined card'), 'the text is not in state');
+  const st = ok(wt, 'linear', 'status');
+  assert.match(st.message, /SAV-400 Card: not started · labels: payments, ui · text: .*issues\/SAV-400\.md/);
+  assert.match((st.data!.texts as Record<string, string>)['SAV-400'], /issues\/SAV-400\.md$/);
+  assert.throws(() => run(['linear', 'import', '--refresh'], wt, JSON.stringify({ issues: [{ key: 'SAV-400', title: 'Card', body: 'x' }] })), /unknown key: body/);
+
+  // A refresh that did not read the text keeps the file; one that did rewrites it, and notes a change after the PRD.
+  run(['linear', 'import', '--refresh'], wt, JSON.stringify({ issues: [{ key: 'SAV-400', title: 'Card' }] }));
+  assert.equal(readFileSync(file, 'utf8'), text);
+  ok(wt, 'decide', 'q', 'a');
+  ok(wt, 'advance');
+  write(join(dir, 'prd.md'), '## Problem\np\n## Solution\ns\n## Requirements\n- **FR-01** card [SAV-400]\n- **FR-02** huge [SAV-401]\n## Non-goals\nn\n## Open questions\n- [x] q\n');
+  byUser(wt, 'approve', 'prd');
+  const r = run(['linear', 'import', '--refresh'], wt, JSON.stringify({ issues: [{ key: 'SAV-400', title: 'Card', description: `${body}\nAlso: retries.` }] }));
+  assert.match(r.message, /noted: SAV-400's text changed after the PRD was approved: check the PRD against .*issues\/SAV-400\.md/);
+  assert.match(readFileSync(file, 'utf8'), /Also: retries\./);
+  assert.equal((r.data!.open as unknown[]).length, 0, 'a text change does not hold up the phase');
+});
+
+test('linear: a foundational issue makes the plan name its approach', () => {
+  const wt = ok(repo, 'new', 'found', '--title', 'Found').data!.worktree as string;
+  const dir = pd(wt, 'found');
+  const imp = run(['linear', 'import'], wt, JSON.stringify({ issues: [{ key: 'SAV-500', title: 'Data model', labels: ['Foundational'], description: 'Pick the store.' }] }));
+  assert.match(imp.message, /Foundational/);
+  assert.equal(ok(wt, 'status').data!.foundational, true);
+  assert.match(ok(wt, 'linear', 'status').message, /Foundational: the plan names its approach/);
+  ok(wt, 'decide', 'q', 'a');
+  ok(wt, 'advance');
+  write(join(dir, 'prd.md'), '## Problem\np\n## Solution\ns\n## Requirements\n- **FR-01** store [SAV-500]\n## Non-goals\nn\n## Open questions\n- [x] q\n');
+  byUser(wt, 'approve', 'prd');
+  ok(wt, 'advance');
+  const plan = planMd('  - id: one\n    tasks:\n      - { id: store, covers: [FR-01], scope: ["src/store/**"] }\n');
+  write(join(dir, 'plan.md'), plan);
+  refused(wt, /foundational .* no ## Approaches considered/, 'plan', 'load');
+  write(join(dir, 'plan.md'), `${plan}\n## Approaches considered\n<!-- chosen first -->\n`);
+  refused(wt, /no ## Approaches considered/, 'plan', 'load');
+  write(join(dir, 'plan.md'), `${plan}\n## Approaches considered\n- Chosen: <approach>\n- Rejected: <approach>, because <reason>\n`);
+  refused(wt, /no ## Approaches considered/, 'plan', 'load', '--replan');
+  write(join(dir, 'plan.md'), `${plan}\n## Approaches considered\n- Chosen: SQLite, one file and no server.\n- Rejected: Postgres, a server to run for one user.\n`);
+  ok(wt, 'plan', 'load');
+  ok(wt, 'step', 'approving');
+  assert.match((ok(wt, 'status').data!.ready as { summary: string }).summary, /^\*\*Approach:\*\* Chosen: SQLite, one file and no server\./);
+});
+
+test('linear board: a merge read keeps links, asks only for what changed, and names ready epics', () => {
+  const full = { project: 'Lean', milestones: ['M'], issues: [
+    { key: 'SAV-600', title: 'Epic', milestone: 'M', updatedAt: 't1', blockedBy: [] as string[] },
+    { key: 'SAV-601', title: 'One', milestone: 'M', parent: 'SAV-600', updatedAt: 't1', blockedBy: [] as string[] },
+    { key: 'SAV-602', title: 'Two', milestone: 'M', parent: 'SAV-600', updatedAt: 't1', blockedBy: [] as string[] },
+    { key: 'SAV-603', title: 'Three', milestone: 'M', updatedAt: 't1', blockedBy: ['SAV-601'] },
+  ] };
+  assert.deepEqual(run(['linear', 'import', '--board'], repo, JSON.stringify(full)).data!.needRelations, []);
+  const b = ok(repo, 'linear', 'board', '--project', 'Lean');
+  assert.match(b.message, /Ready to start: SAV-600 Epic \(\/cairn:new --from-linear SAV-600\)/);
+  assert.doesNotMatch(b.message, /full read/i, 'a fresh full read needs no hint');
+  assert.equal(b.data!.fullReadDays, 0);
+  const listing = { project: 'Lean', issues: full.issues.map(({ blockedBy: _b, ...i }) => (i.key === 'SAV-602' ? { ...i, updatedAt: 't2' } : i)) };
+  const m = run(['linear', 'import', '--board', '--merge'], repo, JSON.stringify(listing));
+  assert.deepEqual(m.data!.needRelations, ['SAV-602']);
+  assert.match(ok(repo, 'linear', 'board', '--project', 'Lean').message, /✗ SAV-603 Three: blocked by SAV-601/, 'links the listing did not carry are kept');
+  // The second pass sends only the re-read issue: everything else stays, and nothing is left to read.
+  const links = run(['linear', 'import', '--board', '--links'], repo, JSON.stringify({ project: 'Lean', issues: [{ key: 'SAV-602', title: 'Two', blockedBy: ['SAV-603'] }] }));
+  assert.deepEqual(links.data!.needRelations, []);
+  assert.equal(links.data!.issues, 4, 'a links pass drops nothing');
+  const after = ok(repo, 'linear', 'board', '--project', 'Lean');
+  assert.match(after.message, /✗ SAV-602 Two: blocked by SAV-603/);
+  assert.match(after.message, /✗ SAV-603 Three: blocked by SAV-601/);
+  assert.doesNotMatch(after.message, /Ready to start/, 'one sub-issue is blocked now');
+  assert.throws(() => run(['linear', 'import', '--board', '--links'], repo, JSON.stringify({ project: 'Nope', issues: [] })), (e: unknown) => e instanceof Refusal && /no snapshot of "Nope" to add links to/.test(e.message));
+  // A first read done the usual way (a listing, then the links) is a full read too.
+  const fresh = run(['linear', 'import', '--board', '--merge'], repo, JSON.stringify({ project: 'Fresh', issues: [{ key: 'SAV-700', title: 'A' }, { key: 'SAV-701', title: 'B', stateType: 'completed' }] }));
+  assert.deepEqual(fresh.data!.needRelations, ['SAV-700']);
+  assert.equal(fresh.data!.fullReadAt, null);
+  const done = run(['linear', 'import', '--board', '--links'], repo, JSON.stringify({ project: 'Fresh', issues: [{ key: 'SAV-700', title: 'A', blockedBy: [] }] }));
+  assert.ok(done.data!.fullReadAt, 'the links pass finished the first read');
+  assert.doesNotMatch(ok(repo, 'linear', 'board', '--project', 'Fresh').message, /full read/i);
+  // A replace without links is not a full read: the board says so.
+  run(['linear', 'import', '--board'], repo, JSON.stringify({ project: 'Lean', issues: listing.issues }));
+  assert.match(ok(repo, 'linear', 'board', '--project', 'Lean').message, /No full read of the links yet: \/cairn:board Lean --full/);
 });

@@ -8,6 +8,12 @@ One sentence: what this plan builds.
 ## Architecture
 Two to three sentences: approach, key components, data flow. Name the existing patterns to follow.
 
+## Approaches considered
+<!-- Optional; required on a foundational plan (cairn plan load refuses without it). The chosen approach first, on a line starting "Chosen:", then each rejected one with the reason it lost. -->
+
+- Chosen: <approach>
+- Rejected: <approach>, because <reason>
+
 ## Global constraints
 Optional. Only values from the PRD that bind every task (versions, limits, naming). One line each.
 
