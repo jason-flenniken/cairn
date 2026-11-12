@@ -783,15 +783,14 @@ describe('tool phrases and ETA', () => {
   })
 })
 
-test('a throwing pane render leaves tool calls unaffected (NFR-07)', async ($, on) => {
+test('tool calls run while the session state is unreadable (NFR-07)', async ($, on) => {
   world(on, { rows: [row(plan(), WT)] })
-  // Once the session is up, the drawing's state read fails, so the render throws.
+  // Once the session is up, every state read fails. The engine itself skips a ui.render hook that throws (and the
+  // test kit fails any test where one does), so this checks cairn's own tool-call hooks under the same fault.
   let isStateDown = false
   on('state.get', ($, e, next) => (isStateDown ? { deny: 'state is unavailable' } : next(e)))
   await start($, WT)
   isStateDown = true
-  // The engine either rejects the mount or skips the failed render and reports it; neither may reach tool calls.
-  await mount($, 'terminal').catch(() => undefined)
   const got = await $.tool.call({ tool: 'Bash', command: 'ls' })
   expect(got.deny).toBeUndefined()
   expect(got.result).toEqual({ stdout: 'shell ran it', stderr: '', interrupted: false })
