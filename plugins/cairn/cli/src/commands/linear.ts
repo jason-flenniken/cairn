@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildBoard, type BoardIssue } from '../board.ts';
 import { loadConfig } from '../config.ts';
 import { commonDir, landedState } from '../git.ts';
 import {
@@ -729,78 +730,17 @@ function loadSnapshot(ctx: Ctx, project?: string): BoardSnapshot {
 /** After this many days, the board suggests reading every link again. */
 const FULL_READ_DAYS = 3;
 
-export type BoardStatus = 'done' | 'in plan' | 'ready' | 'blocked';
+const blockedText = (x: BoardIssue) => `blocked by ${x.blockedBy.map((b) => (b.where ? `${b.key} [${b.where}]` : b.key)).join(', ')}`;
 
-export interface BoardIssue {
-  key: string;
-  title: string;
-  milestone?: string;
-  parent?: string;
-  status: BoardStatus;
-  plan?: { slug: string; stage: string; progress: IssueProgress };
-  blockedBy: { key: string; where: string }[];
-}
+const issueLine = (x: BoardIssue, indent: string) =>
+  `${indent}${x.status === 'done' ? '✓' : x.status === 'in plan' ? '▸' : x.status === 'ready' ? '○' : '✗'} ${x.key} ${x.title}${x.plan ? `: ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})` : ''}${x.status === 'blocked' ? `: ${blockedText(x)}` : ''}`;
 
 function board(ctx: Ctx, opts: Opts): Result {
   const snap = loadSnapshot(ctx, typeof opts.project === 'string' ? opts.project : undefined);
   const plans = otherPlans(ctx);
-  const byKey = new Map(snap.issues.map((i) => [i.key, i]));
-  // Blockers from other projects are looked up, never counted.
-  const lookup = new Map([...(snap.known ?? []), ...snap.issues].map((i) => [i.key, i]));
-  const progressOf = new Map(plans.map((p) => [p.slug, issueProgress(p.state)]));
-  const depends = plans.flatMap((p) => p.state.linear!.depends);
-  const where = (k: string): string => {
-    const o = ownerOf(plans, k);
-    if (o) return `plan ${o.slug} (${o.stage})`;
-    const i = byKey.get(k);
-    return i ? (i.milestone ? `milestone ${i.milestone}` : 'this project') : 'another project';
-  };
-  const statusOf = (i: LinearIssue): BoardIssue => {
-    const owner = ownerOf(plans, i.key);
-    const blockers = effectiveBlockers(i, lookup, depends).filter((b) => !isDone(lookup.get(b)));
-    const base = { key: i.key, title: i.title, ...(i.milestone ? { milestone: i.milestone } : {}), ...(i.parent ? { parent: i.parent } : {}), blockedBy: blockers.map((b) => ({ key: b, where: where(b) })) };
-    if (isDone(i)) return { ...base, status: 'done', blockedBy: [] };
-    if (owner) return { ...base, status: 'in plan', plan: { slug: owner.slug, stage: owner.stage, progress: progressOf.get(owner.slug)!.get(i.key) ?? 'not started' } };
-    return { ...base, status: blockers.length ? 'blocked' : 'ready' };
-  };
-  const parents = new Set(snap.issues.map((i) => i.parent).filter((p): p is string => !!p && byKey.has(p)));
-  const leaves = snap.issues.filter((i) => !parents.has(i.key)).map(statusOf);
-  const leafOf = new Map(leaves.map((x) => [x.key, x]));
-  const descendants = (k: string): BoardIssue[] => snap.issues.filter((i) => i.parent === k).flatMap((i) => (parents.has(i.key) ? descendants(i.key) : [leafOf.get(i.key)!]));
-  const names = [...new Set([...snap.milestones, ...snap.issues.map((i) => i.milestone ?? '')])];
-  const count = (xs: BoardIssue[]) => ({ total: xs.length, done: xs.filter((x) => x.status === 'done').length, inPlan: xs.filter((x) => x.status === 'in plan').length, ready: xs.filter((x) => x.status === 'ready').length, blocked: xs.filter((x) => x.status === 'blocked').length });
-  const epicOf = (p: string) => {
-    const kids = descendants(p);
-    return { key: p, title: byKey.get(p)!.title, done: kids.filter((k) => k.status === 'done').length, total: kids.length, plans: [...new Set(kids.map((k) => k.plan?.slug).filter((x): x is string => !!x))], issues: kids };
-  };
-  const epicKey = typeof opts.epic === 'string' ? opts.epic.trim().toUpperCase() : undefined;
-  if (epicKey && !parents.has(epicKey)) throw new Refusal(`${epicKey} is not an epic in "${snap.project}" as last read`, ['cairn linear board lists the epics', `or re-read the project: /cairn:board ${snap.project}`]);
-  const milestones = epicKey
-    ? [{ name: byKey.get(epicKey)!.milestone ?? 'No milestone', counts: count(descendants(epicKey)), epics: [epicOf(epicKey)], issues: [] as BoardIssue[] }]
-    : names
-        .map((name) => {
-          const mine = leaves.filter((x) => (x.milestone ?? '') === name);
-          const epics = [...parents]
-            .filter((p) => !byKey.get(p)!.parent || !parents.has(byKey.get(p)!.parent!))
-            .filter((p) => (byKey.get(p)!.milestone ?? '') === name)
-            .map(epicOf);
-          const inEpic = new Set(epics.flatMap((e) => e.issues.map((i) => i.key)));
-          // A sub-issue whose parent is outside the project is listed on its own.
-          return { name: name || 'No milestone', counts: count(mine), epics, issues: mine.filter((x) => !inEpic.has(x.key) && !(x.parent && parents.has(x.parent))) };
-        })
-        .filter((m) => m.counts.total || m.epics.length);
-  const cycle = findIssueCycle(snap.issues, depends);
+  const data = buildBoard({ snap, plans, progress: new Map(plans.map((p) => [p.slug, issueProgress(p.state)])) });
   const ageMinutes = Math.max(0, Math.round((Date.now() - Date.parse(snap.readAt)) / 60_000));
-  const week = 7 * 86_400_000;
-  const planRows = plans
-    .filter((p) => p.stage !== 'closed' && p.state.linear!.issues.some((i) => byKey.has(i.key)))
-    .map((p) => ({ slug: p.slug, title: p.state.title, stage: p.stage, issues: takenIssues(p.state.linear!).map((i) => i.key), stalled: Date.now() - Date.parse(p.state.updated) > week }));
   const age = ageMinutes < 60 ? `${ageMinutes} min` : ageMinutes < 2880 ? `${Math.round(ageMinutes / 60)} h` : `${Math.round(ageMinutes / 1440)} days`;
-  // An epic whose open sub-issues are all ready, and none in a plan, can start as its own plan.
-  const readyEpics = milestones.flatMap((m) => m.epics).filter((e) => {
-    const open = e.issues.filter((x) => x.status !== 'done');
-    return open.length > 0 && open.every((x) => x.status === 'ready');
-  });
   // Incremental reads trust Linear's change time; a link change may not move it, so an old full read is worth redoing.
   const fullReadDays = snap.fullReadAt ? Math.floor((Date.now() - Date.parse(snap.fullReadAt)) / 86_400_000) : null;
   const fullHint =
@@ -809,21 +749,62 @@ function board(ctx: Ctx, opts: Opts): Result {
       : fullReadDays > FULL_READ_DAYS
         ? `Last full read of the links was ${fullReadDays} days ago: /cairn:board ${snap.project} --full reads them all again.`
         : undefined;
-  const issueLine = (x: BoardIssue, indent: string) =>
-    `${indent}${x.status === 'done' ? '✓' : x.status === 'in plan' ? '▸' : x.status === 'ready' ? '○' : '✗'} ${x.key} ${x.title}${x.plan ? `: ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})` : ''}${x.status === 'blocked' ? `: blocked by ${x.blockedBy.map((b) => `${b.key} [${b.where}]`).join(', ')}` : ''}`;
-  const lines = [
-    `${snap.project}: read from Linear ${age} ago.`,
-    ...milestones.flatMap((m) => [
-      `${m.name}: ${m.counts.done}/${m.counts.total} done, ${m.counts.inPlan} in a plan, ${m.counts.ready} ready, ${m.counts.blocked} blocked`,
-      ...m.epics.flatMap((e) => [`  epic ${e.key} ${e.title}: ${e.done}/${e.total} done${e.plans.length ? `, plans: ${e.plans.join(', ')}` : ''}`, ...e.issues.map((x) => issueLine(x, '    '))]),
-      ...m.issues.map((x) => issueLine(x, '  ')),
-    ]),
-    ...(planRows.length ? ['Plans:', ...planRows.map((p) => `  ${p.slug} (${p.stage}): ${p.issues.join(', ')}${p.stalled ? ', no change in over a week' : ''}`)] : []),
-    ...(cycle ? [`Loop in blocked-by links: ${cycle.join(' → ')}. Remove one link in Linear.`] : []),
-    ...(readyEpics.length ? [`Ready to start: ${readyEpics.map((e) => `${e.key} ${e.title} (/cairn:new --from-linear ${e.key})`).join('; ')}`] : []),
-    ...(fullHint ? [fullHint] : []),
-  ];
-  return { message: lines.join('\n'), data: { project: snap.project, readAt: snap.readAt, ageMinutes, fullReadAt: snap.fullReadAt ?? null, fullReadDays, milestones, plans: planRows, cycle: cycle ?? null, readyEpics: readyEpics.map((e) => e.key) } };
+  const header = `${snap.project}: read from Linear ${age} ago.`;
+  const extra = { project: snap.project, readAt: snap.readAt, ageMinutes, fullReadAt: snap.fullReadAt ?? null, fullReadDays };
+
+  const epicKey = typeof opts.epic === 'string' ? opts.epic.trim().toUpperCase() : undefined;
+  if (epicKey) {
+    const byKey = new Map(snap.issues.map((i) => [i.key, i]));
+    const isEpic = snap.issues.some((i) => i.parent === epicKey);
+    if (!isEpic) throw new Refusal(`${epicKey} is not an epic in "${snap.project}" as last read`, ['cairn linear board lists the epics', `or re-read the project: /cairn:board ${snap.project}`]);
+    const inside = (k: string) => {
+      for (let p = byKey.get(k)?.parent, n = 0; p && n < 50; p = byKey.get(p)?.parent, n++) if (p === epicKey) return true;
+      return false;
+    };
+    const every = data.milestones.flatMap((m) => [...m.epics.flatMap((e) => e.issues), ...m.issues]);
+    const kids = every.filter((x) => inside(x.key));
+    const top = data.milestones.flatMap((m) => m.epics).find((e) => e.key === epicKey);
+    const epic = top ?? { key: epicKey, title: byKey.get(epicKey)!.title, done: kids.filter((k) => k.status === 'done').length, total: kids.length, plans: [...new Set(kids.map((k) => k.plan?.slug).filter((x): x is string => !!x))], issues: kids };
+    const counts = { total: kids.length, done: epic.done, inPlan: kids.filter((x) => x.status === 'in plan').length, ready: kids.filter((x) => x.status === 'ready').length, blocked: kids.filter((x) => x.status === 'blocked').length };
+    const milestones = [{ name: byKey.get(epicKey)!.milestone ?? 'No milestone', counts, epics: [epic], issues: [] as BoardIssue[] }];
+    const lines = [header, `${milestones[0].name}: ${counts.done}/${counts.total} done, ${counts.inPlan} in a plan, ${counts.ready} ready, ${counts.blocked} blocked`, `  epic ${epic.key} ${epic.title}: ${epic.done}/${epic.total} done${epic.plans.length ? `, plans: ${epic.plans.join(', ')}` : ''}`, ...epic.issues.map((x) => issueLine(x, '    '))];
+    return { message: lines.join('\n'), data: { ...data, ...extra, milestones } };
+  }
+
+  const all = data.milestones.flatMap((m) => [...m.epics.flatMap((e) => e.issues), ...m.issues]);
+  const issueOf = new Map(all.map((x) => [x.key, x]));
+  const focusAt = data.focus === null ? data.milestones.length : data.milestones.findIndex((m) => m.name === data.focus);
+  const upTo = data.milestones.slice(0, data.focus === null ? focusAt : focusAt + 1);
+  const later = data.milestones.slice(focusAt + 1);
+  const lines: string[] = [header];
+  for (const m of upTo) lines.push(m.name === data.focus ? `${m.name}: ${m.counts.done}/${m.counts.total} done` : `✓ ${m.name}`);
+
+  if (data.inProgress.length) {
+    lines.push('In progress:');
+    for (const p of data.inProgress) {
+      lines.push(`  ${p.title ?? p.slug} (plan ${p.slug}, ${p.stage}): ${p.done}/${p.total} done`);
+      for (const i of p.issues) lines.push(`    ${i.key} ${i.title}: ${i.progress}`);
+    }
+  }
+  if (data.ready.length) {
+    lines.push('Ready to start:');
+    for (const r of data.ready) lines.push(`  ${r.key} ${r.title}${r.unblocks > 0 ? `, unblocks ${r.unblocks}` : ''}${r.milestone !== data.focus ? ` [${r.milestone}]` : ''}${r.kind === 'epic' ? ` (/cairn:new --from-linear ${r.key})` : ''}`);
+  }
+  if (data.waiting.length) {
+    lines.push('Waiting:');
+    for (const w of data.waiting) {
+      const x = w.kind === 'issue' ? issueOf.get(w.key) : undefined;
+      lines.push(`  ${w.key} ${w.title}${w.kind === 'epic' ? ` ${w.done}/${w.total}, waits on ${w.waitsOn.join(', ')}` : x ? `, ${blockedText(x)}` : `, waits on ${w.waitsOn.join(', ')}`}`);
+    }
+  }
+  lines.push(`Done: ${data.done} ${data.done === 1 ? 'issue' : 'issues'}`);
+  for (const m of later) lines.push(`${m.name}: ${m.counts.done}/${m.counts.total} done${m.waitsOn?.length ? `, waits on ${m.waitsOn.join(', ')}` : ''}`);
+
+  for (const p of data.plans.filter((p) => p.stalled)) lines.push(`Plan ${p.slug} (${p.stage}) has had no change in over a week.`);
+  if (data.cycle) lines.push(`Loop in blocked-by links: ${data.cycle.join(' → ')}. Remove one link in Linear.`);
+  for (const w of data.wideLinks) lines.push(`${w.epic}'s blocked-by link to ${w.on} makes all ${w.holds} of its open issues wait. Link only the sub-issues that need ${w.on}.`);
+  if (fullHint) lines.push(fullHint);
+  return { message: lines.join('\n'), data: { ...data, ...extra } };
 }
 
 /**
