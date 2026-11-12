@@ -200,3 +200,43 @@ test('FR-05: everything done leaves no focus', () => {
   assert.deepEqual(b.milestones[0].waitsOn, []);
   assert.equal(b.done, 1);
 });
+
+test('FR-05: epics and their issues come out in Linear order even when a child is listed before its epic', () => {
+  const b = build(
+    snapOf([
+      { key: 'E2-a', parent: 'E2' },
+      { key: 'E1-n', parent: 'N' },
+      { key: 'E1-a', parent: 'E1' },
+      { key: 'E1', blockedBy: ['W'] },
+      { key: 'E2', blockedBy: ['W'] },
+      { key: 'N', parent: 'E1' },
+      { key: 'E1-b', parent: 'E1' },
+      { key: 'E1-c', parent: 'E1' },
+      { key: 'E2-b', parent: 'E2' },
+      { key: 'E2-c', parent: 'E2' },
+      { key: 'W' },
+      { key: 'R2', parent: 'RE2' },
+      { key: 'R1', parent: 'RE1' },
+      { key: 'RE1' },
+      { key: 'RE2' },
+    ]),
+  );
+  assert.deepEqual(
+    b.milestones[0].epics.map((e) => e.key),
+    ['E1', 'E2', 'RE1', 'RE2'],
+  );
+  assert.deepEqual(
+    epic(b, 'E1').issues.map((x) => x.key),
+    ['E1-n', 'E1-a', 'E1-b', 'E1-c'],
+    'a nested epic issue keeps its own position',
+  );
+  assert.deepEqual(b.readyEpics, ['RE1', 'RE2']);
+  assert.deepEqual(
+    b.waiting.filter((w) => w.kind === 'epic').map((w) => w.key),
+    ['E1', 'E2'],
+  );
+  assert.deepEqual(
+    b.wideLinks.map((w) => w.epic),
+    ['E1', 'E2'],
+  );
+});

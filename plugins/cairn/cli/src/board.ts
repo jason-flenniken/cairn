@@ -96,16 +96,18 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
     return { ...base, status: blockers.length ? 'blocked' : 'ready' };
   };
 
-  const parents = new Set(snap.issues.map((i) => i.parent).filter((p): p is string => !!p && byKey.has(p)));
+  // Built from the epics' own positions, so every list of epics comes out in Linear order.
+  const childOf = new Set(snap.issues.map((i) => i.parent).filter((p): p is string => !!p && byKey.has(p)));
+  const parents = new Set(snap.issues.filter((i) => childOf.has(i.key)).map((i) => i.key));
   const leaves = snap.issues.filter((i) => !parents.has(i.key)).map(statusOf);
-  const leafOf = new Map(leaves.map((x) => [x.key, x]));
-  const descendants = (k: string): BoardIssue[] => snap.issues.filter((i) => i.parent === k).flatMap((i) => (parents.has(i.key) ? descendants(i.key) : [leafOf.get(i.key)!]));
-  const subtree = (k: string): string[] => [k, ...snap.issues.filter((i) => i.parent === k).flatMap((i) => subtree(i.key))];
   const ancestors = (k: string): string[] => {
     const out: string[] = [];
     for (let p = byKey.get(k)?.parent; p && byKey.has(p) && !out.includes(p) && p !== k; p = byKey.get(p)?.parent) out.push(p);
     return out;
   };
+  // Filtered from the flat lists, so a nested epic's issues keep their Linear positions.
+  const descendants = (k: string): BoardIssue[] => leaves.filter((x) => ancestors(x.key).includes(k));
+  const subtree = (k: string): string[] => [k, ...snap.issues.filter((i) => ancestors(i.key).includes(k)).map((i) => i.key)];
 
   // Who waits on whom: a blocker key (an issue or an epic) to the open issues that wait on it.
   const waitersOf = new Map<string, string[]>();
@@ -217,7 +219,7 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
   });
 
   const wideLinks: BoardData['wideLinks'] = [];
-  for (const p of linearOrder(parents)) {
+  for (const p of parents) {
     const holds = descendants(p).filter((x) => x.status !== 'done').length;
     if (holds < WIDE_LINK_HOLDS) continue;
     for (const on of linearOrder(byKey.get(p)!.blockedBy)) if (on !== p && !isDone(lookup.get(on))) wideLinks.push({ epic: p, on, holds });
