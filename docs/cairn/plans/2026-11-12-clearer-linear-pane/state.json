@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:54:19.160Z",
+  "updated": "2026-11-12T21:56:54.492Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -261,15 +261,18 @@
             "plugins/cairn/hooks/test/inline.test.tsx"
           ],
           "complexity": "standard",
-          "status": "in_progress",
+          "status": "done",
           "fixRound": 0,
           "risky": false,
-          "substep": "implementing",
           "branch": "task/clearer-linear-pane/card-fixes",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--card-fixes",
           "base": "e3f417e8579eb12ef970a1cc38dfe2bdd99b5d18",
           "startedAt": "2026-11-12T21:52:15.522Z",
-          "level": "standard"
+          "level": "standard",
+          "doneAt": "2026-11-12T21:56:54.491Z",
+          "tip": "bf0f208",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "dc1e78704a4869bf2335b00610962c574e53db86"
         },
         {
           "id": "release",
@@ -550,6 +553,21 @@
       "at": "2026-11-12T21:54:19.160Z",
       "event": "task done",
       "detail": "Linear tab by status"
+    },
+    {
+      "at": "2026-11-12T21:55:31.113Z",
+      "event": "task reviewing",
+      "detail": "Card fixes from the earlier pane plan"
+    },
+    {
+      "at": "2026-11-12T21:56:20.522Z",
+      "event": "task merging",
+      "detail": "Card fixes from the earlier pane plan"
+    },
+    {
+      "at": "2026-11-12T21:56:54.492Z",
+      "event": "task done",
+      "detail": "Card fixes from the earlier pane plan"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -767,6 +785,16 @@
       ],
       "from": "task-review",
       "at": "2026-11-12T21:53:37.133Z"
+    },
+    {
+      "id": "s21",
+      "area": "tests",
+      "text": "weak-assertion: the FR-20 tests check each count line is after the buttons but never compare the two offsets; also assert the narrow-card glyph is the first segment (cards.test.tsx)",
+      "where": [
+        "plugins/cairn/hooks/test/inline.test.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:56:20.455Z"
     }
   ],
   "planHash": "59c841c822efeebf",
