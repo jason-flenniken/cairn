@@ -66,7 +66,7 @@ export interface Chain {
 
 /**
  * The longest chain of tasks that must run one after another: `blocked_by` edges, plus phase order (every task in a
- * phase follows the whole earlier phase, unless that phase is marked `overlap`, when only its own blocked_by count).
+ * phase follows every earlier phase back to the last one not marked `overlap`; a phase marked `overlap` counts only its own blocked_by).
  * A task weighs 1, 2 or 3 by complexity. On a tie the chain that ends earliest in the plan wins.
  */
 export function criticalPath(phases: Phase[]): Chain {
@@ -74,7 +74,10 @@ export function criticalPath(phases: Phase[]): Chain {
   const best = new Map<string, { weight: number; prev?: string }>();
   const heaviest = (ids: string[]): string | undefined => ids.reduce<string | undefined>((top, id) => (top === undefined || best.get(id)!.weight > best.get(top)!.weight ? id : top), undefined);
   for (const [i, p] of phases.entries()) {
-    const barrier = i > 0 && !p.overlap ? heaviest(phases[i - 1].tasks.map((t) => t.id)) : undefined;
+    // A phase that is not `overlap` follows every phase back to and including the last one that is not `overlap`.
+    let from = i - 1;
+    while (from > 0 && phases[from].overlap) from--;
+    const barrier = i > 0 && !p.overlap ? heaviest(phases.slice(from, i).flatMap((q) => q.tasks.map((t) => t.id))) : undefined;
     for (const t of p.tasks) {
       const prev = heaviest([...(barrier ? [barrier] : []), ...t.blockedBy.filter((b) => best.has(b))]);
       best.set(t.id, { weight: WEIGHT[t.complexity] + (prev ? best.get(prev)!.weight : 0), prev });

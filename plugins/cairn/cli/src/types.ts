@@ -181,8 +181,12 @@ export interface State {
   reapprove?: { at: string; why: string };
   /** Merges of the base that `cairn merge-check` made itself, cleanly: commits it can vouch for after the approval. */
   baseMerges?: string[];
-  /** Set by `cairn new --after`: the plan whose branch this one started on. `cairn restack` clears it once that plan has merged. */
-  stackedOn?: { slug: string; branch: string };
+  /**
+   * Set by `cairn new --after`: the plan whose branch this one started on. `cairn next` (restack) clears it once that
+   * plan has merged. `tip` is that branch's head when last merged in: a deleted base branch counts as merged only when
+   * the tip is in the main branch (or its pull request merged).
+   */
+  stackedOn?: { slug: string; branch: string; tip?: string };
   /** The last head `cairn merge-check` saw the tests pass on. Only plan-folder commits since it skip the tests. */
   mergeChecked?: string;
   planHash?: string;

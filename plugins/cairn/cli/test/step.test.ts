@@ -170,3 +170,14 @@ test('status --all --json sets needsUser while a plan is asking or at its approv
   run(['step', 'approving'], q.wt);
   assert.equal(qRow().needsUser, true);
 });
+
+test('a PRD with step asking is not ready: approval waits until the question is answered', () => {
+  const p = plan('prd');
+  writeFileSync(join(p.dir, 'prd.md'), '## Problem\np\n## Solution\ns\n## Requirements\n- **FR-01** a\n## Non-goals\n- n\n## Open questions\n- [x] which way? (this way)\n');
+  assert.equal((run(['status'], p.wt).data as { ready?: { kind: string } }).ready?.kind, 'prd');
+  run(['step', 'asking'], p.wt);
+  assert.equal((run(['status'], p.wt).data as { ready?: unknown }).ready, undefined);
+  run(['step', 'checking'], p.wt);
+  run(['step', 'clear'], p.wt);
+  assert.equal((run(['status'], p.wt).data as { ready?: { kind: string } }).ready?.kind, 'prd');
+});

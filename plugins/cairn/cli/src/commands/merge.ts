@@ -6,7 +6,8 @@ import { loadState, log } from '../state.ts';
 import { mutate, planCtx, runTests, type Opts, type Result } from '../shared.ts';
 import { now, pluginRoot, readText, Refusal } from '../util.ts';
 import { refreshMemory } from './memory.ts';
-import { merged as planMerged } from './linear.ts';
+import { stackLanded } from './linear.ts';
+import { allTasks } from '../ready.ts';
 import { stackBase } from './status.ts';
 import type { PlanCtx } from '../shared.ts';
 
@@ -84,8 +85,8 @@ export function restack(pc: PlanCtx): string | undefined {
   if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.map((l) => l.slice(3)).join(', ')}`, ['commit or remove them, then run cairn next again']);
 
   const row = stackBase(pc.ctx, st.slug);
-  // A base plan whose branch is gone was merged and deleted.
-  const landed = row ? planMerged(pc.ctx, row.state) : !branchExists(st.branch, wt) && !gitOk(['show-ref', '--verify', '--quiet', `refs/remotes/origin/${st.branch}`], wt);
+  // A base branch that is gone does not mean it merged: it counts only when its recorded tip is in main or its PR merged.
+  const landed = stackLanded(pc.ctx, st, row, wt);
   const hasOrigin = gitOk(['remote', 'get-url', 'origin'], wt);
   let target = '';
   let ref: string;
@@ -99,12 +100,19 @@ export function restack(pc: PlanCtx): string | undefined {
     } else ref = target;
   } else if (branchExists(st.branch, wt)) ref = st.branch;
   else if (hasOrigin && gitOk(['show-ref', '--verify', '--quiet', `refs/remotes/origin/${st.branch}`], wt)) ref = `origin/${st.branch}`;
-  else return undefined;
+  else
+    throw new Refusal(`plan ${st.slug}, which this plan is stacked on, has no branch (${st.branch}) and its work is not in the main branch, so it was deleted unmerged or abandoned. This plan would carry its unreviewed commits`, [
+      `restore ${st.branch}, or merge plan ${st.slug}, then run cairn next again`,
+      'or ask the user how to proceed',
+    ]);
 
+  const baseSha = git(['rev-parse', ref], wt);
+  const running = allTasks(s0).some((t) => t.status === 'in_progress');
   let mergedSha: string | undefined;
   let behind = 0;
   if (!gitOk(['merge-base', '--is-ancestor', ref, 'HEAD'], wt)) {
     behind = Number(git(['rev-list', '--count', `HEAD..${ref}`], wt));
+    if (running) return landed ? `plan ${st.slug} merged; this plan moves onto ${target} once the running tasks finish` : `the base plan ${st.slug} moved; it merges in once the running tasks finish`;
     const m = mergeBase(pc, ref, `Merge ${landed ? target : st.branch} into ${s0.branch}`);
     if (!m.ok)
       throw new Refusal(
@@ -112,15 +120,22 @@ export function restack(pc: PlanCtx): string | undefined {
         [`merge ${ref} into ${s0.branch} in the plan worktree, resolve the conflicts, and run the tests`, 'then run cairn next again'],
       );
     mergedSha = git(['rev-parse', 'HEAD'], wt);
+  } else if (landed && running) return `plan ${st.slug} merged; this plan moves onto ${target} once the running tasks finish`;
+  if (!landed && !mergedSha) {
+    // Nothing to merge, but the base may have advanced to a commit this plan already has: keep the recorded tip current.
+    if (st.tip !== baseSha) mutate(pc, undefined, (s) => void (s.stackedOn = { ...st, tip: baseSha }));
+    return undefined;
   }
-  if (!landed && !mergedSha) return undefined;
   mutate(pc, landed ? `moved onto ${target} after ${st.slug} merged` : `merged ${st.slug} into the plan`, (s) => {
     if (mergedSha) (s.baseMerges ??= []).push(mergedSha);
     if (landed) {
       s.base = target;
       delete s.stackedOn;
       log(s, 'restacked', `moved onto ${target} after ${st.slug} merged`);
-    } else log(s, 'restacked', `merged ${behind} new commit${behind === 1 ? '' : 's'} from ${st.slug}`);
+    } else {
+      s.stackedOn = { ...st, tip: baseSha };
+      log(s, 'restacked', `merged ${behind} new commit${behind === 1 ? '' : 's'} from ${st.slug}`);
+    }
   });
   return landed ? `moved onto ${target} after ${st.slug} merged` : `merged ${behind} new commit${behind === 1 ? '' : 's'} from ${st.slug}`;
 }
@@ -134,12 +149,13 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
   const pc = planCtx(ctx);
   const wt = pc.plan.worktree;
   const rel = planRelOf(pc.plan);
+  const s00 = loadState(pc.plan.dir);
+  if (!['ship', 'learn', 'closed'].includes(s00.stage)) throw new Refusal(`merge-check runs after the ship approval; the plan is in ${s00.stage}`);
+  if (s00.reapprove) throw new Refusal(`the ship needs approving again: ${s00.reapprove.why}`, reapproveFixes(s00.slug, wt));
+  if (!s00.approvals.ship) throw new Refusal('shipping is not approved', ['cairn approve ship']);
   // A stacked plan moves onto main first, so the checks below see its real base.
-  const restacked = loadState(pc.plan.dir).stackedOn ? restack(pc) : undefined;
+  const restacked = s00.stackedOn ? restack(pc) : undefined;
   const s0 = loadState(pc.plan.dir);
-  if (!['ship', 'learn', 'closed'].includes(s0.stage)) throw new Refusal(`merge-check runs after the ship approval; the plan is in ${s0.stage}`);
-  if (s0.reapprove) throw new Refusal(`the ship needs approving again: ${s0.reapprove.why}`, reapproveFixes(s0.slug, wt));
-  if (!s0.approvals.ship) throw new Refusal('shipping is not approved', ['cairn approve ship']);
   if (!safeRef(wt, s0.base)) throw new Refusal(`the plan's base "${s0.base}" is not a valid branch name`);
   if (currentBranch(wt) !== s0.branch) throw new Refusal(`the plan worktree is on ${currentBranch(wt)}, not the plan branch ${s0.branch}`);
   const dirty = git(['status', '--porcelain'], wt).split('\n').filter((l) => l && !l.slice(3).startsWith(`${rel}/`));
@@ -156,7 +172,7 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
   } else notes.push(`No origin remote: checked against the local ${s0.base}.`);
   if (gitOk(['merge-base', '--is-ancestor', 'HEAD', baseRef], wt)) throw new Refusal(`${s0.branch} is already in ${baseRef}: the pull request has been merged`);
 
-  const approved = s0.approvals.ship.sha;
+  const approved = s0.approvals.ship?.sha;
   if (approved) {
     const reasons = changesSince(wt, approved, rel, s0.baseMerges ?? []);
     if (reasons.length) {

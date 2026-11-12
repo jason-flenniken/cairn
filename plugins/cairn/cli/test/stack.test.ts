@@ -79,7 +79,7 @@ test('new --after a built plan starts on its branch and records stackedOn; ship 
   const appWt = r.data!.worktree as string;
   assert.match(r.message, /stacked on plan lib/);
   const s = stateOf(appWt, 'app');
-  assert.deepEqual(s.stackedOn, { slug: 'lib', branch: 'feature/lib' });
+  assert.deepEqual(s.stackedOn, { slug: 'lib', branch: 'feature/lib', tip: g(baseWt, 'rev-parse', 'HEAD') });
   assert.equal(s.base, 'feature/lib');
   assert.equal(existsSync(join(appWt, 'lib.txt')), true, 'the new plan starts with the base plan\'s code');
   assert.match(run(['status'], appWt).message, /Stacked on lib/);
@@ -149,7 +149,7 @@ test('a restack conflict comes back as the text of next, names the files, aborts
   assert.match(out.message, /conflict/);
   assert.match(out.message, /conflict\.txt/);
   assert.equal(g(appWt, 'status', '--porcelain'), '', 'the merge was aborted');
-  assert.deepEqual(stateOf(appWt, 'edge').stackedOn, { slug: 'core', branch: 'feature/core' });
+  assert.equal(stateOf(appWt, 'edge').stackedOn.slug, 'core');
   assert.equal(stateOf(appWt, 'edge').base, 'feature/core');
 });
 
@@ -162,4 +162,115 @@ test('restack refuses a dirty worktree', () => {
   const out = run(['next'], appWt);
   assert.match(out.message, /uncommitted changes: loose\.txt/);
   assert.equal(existsSync(join(appWt, 'd2.txt')), false, 'nothing merged');
+});
+
+/** Put a plan in ship with a passing review and a record, ready for `approve ship`. */
+function readyToShip(wt: string, slug: string) {
+  edit(wt, slug, (x) => {
+    x.stage = 'ship';
+    x.evidence.review = { result: 'pass', at: new Date().toISOString(), blocking: 0 };
+  });
+  copyFileSync(join(import.meta.dirname, '../../templates/record.md'), join(pd(wt, slug), 'RECORD.md'));
+  commitAll(wt, `${slug}: record`);
+}
+const dropBranch = (wt: string, branch: string) => {
+  g(repo, 'worktree', 'remove', '--force', wt);
+  g(repo, 'branch', '-D', branch);
+};
+
+test('new --after records the base tip, and refuses --track fix', () => {
+  const baseWt = built('tip-base', { 'tb.txt': 'x\n' });
+  refused(repo, /fix plan cannot start after another plan/, 'new', 'tip-fix', '--track', 'fix', '--after', 'tip-base');
+  const appWt = run(['new', 'tip-app', '--title', 'tip-app', '--after', 'tip-base'], repo).data!.worktree as string;
+  assert.equal(stateOf(appWt, 'tip-app').stackedOn.tip, g(baseWt, 'rev-parse', 'HEAD'));
+  writeFileSync(join(baseWt, 'tb2.txt'), 'y\n');
+  commitAll(baseWt, 'tip-base: more');
+  run(['next'], appWt);
+  assert.equal(stateOf(appWt, 'tip-app').stackedOn.tip, g(baseWt, 'rev-parse', 'HEAD'), 'the tip follows each merge of the base');
+});
+
+test('a base branch deleted unmerged is refused, not treated as merged: the plan stays stacked and cannot ship', () => {
+  const baseWt = built('gone-base', { 'gone.txt': 'abandoned\n' });
+  const appWt = run(['new', 'gone-app', '--title', 'gone-app', '--after', 'gone-base'], repo).data!.worktree as string;
+  readyToShip(appWt, 'gone-app');
+  dropBranch(baseWt, 'feature/gone-base');
+  const out = run(['next'], appWt);
+  assert.match(out.message, /has no branch \(feature\/gone-base\)/);
+  assert.match(out.message, /restore feature\/gone-base, or merge plan gone-base/);
+  const s = stateOf(appWt, 'gone-app');
+  assert.equal(s.base, 'feature/gone-base', 'not moved onto main');
+  assert.equal(s.stackedOn.slug, 'gone-base');
+  asUser(() => refused(appWt, /stacked on plan gone-base, whose branch cannot be read/, 'approve', 'ship'));
+});
+
+test('a base merged into main and then deleted moves the plan onto main', () => {
+  const baseWt = built('del-base', { 'del.txt': 'del\n' });
+  const appWt = run(['new', 'del-app', '--title', 'del-app', '--after', 'del-base'], repo).data!.worktree as string;
+  readyToShip(appWt, 'del-app');
+  g(repo, 'merge', '--no-ff', '-q', '-m', 'Merge feature/del-base', 'feature/del-base');
+  dropBranch(baseWt, 'feature/del-base');
+  assert.match(run(['next'], appWt).message, /moved onto main after del-base merged/);
+  const s = stateOf(appWt, 'del-app');
+  assert.equal(s.base, 'main');
+  assert.equal(s.stackedOn, undefined);
+  asUser(() => run(['approve', 'ship'], appWt));
+});
+
+test('a base kept only on the remote is followed while unmerged, blocks shipping, and counts once its tip is in origin/main', () => {
+  const remote = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-stack-origin-')));
+  g(remote, 'init', '-q', '--bare', '-b', 'main');
+  g(repo, 'remote', 'add', 'origin', remote);
+  try {
+    g(repo, 'push', '-q', 'origin', 'main');
+    const baseWt = built('rem-base', { 'rem.txt': 'rem\n' });
+    const appWt = run(['new', 'rem-app', '--title', 'rem-app', '--after', 'rem-base'], repo).data!.worktree as string;
+    readyToShip(appWt, 'rem-app');
+    g(baseWt, 'push', '-q', 'origin', 'feature/rem-base');
+    dropBranch(baseWt, 'feature/rem-base');
+    // Unmerged: nothing to move onto, and shipping waits.
+    assert.doesNotMatch(run(['next'], appWt).message, /moved onto/);
+    assert.equal(stateOf(appWt, 'rem-app').stackedOn.slug, 'rem-base');
+    asUser(() => refused(appWt, /stacked on plan rem-base/, 'approve', 'ship'));
+    // The base lands on origin/main and its branch is deleted everywhere.
+    g(repo, 'fetch', '-q', 'origin');
+    g(repo, 'merge', '--no-ff', '-q', '-m', 'Merge rem-base', 'origin/feature/rem-base');
+    g(repo, 'push', '-q', 'origin', 'main');
+    g(repo, 'push', '-q', 'origin', '--delete', 'feature/rem-base');
+    g(repo, 'remote', 'prune', 'origin');
+    assert.match(run(['next'], appWt).message, /moved onto main after rem-base merged/);
+    assert.equal(stateOf(appWt, 'rem-app').stackedOn, undefined);
+  } finally {
+    g(repo, 'remote', 'remove', 'origin');
+    rmSync(remote, { recursive: true, force: true });
+  }
+});
+
+test('restack waits while a task is running, and says so', () => {
+  const baseWt = built('run-base', { 'run.txt': 'run\n' });
+  const appWt = run(['new', 'run-app', '--title', 'run-app', '--after', 'run-base'], repo).data!.worktree as string;
+  edit(appWt, 'run-app', (s) => {
+    s.stage = 'execute';
+    s.phases = [{ id: 'p', name: 'p', status: 'in_progress', tasks: [{ id: 't', name: 't', covers: [], blockedBy: [], scope: ['src/**'], complexity: 'standard', status: 'in_progress', fixRound: 0, risky: false }] }];
+  });
+  commitAll(appWt, 'run-app: building');
+  writeFileSync(join(baseWt, 'run2.txt'), 'more\n');
+  commitAll(baseWt, 'run-base: more');
+  const out = run(['next'], appWt);
+  assert.match(out.message, /the base plan run-base moved; it merges in once the running tasks finish/);
+  assert.equal(existsSync(join(appWt, 'run2.txt')), false, 'nothing merged mid-build');
+  edit(appWt, 'run-app', (s) => {
+    s.phases[0].tasks[0].status = 'done';
+    s.phases[0].status = 'done';
+  });
+  commitAll(appWt, 'run-app: built');
+  assert.match(run(['next'], appWt).message, /merged 1 new commit from run-base/);
+});
+
+test('merge-check checks the stage and the approval before it restacks', () => {
+  const baseWt = built('ord-base', { 'ord.txt': 'ord\n' });
+  const appWt = run(['new', 'ord-app', '--title', 'ord-app', '--after', 'ord-base'], repo).data!.worktree as string;
+  writeFileSync(join(baseWt, 'ord2.txt'), 'more\n');
+  commitAll(baseWt, 'ord-base: more');
+  refused(appWt, /runs after the ship approval; the plan is in discover/, 'merge-check');
+  assert.equal(existsSync(join(appWt, 'ord2.txt')), false, 'nothing was merged before the refusal');
 });

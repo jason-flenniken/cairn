@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildBoard, ownerOf, type BoardIssue } from '../board.ts';
 import { loadConfig } from '../config.ts';
-import { branchExists, commonDir, landedState } from '../git.ts';
+import { commonDir, gitOk, gitTry, landedState, prMerged, safeRef } from '../git.ts';
 import {
   effectiveBlockers,
   emptyLink,
@@ -719,9 +719,26 @@ export function crossPlanBlockers(ctx: Ctx, s: State): string[] {
 /** A plan started with `--after` ships only once the plan it stacked on has merged: until then its branch carries that plan's work. */
 function stackedOnBlocker(ctx: Ctx, s: State): string[] {
   if (!s.stackedOn) return [];
-  const base = stackBase(ctx, s.stackedOn.slug);
-  if (!base) return branchExists(s.stackedOn.branch, ctx.top) ? [`it is stacked on plan ${s.stackedOn.slug}, which cannot be read, so it is not known to have merged`] : [];
-  return merged(ctx, base.state) ? [] : [`it is stacked on plan ${base.state.slug}, which has not merged yet (it is in ${base.state.stage})`];
+  const row = stackBase(ctx, s.stackedOn.slug);
+  if (stackLanded(ctx, s.stackedOn, row, ctx.top)) return [];
+  return [row ? `it is stacked on plan ${row.state.slug}, which has not merged yet (it is in ${row.state.stage})` : `it is stacked on plan ${s.stackedOn.slug}, whose branch cannot be read and whose work is not on the main branch, so it is not known to have merged`];
+}
+
+/**
+ * Whether the plan a stacked plan sits on has landed. Its plan row says so when it can be read. Otherwise (branch
+ * deleted, or kept on the remote only) the base tip recorded in `stackedOn` must be in the main branch, or the base's
+ * pull request must show as merged. A base branch that is merely gone never counts: it may have been abandoned.
+ * Reads the refs as they are (no fetch), so a stale main only delays the answer.
+ */
+export function stackLanded(ctx: Ctx, st: NonNullable<State['stackedOn']>, row: ReturnType<typeof stackBase>, cwd: string): boolean {
+  if (row && merged(ctx, row.state)) return true;
+  const target = row?.state.base ?? ctx.worktrees[0]?.branch ?? 'main';
+  if (st.tip && safeRef(cwd, target)) {
+    const inTarget = (sha: string) => [target, `origin/${target}`].some((r) => gitOk(['rev-parse', '--verify', '--quiet', `${r}^{commit}`], cwd) && gitOk(['merge-base', '--is-ancestor', sha, r], cwd));
+    const heads = [st.branch, `origin/${st.branch}`].map((r) => gitTry(['rev-parse', '--verify', '--quiet', `${r}^{commit}`], cwd)).filter((r) => r.ok).map((r) => r.out.trim());
+    if (inTarget(st.tip) && heads.every(inTarget)) return true;
+  }
+  return prMerged(cwd, st.branch, join(commonDir(ctx.mainRoot), PR_CACHE));
 }
 
 /** Whether another plan's branch has landed in its base. Its state came from another branch, so its refs are checked first (`mergeState` does). */

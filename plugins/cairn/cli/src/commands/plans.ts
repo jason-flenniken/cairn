@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CONFIG_REL, loadConfig, worktreeRoot } from '../config.ts';
-import { commitPath, git, gitOk } from '../git.ts';
+import { commitPath, git, gitOk, gitTry } from '../git.ts';
 import { DOCS_DIR } from '../paths.ts';
 import { PLANS_DIR, planBranch, planBranchesFor, planDirName, worktreeName, type Ctx } from '../locate.ts';
 import { log, newState, saveState } from '../state.ts';
@@ -9,7 +9,7 @@ import { isLevel, LEVELS, type Level } from '../types.ts';
 import { CliError, now, pluginVersion, readText, Refusal, SLUG, writeText } from '../util.ts';
 import { removed } from './memory.ts';
 import { stackBase } from './status.ts';
-import { allTasks } from '../ready.ts';
+import { planBuilt } from '../board.ts';
 import { ensureExcluded, planCtx, planFile, runSetup, template, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
@@ -20,17 +20,18 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   if (existing) throw new Refusal(`a plan named "${slug}" already exists (${existing})`, [`cairn resume ${slug}`, 'or pick another slug']);
   if (!gitOk(['rev-parse', '--verify', 'HEAD'], ctx.top)) throw new Refusal('the repository has no commits yet', ['make an initial commit first']);
   const mainBranch = ctx.worktrees[0]?.branch ?? ctx.branch;
-  let stackedOn: { slug: string; branch: string } | undefined;
+  let stackedOn: { slug: string; branch: string; tip?: string } | undefined;
   if (opts.after !== undefined) {
+    if (track === 'fix') throw new Refusal('a fix plan cannot start after another plan', ['leave out --after', 'or start a feature plan: leave out --track fix']);
     if (typeof opts.after !== 'string' || !opts.after) throw new CliError('usage: cairn new <slug> --after <plan slug>');
     const row = stackBase(ctx, opts.after);
     if (!row) throw new Refusal(`there is no plan named "${opts.after}" to start after`, ['cairn status --all lists the plans']);
     const b = row.state;
     if (b.stage === 'closed') throw new Refusal(`plan ${b.slug} is closed`, ['start from main instead: leave out --after']);
-    const built = ['verify', 'review', 'ship', 'learn'].includes(b.stage) || (allTasks(b).length > 0 && allTasks(b).every((t) => t.status === 'done'));
-    if (!built) throw new Refusal(`plan ${b.slug} has not finished building yet (it is in ${b.stage})`, ['wait until its tasks are done, then run this again', 'or start from main: leave out --after']);
+    if (!planBuilt(b)) throw new Refusal(`plan ${b.slug} has not finished building yet (it is in ${b.stage})`, ['wait until its tasks are done, then run this again', 'or start from main: leave out --after']);
     if (typeof opts.from === 'string' && opts.from !== b.branch) throw new Refusal(`--from ${opts.from} and --after ${b.slug} name different branches`, [`use --after ${b.slug} alone (it starts on ${b.branch})`, 'or use --from alone']);
-    stackedOn = { slug: b.slug, branch: b.branch };
+    const tip = gitTry(['rev-parse', '--verify', `refs/heads/${b.branch}`], ctx.top);
+    stackedOn = { slug: b.slug, branch: b.branch, ...(tip.ok ? { tip: tip.out } : {}) };
   }
   const base = stackedOn ? stackedOn.branch : typeof opts.from === 'string' ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === 'string' ? opts.title : slug;

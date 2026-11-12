@@ -344,7 +344,7 @@ A blocked-by link set on an epic makes every one of its sub-issues wait. When su
 
 ### Several plans at once
 
-When the work you want next is blocked only by work another open plan has built (or has in review), `/cairn:board` lists it under "Can start alongside". `/cairn:new --from-linear <KEY>` then offers to start the new plan on that plan's branch (`cairn new <slug> --after <plan>`), so you don't wait for the merge. The new plan shows `Stacked on <plan>`. Each time you run `/cairn:next`, it merges in whatever the other plan added. It cannot ship before that plan has merged. Once it has, `cairn next` (or `cairn merge-check`) merges main in and moves the plan onto main; a conflict stops it with the files named.
+When the work you want next is blocked only by work another open plan has built (it is in verify or later, or every task is done) and has in review, `/cairn:board` lists it under "Can start alongside". `/cairn:new --from-linear <KEY>` then offers to start the new plan on that plan's branch (`cairn new <slug> --after <plan>`), so you don't wait for the merge. The new plan shows `Stacked on <plan>`. Each time you run `/cairn:next`, it merges in whatever the other plan added. It cannot ship before that plan has merged. Once it has, `cairn next` (or `cairn merge-check`) merges main in and moves the plan onto main; a conflict stops it with the files named.
 
 ## Configuration
 
@@ -371,7 +371,7 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 | `test` | The full test command. It runs before each task is marked done, and again at Check and close. |
 | `build` | The build command, run at Check. |
 | `start`, `seed`, `appTypes` | How to run the app, seed its data, and what kind of app it is (`web`, `expo`, `api`). These are recorded for checks that drive the running app; the lean defaults don't use them yet. |
-| `maxParallel` | How many tasks run at once (default 3). |
+| `maxParallel` | How many tasks run at once (default 3). A task in review does not count, and a fix round after review is never held back, so the cap can briefly be exceeded by the tasks returning from review. |
 | `defaultLevel` | The level `/cairn:new` picks first: `mvp`, `standard` or `polished` (default standard). |
 | `resumeFreshAfterMinutes` | How long a pause counts as recent before resume suggests a fresh session (default 60). |
 | `fixMaxFiles` | How many files a bug fix may touch before cairn suggests a full plan (default 8). |

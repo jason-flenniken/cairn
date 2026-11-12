@@ -4,7 +4,7 @@ Write the completion record, get the user's go, open the pull request.
 
 Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLUGIN_ROOT}/templates/record.md`). Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
-**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, put the step back: `cd <plan worktree> && cairn step <recording or opening-pr, whichever you were on>`.
+**Questions that block the plan.** Until the plan closes, before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, put the step back: `cd <plan worktree> && cairn step <recording or opening-pr, whichever you were on>`. The questions in the Merge section come after the close, where no step exists: do not run `cairn step` there.
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 

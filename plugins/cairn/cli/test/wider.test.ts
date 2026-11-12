@@ -200,3 +200,12 @@ test('an overlap task starts while the earlier phase is open, and its phase fini
   assert.equal(after.phases[0].status, 'in_progress');
   assert.throws(() => ok(wt, 'task', 'start', 'late'), /waiting on slow/);
 });
+
+test('criticalPath: a phase that is not overlap follows every phase back to the last non-overlap one', () => {
+  const c = criticalPath([
+    phase('p0', [task('a'), task('b', ['a']), task('c', ['b'])].map((t) => ({ ...t, complexity: 'complex' as Complexity }))),
+    phase('p1', [task('o', [], { complexity: 'simple' })], { overlap: true }),
+    phase('p2', [task('z', [], { complexity: 'simple' })]),
+  ]);
+  assert.deepEqual(c.tasks, ['a', 'b', 'c', 'z']);
+});
