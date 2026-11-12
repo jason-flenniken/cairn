@@ -61,6 +61,11 @@ function prdProblems(md: string | undefined): string[] {
   return problems;
 }
 
+/** Everything `approve prd` would refuse over, Linear tags included. Empty when the PRD can be approved. */
+export function prdApprovalProblems(s: State, md: string | undefined): string[] {
+  return [...prdProblems(md), ...(s.linear && md ? prdLinearProblems(s.linear, md) : [])];
+}
+
 export interface Ready {
   kind: 'prd' | 'plan' | 'ship';
   file: string;
@@ -114,8 +119,7 @@ export function readyFor(pc: { plan: { dir: string }; cfg?: Config }): Ready | u
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return undefined;
     if (s.stage === 'prd' && !s.approvals.prd) {
       const md = readText(file('prd.md'));
-      const linearOk = !s.linear || !md || !prdLinearProblems(s.linear, md).length;
-      return md && !prdProblems(md).length && linearOk ? { kind: 'prd', file: file('prd.md'), summary: prdSummary(md) } : undefined;
+      return md && !prdApprovalProblems(s, md).length ?{ kind: 'prd', file: file('prd.md'), summary: prdSummary(md) } : undefined;
     }
     if (s.stage === 'plan' && !s.approvals.plan) {
       const md = readText(file('plan.md'));

@@ -14,6 +14,7 @@ import {
   issueOrderProblems,
   issueProgress,
   issueRequirements,
+  notTakenReason,
   isFoundational,
   issueFile,
   linearConfig,
@@ -55,6 +56,9 @@ test('linear prd rules: tags, not-taken reasons, parents, outside blockers, cycl
   const prd = (reqs: string, extra = '') => `## Requirements\n${reqs}\n## Unhappy paths\n- [FR-01] x\n${extra}`;
   const tags = issueRequirements(prd('- **FR-01** a [SAV-11]. Check: x\n- **FR-02** b [SAV-12, SAV-11]. Check: y\n- **FR-03** c [FR-01]'), ['SAV-11', 'SAV-12']);
   assert.deepEqual(Object.fromEntries(tags), { 'SAV-11': ['FR-01', 'FR-02'], 'SAV-12': ['FR-02'] });
+  // A multi-line requirement tagged only on its closing Check line; an FR named inside it is a reference.
+  const multi = prd('### Docs\n- **FR-11** a template.\n\n  It starts with:\n  - the commands from FR-04;\n\n  Check: each exists. [SAV-11]\n- **FR-12** b. [SAV-12]\n\nLoose paragraph [SAV-13]\n### Next\n- **FR-13** c');
+  assert.deepEqual(Object.fromEntries(issueRequirements(multi, ['SAV-11', 'SAV-12', 'SAV-13'])), { 'SAV-11': ['FR-11'], 'SAV-12': ['FR-12'] });
 
   const p1 = prdLinearProblems(l, prd('- **FR-01** a [SAV-11]'));
   assert.match(p1[0], /SAV-12, SAV-13/);
@@ -65,6 +69,14 @@ test('linear prd rules: tags, not-taken reasons, parents, outside blockers, cycl
   const full = prd('- **FR-01** a [SAV-11]\n- **FR-02** b [SAV-12]', '## Issues not taken\n- SAV-13: later plan\n## Outside blockers\n- SAV-90: go ahead, stubbed\n');
   assert.deepEqual(prdLinearProblems(l, full), []);
   assert.ok(prdLinearProblems(l, full.replace('- SAV-13: later plan', '- SAV-11: later plan\n- SAV-13: later plan')).some((x) => /SAV-11 is both on a requirement and under ## Issues not taken/.test(x)));
+  // Only a list item that starts with the key counts: prose naming a key neither releases it nor decides a blocker.
+  const prose = prd('- **FR-01** a [SAV-11]\n- **FR-02** b [SAV-12]\n- **FR-03** c [SAV-13]', '## Issues not taken\nNone. All sub-issues of SAV-10 and SAV-11 are in this plan.\n## Outside blockers\nNone open; SAV-90 is not a problem.\n');
+  assert.equal(notTakenReason(prose, 'SAV-10'), undefined);
+  assert.equal(notTakenReason(prose, 'SAV-11'), undefined);
+  const pp = prdLinearProblems(l, prose);
+  assert.ok(!pp.some((x) => /both on a requirement|without a reason/.test(x)), pp.join(' | '));
+  assert.ok(pp.some((x) => /SAV-90 \(blocks SAV-12\)/.test(x)), 'a blocker named in prose is not decided');
+  assert.equal(notTakenReason(prd('', '## Issues not taken\n- **SAV-13** — later plan\n'), 'SAV-13'), 'later plan');
   // A blocker on the parent reaches every sub-issue.
   const viaParent = link([issue('SAV-10', { blockedBy: ['SAV-91'] }), issue('SAV-11', { parent: 'SAV-10' })], [issue('SAV-91')]);
   assert.deepEqual(effectiveBlockers(viaParent.issues[1], new Map([...viaParent.issues, ...viaParent.known].map((i) => [i.key, i]))), ['SAV-91']);
@@ -211,6 +223,40 @@ function build(wt: string, slug: string, id: string, file: string) {
   g(wt, 'merge', '-q', '--no-ff', '-m', `merge task ${id}`, `task/${slug}/${id}`);
   ok(wt, 'task', 'done', id);
 }
+
+test('linear take: puts a released issue back, fixing the comment it left behind', () => {
+  const wt = ok(repo, 'new', 'take-back', '--title', 'Take back').data!.worktree as string;
+  const dir = pd(wt, 'take-back');
+  const state = (): State => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
+  const comments = (k: string) => state().linear!.outbox.filter((w) => w.target === k && w.kind === 'comment');
+  run(['linear', 'import'], wt, JSON.stringify(EPIC));
+  ok(wt, 'decide', 'Scope?', 'The whole epic');
+  ok(wt, 'advance');
+  write(join(dir, 'prd.md'), PRD_FULL);
+  byUser(wt, 'approve', 'prd');
+  sync(wt);
+
+  // Released at PRD approval, and its comment already sent: the PRD line has to go first, then a correction is queued.
+  assert.ok(state().linear!.issues.find((i) => i.key === 'SAV-104')!.released);
+  assert.throws(() => ok(wt, 'linear', 'take', 'SAV-104'), (e: unknown) => e instanceof CliError && /needs --reason/.test(e.message));
+  refused(wt, /prd\.md still lists SAV-104 under ## Issues not taken/, 'linear', 'take', 'SAV-104', '--reason', 'in scope after all');
+  write(join(dir, 'prd.md'), PRD_FULL.replace('- SAV-104: later plan, wallets need a vendor first\n', ''));
+  assert.match(ok(wt, 'linear', 'take', 'SAV-104', '--reason', 'in scope after all').message, /back in the plan\. Next: add requirements tagged \[SAV-104\]/);
+  assert.equal(state().linear!.issues.find((i) => i.key === 'SAV-104')!.released, undefined);
+  assert.match(comments('SAV-104').find((w) => !w.sentAt)!.payload.body as string, /Back in cairn plan "Take back".*in scope after all/);
+  assert.match(ok(wt, 'linear', 'take', 'SAV-104', '--reason', 'again').message, /already in the plan/);
+  refused(wt, /SAV-999 is not one of this plan's issues/, 'linear', 'take', 'SAV-999', '--reason', 'x');
+  sync(wt);
+
+  // Released and taken back before the comment went out: the comment is dropped, nothing new is queued.
+  ok(wt, 'linear', 'release', 'SAV-101', '--reason', 'oops');
+  assert.match(ok(wt, 'linear', 'take', 'SAV-101', '--reason', 'released by mistake').message, /^SAV-101 is back in the plan\.$/);
+  assert.ok(comments('SAV-101').filter((w) => !w.sentAt).every((w) => w.dropped), 'the unsent "released" comment is dropped');
+
+  // The other tests share this repo: remove the plan so its issues don't count as held by another plan.
+  g(repo, 'worktree', 'remove', '--force', wt);
+  g(repo, 'branch', '-D', 'feature/take-back');
+});
 
 test('linear: an epic from import to merged, with every check and queued write', () => {
   const wt = ok(repo, 'new', 'checkout', '--title', 'Checkout').data!.worktree as string;

@@ -43,7 +43,7 @@ import { listPlans } from './status.ts';
 
 const USAGE = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "…" | hold <id> --note "…" | depends <KEY> --on <KEY> --reason "…" | ack <change> --as taken|later|noted [--note "…"]
-  | release <KEY> --reason "…" | board [--project "<name>"] [--json]`;
+  | release <KEY> --reason "…" | take <KEY> --reason "…" | board [--project "<name>"] [--json]`;
 
 const NO_CONFIG = (where: string) =>
   new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
@@ -80,6 +80,8 @@ export function cmdLinear(ctx: Ctx, sub: string | undefined, arg: string | undef
       return ack(ctx, arg, opts);
     case 'release':
       return release(ctx, arg, opts);
+    case 'take':
+      return take(ctx, arg, opts);
     case 'board':
       return board(ctx, opts);
     default:
@@ -472,6 +474,32 @@ function release(ctx: Ctx, keyArg: string | undefined, opts: Opts): Result {
     log(s, 'Linear issue released', `${k}: ${reason}`);
     const tagged = i.requirements?.length ? ` Its requirements (${i.requirements.join(', ')}) are still in the PRD: move them under ## Non-goals or drop them, then re-plan.` : '';
     return { message: `Released ${k}: ${reason}.${tagged}` };
+  });
+}
+
+/** Undo a release: put an issue that was taken out of the plan back in. */
+function take(ctx: Ctx, keyArg: string | undefined, opts: Opts): Result {
+  const k = needKey(keyArg, 'the issue');
+  if (typeof opts.reason !== 'string' || !opts.reason.trim()) throw new CliError('cairn linear take needs --reason "…"');
+  const reason = opts.reason.trim();
+  const pc = planCtx(ctx);
+  const prdMd = readText(join(pc.plan.dir, 'prd.md'));
+  return mutate(pc, `Linear: took back ${k}`, (s) => {
+    const l = linkOf(s);
+    const i = l.issues.find((x) => x.key === k);
+    if (!i) throw new Refusal(`${k} is not one of this plan's issues`, ['cairn linear status lists them']);
+    if (!i.released) return { message: `${k} is already in the plan.` };
+    if (prdMd && notTakenReason(prdMd, k)) throw new Refusal(`prd.md still lists ${k} under ## Issues not taken`, [`remove that line from prd.md, then run cairn linear take ${k} again`]);
+    delete i.released;
+    // A "left out" comment not sent yet would now be wrong; one already sent gets a correction.
+    const dedupe = `comment:${k}:released`;
+    for (const w of l.outbox) if (w.dedupe === dedupe && !w.sentAt && !w.dropped) w.dropped = { at: now(), note: `${k} is back in the plan: ${reason}` };
+    if (l.outbox.some((w) => w.dedupe === dedupe && w.sentAt))
+      queueComment(l, k, `Back in cairn plan "${s.title}" (\`${s.branch}\`): ${reason}`, `${k} is back in the plan`, 'taken-back');
+    log(s, 'Linear issue taken back', `${k}: ${reason}`);
+    const parent = l.issues.some((x) => x.parent === k && !x.released);
+    const next = parent || i.requirements?.length ? '' : ` Next: add requirements tagged [${k}] to the PRD, then re-plan (cairn plan load --replan).`;
+    return { message: `${k} is back in the plan.${next}` };
   });
 }
 
