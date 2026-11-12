@@ -6,8 +6,8 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T22:15:40.255Z",
-  "stage": "learn",
+  "updated": "2026-11-12T22:16:30.192Z",
+  "stage": "closed",
   "stageHistory": [
     {
       "stage": "discover",
@@ -40,6 +40,10 @@
     {
       "stage": "learn",
       "at": "2026-11-12T22:15:40.254Z"
+    },
+    {
+      "stage": "closed",
+      "at": "2026-11-12T22:16:30.190Z"
     }
   ],
   "paused": null,
@@ -721,6 +725,10 @@
       "at": "2026-11-12T22:15:40.255Z",
       "event": "advanced",
       "detail": "learn"
+    },
+    {
+      "at": "2026-11-12T22:16:30.192Z",
+      "event": "closed"
     }
   ],
   "cairnVersion": "0.12.1",
