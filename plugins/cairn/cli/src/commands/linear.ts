@@ -39,7 +39,7 @@ import {
 } from '../linear.ts';
 import { planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { loadState, log } from '../state.ts';
-import type { LinearChange, LinearConfig, LinearLink, State } from '../types.ts';
+import type { LinearChange, LinearConfig, LinearIssue, LinearLink, State } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal, writeText } from '../util.ts';
 import { gate, mutate, planCtx, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { collectSuggestions } from './suggest.ts';
@@ -48,7 +48,7 @@ import { onPublishSent, publish } from './publish.ts';
 
 const USAGE = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "…" | hold <id> --note "…" | depends <KEY> --on <KEY> --reason "…" | ack <change> --as taken|later|noted [--note "…"]
-  | release <KEY> --reason "…" | take <KEY> --reason "…" | board [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
+  | release <KEY> --reason "…" | take <KEY> --reason "…" | board [--project "<name>"] [--json] | relink <EPIC> [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
 
 const NO_CONFIG = (where: string) =>
   new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
@@ -89,6 +89,8 @@ export function cmdLinear(ctx: Ctx, sub: string | undefined, arg: string | undef
       return take(ctx, arg, opts);
     case 'board':
       return board(ctx, opts);
+    case 'relink':
+      return relink(ctx, arg, opts);
     case 'publish':
       return publish(ctx, opts);
     default:
@@ -841,6 +843,63 @@ function board(ctx: Ctx, opts: Opts): Result {
   if (data.cycle) lines.push(`Loop in blocked-by links: ${data.cycle.join(' → ')}. Remove one link in Linear.`);
   if (fullHint) lines.push(fullHint);
   return { message: lines.join('\n'), data: { ...data, ...extra } };
+}
+
+// ---------- Relink: narrowing an epic's own blocked-by link ----------
+
+interface RelinkIssue {
+  key: string;
+  title: string;
+  state: string;
+  /** Path of the saved issue text (`issues/<KEY>.md` in a plan folder), when one exists. */
+  text?: string;
+}
+
+/** What an agent needs to move an epic's blocked-by link down to the sub-issues that need it. Never writes to Linear or the snapshot. */
+function relink(ctx: Ctx, arg: string | undefined, opts: Opts): Result {
+  const epicKey = arg?.trim().toUpperCase();
+  if (!epicKey) throw new CliError(USAGE);
+  const snap = loadSnapshot(ctx, typeof opts.project === 'string' ? opts.project : undefined);
+  const byKey = new Map([...(snap.known ?? []), ...snap.issues].map((i) => [i.key, i]));
+  const epic = snap.issues.find((i) => i.key === epicKey);
+  const subsOf = (k: string) => snap.issues.filter((i) => i.parent === k && !isDone(i));
+  if (!epic || !snap.issues.some((i) => i.parent === epicKey))
+    throw new Refusal(`${epicKey} is not an epic in "${snap.project}" as last read`, ['cairn linear board lists the epics', `or re-read the project: /cairn:board ${snap.project}`]);
+  if (!epic.blockedBy.length) throw new Refusal(`${epicKey} has no blocked-by link of its own`, ['only a link on the epic itself can be narrowed; sub-issues already carry theirs']);
+
+  let dirs: string[] = [];
+  try {
+    dirs = listPlans(ctx).map((r) => r.dir);
+  } catch {
+    // No plans to read texts from: the texts come from Linear.
+  }
+  const textOf = (k: string): string | undefined => dirs.map((d) => join(d, 'issues', `${k}.md`)).find((f) => existsSync(f));
+  const row = (i: LinearIssue): RelinkIssue => {
+    const text = textOf(i.key);
+    return { key: i.key, title: i.title, state: i.stateName ?? i.stateType ?? 'unknown', ...(text ? { text } : {}) };
+  };
+
+  const links = epic.blockedBy.map((on) => {
+    const b = byKey.get(on);
+    const text = textOf(on);
+    return {
+      on,
+      blocker: { key: on, title: b?.title ?? on, isEpic: snap.issues.some((i) => i.parent === on), ...(text ? { text } : {}) },
+      blockerSubs: subsOf(on).map(row),
+      subs: subsOf(epicKey).map((i) => ({ ...row(i), blockedBy: i.blockedBy })),
+    };
+  });
+
+  const lines = [`${epicKey} ${epic.title}: ${links.length === 1 ? 'one blocked-by link' : `${links.length} blocked-by links`} of its own.`];
+  for (const l of links) {
+    lines.push(`Blocked by ${l.on} ${l.blocker.title}${l.blocker.isEpic ? ` (epic, ${l.blockerSubs.length} open sub-issues)` : ''}:`);
+    if (l.blocker.isEpic) for (const x of l.blockerSubs) lines.push(`  ${x.key} ${x.title} [${x.state}]${x.text ? ` · text: ${x.text}` : ''}`);
+    lines.push(`${epicKey}'s open sub-issues (${l.subs.length}):`);
+    for (const x of l.subs) lines.push(`  ${x.key} ${x.title} [${x.state}]${x.blockedBy.length ? ` · blocked by ${x.blockedBy.join(', ')}` : ''}${x.text ? ` · text: ${x.text}` : ''}`);
+  }
+  if (links.some((l) => [...l.subs, ...l.blockerSubs].some((x) => !x.text))) lines.push('Issues without a text file: read their descriptions with get_issue.');
+  const epicText = textOf(epicKey);
+  return { message: lines.join('\n'), data: { epic: { key: epicKey, title: epic.title, ...(epicText ? { text: epicText } : {}) }, links } };
 }
 
 /**
