@@ -755,7 +755,7 @@ function board(ctx: Ctx, opts: Opts): Result {
   const epicKey = typeof opts.epic === 'string' ? opts.epic.trim().toUpperCase() : undefined;
   if (epicKey) {
     const byKey = new Map(snap.issues.map((i) => [i.key, i]));
-    const isEpic = snap.issues.some((i) => i.parent === epicKey);
+    const isEpic = byKey.has(epicKey) && snap.issues.some((i) => i.parent === epicKey);
     if (!isEpic) throw new Refusal(`${epicKey} is not an epic in "${snap.project}" as last read`, ['cairn linear board lists the epics', `or re-read the project: /cairn:board ${snap.project}`]);
     const inside = (k: string) => {
       for (let p = byKey.get(k)?.parent, n = 0; p && n < 50; p = byKey.get(p)?.parent, n++) if (p === epicKey) return true;

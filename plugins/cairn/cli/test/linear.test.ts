@@ -438,6 +438,7 @@ test('linear: an epic from import to merged, with every check and queued write',
   assert.match(one.message, /▸ SAV-101 Card form: checkout \(closed, shipped\)/);
   assert.match(one.message, /✗ SAV-104 Wallets: blocked by SAV-90/);
   assert.equal(one.message.split('\n').filter((l) => /^ {4}\S/.test(l)).length, 4, 'every issue of the epic is listed');
+  refused(repo, /OPS-1 is not an epic/, 'linear', 'board', '--epic', 'OPS-1');
   refused(repo, /SAV-108 is not an epic/, 'linear', 'board', '--epic', 'SAV-108');
   assert.equal(ok(repo, 'linear', 'board', '--project', 'Checkout').data!.project, 'Checkout');
   refused(repo, /no snapshot of "Nope"/, 'linear', 'board', '--project', 'Nope');
