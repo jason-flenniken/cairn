@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T22:02:53.595Z",
+  "updated": "2026-11-12T22:13:36.575Z",
   "stage": "review",
   "stageHistory": [
     {
@@ -318,6 +318,12 @@
       "result": "pass",
       "at": "2026-11-12T22:02:53.477Z",
       "note": "tests: 405 CLI + 638 mod passing; 20 requirements met (1 fixed in check: no Ready section when every milestone is done), 2 untested (FR-09 rule color, FR-20 exact position) logged; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    },
+    "review": {
+      "result": "pass",
+      "at": "2026-11-12T22:13:36.575Z",
+      "note": "5 follow-ups open for this plan; fixed classes: empty-waits-on-rendered, near-duplicate-helper, dead-code, stale-doc; security review: pass",
+      "blocking": 0
     }
   },
   "drift": [
@@ -651,6 +657,26 @@
       "at": "2026-11-12T22:02:53.595Z",
       "event": "advanced",
       "detail": "review"
+    },
+    {
+      "at": "2026-11-12T22:03:01.393Z",
+      "event": "step",
+      "detail": "reviewing"
+    },
+    {
+      "at": "2026-11-12T22:11:47.043Z",
+      "event": "step",
+      "detail": "fixing (4)"
+    },
+    {
+      "at": "2026-11-12T22:13:10.305Z",
+      "event": "step",
+      "detail": "rechecking"
+    },
+    {
+      "at": "2026-11-12T22:13:36.575Z",
+      "event": "review pass",
+      "detail": "5 follow-ups open for this plan; fixed classes: empty-waits-on-rendered, near-duplicate-helper, dead-code, stale-doc; security review: pass"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -898,8 +924,99 @@
       ],
       "from": "check",
       "at": "2026-11-12T22:02:11.173Z"
+    },
+    {
+      "id": "s24",
+      "area": "docs",
+      "text": "Dismissed clearer-linear-pane:s8",
+      "where": [
+        "plugins/cairn/types/index.d.ts"
+      ],
+      "from": "user",
+      "resolves": "clearer-linear-pane:s8",
+      "dismissed": true,
+      "note": "fixed on the branch (types comments now match the CLI)",
+      "at": "2026-11-12T22:04:27.038Z"
+    },
+    {
+      "id": "s25",
+      "area": "security",
+      "text": "Harden the Linear tab against outside text: collapse newlines and tabs in titles, strip zero-width and other format characters, draw numbers through Number(), cap long Ready/Waiting/In progress lists with +N more, and test hostile text in milestone names and waits-on keys",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx",
+        "plugins/cairn/hooks/test/linear.test.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "clearer-linear-pane:s14",
+        "clearer-linear-pane:s15",
+        "clearer-linear-pane:s16",
+        "clearer-linear-pane:s17",
+        "clearer-linear-pane:s18"
+      ],
+      "at": "2026-11-12T22:04:27.363Z"
+    },
+    {
+      "id": "s26",
+      "area": "tests",
+      "text": "Sharper board and pane tests: drive PRD approval for ticket keys, nested-epic and finished-milestone fixtures, empty In progress and Waiting sections, the ┃ rule, the FR-20 offsets compared, and the narrow-card glyph first",
+      "where": [
+        "plugins/cairn/cli/test/status-tickets.test.ts",
+        "plugins/cairn/cli/test/board.test.ts",
+        "plugins/cairn/cli/test/linear.test.ts",
+        "plugins/cairn/hooks/test/linear.test.tsx",
+        "plugins/cairn/hooks/test/inline.test.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "clearer-linear-pane:s6",
+        "clearer-linear-pane:s7",
+        "clearer-linear-pane:s10",
+        "clearer-linear-pane:s20",
+        "clearer-linear-pane:s21",
+        "clearer-linear-pane:s22",
+        "clearer-linear-pane:s23"
+      ],
+      "at": "2026-11-12T22:04:27.697Z"
+    },
+    {
+      "id": "s27",
+      "area": "quality",
+      "text": "Tidy the board and pane code: move stripControl to util.ts, make the new board fields required, one helper for the --epic rows, the no-milestone blocker tag, the misplaced doc comment, and keep the ┃ rule on wrapped lines",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx",
+        "plugins/cairn/types/index.d.ts",
+        "plugins/cairn/cli/src/board.ts",
+        "plugins/cairn/cli/src/commands/linear.ts",
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "plan",
+      "merges": [
+        "clearer-linear-pane:s4",
+        "clearer-linear-pane:s5",
+        "clearer-linear-pane:s9",
+        "clearer-linear-pane:s11",
+        "clearer-linear-pane:s13",
+        "clearer-linear-pane:s19"
+      ],
+      "at": "2026-11-12T22:04:28.011Z"
+    },
+    {
+      "id": "s28",
+      "area": "ux",
+      "text": "partial-overlap-tracking: when calls A and B overlap and the shown B ends first, the card clears while A still runs; keep a list of open calls and show the latest still open",
+      "where": [
+        "plugins/cairn/hooks/mod/activity.ts"
+      ],
+      "from": "branch-review",
+      "at": "2026-11-12T22:13:10.231Z"
     }
   ],
   "planHash": "59c841c822efeebf",
-  "configHash": "12129909968d47d2"
+  "configHash": "12129909968d47d2",
+  "step": {
+    "stage": "review",
+    "name": "rechecking",
+    "at": "2026-11-12T22:13:10.305Z"
+  }
 }
