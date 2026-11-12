@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "slug": "clearer-linear-pane",
+  "title": "Clearer Linear pane",
+  "track": "feature",
+  "branch": "feature/clearer-linear-pane",
+  "base": "main",
+  "created": "2026-11-12T21:10:27.252Z",
+  "updated": "2026-11-12T21:10:27.252Z",
+  "stage": "discover",
+  "stageHistory": [
+    {
+      "stage": "discover",
+      "at": "2026-11-12T21:10:27.252Z"
+    }
+  ],
+  "paused": null,
+  "approvals": {},
+  "phases": [],
+  "evidence": {},
+  "drift": [],
+  "log": [
+    {
+      "at": "2026-11-12T21:10:27.252Z",
+      "event": "created"
+    },
+    {
+      "at": "2026-11-12T21:10:27.252Z",
+      "event": "level",
+      "detail": "standard"
+    }
+  ],
+  "cairnVersion": "0.12.1",
+  "level": "standard"
+}
