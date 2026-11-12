@@ -3,6 +3,9 @@ import { mergeProgress, parsePlan } from '../plan-parse.ts';
 import { allTasks } from '../ready.ts';
 import { log, setStage } from '../state.ts';
 import { hashText, readText, Refusal } from '../util.ts';
+import { issueOrderProblems } from '../linear.ts';
+import { loadState } from '../state.ts';
+import { onPlanLoaded } from './linear.ts';
 import { mutate, planCtx, planFile, type Opts, type Result } from '../shared.ts';
 
 export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
@@ -11,6 +14,9 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
   const prdMd = readText(planFile(pc, 'prd.md')) ?? '';
   if (!planMd) throw new Refusal('plan.md does not exist', ['write it from templates/plan.md']);
   const parsed = parsePlan(planMd, prdMd);
+  // Issues pulled from Linear keep their blocked-by order: a task for a blocked issue comes after the blocker's tasks.
+  const link = loadState(pc.plan.dir).linear;
+  if (link && !parsed.problems.length) parsed.problems.push(...issueOrderProblems(link, parsed.phases, prdMd, planMd));
   if (parsed.problems.length) throw new Refusal(`plan.md is not loadable:\n  - ${parsed.problems.join('\n  - ')}`, ['fix plan.md, then cairn plan load']);
   return mutate(pc, 'plan loaded', (s) => {
     const replanning = s.stage !== 'plan';
@@ -22,6 +28,7 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
     if (lostDone.length) throw new Refusal(`the new plan drops tasks that already started or finished: ${lostDone.join(', ')}`, ['keep them in plan.md']);
     s.phases = phases;
     s.planHash = hashText(planMd);
+    onPlanLoaded(s);
     if (replanning) {
       setStage(s, 'plan');
       delete s.approvals.plan;

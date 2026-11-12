@@ -25,6 +25,15 @@ Read `decisions.md` in the plan directory; it may hold earlier answers.
 
 **Done when:** you hold a short fact list and can name the open decisions.
 
+## 2a. Linear issues (only when `cairn status --json` shows `state.linear`)
+The issues are given facts: their titles, descriptions and acceptance criteria are what the user already decided. Read them (`cairn linear status` lists them) and do not re-ask what a ticket says. Ask only about what the tickets leave open.
+- **Epic:** the parent's description seeds the problem and solution. The parent is not a requirement unless it has acceptance criteria of its own. Show the sub-issue tree with counts. When there are more than about 8 leaf issues, or they will not fit one pull request, offer to take a subset now with AskUserQuestion (one branch of the tree, or the sub-issues with no blockers; the whole epic as the other option). The rest are recorded as "later plan" and go under `## Issues not taken` in the PRD.
+- **Other milestones:** sub-issues that sit in a different milestone than the rest came along with their parent. Say so, and let the user drop any.
+- **Outside blockers:** for each blocker of an in-plan issue that sits outside the plan and is not done (`cairn linear import` listed them), ask one at a time with AskUserQuestion, recommended first: pull the blocker in / leave the blocked issue out / go ahead anyway with a reason (stubbed, or not really blocking). Show where the blocker stands when it is in another active plan. Record each answer: `cairn decide "Outside blocker: <KEY>" "<decision>" --why "<reason>"`. The PRD turns these into the `## Outside blockers` and `## Issues not taken` sections.
+- **Loop:** if the issues block each other in a loop, stop and ask the user to remove one link in Linear, then refresh with `cairn linear import --refresh`.
+
+**Done when:** every issue is in, out, or deferred, and every outside blocker has a recorded decision.
+
 ## 2b. Offer matching follow-ups
 Take the file paths the research found and run `cairn suggest list --open --for <path>`, one `--for` per path or glob. Skip this step when nothing matches.
 

@@ -18,6 +18,11 @@ Optional. FR ids deliberately not covered by this plan, each with a reason.
 
 - FR-xx: <reason>
 
+## Issue order
+Optional. Only on a plan that pulled in Linear issues. By default, tasks for a blocked issue must come after the tasks for its blocker. List an exception here: both issue keys and the reason.
+
+- SAV-102 and SAV-101: <why the second does not need the first's code>
+
 ## Phases
 Phases are demoable milestones. Tasks in one phase may run in parallel when scopes are disjoint.
 

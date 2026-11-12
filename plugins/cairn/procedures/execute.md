@@ -90,6 +90,10 @@ If `cairn task done` is refused because tests fail, send the failures to a fresh
 ## 8. Blocked
 Run `cd <plan worktree> && cairn task step <id> blocked --note "<what blocks it>"`. Pick the cheapest remedy:
 - Missing information: answer it from the documents or ask the user, then restart the implementer.
+- A dependency between Linear issues (only when `cairn status --json` shows `state.linear`; the task needs something another issue builds, for example SAV-110 needs SAV-105's API): record it with `cd <plan worktree> && cairn linear depends SAV-110 --on SAV-105 --reason "<what it needs>"`. It queues the blocked-by link and a comment for Linear. Then:
+  - Both issues are in this plan: re-plan so the tasks for SAV-110 come after the tasks for SAV-105 (edit `plan.md`, `cairn plan load --replan`, ask for approval of the changed plan).
+  - The blocker is outside the plan and not done: ask with AskUserQuestion, recommended first: pull it in (amend the PRD, re-plan) / release the blocked issue (`cairn linear release SAV-110 --reason "…"`, it goes back to Linear and keeps its link) / stub the dependency and file a follow-up (`cairn suggest add …`) / pause.
+  - The blocker is already done in Linear: nothing waits; restart the implementer.
 - Task too hard: restart with a fresh implementer one tier up.
 - Task too big or wrong: tell the user and offer a re-plan (edit `plan.md`, then `cd <plan worktree> && cairn plan load --replan`, then ask for approval of the changed plan).
 

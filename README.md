@@ -109,6 +109,8 @@ When you're unsure what to do, run **`/cairn:next`**. It does the one correct ne
 | `/cairn:status` | Shows every plan: stage, what's done, what's next, what's blocked, what's waiting on you. |
 | `/cairn:pause` / `/cairn:resume` | Pauses cleanly with a handoff note, and later picks up exactly there. |
 | `/cairn:fix <bug>` | The quick lane for one bug: failing repro first, then the fix, then a short record. |
+| `/cairn:new --from-linear <issues>` | Starts a plan from Linear issues: `SAV-100` (an epic), `SAV-101,SAV-102`, `milestone:"…"` or `project:"…"`. See [Linear](#linear). |
+| `/cairn:board <project or KEY>` | Shows how a Linear project is moving across plans: done, in a plan, ready, blocked. |
 | `/cairn:suggestions` | Lists recommended follow-ups from every plan. Turn one into a fix, add it to the current plan, or dismiss it. |
 | `/cairn:direction` | An on-demand on-track check: compares the code to the PRD and reports green, yellow, or red per requirement. |
 | `/cairn:product` | Writes the whole-app product PRD (`docs/cairn/product/`) that every plan inherits. |
@@ -301,6 +303,28 @@ Behind the scenes, the mod holds a one-time secret in memory and the CLI checks 
 
 If the fix grows past 8 files, or turns out to need new requirements, `cairn escalate` turns it into a full plan.
 
+## Linear
+
+Linear owns the backlog; cairn owns the execution. A plan pulls in a selection of Linear issues, builds them, and writes progress back. Nothing runs until you add a `linear` block to `.cairn/config.json` and have the Linear MCP connected:
+
+```json
+"linear": {
+  "team": "SAV",
+  "statuses": { "inProgress": "In Progress", "inReview": "In Review", "done": "Done" }
+}
+```
+
+`statuses` is optional. Without it cairn moves issues by Linear's status types (started, completed). Linear has no review type, so with no `inReview` status cairn posts a comment at ship instead of moving the issue.
+
+**The flow.**
+1. `/cairn:new --from-linear SAV-100` pulls in an epic (a parent issue and its sub-issues), a list of issues, a milestone, or a project. Discover treats the tickets as given and asks only what they leave open: blockers outside the plan, and a subset when an epic is big.
+2. Each issue becomes PRD requirements tagged with its key (`[SAV-102]`). The PRD can't be approved while an issue is neither tagged nor listed under `## Issues not taken` with a reason, or while a blocker outside the plan has no decision under `## Outside blockers`.
+3. Issue dependencies turn into task order. `cairn plan load` refuses a task for a blocked issue that doesn't come after its blocker's tasks, unless `## Issue order` in the plan explains why. A dependency found while building is recorded with `cairn linear depends`.
+4. cairn queues the updates that are due (In Progress, comments with the PR link, Done after the merge, follow-ups as new issues, a project status update you approve first) and the agent sends them through the Linear MCP. A failed send waits; it never blocks the plan.
+5. At the end of each phase cairn re-reads the issues. A blocker someone added in Linear meanwhile has to be settled before the phase finishes. Shipping a plan whose blocker sits in another unshipped plan needs your override.
+
+**The board.** `/cairn:board <project>` (run on main) reads the project's milestones and issues and shows, per milestone, what is done, in a plan, ready, or blocked, with epics grouped and stalled plans flagged. The snapshot is cached outside git and shared by every worktree.
+
 ## Configuration
 
 Each repo has `.cairn/config.json`, which cairn creates the first time:
@@ -331,6 +355,7 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 | `resumeFreshAfterMinutes` | How long a pause counts as recent before resume suggests a fresh session (default 60). |
 | `fixMaxFiles` | How many files a bug fix may touch before cairn suggests a full plan (default 8). |
 | `reproTimeoutMinutes` | How long a bug repro may run (default 10). |
+| `linear` | Turns on the [Linear](#linear) integration: `team`, and optional `statuses`. |
 
 The `setup`, `test`, and `build` commands are locked when you approve the plan. If they change mid-plan, cairn asks you to re-approve.
 

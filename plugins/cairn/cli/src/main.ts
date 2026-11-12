@@ -30,6 +30,7 @@ import {
   cmdResume,
   cmdTask,
   cmdStatus,
+  cmdLinear,
   context,
   hookPostEdit,
   hookSessionStart,
@@ -38,7 +39,7 @@ import {
 } from './commands.ts';
 import { CliError, Refusal } from './util.ts';
 
-const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting']);
+const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board']);
 /** Flags that may repeat; the values are joined with newlines. */
 const REPEATABLE = new Set(['where', 'for']);
 
@@ -87,10 +88,13 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   index | pause [--now] | resume [<slug>] | close | render | records | migrate
   merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
+  linear [status] | linear import|pending|sent|drop|depends|ack|release|board … (plans that pull Linear issues in)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 
-export function run(argv: string[], cwd = process.cwd()): Result {
+/** `stdin` is what `cairn linear import` was piped; main() reads it, never run(). */
+export function run(argv: string[], cwd = process.cwd(), stdin?: string): Result {
   const { pos, opts } = parseArgs(argv, cwd);
+  if (stdin !== undefined) opts.stdin = stdin;
   const [cmd, a, b, ...rest] = pos;
   const ctx = () => context(cwd);
   switch (cmd) {
@@ -157,6 +161,8 @@ export function run(argv: string[], cwd = process.cwd()): Result {
       return cmdTrace(ctx(), a, opts);
     case 'render':
       return cmdRender(ctx());
+    case 'linear':
+      return cmdLinear(ctx(), a, b, opts);
     case undefined:
     case 'help':
     case '--help':
@@ -186,7 +192,9 @@ function main(argv: string[]): number {
   }
   const json = argv.includes('--json');
   try {
-    const r = run(argv);
+    // Only an import reads stdin, and only when something is piped in and no --file is given.
+    const piped = argv[0] === 'linear' && argv[1] === 'import' && !argv.some((x) => x === '--file' || x.startsWith('--file=')) && !process.stdin.isTTY;
+    const r = run(argv, process.cwd(), piped ? readFileSync(0, 'utf8') : undefined);
     // An empty message prints nothing at all (cairn index with no closed plans), not a blank line.
     if (json || r.message !== '') process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + '\n');
     return 0;

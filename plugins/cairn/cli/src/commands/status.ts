@@ -12,7 +12,8 @@ import { hashText, pluginRoot, readText, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
-import { knownFailures, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
+import { mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
+import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function listPlans(ctx: Ctx): IndexRow[] {
   const refs = git(['for-each-ref', '--format=%(refname:short)', ...PLAN_PREFIXES.map((p) => `refs/heads/${p}`)], ctx.top).split('\n').filter(Boolean);
@@ -47,6 +48,8 @@ export function warnings(pc: PlanCtx, s: State): string[] {
   if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
   const cw = configWarning(pc.plan.worktree);
   if (cw) w.push(cw);
+  const changes = s.linear?.changes?.filter((c) => !c.handled).length ?? 0;
+  if (changes) w.push(`Linear: ${changes} change${changes === 1 ? '' : 's'} to decide before the phase can finish (cairn linear status)`);
   return w;
 }
 
@@ -100,6 +103,13 @@ export const procedurePath = (name: string) => join(pluginRoot(), 'procedures', 
 
 export function cmdNext(ctx: Ctx): Result {
   if (!ctx.plan) {
+    // A plan merged since anyone ran cairn in it still owes Linear its Done statuses: send them first, from its worktree.
+    const owed = mergedPlansAwaitingDone(ctx)[0];
+    if (owed)
+      return {
+        message: `Plan ${owed.slug} has merged and its Linear issues are not marked Done yet. Follow linear-sync from its worktree: ${owed.worktree}\nFollow: ${procedurePath('linear-sync')}`,
+        data: { plan: owed.slug, stage: null, procedure: procedurePath('linear-sync'), planWorktree: owed.worktree, summary: `${owed.slug} merged; Linear updates due.`, modActive: modIsActive(ctx) },
+      };
     const active = listPlans(ctx).filter((r) => r.state.stage !== 'closed');
     if (!active.length) return { message: 'No active plans. Start one.', data: { plan: null, stage: null, procedure: procedurePath('new'), summary: 'No active plans.', modActive: modIsActive(ctx) } };
     return {
@@ -108,8 +118,13 @@ export function cmdNext(ctx: Ctx): Result {
     };
   }
   const pc = planCtx(ctx);
-  const s = loadState(pc.plan.dir);
-  const n = nextFor(s);
+  let s = loadState(pc.plan.dir);
+  // A merged plan's Done statuses are queued here too, so a PR the user merged later still closes its issues.
+  if (mergedAwaitingDone(pc, s)) s = mutate(pc, undefined, (x) => (queueDone(pc, x), x));
+  // Queued Linear updates go out before the stage's own work, so none are forgotten.
+  const queued = pendingCount(s);
+  const stageNext = nextFor(s);
+  const n = queued ? { procedure: 'linear-sync', text: `Send ${queued} queued Linear update${queued === 1 ? '' : 's'} first. Then: ${stageNext.text}` } : stageNext;
   return {
     message: `${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
     data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },

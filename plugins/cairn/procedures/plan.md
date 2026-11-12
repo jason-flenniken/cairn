@@ -28,6 +28,7 @@ Run `cd <plan worktree> && cairn step drafting`, so the pane does not offer the 
 - **Right-sized:** each task fits one fresh context window. Split further when it would not.
 - **Prefactor first:** refactors that ease the work come as the earliest tasks.
 - **Phases** are demoable milestones; the first phase proves the thinnest end-to-end path.
+- **Issue order** (only when `cairn status --json` shows `state.linear`): when one issue is blocked by another in the plan, the tasks for the blocked issue must come after the tasks for its blocker, in a later phase or through `blocked_by`. Order the phases by dependency layers: issues with no blocker inside the plan first, the issues they unblock in later phases. `cairn plan load` refuses a task for a blocked issue that does not come after its blocker's tasks and names the pair. When the blocked issue really does not need the blocker's code, say so in an optional `## Issue order` section: `- SAV-102 and SAV-101: <reason>` (both keys on the line, with a reason). The reason goes in the record.
 - **Parallel by default:** disjoint `scope` globs, minimal `blocked_by`. Two tasks touching the same files get an edge between them.
 - **Complexity:** `simple` (mechanical, 1-2 files), `standard` (default), `complex` (architecture judgment, broad integration).
 - **Coverage:** every FR is in some task's `covers`, or listed under `## Deferred requirements` with a reason.
@@ -40,7 +41,7 @@ When you consciously skip tests on a non-risky task (an area worth covering late
 **Done when:** every task has a Check, risky tasks have concrete tests, and every FR is covered or deferred.
 
 ## 4. Load
-Run `cairn plan load`. On refusal, read what it names (a cycle, an unknown FR id, a missing scope, an uncovered requirement), fix `plan.md`, and rerun.
+Run `cairn plan load`. On refusal, read what it names (a cycle, an unknown FR id, a missing scope, an uncovered requirement, a task that breaks the order of two Linear issues), fix `plan.md`, and rerun.
 
 **Done when:** `cairn plan load` exits 0.
 

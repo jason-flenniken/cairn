@@ -12,6 +12,7 @@ import { memoryIndex } from '../memory.ts';
 import { planEntries } from './records.ts';
 import { legacyLayout } from './migrate.ts';
 import { listPlans, warnings } from './status.ts';
+import { pendingCount } from './linear.ts';
 
 interface HookInput {
   cwd?: string;
@@ -41,6 +42,8 @@ export function hookSessionStart(input: HookInput): string {
     const s = loadState(pc.plan.dir);
     if (s.stage === 'closed') return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : '', indexFor(ctx));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
+    const queued = pendingCount(s);
+    if (queued) lines.push(`${queued} Linear update${queued === 1 ? '' : 's'} waiting to be sent; /cairn:next sends them first.`);
     if (ctx.task) {
       const sl = findTask(s, ctx.task);
       if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit ${DOCS_DIRS.find((d) => planRelOf(pc.plan).startsWith(`${d}/`)) ?? DOCS_DIR}/.`);

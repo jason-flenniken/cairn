@@ -1,0 +1,738 @@
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { loadConfig } from '../config.ts';
+import { commonDir, landedState } from '../git.ts';
+import {
+  effectiveBlockers,
+  emptyLink,
+  findIssueCycle,
+  isDone,
+  issueProgress,
+  issueRequirements,
+  keysText,
+  linearConfig,
+  notTakenReason,
+  outsideBlockers,
+  parentKeys,
+  parseJson,
+  prdLinearProblems,
+  queueComment,
+  queueStatus,
+  queueWrite,
+  readBoardImport,
+  blockersText,
+  readPlanImport,
+  takenIssues,
+  unsent,
+  due,
+  WRITE_TOOL,
+  ISSUE_KEY,
+  type BoardSnapshot,
+  type IssueProgress,
+} from '../linear.ts';
+import { planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
+import { loadState, log } from '../state.ts';
+import type { LinearChange, LinearIssue, LinearLink, State } from '../types.ts';
+import { CliError, now, readText, Refusal, writeText } from '../util.ts';
+import { gate, mutate, planCtx, type Opts, type PlanCtx, type Result } from '../shared.ts';
+import { collectSuggestions } from './suggest.ts';
+import { listPlans } from './status.ts';
+
+const USAGE = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
+  | drop <id> --note "…" | hold <id> --note "…" | depends <KEY> --on <KEY> --reason "…" | ack <change> --as taken|later|noted [--note "…"]
+  | release <KEY> --reason "…" | board [--project "<name>"] [--json]`;
+
+const NO_CONFIG = (where: string) =>
+  new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
+
+/** The input JSON: --file, or what main() read from stdin. */
+function inputText(ctx: Ctx, opts: Opts): string {
+  if (typeof opts.file === 'string') {
+    const t = readText(join(ctx.cwd, opts.file)) ?? readText(opts.file);
+    if (t === undefined) throw new CliError(`cannot read --file ${opts.file}`);
+    return t;
+  }
+  if (typeof opts.stdin === 'string' && opts.stdin.trim()) return opts.stdin;
+  throw new CliError('cairn linear import needs the issues as JSON: pipe them in, or pass --file <path>');
+}
+
+export function cmdLinear(ctx: Ctx, sub: string | undefined, arg: string | undefined, opts: Opts): Result {
+  switch (sub) {
+    case undefined:
+    case 'status':
+      return linearStatus(ctx);
+    case 'import':
+      return opts.board ? importBoard(ctx, opts) : opts.refresh ? refreshPlan(ctx, opts) : importPlan(ctx, opts);
+    case 'pending':
+      return pending(ctx);
+    case 'sent':
+      return markSent(ctx, arg, opts);
+    case 'drop':
+      return drop(ctx, arg, opts);
+    case 'hold':
+      return hold(ctx, arg, opts);
+    case 'depends':
+      return depends(ctx, arg, opts);
+    case 'ack':
+      return ack(ctx, arg, opts);
+    case 'release':
+      return release(ctx, arg, opts);
+    case 'board':
+      return board(ctx, opts);
+    default:
+      throw new CliError(USAGE);
+  }
+}
+
+function linkOf(s: State): LinearLink {
+  if (!s.linear)
+    throw new Refusal('this plan has no Linear issues', [
+      ['discover', 'prd', 'repro'].includes(s.stage) ? 'pull them in first: cairn linear import --file <issues.json>' : 'issues are pulled in when a plan starts: start a new plan for them with /cairn:new --from-linear',
+    ]);
+  return s.linear;
+}
+
+/** Commit cairn's own bookkeeping, except on a closed plan, whose branch may already be merged: merge-check commits it. */
+const bookkeeping = (s: State, msg: string) => (s.stage === 'closed' ? undefined : msg);
+
+// ---------- Import ----------
+
+/** Other plans' issues, for "already in plan X" notes and the ship check. */
+function otherPlans(ctx: Ctx, slug?: string): { slug: string; stage: State['stage']; state: State }[] {
+  try {
+    return listPlans(ctx).filter((r) => wellFormed(r.state.linear) && r.state.slug !== slug).map((r) => ({ slug: r.state.slug, stage: r.state.stage, state: r.state }));
+  } catch {
+    return [];
+  }
+}
+
+/** Another branch's state is committed, so untrusted: only a link of the expected shape is read. */
+function wellFormed(l: unknown): l is LinearLink {
+  if (!l || typeof l !== 'object') return false;
+  const x = l as Partial<LinearLink>;
+  const issuesOk = (v: unknown) => Array.isArray(v) && v.every((i) => i && typeof i.key === 'string' && Array.isArray(i.blockedBy) && i.blockedBy.every((b: unknown) => typeof b === 'string'));
+  return issuesOk(x.issues) && issuesOk(x.known) && Array.isArray(x.depends) && x.depends.every((d) => d && typeof d.key === 'string' && typeof d.on === 'string') && Array.isArray(x.outbox) && Array.isArray(x.changes);
+}
+
+const ownerOf = (plans: ReturnType<typeof otherPlans>, k: string) =>
+  plans.find((p) => p.state.linear!.issues.some((i) => i.key === k && !i.released) && p.stage !== 'closed') ??
+  plans.find((p) => p.state.linear!.issues.some((i) => i.key === k && !i.released));
+
+function importPlan(ctx: Ctx, opts: Opts): Result {
+  const pc = planCtx(ctx);
+  const cfg = linearConfig(pc.cfg);
+  if (!cfg) throw NO_CONFIG('.cairn/config.json');
+  const doc = readPlanImport(parseJson(inputText(ctx, opts), 'the import'));
+  const others = otherPlans(ctx, pc.plan.slug);
+  return mutate(pc, 'Linear issues imported', (s) => {
+    if (s.linear) throw new Refusal('this plan already has its Linear issues', ['to re-read them from Linear: cairn linear import --refresh --file <issues.json>']);
+    if (!['discover', 'prd', 'repro'].includes(s.stage)) throw new Refusal(`issues are pulled in when a plan starts; this one is in ${s.stage}`, ['start a new plan for them with /cairn:new --from-linear']);
+    const l: LinearLink = { ...emptyLink(doc.team ?? cfg.team), ...(doc.project ? { project: doc.project } : {}), ...(doc.milestone ? { milestone: doc.milestone } : {}), ...(doc.epic ? { epic: doc.epic } : {}), ...(doc.selection ? { selection: doc.selection } : {}), issues: doc.issues, known: doc.known };
+    s.linear = l;
+    log(s, 'Linear issues imported', `${doc.issues.length}: ${keysText(doc.issues)}`);
+    const lines = [`Pulled in ${doc.issues.length} Linear issue${doc.issues.length === 1 ? '' : 's'}: ${keysText(doc.issues)}.`];
+    const parents = parentKeys(doc.issues);
+    if (parents.size) {
+      const leaves = doc.issues.filter((i) => !parents.has(i.key));
+      lines.push(`Epic${parents.size === 1 ? '' : 's'} ${[...parents].join(', ')}: ${leaves.length} sub-issue${leaves.length === 1 ? '' : 's'} to build.${leaves.length > 8 ? ' That is a lot for one plan: offer to take part of it now and leave the rest under ## Issues not taken ("later plan").' : ''}`);
+      const elsewhere = leaves.filter((i) => i.milestone && doc.milestone && i.milestone !== doc.milestone);
+      if (elsewhere.length) lines.push(`Sub-issues in other milestones came along with their parent: ${elsewhere.map((i) => `${i.key} (${i.milestone})`).join(', ')}.`);
+    }
+    const ob = outsideBlockers(l);
+    if (ob.length)
+      lines.push(
+        `Blockers outside the plan and not done: ${blockersText(ob, (b) => { const o = ownerOf(others, b); return o ? ` [in plan ${o.slug}, ${o.stage}]` : ''; })}. Discover decides each: pull it in, leave the blocked issues out, or go ahead with a reason (## Outside blockers).`,
+      );
+    const claimed = doc.issues.map((i) => ({ i, o: ownerOf(others, i.key) })).filter((x) => x.o && x.o.stage !== 'closed');
+    if (claimed.length) lines.push(`Warning: already in another active plan: ${claimed.map((x) => `${x.i.key} (${x.o!.slug}, ${x.o!.stage})`).join(', ')}.`);
+    const cycle = findIssueCycle(doc.issues);
+    if (cycle) lines.push(`Warning: these issues block each other in a loop: ${cycle.join(' → ')}. The plan can't load until one link is removed in Linear.`);
+    return { message: lines.join('\n'), data: { issues: doc.issues.map((i) => i.key), parents: [...parents], outsideBlockers: ob, cycle: cycle ?? null } };
+  });
+}
+
+/** Re-read the plan's issues from Linear: new links and new sub-issues become changes the plan has to decide about. */
+function refreshPlan(ctx: Ctx, opts: Opts): Result {
+  const pc = planCtx(ctx);
+  const doc = readPlanImport(parseJson(inputText(ctx, opts), 'the refresh'));
+  return mutate(pc, 'Linear issues refreshed', (s) => {
+    const l = linkOf(s);
+    if (s.stage === 'closed') throw new Refusal('the plan is closed, so it no longer follows Linear', ['see the project with /cairn:board instead']);
+    const fresh = new Map([...doc.known, ...doc.issues].map((i) => [i.key, i]));
+    const has = (k: string) => doc.present.get(k) ?? { blockedBy: false, parent: false };
+    const taken = new Set(takenIssues(l).map((i) => i.key));
+    const noted: string[] = [];
+    const added: LinearChange[] = [];
+    const change = (c: Omit<LinearChange, 'id' | 'at'>) => {
+      if (l.changes.some((x) => x.kind === c.kind && x.key === c.key && (c.on ? x.on === c.on : x.issue?.key === c.issue?.key))) return;
+      const x: LinearChange = { id: `c${l.changes.length + 1}`, ...c, at: now() };
+      l.changes.push(x);
+      added.push(x);
+    };
+    for (const i of l.issues) {
+      const f = fresh.get(i.key);
+      if (!f) continue;
+      if (taken.has(i.key)) {
+        if (has(i.key).blockedBy) {
+          for (const b of f.blockedBy) if (!i.blockedBy.includes(b) && !l.depends.some((d) => d.key === i.key && d.on === b) && !isDone(fresh.get(b))) change({ kind: 'link', key: i.key, on: b });
+          for (const b of i.blockedBy) if (!f.blockedBy.includes(b)) noted.push(`${i.key} is no longer blocked by ${b}`);
+        }
+        // Moved out of the epic in Linear: it leaves the plan too, and says so on the issue.
+        if (has(i.key).parent && i.parent && f.parent !== i.parent && taken.has(i.parent)) {
+          const reason = `moved out of ${i.parent} in Linear`;
+          i.released = { at: now(), reason };
+          queueComment(l, i.key, `Left cairn plan "${s.title}" (\`${s.branch}\`): ${reason}.`, `${i.key} left the plan`, 'released');
+          noted.push(`${i.key} was ${reason}, so it left the plan${i.requirements?.length ? `; its requirements (${i.requirements.join(', ')}) need moving to ## Non-goals and a re-plan` : ''}`);
+        }
+      }
+      // Links the refresh did not carry are kept as they were: a missing field is not an empty one.
+      Object.assign(i, { title: f.title, url: f.url ?? i.url, stateType: f.stateType ?? i.stateType, stateName: f.stateName ?? i.stateName, milestone: f.milestone ?? i.milestone, ...(has(i.key).parent ? { parent: f.parent } : {}), ...(has(i.key).blockedBy ? { blockedBy: f.blockedBy } : {}) });
+    }
+    // A sub-issue is new when the plan had never seen it; one already done in Linear needs no decision.
+    const seen = new Set([...l.issues, ...l.known].map((i) => i.key));
+    for (const f of [...doc.issues, ...doc.known])
+      if (f.parent && taken.has(f.parent) && !seen.has(f.key) && !isDone(f)) change({ kind: 'sub-issue', key: f.parent, issue: f });
+    const inPlan = new Set(l.issues.map((i) => i.key));
+    l.known = [...new Map([...l.known, ...doc.known, ...doc.issues.filter((i) => !inPlan.has(i.key))].filter((i) => !inPlan.has(i.key)).map((i) => [i.key, fresh.get(i.key) ?? i])).values()];
+    l.refreshedAt = now();
+    log(s, 'Linear issues refreshed', [...added.map(changeText), ...noted].join('; ') || 'no changes');
+    const open = l.changes.filter((c) => !c.handled);
+    const lines = [added.length ? `${added.length} change${added.length === 1 ? '' : 's'} in Linear to decide about:` : 'No new links or sub-issues in Linear.', ...added.map((c) => `  ${c.id}: ${changeText(c)}`), ...noted.map((n) => `  noted: ${n}`)];
+    if (open.length) lines.push(`Open: ${open.length}. The phase can't finish until each is handled: cairn linear depends, cairn linear ack <id> --as taken|later|noted, or cairn linear release.`);
+    return { message: lines.join('\n'), data: { added, noted, open } };
+  });
+}
+
+const changeText = (c: LinearChange) => (c.kind === 'link' ? `${c.key} is now blocked by ${c.on}` : `${c.issue?.key} "${c.issue?.title}" was added under ${c.key}`);
+
+function importBoard(ctx: Ctx, opts: Opts): Result {
+  const cfg = linearConfig(loadConfig(ctx.plan?.worktree, ctx.mainRoot));
+  if (!cfg) throw NO_CONFIG('.cairn/config.json');
+  const snap = readBoardImport(parseJson(inputText(ctx, opts), 'the board import'));
+  const file = snapshotFile(ctx, snap.project);
+  writeText(file, JSON.stringify({ ...snap, team: snap.team ?? cfg.team }, null, 2) + '\n');
+  return { message: `Read ${snap.issues.length} issues of "${snap.project}" from Linear. Run cairn linear board to see it.`, data: { file, issues: snap.issues.length } };
+}
+
+// ---------- The queue ----------
+
+/** The cached `gh` answers about merged pull requests, shared with `cairn status`. */
+const PR_CACHE = 'cairn-pr-state.json';
+
+const doneQueued = (l: LinearLink) => !!l.mergedAt || l.outbox.some((w) => w.dedupe.startsWith('status:') && w.dedupe.endsWith(':done'));
+
+/**
+ * Whether the plan's branch has landed and its Done statuses are not queued yet. It may ask `gh`, so it runs before
+ * the state lock, from `cairn next` and `cairn linear pending`, never from a hook.
+ */
+export function mergedAwaitingDone(pc: PlanCtx, s: State): boolean {
+  if (!s.linear || (s.stage !== 'learn' && s.stage !== 'closed') || doneQueued(s.linear)) return false;
+  let merged = false;
+  try {
+    merged = landedState(pc.plan.worktree, s.branch, s.base, planRelOf(pc.plan), join(commonDir(pc.ctx.mainRoot), PR_CACHE)) === 'merged';
+  } catch {
+    return false;
+  }
+  return merged;
+}
+
+/** Queue Done on the plan's issues once its branch has landed (checked first, outside the lock, by `mergedAwaitingDone`). */
+export function queueDone(pc: PlanCtx, s: State): number {
+  const l = s.linear;
+  if (!l || doneQueued(l)) return 0;
+  const cfg = linearConfig(pc.cfg);
+  const taken = takenIssues(l);
+  const parents = parentKeys(taken);
+  const progress = issueProgress(s);
+  let n = 0;
+  // Only issues the plan built: one pulled in later and never put on a requirement stays as it is.
+  for (const i of taken) if (!parents.has(i.key) && !isDone(i) && progress.get(i.key) === 'shipped' && queueStatus(l, cfg, i.key, 'done', 'the pull request is merged')) n++;
+  // A parent closes when every sub-issue is done: this plan's (now merged) and every other one Linear knows of.
+  const all = [...l.issues, ...l.known];
+  const takenKeys = new Set(taken.map((i) => i.key));
+  // Only parents in the plan: their whole subtree was read. A parent outside it (a plan of one sub-issue) is left to Linear and the other plans.
+  for (const p of parents) {
+    const parent = all.find((i) => i.key === p);
+    if (isDone(parent)) continue;
+    const kids = all.filter((i) => i.parent === p);
+    if (kids.length && kids.every((k) => (takenKeys.has(k.key) && (parents.has(k.key) || progress.get(k.key) === 'shipped')) || isDone(k)) && queueStatus(l, cfg, p, 'done', `every sub-issue of ${p} is done`)) n++;
+  }
+  // Recorded even when nothing was queued, so the merge is checked once.
+  l.mergedAt = now();
+  log(s, 'Linear: merged', n ? `${n} issue(s) to mark Done` : 'nothing to mark Done');
+  return n;
+}
+
+function pending(ctx: Ctx): Result {
+  const pc = planCtx(ctx);
+  const pre = loadState(pc.plan.dir);
+  linkOf(pre);
+  // State is written only when the merge queued something.
+  const s = mergedAwaitingDone(pc, pre) ? mutate(pc, undefined, (x) => (queueDone(pc, x), x)) : pre;
+  const list = unsent(linkOf(s));
+  const lines = list.length
+    ? [`${list.length} Linear update${list.length === 1 ? '' : 's'} to send:`, ...list.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? ' (ask the user first)' : ''}${w.held ? ` (held: ${w.held.note})` : ''}: ${w.why}`)]
+    : ['Nothing to send to Linear.'];
+  return { message: lines.join('\n'), data: { pending: list.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
+}
+
+function entry(l: LinearLink, id: string | undefined) {
+  if (!id) throw new CliError(USAGE);
+  const w = l.outbox.find((x) => x.id === id);
+  if (!w) throw new Refusal(`no queued Linear update "${id}"`, ['cairn linear pending']);
+  return w;
+}
+
+function markSent(ctx: Ctx, id: string | undefined, opts: Opts): Result {
+  const pc = planCtx(ctx);
+  const pre = loadState(pc.plan.dir);
+  return mutate(pc, bookkeeping(pre, 'Linear update sent'), (s) => {
+    const l = linkOf(s);
+    const w = entry(l, id);
+    if (w.sentAt) return { message: `${w.id} was already sent${w.ref ? ` (${w.ref})` : ''}.`, data: { already: true } };
+    if (w.dropped) throw new Refusal(`${w.id} was dropped: ${w.dropped.note}`, ['nothing to do; cairn linear pending lists what is left']);
+    const ref = typeof opts.ref === 'string' ? opts.ref.trim() : undefined;
+    w.sentAt = now();
+    if (ref) w.ref = ref;
+    // A follow-up filed as an issue remembers its key, so a later close never files it twice.
+    if (w.kind === 'createIssue' && ref) {
+      const [slug, sid] = w.target.split(':');
+      const sug = slug === s.slug ? s.suggestions?.find((x) => x.id === sid) : undefined;
+      if (sug) sug.linear = ref;
+    }
+    log(s, 'Linear update sent', `${w.id} ${w.kind} ${w.target}${ref ? ` → ${ref}` : ''}`);
+    const left = unsent(l).length;
+    return { message: `Marked ${w.id} sent.${left ? ` ${left} left.` : ' Nothing left to send.'}`, data: { left } };
+  });
+}
+
+function drop(ctx: Ctx, id: string | undefined, opts: Opts): Result {
+  const pc = planCtx(ctx);
+  if (typeof opts.note !== 'string' || !opts.note.trim()) throw new CliError('cairn linear drop needs --note "<why it is not sent>"');
+  const pre = loadState(pc.plan.dir);
+  return mutate(pc, bookkeeping(pre, 'Linear update dropped'), (s) => {
+    const w = entry(linkOf(s), id);
+    if (w.sentAt) throw new Refusal(`${w.id} was already sent`, ['nothing to do; cairn linear pending lists what is left']);
+    w.dropped = { at: now(), note: String(opts.note) };
+    log(s, 'Linear update dropped', `${w.id}: ${opts.note}`);
+    return { message: `Dropped ${w.id}; it won't be sent.` };
+  });
+}
+
+/** A send that failed, or that the user held: it stays queued and is retried at the next sync, without routing every `cairn next` to it. */
+function hold(ctx: Ctx, id: string | undefined, opts: Opts): Result {
+  const pc = planCtx(ctx);
+  if (typeof opts.note !== 'string' || !opts.note.trim()) throw new CliError('cairn linear hold needs --note "<the error, or why it waits>"');
+  const pre = loadState(pc.plan.dir);
+  return mutate(pc, bookkeeping(pre, 'Linear update held'), (s) => {
+    const w = entry(linkOf(s), id);
+    if (w.sentAt) return { message: `${w.id} was already sent.` };
+    if (w.dropped) throw new Refusal(`${w.id} was dropped: ${w.dropped.note}`, ['nothing to do; cairn linear pending lists what is left']);
+    w.held = { at: now(), note: String(opts.note) };
+    log(s, 'Linear update held', `${w.id}: ${opts.note}`);
+    return { message: `Held ${w.id}; the next sync tries it again.` };
+  });
+}
+
+// ---------- Dependencies and changes ----------
+
+function needKey(v: unknown, what: string): string {
+  const k = typeof v === 'string' ? v.toUpperCase() : '';
+  if (!ISSUE_KEY.test(k)) throw new CliError(`${what} must be a Linear issue key like SAV-12`);
+  return k;
+}
+
+/** A dependency found while building: record it, link it in Linear, and settle any refresh change it answers. */
+function depends(ctx: Ctx, keyArg: string | undefined, opts: Opts): Result {
+  const k = needKey(keyArg, 'the blocked issue');
+  const on = needKey(opts.on, '--on');
+  if (k === on) throw new CliError('an issue cannot block itself');
+  if (typeof opts.reason !== 'string' || !opts.reason.trim()) throw new CliError('cairn linear depends needs --reason "<what it needs from the blocker>"');
+  const reason = opts.reason.trim();
+  const pc = planCtx(ctx);
+  return mutate(pc, `Linear: ${k} depends on ${on}`, (s) => {
+    const l = linkOf(s);
+    const issue = l.issues.find((i) => i.key === k && !i.released);
+    if (!issue) throw new Refusal(`${k} is not one of this plan's issues`, ['cairn linear status lists them']);
+    const cycle = findIssueCycle([...l.issues, ...l.known], [...l.depends, { key: k, on, reason, at: '' }], true);
+    if (cycle?.includes(k) && cycle.includes(on)) throw new Refusal(`that would make a loop: ${cycle.join(' → ')}`, ['record the dependency the other way round, or not at all']);
+    const fresh = !l.depends.some((d) => d.key === k && d.on === on);
+    if (fresh) l.depends.push({ key: k, on, reason, at: now() });
+    // A link Linear already has needs no write; one found here is added (blockedBy only adds) with a comment saying why.
+    if (!issue.blockedBy.includes(on)) {
+      queueWrite(l, { kind: 'relation', target: k, payload: { id: k, blockedBy: [on] }, why: `${k} needs ${on}`, dedupe: `relation:${k}:${on}` });
+      queueComment(l, k, `Found while building: this needs ${on}. ${reason}`, `why ${k} now waits on ${on}`, `depends:${on}`);
+    }
+    for (const c of l.changes) if (!c.handled && c.kind === 'link' && c.key === k && c.on === on) c.handled = { at: now(), how: 'depends', note: reason };
+    log(s, 'Linear dependency', `${k} on ${on}: ${reason}`);
+    const inPlan = l.issues.some((i) => i.key === on && !i.released);
+    const blocker = [...l.issues, ...l.known].find((i) => i.key === on);
+    const next = inPlan
+      ? 'Both issues are in this plan: re-plan so the tasks for it come after the tasks for the blocker (cairn plan load --replan), then the plan needs approval again.'
+      : isDone(blocker)
+        ? `${on} is already done in Linear; nothing to wait for.`
+        : `${on} is outside this plan and not done. Ask the user: pull it in (amend the PRD, re-plan), drop ${k} (cairn linear release ${k} --reason "…"), stub it with a follow-up, or pause.`;
+    return { message: `${fresh ? 'Recorded' : 'Already recorded'}: ${k} depends on ${on}. ${next}`, data: { inPlan, done: isDone(blocker) } };
+  });
+}
+
+const ACK_AS = ['taken', 'later', 'noted'] as const;
+
+/** Decide about a change seen on refresh: pull the issue in, leave it for a later plan, or note that it does not block. */
+function ack(ctx: Ctx, id: string | undefined, opts: Opts): Result {
+  const as = String(opts.as ?? '');
+  if (!id || !(ACK_AS as readonly string[]).includes(as)) throw new CliError('usage: cairn linear ack <change id> --as taken|later|noted [--note "…"]');
+  const note = typeof opts.note === 'string' ? opts.note.trim() : undefined;
+  if (as === 'noted' && !note) throw new CliError('--as noted needs --note "<why it does not block>"');
+  const pc = planCtx(ctx);
+  return mutate(pc, `Linear change ${id} handled`, (s) => {
+    const l = linkOf(s);
+    const c = l.changes.find((x) => x.id === id);
+    if (!c) throw new Refusal(`no change "${id}"`, ['cairn linear status lists open changes']);
+    if (c.handled) return { message: `${id} was already handled (${c.handled.how}).` };
+    const subject = c.kind === 'link' ? c.on! : c.issue!.key;
+    let msg: string;
+    if (as === 'taken') {
+      const issue = c.issue ?? l.known.find((i) => i.key === subject);
+      if (!issue) throw new Refusal(`cairn has no details for ${subject}`, ['refresh with it included: cairn linear import --refresh']);
+      if (!l.issues.some((i) => i.key === subject)) l.issues.push({ ...issue, blockedBy: [...issue.blockedBy] });
+      msg = `${subject} is now part of the plan. Next: add requirements tagged [${subject}] to the PRD, then re-plan (cairn plan load --replan).`;
+    } else if (as === 'later') {
+      if (c.kind === 'sub-issue' && !l.issues.some((i) => i.key === subject)) l.issues.push({ ...c.issue!, released: { at: now(), reason: note ?? 'later plan' } });
+      msg = `${subject} stays out of this plan${note ? `: ${note}` : ''}.`;
+    } else msg = `Noted: ${changeText(c)} does not hold this plan up: ${note}.`;
+    // An issue now on the plan's list is no longer only known.
+    l.known = l.known.filter((i) => !l.issues.some((x) => x.key === i.key));
+    c.handled = { at: now(), how: as as 'taken' | 'later' | 'noted', ...(note ? { note } : {}) };
+    log(s, 'Linear change handled', `${id} ${as}${note ? `: ${note}` : ''}`);
+    return { message: msg };
+  });
+}
+
+/** Take an issue out of the plan and hand it back in Linear. */
+function release(ctx: Ctx, keyArg: string | undefined, opts: Opts): Result {
+  const k = needKey(keyArg, 'the issue');
+  if (typeof opts.reason !== 'string' || !opts.reason.trim()) throw new CliError('cairn linear release needs --reason "…"');
+  const reason = opts.reason.trim();
+  const pc = planCtx(ctx);
+  return mutate(pc, `Linear: released ${k}`, (s) => {
+    const l = linkOf(s);
+    const i = l.issues.find((x) => x.key === k);
+    if (!i) throw new Refusal(`${k} is not one of this plan's issues`, ['cairn linear status lists them']);
+    if (i.released) return { message: `${k} was already released.` };
+    i.released = { at: now(), reason };
+    for (const c of l.changes) if (!c.handled && (c.key === k || c.issue?.key === k)) c.handled = { at: now(), how: 'released', note: reason };
+    queueComment(l, k, `Released from cairn plan "${s.title}" (\`${s.branch}\`): ${reason}`, `${k} left the plan`, 'released');
+    log(s, 'Linear issue released', `${k}: ${reason}`);
+    const tagged = i.requirements?.length ? ` Its requirements (${i.requirements.join(', ')}) are still in the PRD: move them under ## Non-goals or drop them, then re-plan.` : '';
+    return { message: `Released ${k}: ${reason}.${tagged}` };
+  });
+}
+
+// ---------- Hooks into the plan's own moves ----------
+
+/** On `approve prd`: refuse while issues are untagged or outside blockers undecided. */
+export function linearPrdGate(s: State, prdMd: string | undefined, opts: Opts): void {
+  if (!s.linear || !prdMd) return;
+  const problems = prdLinearProblems(s.linear, prdMd);
+  gate(!problems.length, s, 'approve prd', opts, problems.join('; '), ['fix prd.md, then approve again']);
+}
+
+/** Record each issue's requirements from the PRD. Issues under `## Issues not taken` are released. */
+export function recordRequirements(s: State, prdMd: string): void {
+  const l = s.linear;
+  if (!l) return;
+  const reqs = issueRequirements(prdMd, l.issues.map((i) => i.key));
+  for (const i of l.issues) {
+    i.requirements = reqs.get(i.key) ?? [];
+    const why = notTakenReason(prdMd, i.key);
+    if (!i.released && why && !i.requirements.length) i.released = { at: now(), reason: why };
+  }
+}
+
+/** After the PRD is approved: one comment on each issue saying which plan took it and how. */
+export function onPrdApproved(pc: PlanCtx, s: State, prdMd: string): void {
+  const l = s.linear;
+  if (!l) return;
+  recordRequirements(s, prdMd);
+  const prd = `${planRelOf(pc.plan)}/prd.md`;
+  for (const i of l.issues) {
+    if (i.released) queueComment(l, i.key, `Not taken by cairn plan "${s.title}" (\`${s.branch}\`): ${i.released.reason}`, `${i.key} is left out of the plan`, 'released');
+    else if (i.requirements?.length)
+      queueComment(l, i.key, `cairn plan "${s.title}" (\`${s.branch}\`) takes this issue as ${i.requirements.join(', ')}. PRD: \`${prd}\`.`, `${i.key} is in the approved PRD`, 'prd');
+  }
+}
+
+/** Moves between stages: In Progress at execute, In Review and the PR link at ship, follow-ups and a project update at close. */
+export function onAdvance(pc: PlanCtx, s: State, from: State['stage'], to: State['stage'], opts: Opts, followups?: FollowupInfo[]): void {
+  const l = s.linear;
+  if (!l) return;
+  const cfg = linearConfig(pc.cfg);
+  const taken = takenIssues(l);
+  if (to === 'execute') {
+    for (const i of taken) if (!isDone(i) && i.stateType !== 'started') queueStatus(l, cfg, i.key, 'inProgress', 'the plan started building');
+    if (l.epic && !taken.some((i) => i.key === l.epic)) {
+      const epic = l.known.find((i) => i.key === l.epic);
+      if (!isDone(epic) && epic?.stateType !== 'started') queueStatus(l, cfg, l.epic, 'inProgress', 'a plan started building part of this epic');
+    }
+  }
+  if (from === 'ship' && (to === 'learn' || to === 'closed')) {
+    if (typeof opts.pr === 'string' && opts.pr.trim()) l.pr = opts.pr.trim();
+    const progress = issueProgress(s);
+    const parents = parentKeys(taken);
+    for (const i of taken) {
+      if (parents.has(i.key) || progress.get(i.key) !== 'shipped') continue;
+      const review = queueStatus(l, cfg, i.key, 'inReview', 'the pull request is open');
+      queueComment(l, i.key, `Shipped by cairn plan "${s.title}" (\`${s.branch}\`)${l.pr ? `: ${l.pr}` : '; the pull request is open'}.${review ? '' : ' Waiting on review and merge.'}`, `${i.key} is in an open pull request`, 'pr');
+    }
+    // The epic's own comment, so it reads without opening each child.
+    for (const p of new Set([...parents, ...(l.epic ? [l.epic] : [])])) {
+      const kids = [...l.issues, ...l.known].filter((i) => i.parent === p);
+      const done = kids.filter((k) => isDone(k) || progress.get(k.key) === 'shipped').length;
+      if (kids.length) queueComment(l, p, `${done} of ${kids.length} sub-issues shipped (plan \`${s.branch}\`${l.pr ? `, ${l.pr}` : ''}).`, `progress on ${p}`, `epic:${s.slug}`);
+    }
+  }
+  if (to === 'closed') onClose(pc, s, followups ?? []);
+}
+
+export interface FollowupInfo {
+  key: string;
+  text: string;
+  area: string;
+  hardening: boolean;
+  linear?: string;
+}
+
+/** The plan's open follow-ups, read before the state lock (they span every plan). */
+export function followupsFor(pc: PlanCtx, slug: string): FollowupInfo[] {
+  try {
+    return collectSuggestions(pc.ctx)
+      .filter((x) => x.open && x.slug === slug)
+      .map((x) => ({ key: x.key, text: x.text, area: x.area, hardening: x.hardening, ...(x.linear ? { linear: x.linear } : {}) }));
+  } catch {
+    return [];
+  }
+}
+
+function onClose(pc: PlanCtx, s: State, followups: FollowupInfo[]): void {
+  const l = s.linear!;
+  const taken = takenIssues(l);
+  for (const f of followups) {
+    if (f.linear) continue;
+    queueWrite(l, {
+      kind: 'createIssue',
+      target: f.key,
+      payload: {
+        team: l.team,
+        title: f.text.split('\n')[0].slice(0, 120),
+        description: `${f.text}\n\nFollow-up from cairn plan "${s.title}" (\`${s.branch}\`), ${f.hardening ? 'hardening' : f.area}.`,
+        ...(l.project ? { project: l.project } : {}),
+        ...(l.milestone ? { milestone: l.milestone } : {}),
+        labels: ['cairn-follow-up'],
+      },
+      why: `open follow-up ${f.key}`,
+      dedupe: `create:${f.key}`,
+    });
+  }
+  if (l.project) {
+    const left = l.issues.filter((i) => i.released);
+    const body = [
+      `**${s.title}** is closed${l.pr ? ` (${l.pr})` : ''}.`,
+      `Built: ${taken.map((i) => `${i.key} ${i.title}`).join('; ') || 'nothing from Linear'}.`,
+      ...(left.length ? [`Left for later: ${left.map((i) => `${i.key} (${i.released!.reason})`).join('; ')}.`] : []),
+      ...(followups.filter((f) => !f.linear).length ? [`Follow-ups filed: ${followups.filter((f) => !f.linear).length}.`] : []),
+    ].join('\n\n');
+    queueWrite(l, { kind: 'statusUpdate', target: l.project, payload: { type: 'project', project: l.project, health: 'onTrack', body }, why: `project update for "${l.project}"`, dedupe: `update:${s.slug}`, needsApproval: true });
+  }
+}
+
+/** After a phase finishes: one comment on each issue it finished building. */
+export function onPhaseFinished(s: State): void {
+  const l = s.linear;
+  if (!l) return;
+  const progress = issueProgress(s);
+  for (const i of takenIssues(l))
+    if (progress.get(i.key) === 'built') queueComment(l, i.key, `Built in cairn plan "${s.title}" (\`${s.branch}\`); checks and review come next.`, `${i.key} is built`, 'built');
+}
+
+/** Refresh changes the plan hasn't decided about yet: they hold up `phase finish`. */
+export function linearPhaseGate(s: State, opts: Opts): void {
+  const open = s.linear?.changes.filter((c) => !c.handled) ?? [];
+  gate(!open.length, s, 'phase finish', opts, `changes in Linear are not handled yet: ${open.map((c) => `${c.id} ${changeText(c)}`).join('; ')}`, [
+    'cairn linear depends <KEY> --on <KEY> --reason "…" (a real dependency)',
+    'cairn linear ack <id> --as taken|later|noted [--note "…"]',
+    'cairn linear release <KEY> --reason "…" (drop the blocked issue)',
+  ]);
+}
+
+/** After a re-plan loads, a new link between two in-plan issues is covered by the order check: mark it handled. */
+export function onPlanLoaded(s: State): void {
+  const l = s.linear;
+  if (!l) return;
+  const inPlan = new Set(takenIssues(l).map((i) => i.key));
+  for (const c of l.changes) if (!c.handled && c.kind === 'link' && inPlan.has(c.key) && inPlan.has(c.on!)) c.handled = { at: now(), how: 'replan' };
+}
+
+/** Before `approve ship`: blockers this plan's issues have in other plans must have shipped. Read before the lock. */
+export function crossPlanBlockers(ctx: Ctx, s: State): string[] {
+  const l = s.linear;
+  if (!l) return [];
+  const others = otherPlans(ctx, s.slug);
+  const byKey = new Map([...l.known, ...l.issues].map((i) => [i.key, i]));
+  const inPlan = new Set(takenIssues(l).map((i) => i.key));
+  const out: string[] = [];
+  for (const i of takenIssues(l))
+    for (const b of effectiveBlockers(i, byKey, l.depends)) {
+      if (inPlan.has(b) || isDone(byKey.get(b))) continue;
+      const o = ownerOf(others, b);
+      if (!o) continue;
+      // A plan closes before its pull request merges: only a merged branch counts as shipped.
+      if (o.stage !== 'learn' && o.stage !== 'closed') out.push(`${i.key} needs ${b}, which plan ${o.slug} has not shipped (it is in ${o.stage})`);
+      else if (!merged(ctx, o.state)) out.push(`${i.key} needs ${b}, which plan ${o.slug} has not merged yet`);
+    }
+  return [...new Set(out)];
+}
+
+/** Whether another plan's branch has landed in its base. Its state came from another branch, so its refs are checked first (`mergeState` does). */
+function merged(ctx: Ctx, s: State): boolean {
+  try {
+    const rel = resolvePlanDir(s.slug, { ref: s.branch, cwd: ctx.top }) ?? '';
+    return landedState(ctx.top, s.branch, s.base, rel, join(commonDir(ctx.mainRoot), PR_CACHE)) === 'merged';
+  } catch {
+    return false;
+  }
+}
+
+// ---------- Status and board ----------
+
+function linearStatus(ctx: Ctx): Result {
+  const pc = planCtx(ctx);
+  const s = loadState(pc.plan.dir);
+  const l = linkOf(s);
+  const progress = issueProgress(s);
+  const open = l.changes.filter((c) => !c.handled);
+  const lines = [
+    `Linear: ${[l.project, l.milestone, l.epic ? `epic ${l.epic}` : undefined].filter(Boolean).join(' · ') || l.team}`,
+    ...l.issues.map((i) => `  ${i.key} ${i.title}: ${progress.get(i.key)}${i.released ? ` (${i.released.reason})` : ''}${i.requirements?.length ? ` [${i.requirements.join(', ')}]` : ''}`),
+    ...(open.length ? [`Changes to decide: ${open.map((c) => `${c.id} ${changeText(c)}`).join('; ')}`] : []),
+    ...(unsent(l).length ? [`${unsent(l).length} update(s) waiting to be sent: cairn linear pending`] : []),
+  ];
+  return { message: lines.join('\n'), data: { linear: l, progress: Object.fromEntries(progress), openChanges: open, pending: unsent(l).length } };
+}
+
+const projectSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'project';
+const snapshotDir = (ctx: Ctx) => join(commonDir(ctx.mainRoot), 'cairn', 'linear');
+const snapshotFile = (ctx: Ctx, project: string) => join(snapshotDir(ctx), `${projectSlug(project)}.json`);
+
+function loadSnapshot(ctx: Ctx, project?: string): BoardSnapshot {
+  const dir = snapshotDir(ctx);
+  const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.json')) : [];
+  const read = (f: string) => JSON.parse(readText(join(dir, f)) ?? '{}') as BoardSnapshot;
+  if (project) {
+    const f = `${projectSlug(project)}.json`;
+    if (!files.includes(f)) throw new Refusal(`no snapshot of "${project}" yet`, [`read it from Linear first: /cairn:board ${project}`]);
+    return read(f);
+  }
+  if (files.length === 1) return read(files[0]);
+  if (!files.length) throw new Refusal('no Linear project has been read yet', ['/cairn:board <project> reads one from Linear']);
+  throw new Refusal(`several projects have been read: ${files.map((f) => f.replace(/\.json$/, '')).join(', ')}`, ['pass --project "<name>"']);
+}
+
+export type BoardStatus = 'done' | 'in plan' | 'ready' | 'blocked';
+
+export interface BoardIssue {
+  key: string;
+  title: string;
+  milestone?: string;
+  parent?: string;
+  status: BoardStatus;
+  plan?: { slug: string; stage: string; progress: IssueProgress };
+  blockedBy: { key: string; where: string }[];
+}
+
+function board(ctx: Ctx, opts: Opts): Result {
+  const snap = loadSnapshot(ctx, typeof opts.project === 'string' ? opts.project : undefined);
+  const plans = otherPlans(ctx);
+  const byKey = new Map(snap.issues.map((i) => [i.key, i]));
+  // Blockers from other projects are looked up, never counted.
+  const lookup = new Map([...(snap.known ?? []), ...snap.issues].map((i) => [i.key, i]));
+  const progressOf = new Map(plans.map((p) => [p.slug, issueProgress(p.state)]));
+  const depends = plans.flatMap((p) => p.state.linear!.depends);
+  const where = (k: string): string => {
+    const o = ownerOf(plans, k);
+    if (o) return `plan ${o.slug} (${o.stage})`;
+    const i = byKey.get(k);
+    return i ? (i.milestone ? `milestone ${i.milestone}` : 'this project') : 'another project';
+  };
+  const statusOf = (i: LinearIssue): BoardIssue => {
+    const owner = ownerOf(plans, i.key);
+    const blockers = effectiveBlockers(i, lookup, depends).filter((b) => !isDone(lookup.get(b)));
+    const base = { key: i.key, title: i.title, ...(i.milestone ? { milestone: i.milestone } : {}), ...(i.parent ? { parent: i.parent } : {}), blockedBy: blockers.map((b) => ({ key: b, where: where(b) })) };
+    if (isDone(i)) return { ...base, status: 'done', blockedBy: [] };
+    if (owner) return { ...base, status: 'in plan', plan: { slug: owner.slug, stage: owner.stage, progress: progressOf.get(owner.slug)!.get(i.key) ?? 'not started' } };
+    return { ...base, status: blockers.length ? 'blocked' : 'ready' };
+  };
+  const parents = new Set(snap.issues.map((i) => i.parent).filter((p): p is string => !!p && byKey.has(p)));
+  const leaves = snap.issues.filter((i) => !parents.has(i.key)).map(statusOf);
+  const leafOf = new Map(leaves.map((x) => [x.key, x]));
+  const descendants = (k: string): BoardIssue[] => snap.issues.filter((i) => i.parent === k).flatMap((i) => (parents.has(i.key) ? descendants(i.key) : [leafOf.get(i.key)!]));
+  const names = [...new Set([...snap.milestones, ...snap.issues.map((i) => i.milestone ?? '')])];
+  const count = (xs: BoardIssue[]) => ({ total: xs.length, done: xs.filter((x) => x.status === 'done').length, inPlan: xs.filter((x) => x.status === 'in plan').length, ready: xs.filter((x) => x.status === 'ready').length, blocked: xs.filter((x) => x.status === 'blocked').length });
+  const epicOf = (p: string) => {
+    const kids = descendants(p);
+    return { key: p, title: byKey.get(p)!.title, done: kids.filter((k) => k.status === 'done').length, total: kids.length, plans: [...new Set(kids.map((k) => k.plan?.slug).filter((x): x is string => !!x))], issues: kids };
+  };
+  const epicKey = typeof opts.epic === 'string' ? opts.epic.trim().toUpperCase() : undefined;
+  if (epicKey && !parents.has(epicKey)) throw new Refusal(`${epicKey} is not an epic in "${snap.project}" as last read`, ['cairn linear board lists the epics', `or re-read the project: /cairn:board ${snap.project}`]);
+  const milestones = epicKey
+    ? [{ name: byKey.get(epicKey)!.milestone ?? 'No milestone', counts: count(descendants(epicKey)), epics: [epicOf(epicKey)], issues: [] as BoardIssue[] }]
+    : names
+        .map((name) => {
+          const mine = leaves.filter((x) => (x.milestone ?? '') === name);
+          const epics = [...parents]
+            .filter((p) => !byKey.get(p)!.parent || !parents.has(byKey.get(p)!.parent!))
+            .filter((p) => (byKey.get(p)!.milestone ?? '') === name)
+            .map(epicOf);
+          const inEpic = new Set(epics.flatMap((e) => e.issues.map((i) => i.key)));
+          // A sub-issue whose parent is outside the project is listed on its own.
+          return { name: name || 'No milestone', counts: count(mine), epics, issues: mine.filter((x) => !inEpic.has(x.key) && !(x.parent && parents.has(x.parent))) };
+        })
+        .filter((m) => m.counts.total || m.epics.length);
+  const cycle = findIssueCycle(snap.issues, depends);
+  const ageMinutes = Math.max(0, Math.round((Date.now() - Date.parse(snap.readAt)) / 60_000));
+  const week = 7 * 86_400_000;
+  const planRows = plans
+    .filter((p) => p.stage !== 'closed' && p.state.linear!.issues.some((i) => byKey.has(i.key)))
+    .map((p) => ({ slug: p.slug, title: p.state.title, stage: p.stage, issues: takenIssues(p.state.linear!).map((i) => i.key), stalled: Date.now() - Date.parse(p.state.updated) > week }));
+  const age = ageMinutes < 60 ? `${ageMinutes} min` : ageMinutes < 2880 ? `${Math.round(ageMinutes / 60)} h` : `${Math.round(ageMinutes / 1440)} days`;
+  const issueLine = (x: BoardIssue, indent: string) =>
+    `${indent}${x.status === 'done' ? '✓' : x.status === 'in plan' ? '▸' : x.status === 'ready' ? '○' : '✗'} ${x.key} ${x.title}${x.plan ? `: ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})` : ''}${x.status === 'blocked' ? `: blocked by ${x.blockedBy.map((b) => `${b.key} [${b.where}]`).join(', ')}` : ''}`;
+  const lines = [
+    `${snap.project}: read from Linear ${age} ago.`,
+    ...milestones.flatMap((m) => [
+      `${m.name}: ${m.counts.done}/${m.counts.total} done, ${m.counts.inPlan} in a plan, ${m.counts.ready} ready, ${m.counts.blocked} blocked`,
+      ...m.epics.flatMap((e) => [`  epic ${e.key} ${e.title}: ${e.done}/${e.total} done${e.plans.length ? `, plans: ${e.plans.join(', ')}` : ''}`, ...e.issues.map((x) => issueLine(x, '    '))]),
+      ...m.issues.map((x) => issueLine(x, '  ')),
+    ]),
+    ...(planRows.length ? ['Plans:', ...planRows.map((p) => `  ${p.slug} (${p.stage}): ${p.issues.join(', ')}${p.stalled ? ', no change in over a week' : ''}`)] : []),
+    ...(cycle ? [`Loop in blocked-by links: ${cycle.join(' → ')}. Remove one link in Linear.`] : []),
+  ];
+  return { message: lines.join('\n'), data: { project: snap.project, readAt: snap.readAt, ageMinutes, milestones, plans: planRows, cycle: cycle ?? null } };
+}
+
+/**
+ * Plans whose branch merged while nobody ran cairn in their worktree, so their Done statuses were never queued.
+ * `cairn next` on main points at the first; it may ask `gh`, so a hook never calls this.
+ */
+export function mergedPlansAwaitingDone(ctx: Ctx): { slug: string; worktree: string }[] {
+  try {
+    return listPlans(ctx)
+      .filter((r) => r.worktree && wellFormed(r.state.linear) && (r.state.stage === 'learn' || r.state.stage === 'closed') && !doneQueued(r.state.linear) && merged(ctx, r.state))
+      .map((r) => ({ slug: r.state.slug, worktree: r.worktree! }));
+  } catch {
+    return [];
+  }
+}
+
+/** For the session-start hook: the count only, no git or network. */
+export const pendingCount = (s: State): number => due(s.linear).length;
