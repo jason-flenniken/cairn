@@ -76,7 +76,7 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
 
   const where = (i: LinearIssue, b: string): string | undefined => {
     const o = ownerOf(plans, b);
-    if (o) return `plan ${o.slug} (${o.stage})`;
+    if (o && o !== ownerOf(plans, i.key)) return `plan ${o.slug} (${o.stage})`;
     const x = byKey.get(b);
     if (!x) return 'another project';
     if ((x.milestone ?? '') === (i.milestone ?? '')) return undefined;
@@ -199,7 +199,7 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
       ]
     : [];
 
-  const onBoard = plans.filter((p) => p.stage !== 'closed' && (p.state.linear?.issues ?? []).some((i) => byKey.has(i.key)));
+  const onBoard = plans.filter((p) => p.stage !== 'closed' && !!p.state.linear && takenIssues(p.state.linear).some((i) => byKey.has(i.key)));
   const inProgress: BoardData['inProgress'] = onBoard.map((p) => {
     const l = p.state.linear!;
     const mine = takenIssues(l).filter((i) => byKey.has(i.key) && !parents.has(i.key));
