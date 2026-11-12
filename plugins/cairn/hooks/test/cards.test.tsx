@@ -551,3 +551,34 @@ describe('the ticket on an agent card (FR-15)', () => {
     await ui.unmount()
   })
 })
+
+describe('card fixes', () => {
+  test('the Main card\'s second row shows the session model', async ($, on) => {
+    world(on, { rows: [row(EXECUTE, WT)] })
+    on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 1, window: 200_000, percent: 1 }, rateLimits: [] } as never }))
+    on('session.model', () => ({ value: 'claude-opus-5-5' as never }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect((await rowsOf(ui, 'model'))[0]).toContain('Opus 5.5')
+    await ui.unmount()
+  })
+
+  test('a status too long for a narrow card is cut after its glyph, which keeps the status color', async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(EXECUTE, WT)] })
+    await start($, WT)
+    const ui = await mountAs($, { bodyColumns: 20 })
+    w.holdAsks = true
+    w.answer = 'Clinical'
+    const asked = $.tool.call({ tool: 'AskUserQuestion', questions: [{ question: 'Q?', header: 'Pick', multiSelect: false, options: [{ label: 'Clinical', description: 'a' }, { label: 'Modern', description: 'b' }] }] } as never)
+    await until(clock, () => w.asked.length > 0)
+    await clock.advance(1_000)
+    const status = (await cardOf(ui, 'main')).find((b: any) => b.key.endsWith(':status'))
+    const pieces = status.children.filter((c: any) => typeof c !== 'string')
+    const glyph = pieces.find((c: any) => c.props.color === 'yellow' && c.children.join('') === '◷')
+    expect(glyph).toBeDefined()
+    expect(label(status)).not.toContain('waiting for you 0:01')
+    w.release.forEach(r => r())
+    await asked
+    await ui.unmount()
+  })
+})

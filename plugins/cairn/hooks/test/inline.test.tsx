@@ -103,3 +103,39 @@ describe('inline view fits seven rows', () => {
     await ui.unmount()
   })
 })
+
+describe('inline count line position (FR-20)', () => {
+  /** Rows between the count line and the last button's row, in drawn order. */
+  async function belowButtons(ui: any, pattern: RegExp): Promise<number> {
+    // Every node of the pane in drawn order; the Status button ends the buttons row.
+    const nodes: El[] = []
+    const walk = (n: El | string) => { if (typeof n !== 'string') { nodes.push(n); (n.children ?? []).forEach(walk) } }
+    walk((await ui.findAll({ type: 'Box' }))[0] as El)
+    const buttons = nodes.findIndex(n => n.type === 'Button' && JSON.stringify(n).includes('Status'))
+    const at = nodes.findIndex(n => n.type === 'Text' && pattern.test(textOf(n)))
+    expect(buttons).toBeGreaterThan(-1)
+    expect(at).toBeGreaterThan(-1)
+    return at - buttons
+  }
+
+  test('the merged line and the lone other-plans line are both drawn after the buttons', async ($, on) => {
+    spawnIds(on)
+    world(on, { cwd: MAIN, rows: [row(plan({ stage: 'prd', paused: { at: '2026-03-01T11:00:00.000Z', mode: 'drain' } }), WT, undefined, ready('prd')), row(plan({ slug: 'other', title: 'Other' }), OTHER)] })
+    await start($, MAIN)
+    await spawnAgents($, 5)
+    const merged = await mountAs($, { placement: 'inline' })
+    const mergedAt = await belowButtons(merged, /^● \+5 agents · \+1 other plan/)
+    await merged.unmount()
+    expect(mergedAt).toBeGreaterThan(0)
+  })
+
+  test('the lone other-plans line is drawn after the buttons too', async ($, on) => {
+    spawnIds(on)
+    world(on, { cwd: MAIN, rows: [row(plan({ stage: 'execute' }), WT), row(plan({ slug: 'other', title: 'Other' }), OTHER)] })
+    await start($, MAIN)
+    await spawnAgents($, 1)
+    const ui = await mountAs($, { placement: 'inline' })
+    expect(await belowButtons(ui, /^\+1 other active plan/)).toBeGreaterThan(0)
+    await ui.unmount()
+  })
+})

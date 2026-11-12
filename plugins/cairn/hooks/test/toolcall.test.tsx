@@ -227,3 +227,22 @@ describe('a card\'s third row', () => {
     await ui.unmount()
   })
 })
+
+describe('overlapping tool calls (FR-17)', () => {
+  test('A and B run, A ends: the card still shows B', async ($, on) => {
+    const { ui, clock } = await setup($, on)
+    const a = $.tool.call(call({ tool: 'Read', file_path: '/repo/src/a.ts' }))
+    const b = $.tool.call(call({ tool: 'Read', file_path: '/repo/src/b.ts' }))
+    await clock.advance(1_000)
+    expect(await thirdRow(ui)).toEqual({ text: 'Read src/b.ts', isDim: false })
+    open.shift()?.()
+    await a
+    await clock.advance(1_000)
+    expect(await thirdRow(ui)).toEqual({ text: 'Read src/b.ts', isDim: false })
+    finish()
+    await b
+    await clock.advance(1_000)
+    expect(await thirdRow(ui)).toEqual({ text: 'Read src/b.ts', isDim: true })
+    await ui.unmount()
+  })
+})
