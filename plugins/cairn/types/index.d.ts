@@ -119,7 +119,7 @@ export type CairnBoard = {
   cycle: string[] | null
   /** The keys of the epics that can start now. */
   readyEpics?: string[]
-  /** The key of the one item the board says to pick up next; null when none stands out. */
+  /** The name of the first milestone that is not all done; null when every milestone is done. */
   focus?: string | null
   /** The plans under way, with the epic and issues each one builds and their progress. */
   inProgress?: {
@@ -128,7 +128,7 @@ export type CairnBoard = {
     stage: string
     /** The Linear epic the plan belongs to. */
     epic?: string
-    /** The plan's title. */
+    /** The epic's title when the plan's epic is on the board, otherwise the plan's title. */
     title?: string
     /** Issues the plan has finished. */
     done: number
@@ -142,7 +142,7 @@ export type CairnBoard = {
   waiting?: { key: string; title: string; kind: 'epic' | 'issue'; done?: number; total?: number; waitsOn: string[] }[]
   /** How many issues in the project are done. */
   done?: number
-  /** The epic-to-epic links that cross milestones, with how many issues each link holds back. */
+  /** Blocked-by links set on an epic itself, to an issue not done, while the epic has 3 or more open sub-issues (`holds`). */
   wideLinks?: { epic: string; on: string; holds: number }[]
 }
 
