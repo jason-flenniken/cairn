@@ -3,7 +3,7 @@
 ## Links
 - PRD: docs/cairn/plans/2026-11-12-clearer-linear-pane/prd.md
 - Plan: docs/cairn/plans/2026-11-12-clearer-linear-pane/plan.md
-- PR: (added when opened)
+- PR: https://github.com/jason-flenniken/cairn/pull/10
 - Tracker: none
 - Revert: revert the PR (`git revert -m 1 <sha>`). Nothing else to undo: the snapshot format is unchanged, and the board JSON only gained fields.
 
