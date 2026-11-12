@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:14:43.337Z",
+  "updated": "2026-11-12T21:17:19.450Z",
   "stage": "prd",
   "stageHistory": [
     {
@@ -19,7 +19,14 @@
     }
   ],
   "paused": null,
-  "approvals": {},
+  "approvals": {
+    "prd": {
+      "at": "2026-11-12T21:17:19.450Z",
+      "via": "human",
+      "source": "mod",
+      "hash": "6baf03a0fc834a1f"
+    }
+  },
   "phases": [],
   "evidence": {},
   "drift": [],
@@ -37,6 +44,26 @@
       "at": "2026-11-12T21:14:43.337Z",
       "event": "advanced",
       "detail": "prd"
+    },
+    {
+      "at": "2026-11-12T21:14:49.380Z",
+      "event": "step",
+      "detail": "drafting"
+    },
+    {
+      "at": "2026-11-12T21:15:56.797Z",
+      "event": "step",
+      "detail": "checking"
+    },
+    {
+      "at": "2026-11-12T21:17:05.424Z",
+      "event": "step",
+      "detail": "approving"
+    },
+    {
+      "at": "2026-11-12T21:17:19.450Z",
+      "event": "PRD approved",
+      "detail": "mod"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -85,5 +112,10 @@
       "declines": "richer-pane-cards:s28",
       "at": "2026-11-12T21:11:55.603Z"
     }
-  ]
+  ],
+  "step": {
+    "stage": "prd",
+    "name": "approving",
+    "at": "2026-11-12T21:17:05.424Z"
+  }
 }

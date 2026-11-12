@@ -96,3 +96,13 @@ _2026-11-12 21:12_
 **Decision:** Outcome: Linear tab by status (in progress, ready with unblocks N, waiting collapsed per epic, done as a count; later milestones one line each; flags wide epic links), sections computed by the CLI and shared with cairn linear board; ticket keys on agent cards, the plan header and UP NEXT; plus the card polish follow-up. User: the developer running cairn plans from a Linear project. Why now: first real Linear project (Savvyling) made the tab unreadable. Success: at 46 columns you can see what is running, what to start next and what it frees, and what waits on what; cards name the ticket. Constraint: the CLI works out every fact, the pane only draws; no new deps. Out of scope: parallel plans, stacked branches, maxParallel (separate plan); collapsible epics in the pane. Set aside: in progress = a plan owns the issue; several tickets show first +N, none shows no key; read age stays in header.
 **Why:** confirmed by the user
 _2026-11-12 21:14_
+
+### 20. Sections span milestones
+**Decision:** In progress lists every running plan and Ready lists ready work from every milestone (tagged with its milestone outside the focus); Waiting details only the first unfinished milestone; later milestones one line each; no-milestone issues form a last group
+**Why:** PRD check: a running plan or ready issue outside the focus milestone would have been hidden
+_2026-11-12 21:17_
+
+### 21. Set aside: minor PRD guesses
+**Decision:** Builder's call: progress bar characters and width, overflow styling, JSON key names inside rows, inline line fitting, long milestone names (truncate)
+**Why:** PRD builder check; none changes what the user sees in substance
+_2026-11-12 21:17_
