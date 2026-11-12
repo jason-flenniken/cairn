@@ -6,8 +6,8 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T22:02:53.477Z",
-  "stage": "verify",
+  "updated": "2026-11-12T22:02:53.595Z",
+  "stage": "review",
   "stageHistory": [
     {
       "stage": "discover",
@@ -28,6 +28,10 @@
     {
       "stage": "verify",
       "at": "2026-11-12T21:59:16.067Z"
+    },
+    {
+      "stage": "review",
+      "at": "2026-11-12T22:02:53.594Z"
     }
   ],
   "paused": null,
@@ -642,6 +646,11 @@
       "at": "2026-11-12T22:02:53.477Z",
       "event": "verify pass",
       "detail": "tests: 405 CLI + 638 mod passing; 20 requirements met (1 fixed in check: no Ready section when every milestone is done), 2 untested (FR-09 rule color, FR-20 exact position) logged; secret scan: clean; audit: 0 vulnerabilities, no manifest changes"
+    },
+    {
+      "at": "2026-11-12T22:02:53.595Z",
+      "event": "advanced",
+      "detail": "review"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -892,11 +901,5 @@
     }
   ],
   "planHash": "59c841c822efeebf",
-  "configHash": "12129909968d47d2",
-  "step": {
-    "stage": "verify",
-    "name": "fixing",
-    "count": 1,
-    "at": "2026-11-12T22:01:48.857Z"
-  }
+  "configHash": "12129909968d47d2"
 }
