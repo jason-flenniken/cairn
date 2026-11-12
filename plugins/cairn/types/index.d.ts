@@ -52,6 +52,10 @@ export type CairnPlanRow = {
   maxParallel?: number
   /** Set only while the plan's document is ready for the human; absent while it is still being drafted. */
   ready?: CairnReady
+  /** The Linear issue keys each task of the plan builds, by task name; absent until the plan is linked to Linear. */
+  taskIssues?: Record<string, string[]>
+  /** The Linear epic key the plan belongs to; absent when it has none. */
+  epic?: string
 }
 
 /** One plan of `cairn records --json`: in progress first, then newest first. */
@@ -76,7 +80,26 @@ export type CairnBoardIssue = {
   parent?: string
   status: 'done' | 'in plan' | 'ready' | 'blocked'
   plan?: { slug: string; stage: string; progress: string }
-  blockedBy: { key: string; where: string }[]
+  /** The issues this one waits on; `where` names the milestone or plan they sit in, when the CLI knows it. */
+  blockedBy: { key: string; where?: string }[]
+  /** How many other issues this one unblocks when it finishes. */
+  unblocks?: number
+}
+
+/** One epic of a milestone in `cairn linear board --json`, with where it stands. */
+export type CairnBoardEpic = {
+  key: string
+  title: string
+  done: number
+  total: number
+  plans: string[]
+  issues: CairnBoardIssue[]
+  /** Where the epic stands: `active` has work under way, `ready` can start, `waiting` is blocked, `done` is finished. */
+  state: 'active' | 'ready' | 'waiting' | 'done'
+  /** The keys of the epics or issues this epic waits on. */
+  waitsOn: string[]
+  /** How many other items this epic unblocks when it finishes. */
+  unblocks?: number
 }
 
 /** `cairn linear board --json`: the Linear project's progress across milestones, epics and plans. */
@@ -87,11 +110,40 @@ export type CairnBoard = {
   milestones: {
     name: string
     counts: { total: number; done: number; inPlan: number; ready: number; blocked: number }
-    epics: { key: string; title: string; done: number; total: number; plans: string[]; issues: CairnBoardIssue[] }[]
+    epics: CairnBoardEpic[]
     issues: CairnBoardIssue[]
+    /** The milestones this one waits on. */
+    waitsOn?: string[]
   }[]
   plans: { slug: string; title?: string; stage: string; issues: string[]; stalled: boolean }[]
   cycle: string[] | null
+  /** The keys of the epics that can start now. */
+  readyEpics?: string[]
+  /** The key of the one item the board says to pick up next; null when none stands out. */
+  focus?: string | null
+  /** The plans under way, with the epic and issues each one builds and their progress. */
+  inProgress?: {
+    slug: string
+    /** The plan's stage in words, as the CLI last recorded it. */
+    stage: string
+    /** The Linear epic the plan belongs to. */
+    epic?: string
+    /** The plan's title. */
+    title?: string
+    /** Issues the plan has finished. */
+    done: number
+    /** Issues the plan builds in all. */
+    total: number
+    issues: { key: string; title: string; progress: string }[]
+  }[]
+  /** The epics and issues that can start now, with what each one unblocks. */
+  ready?: { key: string; title: string; kind: 'epic' | 'issue'; milestone: string; unblocks: number }[]
+  /** The epics and issues that wait on something, with the keys they wait on. */
+  waiting?: { key: string; title: string; kind: 'epic' | 'issue'; done?: number; total?: number; waitsOn: string[] }[]
+  /** How many issues in the project are done. */
+  done?: number
+  /** The epic-to-epic links that cross milestones, with how many issues each link holds back. */
+  wideLinks?: { epic: string; on: string; holds: number }[]
 }
 
 /** The pane's last good read: every plan, and the slug of the one the session works on (isFallback: chosen from the repo root, not by location). */
