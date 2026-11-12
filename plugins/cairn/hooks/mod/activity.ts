@@ -226,8 +226,10 @@ export function before($: EngineInterface, e: Call): Promise<void> {
 export function after($: EngineInterface, e: Call): Promise<void> {
   return safe(async () => {
     const t = await $.clock.now()
-    if (e.agentId === undefined) await update($, mainActivity, m => (m === null ? m : { action: 'thinking', since: t, lastCall: m.call ?? m.lastCall, turnAt: m.turnAt }))
-    else await patch($, e.agentId, c => ({ ...c, steps: c.steps + 1, action: undefined, actionSince: undefined, call: undefined, lastCall: c.call ?? c.lastCall }))
+    const call = toolCall(e)
+    // Overlapping calls: one that ends clears the card only when it is the call shown.
+    if (e.agentId === undefined) await update($, mainActivity, m => (m === null ? m : m.call !== undefined && m.call !== call ? m : { action: 'thinking', since: t, lastCall: m.call ?? m.lastCall, turnAt: m.turnAt }))
+    else await patch($, e.agentId, c => (c.call !== undefined && c.call !== call ? { ...c, steps: c.steps + 1, lastCall: c.call } : { ...c, steps: c.steps + 1, action: undefined, actionSince: undefined, call: undefined, lastCall: c.call ?? c.lastCall }))
   })
 }
 

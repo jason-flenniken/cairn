@@ -17,7 +17,7 @@ import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, st
 import { commonDir } from './heartbeat.ts'
 import { act, cells, clean, message } from './util.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
-import { inlineUsage, install as installUsage, limitsLine, modelLine, readBaseline, readUsage, syncBaseline } from './usage.ts'
+import { inlineUsage, install as installUsage, limitsLine, modelLine, modelName, readBaseline, readUsage, syncBaseline } from './usage.ts'
 
 type Drift = { path?: string; acked?: unknown }
 
@@ -400,6 +400,7 @@ export function install(on: On): void {
       stage: here !== undefined && isActive(here) ? here.state.stage : undefined,
       taskNames: here === undefined ? [] : tasksOf(here.state).map(x => x.name ?? x.id ?? ''),
       taskIssues: here?.taskIssues,
+      model: modelName(used?.model),
     }
     // The bar's lines: docked, the git line, the usage lines, then every stage step; inline, the active step with the plan cost, active time and limits.
     const planSlug = here !== undefined && isActive(here) ? here.state.slug : undefined
@@ -482,11 +483,13 @@ export function install(on: On): void {
         const showFallback = fallback !== undefined && fixedRows + 1 + othersRows + 1 + working <= INLINE_ROWS
         const room = INLINE_ROWS - fixedRows - (showFallback ? 1 : 0) - othersRows
         othersFolded = room < 1
-        const lines = othersFolded ? [foldedLine(cx, cards, others.length)] : agentLines(cx, main, cards, room)
-        const rows = fixedRows + (showFallback ? 1 : 0) + (othersFolded ? 0 : othersRows) + lines.length
+        const folded = othersFolded ? foldedLine(cx, cards, others.length) : undefined
+        const lines = folded === undefined ? agentLines(cx, main, cards, room) : []
+        const rows = fixedRows + (showFallback ? 1 : 0) + (othersFolded ? 0 : othersRows) + lines.length + (folded === undefined ? 0 : 1)
         const tip = rows < INLINE_ROWS && <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>
         const header = planHeader(ui, row, accent, e.props.bodyColumns, t, showFallback ? fallback : undefined, working)
-        return [header, approve, ...lines, tip, buttons]
+        // The merged count line sits below the buttons, where the lone other-plans line is drawn.
+        return [header, approve, ...lines, tip, buttons, folded]
       }
       const header = planHeader(ui, row, accent, e.props.bodyColumns, t, fallback, working)
 

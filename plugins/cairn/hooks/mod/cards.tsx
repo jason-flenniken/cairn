@@ -24,7 +24,7 @@ export const STATUS_COLOR = { running: '#ff8700', completed: 'green', failed: 'r
  * shown plan's stage and task names, which place an agent in the process, and whether the surface draws
  * text as a grid of cells (the terminal; absent reads as one).
  */
-export type CardContext = { ui: Ui; nowMs: number; columns?: number; stage?: string; taskNames?: string[]; taskIssues?: Record<string, string[]>; isGrid?: boolean }
+export type CardContext = { ui: Ui; nowMs: number; columns?: number; stage?: string; taskNames?: string[]; taskIssues?: Record<string, string[]>; isGrid?: boolean; model?: string }
 
 /** What a role in an agent's "<Role> · <what>" description does; a review of a task or for security says which. */
 const ROLE_STEP: Record<string, string> = { Build: 'building', Review: 'review', Fix: 'fixing', Check: 'checking', Record: 'writing the record' }
@@ -82,8 +82,8 @@ function bottomBorder(label: string, columns: number): string {
 
 /** What a card row says: the step on the left, the status on the right (its first glyph in the status color); the left is cut first. */
 function sides(left: string, right: string, inner: number, color: string): Seg[] {
-  if (cells(right) + 1 > inner) return [{ text: fit(right, inner) }]
   const glyph = [...right][0] ?? ''
+  if (cells(right) + 1 > inner) return [{ text: glyph, color }, { text: fit(right.slice(glyph.length), Math.max(0, inner - cells(glyph))) }]
   const room = inner - cells(right) - 1
   return [{ text: (room > 0 ? fit(left, room) : '') + ' ' }, { text: glyph, color }, { text: right.slice(glyph.length) }]
 }
@@ -218,7 +218,7 @@ function agentCounts(cards: AgentCard[]): string {
  */
 export function mainCard($: EngineInterface, cx: CardContext, main: Main, cards: AgentCard[], idleSince = 0) {
   const { nowMs } = cx
-  const base = { title: 'Main session', left: '', line2: '', footer: agentCounts(cards), line3Dim: true }
+  const base = { title: 'Main session', left: '', line2: cx.model === undefined ? '' : clean(cx.model), footer: agentCounts(cards), line3Dim: true }
   if (main === null) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.idle, right: idleSince > 0 ? `○ idle ${fmtClock(nowMs - idleSince)}` : '○ idle', line3: '' })
   if (main.isWaiting) return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.waiting, right: `◷ waiting for you ${fmtClock(nowMs - main.since)}`, line3: 'answer in the chat' })
   return cardRows($, cx, 'main', { ...base, color: STATUS_COLOR.running, right: `● working ${fmtClock(nowMs - (main.turnAt ?? main.since))}`, line3: main.call ?? main.lastCall ?? clean(main.action), line3Dim: main.call === undefined })
