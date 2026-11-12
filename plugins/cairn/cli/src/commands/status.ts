@@ -12,7 +12,7 @@ import { hashText, pluginRoot, readText, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
-import { isFoundational, linearConfig, takenIssues } from '../linear.ts';
+import { due, isFoundational, linearConfig, takenIssues } from '../linear.ts';
 import { allTasks } from '../ready.ts';
 import { mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
 import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
@@ -77,14 +77,17 @@ export function taskIssuesOf(s: State): Record<string, string[]> | undefined {
   const l = s.linear;
   if (!l || !l.issues.length) return undefined;
   const taken = takenIssues(l);
+  // A plan loaded with one ticket per task names it; an older plan matches the requirements each task covers.
+  if (allTasks(s).some((t) => t.issue)) return Object.fromEntries(allTasks(s).map((t) => [t.name, t.issue ? [t.issue] : []]));
   return Object.fromEntries(allTasks(s).map((t) => [t.name, taken.filter((i) => i.requirements?.some((r) => t.covers.includes(r))).map((i) => i.key)]));
 }
 
 /** The Linear fields a plan row carries: its task-to-issue keys and its epic. A plan without Linear issues carries neither. */
-function linearRowFields(s: State): { taskIssues?: Record<string, string[]>; epic?: string } {
+function linearRowFields(s: State): { taskIssues?: Record<string, string[]>; epic?: string; linearDue?: number } {
+  const n = due(s.linear).length;
   const taskIssues = taskIssuesOf(s);
-  if (!taskIssues) return {};
-  return { taskIssues, ...(s.linear?.epic ? { epic: s.linear.epic } : {}) };
+  if (!taskIssues) return n ? { linearDue: n } : {};
+  return { taskIssues, ...(s.linear?.epic ? { epic: s.linear.epic } : {}), ...(n ? { linearDue: n } : {}) };
 }
 
 /** Status never fails over a Linear setting: a bad value shows as a warning (the Linear commands refuse with the fix). */

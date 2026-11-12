@@ -63,8 +63,10 @@ export function linearRows(ui: Ui, board: CairnBoard | null, note: string | null
       rows.push(rule(`${k}:t`, <Text bold wrap="wrap">{clean(p.epic ? `${p.epic} ${p.title ?? p.slug}` : (p.title ?? p.slug))}</Text>))
       rows.push(rule(`${k}:s`, <Text dimColor wrap="wrap">{clean(`${p.slug} · ${p.stage} · ${p.done}/${p.total}`)}</Text>))
       p.issues.slice(0, 4).forEach(x => {
+        // In review or later shows as filled; started as half; not started as a dot.
+        const reviewed = /in review|built|shipped/i.test(x.progress)
         const started = x.progress !== '' && !/not started/i.test(x.progress)
-        rows.push(rule(`${k}:i:${x.key}`, <Text wrap="wrap">{clean(`${started ? '◐' : '·'} ${x.key} ${x.title}`)}</Text>, 2))
+        rows.push(rule(`${k}:i:${x.key}`, <Text wrap="wrap">{clean(`${reviewed ? '◉' : started ? '◐' : '·'} ${x.key} ${x.title}`)}</Text>, 2))
       })
       if (p.issues.length > 4) rows.push(rule(`${k}:more`, <Text dimColor>{`+${p.issues.length - 4} more`}</Text>, 2))
     })

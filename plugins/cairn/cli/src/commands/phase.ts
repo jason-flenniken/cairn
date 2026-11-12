@@ -7,6 +7,7 @@ import type { State, Suggestion } from '../types.ts';
 import { CliError, Refusal } from '../util.ts';
 import { gate, mutate, planCtx, runTests, testsGate, type Opts, type Result, type TestRun } from '../shared.ts';
 import { linearPhaseGate, onPhaseFinished } from './linear.ts';
+import { linearConfig } from '../linear.ts';
 
 /** "3 new suggestions (2 tests, 1 security)" for suggestions logged since the last phase boundary. */
 export function newSuggestionsText(s: State): string {
@@ -50,7 +51,7 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
     const drift = s.drift.filter((d) => !d.acked);
     cur.status = 'done';
     log(s, 'phase finished', `${cur.name} (${testText})`);
-    onPhaseFinished(s);
+    onPhaseFinished(s, linearConfig(pc.cfg));
     const following = currentPhase(s);
     let next: string;
     if (following) {

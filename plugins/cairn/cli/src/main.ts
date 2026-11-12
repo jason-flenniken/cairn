@@ -38,6 +38,9 @@ import {
   type Result,
 } from './commands.ts';
 import { CliError, Refusal } from './util.ts';
+import { due } from './linear.ts';
+import { loadState } from './state.ts';
+import { procedurePath } from './commands/status.ts';
 
 const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board', 'merge', 'links']);
 /** Flags that may repeat; the values are joined with newlines. */
@@ -91,8 +94,31 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   linear [status] | linear import|pending|sent|drop|depends|ack|release|board … (plans that pull Linear issues in)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 
+/** Commands that move a plan along, and so may queue Linear updates: each says when updates are waiting to be sent. */
+const MOVES = new Set(['task', 'phase', 'ready', 'advance', 'approve', 'plan']);
+
+/** Appends "N Linear updates queued" to a result, so a build loop that never runs `cairn next` still sends them. */
+function withLinearDue(cmd: string | undefined, cwd: string, r: Result): Result {
+  if (!cmd || !MOVES.has(cmd)) return r;
+  try {
+    const ctx = context(cwd);
+    if (!ctx.plan?.dir) return r;
+    const n = due(loadState(ctx.plan.dir).linear).length;
+    if (!n) return r;
+    const line = `${n} Linear update${n === 1 ? '' : 's'} queued: send ${n === 1 ? 'it' : 'them'} now (follow ${procedurePath('linear-sync')}).`;
+    return { message: r.message ? `${r.message}\n${line}` : line, data: { ...r.data, linearDue: n } };
+  } catch {
+    return r;
+  }
+}
+
 /** `stdin` is what `cairn linear import` was piped; main() reads it, never run(). */
 export function run(argv: string[], cwd = process.cwd(), stdin?: string): Result {
+  const { pos } = parseArgs(argv, cwd);
+  return withLinearDue(pos[0], cwd, dispatch(argv, cwd, stdin));
+}
+
+function dispatch(argv: string[], cwd: string, stdin?: string): Result {
   const { pos, opts } = parseArgs(argv, cwd);
   if (stdin !== undefined) opts.stdin = stdin;
   const [cmd, a, b, ...rest] = pos;

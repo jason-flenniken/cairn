@@ -30,6 +30,8 @@ Run `cd <plan worktree> && cairn step drafting`, so the pane does not offer the 
 - **Phases** are demoable milestones; the first phase proves the thinnest end-to-end path.
 - **Approaches considered** (optional; required when `cairn status --json` shows `foundational: true`): a `## Approaches considered` section with the chosen approach first, then each rejected one with the reason it lost. `cairn plan load` refuses a foundational plan without it.
 - **Issue order** (only when `cairn status --json` shows `state.linear`): when one issue is blocked by another in the plan, the tasks for the blocked issue must come after the tasks for its blocker, in a later phase or through `blocked_by`. Order the phases by dependency layers: issues with no blocker inside the plan first, the issues they unblock in later phases. `cairn plan load` refuses a task for a blocked issue that does not come after its blocker's tasks and names the pair. When the blocked issue really does not need the blocker's code, say so in an optional `## Issue order` section: `- SAV-102 and SAV-101: <reason>` (both keys on the line, with a reason). The reason goes in the record.
+- **One ticket per task** (only when `cairn status --json` shows `state.linear`): each task covers requirements of one ticket. Group the tasks by ticket and name each as a step of it, so the cards read as the ticket's work. Split a task that would span two tickets: `cairn plan load` refuses it and names the task and the tickets. A task that covers only untagged requirements goes under the plan's epic.
+- **Tickets** (only when the plan has no `state.linear`): give each task an optional `ticket: "<short title>"` naming the user-facing piece of work it belongs to. Tasks without one go under their phase's name. These become the plan's tickets if the user puts it in Linear at approval (step 5a).
 - **Parallel by default:** disjoint `scope` globs, minimal `blocked_by`. Two tasks touching the same files get an edge between them.
 - **Complexity:** `simple` (mechanical, 1-2 files), `standard` (default), `complex` (architecture judgment, broad integration).
 - **Coverage:** every FR is in some task's `covers`, or listed under `## Deferred requirements` with a reason.
@@ -69,6 +71,13 @@ Run `cairn status --json`. If `state.approvals.plan` is already recorded (approv
 Do not approve on the user's behalf.
 
 **Done when:** the user chose Approve, or said the terminal approval ran.
+
+## 5a. Offer to put the plan in Linear
+Only when `.cairn/config.json` has a `linear` block and `cairn status --json` shows no `state.linear`. Once the plan is approved, ask once with AskUserQuestion: "Put this plan in Linear?" Name the tickets it would file (each task's `ticket:`, else its phase's name).
+- Not now (Recommended): go on. The plan stays out of Linear.
+- Yes: ask for the Linear project (and milestone, optional), then run `cd <plan worktree> && cairn linear publish --project "<project>" [--milestone "<milestone>"]`. Then follow `procedures/linear-sync.md`: it files the epic, then the tickets under it, then the blocked-by links between them. From then on the plan moves its tickets like one pulled in from Linear.
+
+**Done when:** the user answered, and on Yes the epic and tickets are filed.
 
 ## 6. Confirm and advance
 Run `cairn status --json` and check that the plan approval is recorded. If it is not, say what the menu outcome or the terminal output reported. If `plan.md` changed since loading, rerun `cairn plan load` and return to step 5.

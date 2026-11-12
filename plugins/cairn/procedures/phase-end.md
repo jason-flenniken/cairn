@@ -22,7 +22,7 @@ It succeeds only when every task in the phase is done, nothing is blocked or pau
 **Done when:** `cairn phase finish` exited 0.
 
 ## 2. Continue
-Relay the summary line in one or two lines. Then run `cd <plan worktree> && cairn next --json` and follow the procedure it names (normally `procedures/execute.md` for the next phase) without stopping to ask.
+Relay the summary line in one or two lines. When the output says Linear updates are queued, follow `procedures/linear-sync.md` first. Then run `cd <plan worktree> && cairn next --json` and follow the procedure it names (normally `procedures/execute.md` for the next phase) without stopping to ask.
 
 ## 3. Stop only when something is wrong
 If `cairn phase finish` refuses, stop and tell the user what it names, in plain words:

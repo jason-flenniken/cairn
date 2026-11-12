@@ -20,9 +20,13 @@ import {
   queueComment,
   queueStatus,
   queueWrite,
+  statusFor,
   readBoardImport,
   mergeBoard,
   isFoundational,
+  isPublished,
+  hasTicketTasks,
+  settled,
   issueFile,
   blockersText,
   readPlanImport,
@@ -35,15 +39,16 @@ import {
 } from '../linear.ts';
 import { planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { loadState, log } from '../state.ts';
-import type { LinearChange, LinearLink, State } from '../types.ts';
+import type { LinearChange, LinearConfig, LinearLink, State } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal, writeText } from '../util.ts';
 import { gate, mutate, planCtx, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { collectSuggestions } from './suggest.ts';
 import { listPlans } from './status.ts';
+import { onPublishSent, publish } from './publish.ts';
 
 const USAGE = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "…" | hold <id> --note "…" | depends <KEY> --on <KEY> --reason "…" | ack <change> --as taken|later|noted [--note "…"]
-  | release <KEY> --reason "…" | take <KEY> --reason "…" | board [--project "<name>"] [--json]`;
+  | release <KEY> --reason "…" | take <KEY> --reason "…" | board [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
 
 const NO_CONFIG = (where: string) =>
   new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
@@ -84,6 +89,8 @@ export function cmdLinear(ctx: Ctx, sub: string | undefined, arg: string | undef
       return take(ctx, arg, opts);
     case 'board':
       return board(ctx, opts);
+    case 'publish':
+      return publish(ctx, opts);
     default:
       throw new CliError(USAGE);
   }
@@ -290,16 +297,16 @@ export function queueDone(pc: PlanCtx, s: State): number {
   const progress = issueProgress(s);
   let n = 0;
   // Only issues the plan built: one pulled in later and never put on a requirement stays as it is.
-  for (const i of taken) if (!parents.has(i.key) && !isDone(i) && progress.get(i.key) === 'shipped' && queueStatus(l, cfg, i.key, 'done', 'the pull request is merged')) n++;
+  for (const i of taken) if (!parents.has(i.key) && !settled(i, cfg) && progress.get(i.key) === 'shipped' && queueStatus(l, cfg, i.key, 'done', 'the pull request is merged')) n++;
   // A parent closes when every sub-issue is done: this plan's (now merged) and every other one Linear knows of.
   const all = [...l.issues, ...l.known];
   const takenKeys = new Set(taken.map((i) => i.key));
   // Only parents in the plan: their whole subtree was read. A parent outside it (a plan of one sub-issue) is left to Linear and the other plans.
   for (const p of parents) {
     const parent = all.find((i) => i.key === p);
-    if (isDone(parent)) continue;
+    if (settled(parent, cfg)) continue;
     const kids = all.filter((i) => i.parent === p);
-    if (kids.length && kids.every((k) => (takenKeys.has(k.key) && (parents.has(k.key) || progress.get(k.key) === 'shipped')) || isDone(k)) && queueStatus(l, cfg, p, 'done', `every sub-issue of ${p} is done`)) n++;
+    if (kids.length && kids.every((k) => (takenKeys.has(k.key) && (parents.has(k.key) || progress.get(k.key) === 'shipped')) || settled(k, cfg)) && queueStatus(l, cfg, p, 'done', `every sub-issue of ${p} is done`)) n++;
   }
   // Recorded even when nothing was queued, so the merge is checked once.
   l.mergedAt = now();
@@ -336,6 +343,8 @@ function markSent(ctx: Ctx, id: string | undefined, opts: Opts): Result {
     if (w.sentAt) return { message: `${w.id} was already sent${w.ref ? ` (${w.ref})` : ''}.`, data: { already: true } };
     if (w.dropped) throw new Refusal(`${w.id} was dropped: ${w.dropped.note}`, ['nothing to do; cairn linear pending lists what is left']);
     const ref = typeof opts.ref === 'string' ? opts.ref.trim() : undefined;
+    // A ticket cairn filed for a published plan joins the plan: its key is recorded and what waited on it is queued.
+    const filed = onPublishSent(s, w, ref, linearConfig(pc.cfg));
     w.sentAt = now();
     if (ref) w.ref = ref;
     // A follow-up filed as an issue remembers its key, so a later close never files it twice.
@@ -346,7 +355,7 @@ function markSent(ctx: Ctx, id: string | undefined, opts: Opts): Result {
     }
     log(s, 'Linear update sent', `${w.id} ${w.kind} ${w.target}${ref ? ` → ${ref}` : ''}`);
     const left = unsent(l).length;
-    return { message: `Marked ${w.id} sent.${left ? ` ${left} left.` : ' Nothing left to send.'}`, data: { left } };
+    return { message: `Marked ${w.id} sent.${filed ? ` ${filed}` : ''}${left ? ` ${left} left.` : ' Nothing left to send.'}`, data: { left } };
   });
 }
 
@@ -503,7 +512,7 @@ function take(ctx: Ctx, keyArg: string | undefined, opts: Opts): Result {
 
 /** On `approve prd`: refuse while issues are untagged or outside blockers undecided. */
 export function linearPrdGate(s: State, prdMd: string | undefined, opts: Opts): void {
-  if (!s.linear || !prdMd) return;
+  if (!s.linear || !prdMd || isPublished(s.linear)) return;
   const problems = prdLinearProblems(s.linear, prdMd);
   gate(!problems.length, s, 'approve prd', opts, problems.join('; '), ['fix prd.md, then approve again']);
 }
@@ -511,7 +520,7 @@ export function linearPrdGate(s: State, prdMd: string | undefined, opts: Opts): 
 /** Record each issue's requirements from the PRD. Issues under `## Issues not taken` are released. */
 export function recordRequirements(s: State, prdMd: string): void {
   const l = s.linear;
-  if (!l) return;
+  if (!l || isPublished(l)) return;
   const reqs = issueRequirements(prdMd, l.issues.map((i) => i.key));
   for (const i of l.issues) {
     i.requirements = reqs.get(i.key) ?? [];
@@ -540,11 +549,16 @@ export function onAdvance(pc: PlanCtx, s: State, from: State['stage'], to: State
   const cfg = linearConfig(pc.cfg);
   const taken = takenIssues(l);
   if (to === 'execute') {
-    for (const i of taken) if (!isDone(i) && i.stateType !== 'started') queueStatus(l, cfg, i.key, 'inProgress', 'the plan started building');
+    // A plan with one ticket per task moves only its epics now; each ticket moves when its own first task starts
+    // (syncTickets). An older plan, loaded before tasks named their ticket, moves every issue together as before.
+    const parents = parentKeys(taken);
+    const perTicket = hasTicketTasks(s);
+    for (const i of taken) if ((!perTicket || parents.has(i.key)) && !isDone(i) && i.stateType !== 'started') queueStatus(l, cfg, i.key, 'inProgress', perTicket ? 'the plan started building this epic' : 'the plan started building');
     if (l.epic && !taken.some((i) => i.key === l.epic)) {
       const epic = l.known.find((i) => i.key === l.epic);
       if (!isDone(epic) && epic?.stateType !== 'started') queueStatus(l, cfg, l.epic, 'inProgress', 'a plan started building part of this epic');
     }
+    syncTickets(s, cfg);
   }
   if (from === 'ship' && (to === 'learn' || to === 'closed')) {
     if (typeof opts.pr === 'string' && opts.pr.trim()) l.pr = opts.pr.trim();
@@ -626,10 +640,36 @@ function onClose(pc: PlanCtx, s: State, followups: FollowupInfo[]): void {
   }
 }
 
-/** After a phase finishes: one comment on each issue it finished building. */
-export function onPhaseFinished(s: State): void {
+/**
+ * Each ticket's status follows its own tasks: In Progress when its first task starts, In Review (with a comment) once
+ * every task of it is in review or done. Done comes at merge. Called after every task move and phase finish.
+ */
+export function syncTickets(s: State, cfg: LinearConfig | undefined): void {
+  const l = s.linear;
+  // Plans loaded before tasks named their ticket share requirements across tickets: they keep the phase-end comment.
+  if (!l || s.stage !== 'execute' || !hasTicketTasks(s)) return;
+  const progress = issueProgress(s);
+  const taken = takenIssues(l);
+  const parents = parentKeys(taken);
+  const hasReview = !!statusFor(cfg, 'inReview');
+  for (const i of taken) {
+    if (parents.has(i.key) || isDone(i)) continue;
+    const p = progress.get(i.key);
+    const review = p === 'in review' || p === 'built';
+    const reviewQueued = l.outbox.some((w) => w.dedupe === `status:${i.key}:inReview`);
+    if ((p === 'in progress' || (review && !hasReview)) && i.stateType !== 'started' && !reviewQueued) queueStatus(l, cfg, i.key, 'inProgress', `work on ${i.key} started`);
+    if (review) {
+      queueStatus(l, cfg, i.key, 'inReview', `every task of ${i.key} is built and in review`);
+      queueComment(l, i.key, `In review in cairn plan "${s.title}" (\`${s.branch}\`): its tasks are built and cairn is checking them. It is done when the pull request merges.`, `${i.key} is in review`, 'review');
+    }
+  }
+}
+
+/** After a phase finishes: the per-ticket moves, in case a task's last step was missed; an older plan gets a comment on each issue now built. */
+export function onPhaseFinished(s: State, cfg: LinearConfig | undefined): void {
   const l = s.linear;
   if (!l) return;
+  if (hasTicketTasks(s)) return syncTickets(s, cfg);
   const progress = issueProgress(s);
   for (const i of takenIssues(l))
     if (progress.get(i.key) === 'built') queueComment(l, i.key, `Built in cairn plan "${s.title}" (\`${s.branch}\`); checks and review come next.`, `${i.key} is built`, 'built');

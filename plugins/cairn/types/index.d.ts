@@ -56,6 +56,8 @@ export type CairnPlanRow = {
   taskIssues?: Record<string, string[]>
   /** The Linear epic key the plan belongs to; absent when it has none. */
   epic?: string
+  /** Linear updates cairn queued for this plan that are not sent yet; absent when none are waiting. */
+  linearDue?: number
 }
 
 /** One plan of `cairn records --json`: in progress first, then newest first. */

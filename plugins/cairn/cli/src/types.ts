@@ -65,6 +65,10 @@ export interface Task {
   /** `prefactor` tasks prepare the code and may cover no requirement. */
   kind?: 'prefactor';
   covers: string[];
+  /** The Linear ticket this task builds, set at plan load from the requirements it covers (or the plan's epic). */
+  issue?: string;
+  /** A plan with no Linear tickets yet: the ticket this task goes under when the plan is put in Linear (`ticket:` in plan.md). */
+  ticket?: string;
   blockedBy: string[];
   scope: string[];
   complexity: Complexity;
@@ -233,6 +237,8 @@ export interface LinearWrite {
   sentAt?: string;
   /** What Linear returned: a new issue key, a comment url. */
   ref?: string;
+  /** `cairn linear publish`: the epic, or one ticket of the plan, that this createIssue files. */
+  publish?: { role: 'epic' | 'ticket'; ticket?: string };
   dropped?: { at: string; note: string };
   /** Tried and not sent (the send failed, no Linear tools, or the user held it): retried at the next sync, but `cairn next` doesn't route for it alone. */
   held?: { at: string; note: string };
