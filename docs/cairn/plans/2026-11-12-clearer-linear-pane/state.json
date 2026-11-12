@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:44:48.218Z",
+  "updated": "2026-11-12T21:52:14.542Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -195,10 +195,16 @@
             "plugins/cairn/hooks/test/linear.test.tsx"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
           "risky": true,
-          "riskReason": "draws ticket titles and names written in Linear by other people in the user's terminal"
+          "riskReason": "draws ticket titles and names written in Linear by other people in the user's terminal",
+          "substep": "implementing",
+          "branch": "task/clearer-linear-pane/linear-tab",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--linear-tab",
+          "base": "dfc5cc6cdbb241ec2305e0dfe74f1068cdad8548",
+          "startedAt": "2026-11-12T21:44:52.374Z",
+          "level": "standard"
         },
         {
           "id": "card-tickets",
@@ -218,9 +224,18 @@
             "plugins/cairn/hooks/test/pane.test.tsx"
           ],
           "complexity": "standard",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/clearer-linear-pane/card-tickets",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--card-tickets",
+          "base": "dfc5cc6cdbb241ec2305e0dfe74f1068cdad8548",
+          "startedAt": "2026-11-12T21:44:52.959Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:52:14.541Z",
+          "tip": "9b68efc",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "2dcf6b1fb88ab76b6524164fe8aec789f714a7a2"
         },
         {
           "id": "card-fixes",
@@ -466,6 +481,41 @@
       "at": "2026-11-12T21:44:48.217Z",
       "event": "phase finished",
       "detail": "The CLI computes the sections and ticket keys (tests green (0 fail))"
+    },
+    {
+      "at": "2026-11-12T21:44:52.375Z",
+      "event": "task started",
+      "detail": "Linear tab by status"
+    },
+    {
+      "at": "2026-11-12T21:44:52.959Z",
+      "event": "task started",
+      "detail": "Ticket keys on cards, header and UP NEXT"
+    },
+    {
+      "at": "2026-11-12T21:45:07.137Z",
+      "event": "task implementing",
+      "detail": "Linear tab by status"
+    },
+    {
+      "at": "2026-11-12T21:45:07.211Z",
+      "event": "task implementing",
+      "detail": "Ticket keys on cards, header and UP NEXT"
+    },
+    {
+      "at": "2026-11-12T21:47:19.980Z",
+      "event": "task reviewing",
+      "detail": "Ticket keys on cards, header and UP NEXT"
+    },
+    {
+      "at": "2026-11-12T21:47:45.175Z",
+      "event": "task merging",
+      "detail": "Ticket keys on cards, header and UP NEXT"
+    },
+    {
+      "at": "2026-11-12T21:52:14.542Z",
+      "event": "task done",
+      "detail": "Ticket keys on cards, header and UP NEXT"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -603,6 +653,16 @@
       ],
       "from": "user",
       "at": "2026-11-12T21:44:03.205Z"
+    },
+    {
+      "id": "s13",
+      "area": "docs",
+      "text": "misplaced-doc-comment: move the ticket helper above the 'Called by register.tsx' comment so that comment sits on onSessionStart",
+      "where": [
+        "plugins/cairn/hooks/mod/pane.tsx"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:47:45.097Z"
     }
   ],
   "planHash": "59c841c822efeebf",
