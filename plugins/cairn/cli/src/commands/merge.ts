@@ -74,6 +74,10 @@ function mergeBase(pc: ReturnType<typeof planCtx>, baseRef: string, message: str
  * Refuses on a dirty worktree and on a conflict (the merge is aborted, so nothing changes). Merges it makes are
  * recorded as its own, so a ship approval given earlier still holds.
  */
+/** Paths `git status` reports as changed. git() trims its output, so the first line may have lost its leading space: parse by the status field. */
+const dirtyPaths = (wt: string): string[] =>
+  git(['status', '--porcelain'], wt).split('\n').filter(Boolean).map((l) => l.replace(/^\s*\S{1,2}\s+/, ''));
+
 export function restack(pc: PlanCtx): string | undefined {
   const s0 = loadState(pc.plan.dir);
   const st = s0.stackedOn;
@@ -81,8 +85,8 @@ export function restack(pc: PlanCtx): string | undefined {
   const wt = pc.plan.worktree;
   const rel = planRelOf(pc.plan);
   if (currentBranch(wt) !== s0.branch) throw new Refusal(`the plan worktree is on ${currentBranch(wt)}, not the plan branch ${s0.branch}`);
-  const dirty = git(['status', '--porcelain'], wt).split('\n').filter((l) => l && !l.slice(3).startsWith(`${rel}/`));
-  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.map((l) => l.slice(3)).join(', ')}`, ['commit or remove them, then run cairn next again']);
+  const dirty = dirtyPaths(wt).filter((p) => !p.startsWith(`${rel}/`));
+  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.join(', ')}`, ['commit or remove them, then run cairn next again']);
 
   const row = stackBase(pc.ctx, st.slug);
   // A base branch that is gone does not mean it merged: it counts only when its recorded tip is in main or its PR merged.
@@ -158,8 +162,8 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
   const s0 = loadState(pc.plan.dir);
   if (!safeRef(wt, s0.base)) throw new Refusal(`the plan's base "${s0.base}" is not a valid branch name`);
   if (currentBranch(wt) !== s0.branch) throw new Refusal(`the plan worktree is on ${currentBranch(wt)}, not the plan branch ${s0.branch}`);
-  const dirty = git(['status', '--porcelain'], wt).split('\n').filter((l) => l && !l.slice(3).startsWith(`${rel}/`));
-  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.map((l) => l.slice(3)).join(', ')}`, ['commit or remove them, then run cairn merge-check again']);
+  const dirty = dirtyPaths(wt).filter((p) => !p.startsWith(`${rel}/`));
+  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.join(', ')}`, ['commit or remove them, then run cairn merge-check again']);
 
   const notes: string[] = restacked ? [`Restacked: ${restacked}.`] : [];
   // Checking against a stale origin is the failure this command exists to prevent, so a failed fetch refuses.

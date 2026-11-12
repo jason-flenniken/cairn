@@ -9962,6 +9962,7 @@ function mergeBase(pc, baseRef, message) {
   gitTry(["merge", "--abort"], wt);
   return { ok: false, conflicted, out: m.out };
 }
+var dirtyPaths = (wt) => git(["status", "--porcelain"], wt).split("\n").filter(Boolean).map((l) => l.replace(/^\s*\S{1,2}\s+/, ""));
 function restack(pc) {
   const s0 = loadState(pc.plan.dir);
   const st = s0.stackedOn;
@@ -9969,8 +9970,8 @@ function restack(pc) {
   const wt = pc.plan.worktree;
   const rel = planRelOf(pc.plan);
   if (currentBranch(wt) !== s0.branch) throw new Refusal(`the plan worktree is on ${currentBranch(wt)}, not the plan branch ${s0.branch}`);
-  const dirty = git(["status", "--porcelain"], wt).split("\n").filter((l) => l && !l.slice(3).startsWith(`${rel}/`));
-  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.map((l) => l.slice(3)).join(", ")}`, ["commit or remove them, then run cairn next again"]);
+  const dirty = dirtyPaths(wt).filter((p) => !p.startsWith(`${rel}/`));
+  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.join(", ")}`, ["commit or remove them, then run cairn next again"]);
   const row = stackBase(pc.ctx, st.slug);
   const landed = stackLanded(pc.ctx, st, row, wt);
   const hasOrigin = gitOk(["remote", "get-url", "origin"], wt);
@@ -10035,8 +10036,8 @@ function cmdMergeCheck(ctx, _opts) {
   const s0 = loadState(pc.plan.dir);
   if (!safeRef(wt, s0.base)) throw new Refusal(`the plan's base "${s0.base}" is not a valid branch name`);
   if (currentBranch(wt) !== s0.branch) throw new Refusal(`the plan worktree is on ${currentBranch(wt)}, not the plan branch ${s0.branch}`);
-  const dirty = git(["status", "--porcelain"], wt).split("\n").filter((l) => l && !l.slice(3).startsWith(`${rel}/`));
-  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.map((l) => l.slice(3)).join(", ")}`, ["commit or remove them, then run cairn merge-check again"]);
+  const dirty = dirtyPaths(wt).filter((p) => !p.startsWith(`${rel}/`));
+  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.join(", ")}`, ["commit or remove them, then run cairn merge-check again"]);
   const notes = restacked ? [`Restacked: ${restacked}.`] : [];
   let baseRef = s0.base;
   if (gitOk(["remote", "get-url", "origin"], wt)) {
