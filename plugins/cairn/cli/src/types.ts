@@ -98,6 +98,8 @@ export interface Phase {
   id: string;
   name: string;
   status: PhaseStatus;
+  /** Its tasks may start once their own blocked_by are done, without waiting for the earlier phase to finish. */
+  overlap?: boolean;
   tasks: Task[];
   verdict?: { result: 'green' | 'yellow' | 'red'; at: string; commit: string; note?: string };
 }

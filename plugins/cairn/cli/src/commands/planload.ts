@@ -1,6 +1,7 @@
 import type { Ctx } from '../locate.ts';
 import { mergeProgress, parsePlan } from '../plan-parse.ts';
-import { allTasks } from '../ready.ts';
+import { allTasks, chainText, criticalPath } from '../ready.ts';
+import { crossPlanScopeWarnings } from './status.ts';
 import { log, setStage } from '../state.ts';
 import { hashText, readText, Refusal } from '../util.ts';
 import { isFoundational, isPublished, issueOrderProblems, linearConfig, taskTickets } from '../linear.ts';
@@ -60,9 +61,13 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
       for (const p of s.phases) delete p.verdict;
       log(s, 're-plan loaded', `${allTasks(s).length} tasks`);
     } else log(s, 'plan loaded', `${s.phases.length} phases, ${allTasks(s).length} tasks`);
+    // Reports only: a serial plan or a shared file is the user's call, never a refusal.
+    const chain = criticalPath(s.phases);
+    const chainLine = chain.total ? `\nLongest chain: ${chain.count} of ${chain.total} tasks (${chainText(chain.tasks)}); at most ${pc.cfg.maxParallel} at once.` : '';
+    const clashes = crossPlanScopeWarnings(pc.ctx, s.slug, s.phases);
     return {
-      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? ' The plan needs approval again.' : ''} Next: approve the plan with the user.`,
-      data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, tasks: p.tasks.map((x) => x.id) })) },
+      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? ' The plan needs approval again.' : ''}${chainLine}${clashes.map((c) => `\nWarning: ${c}`).join('')}\nNext: approve the plan with the user.`,
+      data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, tasks: p.tasks.map((x) => x.id) })), chain, warnings: clashes },
     };
   });
 }

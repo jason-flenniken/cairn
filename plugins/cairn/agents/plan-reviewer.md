@@ -19,6 +19,8 @@ The paths to `prd.md` and `plan.md` for the plan. Read both in full before you j
    - **For the user:** the choice changes something the user sees or relies on: a requirement, a trust boundary, what data is kept or deleted, cost, or scope. The builder must not pick these.
 4. Cite a `plan.md` line for every guess (`plan.md:42`, or `plan.md:42-48` for a range). For a missing statement, cite the line of the task it belongs to.
 
+5. Name the longest chain of tasks that must run one after another (follow `blocked_by` plus phase order; a phase marked `overlap: true` does not wait for the whole earlier phase) and give one split that would shorten it, usually a small task that fixes an interface so dependents can start against it. Say "none needed" when the chain is under half the tasks.
+
 Do not put a question the PRD already answers under "For the user". Do not list style preferences. Do not propose the answer; state the decision the user needs to make.
 
 ## Output
@@ -35,5 +37,8 @@ for_user:
   - question: <the decision, in one plain line>
     where: plan.md:42
     why: <what changes for the user depending on the answer>
+longest_chain:
+  tasks: <ids in order, with the count out of the total>
+  split: <one split that would shorten it, or "none needed">
 not_checked: <anything you could not read or verify, with the reason, or "none">
 ```

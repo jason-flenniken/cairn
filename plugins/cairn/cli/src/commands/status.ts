@@ -7,7 +7,8 @@ import { OVERVIEW_REL } from '../memory.ts';
 import { modActive } from '../proof.ts';
 import { levelLabel, nextFor, stepText, summary, timingText, type IndexRow } from '../render.ts';
 import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.ts';
-import type { State } from '../types.ts';
+import { scopesOverlap } from '../glob.ts';
+import type { Phase, State } from '../types.ts';
 import { hashText, pluginRoot, readText, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
@@ -37,6 +38,27 @@ export function listPlans(ctx: Ctx): IndexRow[] {
   return rows;
 }
 
+/**
+ * One line per other active plan whose not-yet-done tasks share files with this plan's: they will likely conflict at
+ * merge time. Never throws: a plan that can't be read is skipped.
+ */
+export function crossPlanScopeWarnings(ctx: Ctx, slug: string, phases: Phase[]): string[] {
+  const mine = phases.flatMap((p) => p.tasks).filter((t) => t.status !== 'done').flatMap((t) => t.scope);
+  if (!mine.length) return [];
+  const out: string[] = [];
+  try {
+    for (const row of listPlans(ctx)) {
+      if (row.state.slug === slug || row.state.stage === 'closed') continue;
+      const theirs = row.state.phases.flatMap((p) => p.tasks).filter((t) => t.status !== 'done').flatMap((t) => t.scope);
+      const glob = mine.find((g) => scopesOverlap([g], theirs));
+      if (glob) out.push(`${glob} is also in plan ${row.state.slug} (${row.state.stage}): expect a merge conflict; order them or split the file`);
+    }
+  } catch {
+    // Status never fails over another plan's state.
+  }
+  return out;
+}
+
 /** Whether the cairn mod's heartbeat is fresh, so procedures can pick the menu or the terminal path. */
 const modIsActive = (ctx: Ctx): boolean => modActive(commonDir(ctx.mainRoot));
 
@@ -55,6 +77,7 @@ export function warnings(pc: PlanCtx, s: State): string[] {
   } catch (e) {
     w.push((e as Error).message);
   }
+  w.push(...crossPlanScopeWarnings(pc.ctx, s.slug, s.phases));
   const changes = s.linear?.changes?.filter((c) => !c.handled).length ?? 0;
   if (changes) w.push(`Linear: ${changes} change${changes === 1 ? '' : 's'} to decide before the phase can finish (cairn linear status)`);
   return w;

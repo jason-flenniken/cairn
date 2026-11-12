@@ -72,7 +72,9 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
       if (rs?.ticket !== undefined && !ticket) problems.push(`${where}: ticket must be a short title, or left out`);
       tasks.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, ...(ticket ? { ticket } : {}), blockedBy, scope, complexity, status: 'pending', fixRound: 0, risky, ...(risky && riskReason ? { riskReason } : {}) });
     }
-    phases.push({ id: pid, name: String(rp?.name ?? pid), status: 'pending', tasks });
+    if (rp?.overlap !== undefined && typeof rp.overlap !== 'boolean') problems.push(`phase "${pid}": overlap must be true or false`);
+    if (rp?.overlap === true && pi === 0) problems.push(`phase "${pid}": the first phase has nothing to overlap with; leave out overlap`);
+    phases.push({ id: pid, name: String(rp?.name ?? pid), status: 'pending', ...(rp?.overlap === true && pi > 0 ? { overlap: true } : {}), tasks });
   });
 
   // blocked_by: known ids, same or earlier phase, no cycles.
