@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:31:38.029Z",
+  "updated": "2026-11-12T21:38:49.692Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -97,15 +97,19 @@
             "plugins/cairn/cli/test/board.test.ts"
           ],
           "complexity": "complex",
-          "status": "in_progress",
-          "fixRound": 0,
+          "status": "done",
+          "fixRound": 1,
           "risky": false,
-          "substep": "implementing",
           "branch": "task/clearer-linear-pane/board-sections",
           "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--board-sections",
           "base": "a328db3a10515fdb6977fed2bf44bcd2f39e83f4",
           "startedAt": "2026-11-12T21:27:29.004Z",
-          "level": "standard"
+          "level": "standard",
+          "note": "fixing classes: linear-order-violated",
+          "doneAt": "2026-11-12T21:38:49.691Z",
+          "tip": "a39f3cf",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "84aadf74bb805ba8ff29c30102df30b632fb74ce"
         },
         {
           "id": "plan-row-tickets",
@@ -397,6 +401,26 @@
       "at": "2026-11-12T21:31:38.029Z",
       "event": "task done",
       "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:35:09.995Z",
+      "event": "task reviewing",
+      "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:36:46.042Z",
+      "event": "task fixing",
+      "detail": "Board sections, unblocks counts and wide links (attempt 1): fixing classes: linear-order-violated"
+    },
+    {
+      "at": "2026-11-12T21:38:12.607Z",
+      "event": "task merging",
+      "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:38:49.692Z",
+      "event": "task done",
+      "detail": "Board sections, unblocks counts and wide links"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -474,6 +498,36 @@
       ],
       "from": "implementer",
       "at": "2026-11-12T21:30:40.320Z"
+    },
+    {
+      "id": "s7",
+      "area": "tests",
+      "text": "Add a nested-epic fixture: a sub-epic's own link versus one inherited from a grandparent",
+      "where": [
+        "plugins/cairn/cli/test/board.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-11-12T21:35:09.925Z"
+    },
+    {
+      "id": "s8",
+      "area": "docs",
+      "text": "stale-type-comment: focus is the milestone name or null; wideLinks are an epic's own links holding 3+ open sub-issues; inProgress[].title is the epic title when on the board, else the plan title",
+      "where": [
+        "plugins/cairn/types/index.d.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:36:46.175Z"
+    },
+    {
+      "id": "s9",
+      "area": "quality",
+      "text": "silent-fallback: a no-milestone blocker of an issue with a milestone is tagged 'this project'; consider 'no milestone'",
+      "where": [
+        "plugins/cairn/cli/src/board.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:36:46.240Z"
     }
   ],
   "planHash": "59c841c822efeebf",

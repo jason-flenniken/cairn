@@ -106,3 +106,8 @@ _2026-11-12 21:17_
 **Decision:** Builder's call: progress bar characters and width, overflow styling, JSON key names inside rows, inline line fitting, long milestone names (truncate)
 **Why:** PRD builder check; none changes what the user sees in substance
 _2026-11-12 21:17_
+
+### 22. Unblocks through epic links
+**Decision:** An issue waiting on an epic counts as waiting on each of its sub-issues, so a ready sub-issue's unblocks includes those waiters
+**Why:** every sub-issue is a prerequisite of what waits on the epic; without it, the Savvyling case shows unblocks 0 under every epic-level link
+_2026-11-12 21:36_
