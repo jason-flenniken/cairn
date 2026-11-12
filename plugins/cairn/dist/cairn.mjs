@@ -8764,8 +8764,12 @@ function issueRequirements(prdMd, keys) {
   const out = /* @__PURE__ */ new Map();
   const sec = sections(prdMd);
   const body = sec.get("requirements") ?? sec.get("functional requirements") ?? "";
+  let fr;
   for (const line of body.split("\n")) {
-    const fr = line.match(/\*\*(FR-\d+)\*\*/)?.[1] ?? line.match(/\bFR-\d+\b/)?.[0];
+    const indented = /^\s/.test(line);
+    const starts = line.match(/\*\*(FR-\d+)\*\*/)?.[1] ?? (indented ? void 0 : line.match(/\bFR-\d+\b/)?.[0]);
+    if (starts) fr = starts;
+    else if (/^#/.test(line) || line.trim() && !indented) fr = void 0;
     if (!fr) continue;
     for (const m of line.matchAll(TAG))
       for (const k of m[1].split(",").map((x) => x.trim()))
@@ -8785,7 +8789,16 @@ function reasonFor(body, ...keys) {
   }
   return void 0;
 }
-var notTakenReason = (prdMd, k) => reasonFor(sections(prdMd).get("issues not taken"), k);
+var listItem = (k) => new RegExp(`^\\s*[-*]\\s+(?:\\*\\*)?${k}\\b(?:\\*\\*)?(.*)$`);
+var listed = (body, k) => (body ?? "").split("\n").some((line) => listItem(k).test(line));
+function listedReason(body, k) {
+  for (const line of (body ?? "").split("\n")) {
+    const rest = line.match(listItem(k))?.[1].replace(/^[\s:,;\-–—]+|[\s.]+$/g, "").trim();
+    if (rest && rest.length >= 3) return rest;
+  }
+  return void 0;
+}
+var notTakenReason = (prdMd, k) => listedReason(sections(prdMd).get("issues not taken"), k);
 function outsideBlockers(l, taken = takenIssues(l)) {
   const byKey = allByKey(l);
   const inPlan = new Set(taken.map((i) => i.key));
@@ -8807,18 +8820,18 @@ function prdLinearProblems(l, prdMd) {
   const parents = parentKeys(l.issues);
   const untagged = l.issues.filter((i) => !reqs.has(i.key) && !notTaken.has(i.key) && !parents.has(i.key));
   if (untagged.length)
-    p.push(`these Linear issues are on no requirement and not under ## Issues not taken: ${untagged.map((i) => i.key).join(", ")}. Tag a requirement with [KEY], or list the issue under ## Issues not taken with a reason`);
+    p.push(`these Linear issues are on no requirement and not under ## Issues not taken: ${untagged.map((i) => i.key).join(", ")}. Tag a requirement with [KEY], or list the issue under ## Issues not taken as "- KEY: <reason>"`);
   const both = l.issues.filter((i) => reqs.has(i.key) && notTakenReason(prdMd, i.key));
   if (both.length) p.push(`${both.map((i) => i.key).join(", ")} ${both.length === 1 ? "is" : "are"} both on a requirement and under ## Issues not taken: keep one`);
   const named = sections(prdMd).get("issues not taken") ?? "";
-  const noReason = l.issues.filter((i) => !i.released && new RegExp(`\\b${i.key}\\b`).test(named) && !notTakenReason(prdMd, i.key));
+  const noReason = l.issues.filter((i) => !i.released && listed(named, i.key) && !notTakenReason(prdMd, i.key));
   if (noReason.length) p.push(`## Issues not taken lists ${noReason.map((i) => i.key).join(", ")} without a reason`);
   const taken = l.issues.filter((i) => !notTaken.has(i.key));
   const decisions = sections(prdMd).get("outside blockers");
   const decidedLater = /* @__PURE__ */ new Set([...l.depends.map((d) => d.on), ...l.changes.filter((c) => c.handled && c.on).map((c) => c.on)]);
-  const open = outsideBlockers(l, taken).filter((x) => !reasonFor(decisions, x.blocker) && !decidedLater.has(x.blocker));
+  const open = outsideBlockers(l, taken).filter((x) => !listedReason(decisions, x.blocker) && !decidedLater.has(x.blocker));
   if (open.length)
-    p.push(`blockers outside the plan have no decision under ## Outside blockers: ${blockersText(open)}. Pull the blocker in, leave the blocked issue out, or go ahead with a reason`);
+    p.push(`blockers outside the plan have no decision under ## Outside blockers: ${blockersText(open)}. Pull the blocker in, leave the blocked issue out, or go ahead with a reason, as "- KEY: <decision>"`);
   const cycle = findIssueCycle(taken, l.depends);
   if (cycle) p.push(`the plan's issues block each other in a loop: ${cycle.join(" \u2192 ")}. Remove one of these links in Linear, then refresh`);
   return p;
@@ -8919,7 +8932,7 @@ import { existsSync as existsSync4, readdirSync as readdirSync3 } from "node:fs"
 import { join as join9 } from "node:path";
 var USAGE2 = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "\u2026" | hold <id> --note "\u2026" | depends <KEY> --on <KEY> --reason "\u2026" | ack <change> --as taken|later|noted [--note "\u2026"]
-  | release <KEY> --reason "\u2026" | board [--project "<name>"] [--json]`;
+  | release <KEY> --reason "\u2026" | take <KEY> --reason "\u2026" | board [--project "<name>"] [--json]`;
 var NO_CONFIG = (where) => new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
 function inputText(ctx, opts) {
   if (typeof opts.file === "string") {
@@ -8951,6 +8964,8 @@ function cmdLinear(ctx, sub, arg, opts) {
       return ack(ctx, arg, opts);
     case "release":
       return release(ctx, arg, opts);
+    case "take":
+      return take(ctx, arg, opts);
     case "board":
       return board(ctx, opts);
     default:
@@ -9272,6 +9287,29 @@ function release(ctx, keyArg, opts) {
     return { message: `Released ${k}: ${reason}.${tagged}` };
   });
 }
+function take(ctx, keyArg, opts) {
+  const k = needKey(keyArg, "the issue");
+  if (typeof opts.reason !== "string" || !opts.reason.trim()) throw new CliError('cairn linear take needs --reason "\u2026"');
+  const reason = opts.reason.trim();
+  const pc = planCtx(ctx);
+  const prdMd = readText(join9(pc.plan.dir, "prd.md"));
+  return mutate(pc, `Linear: took back ${k}`, (s) => {
+    const l = linkOf(s);
+    const i = l.issues.find((x) => x.key === k);
+    if (!i) throw new Refusal(`${k} is not one of this plan's issues`, ["cairn linear status lists them"]);
+    if (!i.released) return { message: `${k} is already in the plan.` };
+    if (prdMd && notTakenReason(prdMd, k)) throw new Refusal(`prd.md still lists ${k} under ## Issues not taken`, [`remove that line from prd.md, then run cairn linear take ${k} again`]);
+    delete i.released;
+    const dedupe = `comment:${k}:released`;
+    for (const w of l.outbox) if (w.dedupe === dedupe && !w.sentAt && !w.dropped) w.dropped = { at: now(), note: `${k} is back in the plan: ${reason}` };
+    if (l.outbox.some((w) => w.dedupe === dedupe && w.sentAt))
+      queueComment(l, k, `Back in cairn plan "${s.title}" (\`${s.branch}\`): ${reason}`, `${k} is back in the plan`, "taken-back");
+    log(s, "Linear issue taken back", `${k}: ${reason}`);
+    const parent = l.issues.some((x) => x.parent === k && !x.released);
+    const next = parent || i.requirements?.length ? "" : ` Next: add requirements tagged [${k}] to the PRD, then re-plan (cairn plan load --replan).`;
+    return { message: `${k} is back in the plan.${next}` };
+  });
+}
 function linearPrdGate(s, prdMd, opts) {
   if (!s.linear || !prdMd) return;
   const problems = prdLinearProblems(s.linear, prdMd);
@@ -9565,6 +9603,9 @@ function prdProblems(md) {
   if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(" | ")}`);
   return problems;
 }
+function prdApprovalProblems(s, md) {
+  return [...prdProblems(md), ...s.linear && md ? prdLinearProblems(s.linear, md) : []];
+}
 var firstSentence = (text = "") => text.replace(/\s+/g, " ").trim().match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text.trim();
 function prdSummary(md) {
   const sec = sections(md);
@@ -9599,8 +9640,7 @@ function readyFor(pc) {
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return void 0;
     if (s.stage === "prd" && !s.approvals.prd) {
       const md = readText(file("prd.md"));
-      const linearOk = !s.linear || !md || !prdLinearProblems(s.linear, md).length;
-      return md && !prdProblems(md).length && linearOk ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0;
+      return md && !prdApprovalProblems(s, md).length ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0;
     }
     if (s.stage === "plan" && !s.approvals.plan) {
       const md = readText(file("plan.md"));
@@ -9831,15 +9871,15 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.s
   const w = warnings(pc, s);
   const next = nextFor(s);
   const prOpen = waitingOnMerge(ctx, s, pc.plan.worktree, planRelOf(pc.plan));
-  let listed = [];
+  let listed2 = [];
   try {
-    listed = collectSuggestions(ctx);
+    listed2 = collectSuggestions(ctx);
   } catch {
   }
-  const openSuggestions = listed.filter((x) => x.open && !x.hardening).length;
-  const hardeningItems = listed.filter((x) => x.open && x.hardening).length;
+  const openSuggestions = listed2.filter((x) => x.open && !x.hardening).length;
+  const hardeningItems = listed2.filter((x) => x.open && x.hardening).length;
   const hardeningByArea = {};
-  for (const x of listed) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
+  for (const x of listed2) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
   const timing = stageTimes(s);
   return {
     message: [
@@ -10525,6 +10565,10 @@ function cmdStep(ctx, name, opts) {
     if (!name) throw new Refusal(`usage: cairn step <name> [--count N]; at ${s.stage}: ${list2}`);
     if (!NAME.test(name) || !valid.includes(name))
       throw new Refusal(`${NAME.test(name) ? `"${name}"` : "that name"} is not a step at ${s.stage}; valid steps: ${list2}`);
+    if (s.stage === "prd" && name === "approving" && !s.approvals.prd) {
+      const problems = prdApprovalProblems(s, readText(planFile(pc, "prd.md")));
+      if (problems.length) throw new Refusal(`prd.md is not ready to approve: ${problems.join("; ")}`, ["fix prd.md, then run `cairn step approving` again"]);
+    }
     s.step = { stage: s.stage, name, ...count !== void 0 ? { count: Number(count) } : {}, at: now() };
     log(s, "step", `${name}${count !== void 0 ? ` (${count})` : ""}`);
     return { message: `Step at ${s.stage}: ${name}${count !== void 0 ? ` (${count})` : ""}.`, data: { step: s.step } };

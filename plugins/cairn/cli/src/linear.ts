@@ -356,14 +356,22 @@ export function findIssueCycle(issues: LinearIssue[], depends: LinearLink['depen
 
 const TAG = /\[([A-Z][A-Z0-9]*-\d+(?:\s*,\s*[A-Z][A-Z0-9]*-\d+)*)\]/g;
 
-/** For each issue key, the FR ids whose requirement line carries `[KEY]`. Only keys in `known` count, so `[FR-01]` references are ignored. */
+/**
+ * For each issue key, the FR ids whose requirement carries `[KEY]`. Only keys in `known` count, so `[FR-01]` references are ignored.
+ * A requirement runs from its `**FR-NN**` line through the indented or blank lines under it, so a tag on its closing
+ * `Check:` line counts. An FR named inside those lines ("the commands from FR-04") is a reference, not a new requirement.
+ */
 export function issueRequirements(prdMd: string, keys: Iterable<string>): Map<string, string[]> {
   const wanted = new Set(keys);
   const out = new Map<string, string[]>();
   const sec = sections(prdMd);
   const body = sec.get('requirements') ?? sec.get('functional requirements') ?? '';
+  let fr: string | undefined;
   for (const line of body.split('\n')) {
-    const fr = line.match(/\*\*(FR-\d+)\*\*/)?.[1] ?? line.match(/\bFR-\d+\b/)?.[0];
+    const indented = /^\s/.test(line);
+    const starts = line.match(/\*\*(FR-\d+)\*\*/)?.[1] ?? (indented ? undefined : line.match(/\bFR-\d+\b/)?.[0]);
+    if (starts) fr = starts;
+    else if (/^#/.test(line) || (line.trim() && !indented)) fr = undefined;
     if (!fr) continue;
     for (const m of line.matchAll(TAG))
       for (const k of m[1].split(',').map((x) => x.trim()))
@@ -386,7 +394,20 @@ function reasonFor(body: string | undefined, ...keys: string[]): string | undefi
   return undefined;
 }
 
-export const notTakenReason = (prdMd: string, k: string) => reasonFor(sections(prdMd).get('issues not taken'), k);
+/** A list item that starts with the key (`- SAV-104: later plan`). A key named in prose ("None. All of SAV-16 is in") is not listed. */
+const listItem = (k: string) => new RegExp(`^\\s*[-*]\\s+(?:\\*\\*)?${k}\\b(?:\\*\\*)?(.*)$`);
+const listed = (body: string | undefined, k: string) => (body ?? '').split('\n').some((line) => listItem(k).test(line));
+
+/** The reason on the section's list item for the key, when it gives one. */
+function listedReason(body: string | undefined, k: string): string | undefined {
+  for (const line of (body ?? '').split('\n')) {
+    const rest = line.match(listItem(k))?.[1].replace(/^[\s:,;\-–—]+|[\s.]+$/g, '').trim();
+    if (rest && rest.length >= 3) return rest;
+  }
+  return undefined;
+}
+
+export const notTakenReason = (prdMd: string, k: string) => listedReason(sections(prdMd).get('issues not taken'), k);
 
 /** Blockers of in-plan issues that sit outside the plan and are not done in Linear. */
 export function outsideBlockers(l: LinearLink, taken = takenIssues(l)): { key: string; blocker: string }[] {
@@ -414,19 +435,19 @@ export function prdLinearProblems(l: LinearLink, prdMd: string): string[] {
   const parents = parentKeys(l.issues);
   const untagged = l.issues.filter((i) => !reqs.has(i.key) && !notTaken.has(i.key) && !parents.has(i.key));
   if (untagged.length)
-    p.push(`these Linear issues are on no requirement and not under ## Issues not taken: ${untagged.map((i) => i.key).join(', ')}. Tag a requirement with [KEY], or list the issue under ## Issues not taken with a reason`);
+    p.push(`these Linear issues are on no requirement and not under ## Issues not taken: ${untagged.map((i) => i.key).join(', ')}. Tag a requirement with [KEY], or list the issue under ## Issues not taken as "- KEY: <reason>"`);
   const both = l.issues.filter((i) => reqs.has(i.key) && notTakenReason(prdMd, i.key));
   if (both.length) p.push(`${both.map((i) => i.key).join(', ')} ${both.length === 1 ? 'is' : 'are'} both on a requirement and under ## Issues not taken: keep one`);
   const named = sections(prdMd).get('issues not taken') ?? '';
-  const noReason = l.issues.filter((i) => !i.released && new RegExp(`\\b${i.key}\\b`).test(named) && !notTakenReason(prdMd, i.key));
+  const noReason = l.issues.filter((i) => !i.released && listed(named, i.key) && !notTakenReason(prdMd, i.key));
   if (noReason.length) p.push(`## Issues not taken lists ${noReason.map((i) => i.key).join(', ')} without a reason`);
   const taken = l.issues.filter((i) => !notTaken.has(i.key));
   const decisions = sections(prdMd).get('outside blockers');
   // A blocker decided mid-build (`linear depends`, or a refresh change handled) is decided too.
   const decidedLater = new Set([...l.depends.map((d) => d.on), ...l.changes.filter((c) => c.handled && c.on).map((c) => c.on!)]);
-  const open = outsideBlockers(l, taken).filter((x) => !reasonFor(decisions, x.blocker) && !decidedLater.has(x.blocker));
+  const open = outsideBlockers(l, taken).filter((x) => !listedReason(decisions, x.blocker) && !decidedLater.has(x.blocker));
   if (open.length)
-    p.push(`blockers outside the plan have no decision under ## Outside blockers: ${blockersText(open)}. Pull the blocker in, leave the blocked issue out, or go ahead with a reason`);
+    p.push(`blockers outside the plan have no decision under ## Outside blockers: ${blockersText(open)}. Pull the blocker in, leave the blocked issue out, or go ahead with a reason, as "- KEY: <decision>"`);
   const cycle = findIssueCycle(taken, l.depends);
   if (cycle) p.push(`the plan's issues block each other in a loop: ${cycle.join(' → ')}. Remove one of these links in Linear, then refresh`);
   return p;

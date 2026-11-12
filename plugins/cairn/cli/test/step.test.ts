@@ -95,6 +95,17 @@ test('the other stages take their own steps; the fix track uses review and ship'
   refused(plan('verify', 'fix').wt, /valid steps: testing, scanning, fixing/, 'step', 'merging');
 });
 
+test('prd approving is refused while approval would refuse the PRD, and taken once it would pass', () => {
+  const p = plan('prd');
+  refused(p.wt, /prd\.md is not ready to approve/, 'step', 'approving');
+  writeFileSync(join(p.dir, 'prd.md'), '## Problem\np\n## Solution\ns\n## Requirements\n- **FR-01** a\n## Non-goals\n- n\n## Open questions\n- [ ] which way?\n');
+  refused(p.wt, /1 open question/, 'step', 'approving');
+  assert.equal(p.state().step, undefined);
+  writeFileSync(join(p.dir, 'prd.md'), readFileSync(join(p.dir, 'prd.md'), 'utf8').replace('- [ ] which way?', '- [x] which way? (this way)'));
+  run(['step', 'approving'], p.wt);
+  assert.equal(p.state().step?.name, 'approving');
+});
+
 test('refusals list the valid steps and write nothing', () => {
   const p = plan('review');
   const before = p.raw();
