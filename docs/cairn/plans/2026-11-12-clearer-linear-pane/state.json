@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:18:49.948Z",
+  "updated": "2026-11-12T21:27:19.009Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -45,7 +45,7 @@
     {
       "id": "groundwork",
       "name": "Groundwork",
-      "status": "in_progress",
+      "status": "awaiting_approval",
       "tasks": [
         {
           "id": "shared-shapes",
@@ -59,9 +59,18 @@
             "plugins/cairn/hooks/mod/pane.tsx"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/clearer-linear-pane/shared-shapes",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--shared-shapes",
+          "base": "87e0fcfd0565dc5af3a51c50330f4300c93d78ba",
+          "startedAt": "2026-11-12T21:18:54.458Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:27:19.009Z",
+          "tip": "2b5dc12",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "0c275f54fc8a3632cfc24fa93fe4238843edb30f"
         }
       ]
     },
@@ -232,7 +241,13 @@
     }
   ],
   "evidence": {},
-  "drift": [],
+  "drift": [
+    {
+      "path": "plugins/cairn/hooks/test/pane.test.tsx",
+      "at": "2026-11-12T21:24:11.067Z",
+      "reason": "edited outside the current phase's scope"
+    }
+  ],
   "log": [
     {
       "at": "2026-11-12T21:10:27.252Z",
@@ -297,6 +312,36 @@
       "at": "2026-11-12T21:18:49.948Z",
       "event": "advanced",
       "detail": "execute"
+    },
+    {
+      "at": "2026-11-12T21:18:54.459Z",
+      "event": "task started",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:19:10.128Z",
+      "event": "task implementing",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:23:31.832Z",
+      "event": "task reviewing",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:24:11.067Z",
+      "event": "drift",
+      "detail": "plugins/cairn/hooks/test/pane.test.tsx"
+    },
+    {
+      "at": "2026-11-12T21:26:41.052Z",
+      "event": "task merging",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:27:19.009Z",
+      "event": "task done",
+      "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -344,6 +389,26 @@
       "from": "user",
       "declines": "richer-pane-cards:s28",
       "at": "2026-11-12T21:11:55.603Z"
+    },
+    {
+      "id": "s4",
+      "area": "quality",
+      "text": "Move stripControl from linear.tsx to util.ts; it is not Linear-specific",
+      "where": [
+        "plugins/cairn/hooks/mod/linear.tsx"
+      ],
+      "from": "implementer",
+      "at": "2026-11-12T21:23:31.758Z"
+    },
+    {
+      "id": "s5",
+      "area": "quality",
+      "text": "spec-drift: new CairnBoard fields are optional until the CLI emits them; make them required once board-sections lands, and guard [undefined] where in linear.tsx",
+      "where": [
+        "plugins/cairn/types/index.d.ts"
+      ],
+      "from": "task-review",
+      "at": "2026-11-12T21:26:40.976Z"
     }
   ],
   "planHash": "59c841c822efeebf",
