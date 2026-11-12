@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:27:19.009Z",
+  "updated": "2026-11-12T21:27:25.070Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -45,7 +45,7 @@
     {
       "id": "groundwork",
       "name": "Groundwork",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "shared-shapes",
@@ -77,7 +77,7 @@
     {
       "id": "cli-facts",
       "name": "The CLI computes the sections and ticket keys",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "board-sections",
@@ -342,6 +342,11 @@
       "at": "2026-11-12T21:27:19.009Z",
       "event": "task done",
       "detail": "Declare the new board and plan-row fields, and move the Linear tab rows to their own file"
+    },
+    {
+      "at": "2026-11-12T21:27:25.069Z",
+      "event": "phase finished",
+      "detail": "Groundwork (tests green (0 fail))"
     }
   ],
   "cairnVersion": "0.12.1",
