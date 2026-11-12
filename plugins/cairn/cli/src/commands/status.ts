@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { configWarning } from '../config.ts';
+import { configWarning, loadConfig } from '../config.ts';
 import { commonDir, git, landedState } from '../git.ts';
 import { PLAN_PREFIXES, parseBranch, planRef, planRelIn, planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { OVERVIEW_REL } from '../memory.ts';
@@ -12,6 +12,7 @@ import { hashText, pluginRoot, readText, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
+import { isFoundational, linearConfig } from '../linear.ts';
 import { mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
 import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
@@ -48,6 +49,11 @@ export function warnings(pc: PlanCtx, s: State): string[] {
   if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
   const cw = configWarning(pc.plan.worktree);
   if (cw) w.push(cw);
+  try {
+    linearConfig(pc.cfg);
+  } catch (e) {
+    w.push((e as Error).message);
+  }
   const changes = s.linear?.changes?.filter((c) => !c.handled).length ?? 0;
   if (changes) w.push(`Linear: ${changes} change${changes === 1 ? '' : 's'} to decide before the phase can finish (cairn linear status)`);
   return w;
@@ -62,6 +68,15 @@ function waitingOnMerge(ctx: Ctx, s: State, cwd: string, planRel: string): boole
   return landedState(cwd, s.branch, s.base, planRel, join(commonDir(ctx.mainRoot), 'cairn-pr-state.json')) === 'open';
 }
 
+/** Status never fails over a Linear setting: a bad value shows as a warning (the Linear commands refuse with the fix). */
+function foundationalSafe(s: State, pc: PlanCtx): boolean {
+  try {
+    return isFoundational(s.linear, linearConfig(pc.cfg));
+  } catch {
+    return false;
+  }
+}
+
 export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
@@ -71,7 +86,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir } }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -95,7 +110,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ...(s.level ? [`Level: ${levelLabel(s)}`] : []),
       ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
       ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
+    data: { state: s, next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
   };
 }
 

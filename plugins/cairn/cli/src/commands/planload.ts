@@ -3,7 +3,8 @@ import { mergeProgress, parsePlan } from '../plan-parse.ts';
 import { allTasks } from '../ready.ts';
 import { log, setStage } from '../state.ts';
 import { hashText, readText, Refusal } from '../util.ts';
-import { issueOrderProblems } from '../linear.ts';
+import { isFoundational, issueOrderProblems, linearConfig } from '../linear.ts';
+import { sections } from '../sections.ts';
 import { loadState } from '../state.ts';
 import { onPlanLoaded } from './linear.ts';
 import { mutate, planCtx, planFile, type Opts, type Result } from '../shared.ts';
@@ -17,6 +18,11 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
   // Issues pulled from Linear keep their blocked-by order: a task for a blocked issue comes after the blocker's tasks.
   const link = loadState(pc.plan.dir).linear;
   if (link && !parsed.problems.length) parsed.problems.push(...issueOrderProblems(link, parsed.phases, prdMd, planMd));
+  // A foundational issue asks for an explicit approach: the plan names the one chosen and each one rejected.
+  const approaches = (sections(planMd).get('approaches considered') ?? '').replace(/<!--[\s\S]*?-->/g, '').trim();
+  // The template's placeholders (<approach>, <reason>) are not an approach.
+  if (isFoundational(link, linearConfig(pc.cfg)) && (!approaches || /<(approach|reason)>/.test(approaches)))
+    parsed.problems.push('this plan is foundational (an issue carries the foundational label), and plan.md has no ## Approaches considered: name the approach chosen and each one rejected, with a reason');
   if (parsed.problems.length) throw new Refusal(`plan.md is not loadable:\n  - ${parsed.problems.join('\n  - ')}`, ['fix plan.md, then cairn plan load']);
   return mutate(pc, 'plan loaded', (s) => {
     const replanning = s.stage !== 'plan';

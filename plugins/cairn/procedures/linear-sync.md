@@ -12,7 +12,7 @@ Run `cd <plan worktree> && cairn linear pending --json`. Each entry in `pending`
 **Done when:** you hold the list of unsent entries.
 
 ## 2. Prepare
-Before the first `createIssue` entry, make sure the `cairn-follow-up` label exists: look for it with `list_issue_labels` for the team, and create it with `create_issue_label` when it is missing. Skip this when no entry creates an issue.
+Follow-ups are filed per `linear.fileFollowUps`: by default only ordinary ones, and hardening items stay in cairn. Before the first `createIssue` entry, make sure the `cairn-follow-up` label exists: look for it with `list_issue_labels` for the team, and create it with `create_issue_label` when it is missing. Skip this when no entry creates an issue.
 
 **Done when:** the label exists, or no entry needs it.
 

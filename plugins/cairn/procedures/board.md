@@ -10,14 +10,14 @@ The argument is a project name, or an epic key such as `SAV-100` (then the proje
 **Done when:** you have a project name or epic key and the repo has a `linear` block.
 
 ## 2. Read the project
-Through the Linear MCP, read:
-- the project's milestones (`list_milestones`);
-- every issue in the project (`list_issues` with the `project` filter), following `cursor` while `hasNextPage` is true;
-- for each issue, its blocked-by links (`get_issue` with `relations` in its `fields` list; `list_issues` returns none) and its parent.
+Read only what changed, then fill in the links for those issues. Through the Linear MCP:
+1. Read the project's milestones (`list_milestones`), then every issue in the project: `list_issues` with the `project` filter and `fields` including `updatedAt`, `statusType`, `projectMilestone` and `parentId` (it returns no relations), following `cursor` while `hasNextPage` is true.
+2. Build the JSON below from that listing and pipe it to `cairn linear import --board --merge`. It folds the listing into the stored snapshot: an issue sent without `blockedBy` or `parent` keeps the stored ones, and issues missing from the listing are dropped (the listing is the whole project, even for an epic key). The output's `data.needRelations` lists the open issues that are new, changed since the last read, or never had their links read.
+3. For only those keys, call `get_issue` with `relations` in its `fields` list. Never fetch completed, canceled or duplicate issues. Give each such issue its `blockedBy` (`[]` when nothing blocks it) and `parent` (`null` when it has none), and pipe just those issues to `cairn linear import --board --links`. It applies them on top of the stored snapshot (fields left out keep their stored values) and refuses when no snapshot exists yet. Never use `--merge` for this step: it treats its input as the whole project and would drop every issue not listed.
 
-Always read the whole project, even for an epic key: the snapshot is one per project, and a partial read would replace it.
+The first read of a project (no snapshot yet) lists every open issue in `needRelations`, so steps 1 to 3 read all the links and count as a full read. With `--full` in the arguments, read every open issue's relations instead and pipe the whole project to `cairn linear import --board` with neither flag: that replaces the snapshot and records a full read. Do not decide on a full read yourself; the board in step 3 says when one is due, and the user asks for it.
 
-Build one JSON object and pipe it to `cairn linear import --board`:
+The JSON for both imports:
 
 ```json
 {
@@ -32,10 +32,10 @@ Build one JSON object and pipe it to `cairn linear import --board`:
 
 `stateType` is Linear's status type (`backlog`, `unstarted`, `started`, `completed`, `canceled`). A blocker outside the project may be given as an object (`{ "key", "title", "stateType" }`). Map Linear's fields to these names exactly as `procedures/new.md` step 2a describes (`statusType`, `projectMilestone` and `parentId` become `stateType`, `milestone` and `parent`, with the parent written as its `SAV-n` identifier).
 
-**Done when:** `cairn linear import --board` exited 0.
+**Done when:** every `cairn linear import --board` call exited 0 and `needRelations` was fetched and imported (or `--full` was run).
 
 ## 3. Show it
-Run `cairn linear board --project "<project>"` (for an epic key, add `--epic <KEY>`, which shows only that epic) and show the user the result as printed: milestone counts, epics with their sub-issue counts, the plans that own them, what blocks what, any loop in the blocked-by links, and how old the snapshot is.
+Run `cairn linear board --project "<project>"` (for an epic key, add `--epic <KEY>`, which shows only that epic) and show the user the result as printed: milestone counts, epics with their sub-issue counts, the plans that own them, what blocks what, any loop in the blocked-by links, and how old the snapshot is. It prints "Ready to start: <epic> (/cairn:new --from-linear <KEY>)" for each epic whose open sub-issues are all ready; point the user to it. When the board says the project has had no full read yet, or the last one is over 3 days old, pass on its hint to run `/cairn:board <project> --full`.
 
 Add one line on what to do next when something stands out: stalled plans, ready issues, a loop to fix in Linear.
 

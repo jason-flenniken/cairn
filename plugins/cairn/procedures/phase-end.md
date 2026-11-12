@@ -10,10 +10,10 @@ Read `level` from `cairn status --json`; `references/levels.md` has the full tab
 - Polished: after `cairn phase finish`, run the on-track check for the phase without being asked: follow `procedures/direction.md` and treat a red result as in step 3.
 
 ## 1. Finish the phase
-When `cairn status --json` shows `state.linear`, first re-read the plan's issues from Linear: fetch each issue in the plan again through the Linear MCP (`get_issue` with `relations` in its `fields` list, and `list_issues` with `parentId` for the epic's sub-issues), build the same JSON as in `procedures/new.md` step 2a, and pipe it to `cd <plan worktree> && cairn linear import --refresh`. It prints what changed in Linear since the plan started: a new blocked-by link on an in-plan issue, or a sub-issue added to the epic. Decide each with the user, one at a time with AskUserQuestion, recommended first:
+When `cairn status --json` shows `state.linear`, first re-read the plan's issues from Linear: fetch each issue in the plan again through the Linear MCP (`get_issue` with `relations`, `description` and `labels` in its `fields` list, and `list_issues` with `parentId` for the epic's sub-issues), build the same JSON as in `procedures/new.md` step 2a, and pipe it to `cd <plan worktree> && cairn linear import --refresh`. It prints what changed in Linear since the plan started: a new blocked-by link on an in-plan issue, or a sub-issue added to the epic. Decide each with the user, one at a time with AskUserQuestion, recommended first:
 - A new blocker: it is a real dependency (`cairn linear depends <KEY> --on <KEY> --reason "…"`, then follow `procedures/execute.md` step 8), or it does not hold the plan up (`cairn linear ack <id> --as noted --note "<why>"`), or the blocked issue leaves the plan (`cairn linear release <KEY> --reason "…"`).
 - A new sub-issue: pull it in (`cairn linear ack <id> --as taken`, amend the PRD, re-plan) or leave it for a later plan (`cairn linear ack <id> --as later`).
-Links removed in Linear are only noted.
+Links removed in Linear are only noted. When it lists an issue's text as noted (the description changed after the PRD was approved), re-read `issues/<KEY>.md` in the plan folder and check the PRD against it; tell the user in a line if a requirement no longer matches. This does not block the phase.
 
 Run `cd <plan worktree> && cairn phase finish`.
 

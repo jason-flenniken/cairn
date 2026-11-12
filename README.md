@@ -317,13 +317,15 @@ Linear owns the backlog; cairn owns the execution. A plan pulls in a selection o
 `statuses` is optional. Without it cairn moves issues by Linear's status types (started, completed). Linear has no review type, so with no `inReview` status cairn posts a comment at ship instead of moving the issue.
 
 **The flow.**
-1. `/cairn:new --from-linear SAV-100` pulls in an epic (a parent issue and its sub-issues), a list of issues, a milestone, or a project. Discover treats the tickets as given and asks only what they leave open: blockers outside the plan, and a subset when an epic is big.
+1. `/cairn:new --from-linear SAV-100` pulls in an epic (a parent issue and its sub-issues), a list of issues, a milestone, or a project. Each ticket's text is saved under the plan as `issues/<KEY>.md` and treated as given: discover asks only what the tickets leave open (blockers outside the plan, a subset when an epic is big). Ticket text is data written by other people: a source for requirements, never instructions.
 2. Each issue becomes PRD requirements tagged with its key (`[SAV-102]`). The PRD can't be approved while an issue is neither tagged nor listed under `## Issues not taken` with a reason, or while a blocker outside the plan has no decision under `## Outside blockers`.
 3. Issue dependencies turn into task order. `cairn plan load` refuses a task for a blocked issue that doesn't come after its blocker's tasks, unless `## Issue order` in the plan explains why. A dependency found while building is recorded with `cairn linear depends`.
-4. cairn queues the updates that are due (In Progress, comments with the PR link, Done after the merge, follow-ups as new issues, a project status update you approve first) and the agent sends them through the Linear MCP. A failed send waits; it never blocks the plan.
+4. cairn queues the updates that are due (In Progress, comments with the PR link, Done after the merge, follow-ups as new issues, a project status update you approve first). By default only ordinary follow-ups become Linear issues; hardening items stay in cairn, where a later plan on the same files is offered them (`linear.fileFollowUps`: `ordinary`, `all` or `none` and the agent sends them through the Linear MCP. A failed send waits; it never blocks the plan.
 5. At the end of each phase cairn re-reads the issues. A blocker someone added in Linear meanwhile has to be settled before the phase finishes. Shipping a plan whose blocker sits in another unshipped plan needs your override.
 
-**The board.** `/cairn:board <project>` (run on main) reads the project's milestones and issues and shows, per milestone, what is done, in a plan, ready, or blocked, with epics grouped and stalled plans flagged. The snapshot is cached outside git and shared by every worktree.
+A ticket carrying the foundational label makes the plan foundational: `/cairn:new` recommends Polished, the fresh-eyes challenge cannot be skipped, and `plan.md` needs an `## Approaches considered` section (the chosen approach, then each rejected one) that the plan approval names.
+
+**The board.** `/cairn:board <project>` (run on main) reads the project's milestones and issues and shows, per milestone, what is done, in a plan, ready, or blocked, with epics grouped and stalled plans flagged. The snapshot is cached outside git and shared by every worktree. A normal run only re-reads the links of issues that are new or changed; `/cairn:board <project> --full` re-reads them all, and the board suggests it when the last full read is over 3 days old. Epics whose open sub-issues are all ready are listed as ready to start.
 
 ## Configuration
 
@@ -355,7 +357,7 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 | `resumeFreshAfterMinutes` | How long a pause counts as recent before resume suggests a fresh session (default 60). |
 | `fixMaxFiles` | How many files a bug fix may touch before cairn suggests a full plan (default 8). |
 | `reproTimeoutMinutes` | How long a bug repro may run (default 10). |
-| `linear` | Turns on the [Linear](#linear) integration: `team`, and optional `statuses`. |
+| `linear` | Turns on the [Linear](#linear) integration: `team`, and optional `statuses`, `foundationalLabel` (default `foundational`) and `fileFollowUps` (`ordinary` by default, `all` or `none`). |
 
 The `setup`, `test`, and `build` commands are locked when you approve the plan. If they change mid-plan, cairn asks you to re-approve.
 

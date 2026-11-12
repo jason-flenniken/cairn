@@ -28,6 +28,7 @@ Run `cd <plan worktree> && cairn step drafting`, so the pane does not offer the 
 - **Right-sized:** each task fits one fresh context window. Split further when it would not.
 - **Prefactor first:** refactors that ease the work come as the earliest tasks.
 - **Phases** are demoable milestones; the first phase proves the thinnest end-to-end path.
+- **Approaches considered** (optional; required when `cairn status --json` shows `foundational: true`): a `## Approaches considered` section with the chosen approach first, then each rejected one with the reason it lost. `cairn plan load` refuses a foundational plan without it.
 - **Issue order** (only when `cairn status --json` shows `state.linear`): when one issue is blocked by another in the plan, the tasks for the blocked issue must come after the tasks for its blocker, in a later phase or through `blocked_by`. Order the phases by dependency layers: issues with no blocker inside the plan first, the issues they unblock in later phases. `cairn plan load` refuses a task for a blocked issue that does not come after its blocker's tasks and names the pair. When the blocked issue really does not need the blocker's code, say so in an optional `## Issue order` section: `- SAV-102 and SAV-101: <reason>` (both keys on the line, with a reason). The reason goes in the record.
 - **Parallel by default:** disjoint `scope` globs, minimal `blocked_by`. Two tasks touching the same files get an edge between them.
 - **Complexity:** `simple` (mechanical, 1-2 files), `standard` (default), `complex` (architecture judgment, broad integration).
@@ -55,6 +56,8 @@ Phase 1: Foundations
 Phase 2: Checkout
   - Checkout form (standard)     blocked by: Cart API
 ```
+
+On a foundational plan, the question names the chosen approach (the summary starts with "Approach: …").
 
 Run `cairn status --json`. If `state.approvals.plan` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. If `warnings` says prd.md changed after it was approved, approving the plan also accepts those PRD edits: say so in the question and name what changed in the PRD in plain words. There is no separate PRD re-approval. Otherwise read `modActive`.
 - True: ask with AskUserQuestion, with the tree as the preview on the first option. The question text includes `[cairn:approve plan <slug>]`, with the plan slug from the status output:

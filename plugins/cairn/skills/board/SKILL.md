@@ -37,4 +37,4 @@ Procedure files are not variable-expanded: wherever one says `CLAUDE_PLUGIN_ROOT
 
 Arguments: $ARGUMENTS
 
-The arguments are a Linear project name, or an epic key such as `SAV-100`.
+The arguments are a Linear project name, or an epic key such as `SAV-100`, optionally with `--full` to re-read every open issue's blocked-by links.
