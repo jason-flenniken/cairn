@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:27:25.070Z",
+  "updated": "2026-11-12T21:31:38.029Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -97,9 +97,15 @@
             "plugins/cairn/cli/test/board.test.ts"
           ],
           "complexity": "complex",
-          "status": "pending",
+          "status": "in_progress",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "substep": "implementing",
+          "branch": "task/clearer-linear-pane/board-sections",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--board-sections",
+          "base": "a328db3a10515fdb6977fed2bf44bcd2f39e83f4",
+          "startedAt": "2026-11-12T21:27:29.004Z",
+          "level": "standard"
         },
         {
           "id": "plan-row-tickets",
@@ -115,9 +121,18 @@
             "plugins/cairn/cli/test/status-tickets.test.ts"
           ],
           "complexity": "simple",
-          "status": "pending",
+          "status": "done",
           "fixRound": 0,
-          "risky": false
+          "risky": false,
+          "branch": "task/clearer-linear-pane/plan-row-tickets",
+          "worktree": "/Users/jasonflenniken/Development/ai_workflow/.claude/worktrees/feature-clearer-linear-pane--plan-row-tickets",
+          "base": "a328db3a10515fdb6977fed2bf44bcd2f39e83f4",
+          "startedAt": "2026-11-12T21:27:29.573Z",
+          "level": "standard",
+          "doneAt": "2026-11-12T21:31:38.028Z",
+          "tip": "c7e2573",
+          "tests": "npm run typecheck && npm test → 0 fail",
+          "testedCommit": "6a5bee96632f6f568b9b34c718be8b862b4923e3"
         },
         {
           "id": "board-text",
@@ -347,6 +362,41 @@
       "at": "2026-11-12T21:27:25.069Z",
       "event": "phase finished",
       "detail": "Groundwork (tests green (0 fail))"
+    },
+    {
+      "at": "2026-11-12T21:27:29.006Z",
+      "event": "task started",
+      "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:27:29.573Z",
+      "event": "task started",
+      "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:28:09.862Z",
+      "event": "task implementing",
+      "detail": "Board sections, unblocks counts and wide links"
+    },
+    {
+      "at": "2026-11-12T21:28:09.933Z",
+      "event": "task implementing",
+      "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:30:40.392Z",
+      "event": "task reviewing",
+      "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:31:04.531Z",
+      "event": "task merging",
+      "detail": "Ticket keys per task on plan rows"
+    },
+    {
+      "at": "2026-11-12T21:31:38.029Z",
+      "event": "task done",
+      "detail": "Ticket keys per task on plan rows"
     }
   ],
   "cairnVersion": "0.12.1",
@@ -414,6 +464,16 @@
       ],
       "from": "task-review",
       "at": "2026-11-12T21:26:40.976Z"
+    },
+    {
+      "id": "s6",
+      "area": "tests",
+      "text": "Drive PRD approval (recordRequirements) through the CLI in a task-keys test, instead of setting requirements in state directly",
+      "where": [
+        "plugins/cairn/cli/test/status-tickets.test.ts"
+      ],
+      "from": "implementer",
+      "at": "2026-11-12T21:30:40.320Z"
     }
   ],
   "planHash": "59c841c822efeebf",
