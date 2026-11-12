@@ -15,7 +15,7 @@ import { gitLine, readGit, startGit, trackGit } from './git.ts'
 import { linearRows, stripControl } from './linear.tsx'
 import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
-import { act, cells, message } from './util.ts'
+import { act, cells, clean, message } from './util.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
 import { inlineUsage, install as installUsage, limitsLine, modelLine, readBaseline, readUsage, syncBaseline } from './usage.ts'
 
@@ -255,6 +255,9 @@ async function findRepo($: EngineInterface): Promise<void> {
 }
 
 /** Called by register.tsx's single session.start: commands, the first read, the pane, the poll. */
+/** An UP NEXT task's first ticket key and a space; empty with no key. */
+const ticket = (keys?: string[]) => (keys?.[0] === undefined || clean(keys[0]) === '' ? '' : `${clean(keys[0])} `)
+
 export async function onSessionStart($: EngineInterface, _e: SessionStartInput): Promise<void> {
   for (const spec of COMMANDS) await $.command.register(spec).catch(() => undefined)
   common = undefined
@@ -396,6 +399,7 @@ export function install(on: On): void {
       ui, nowMs: t, columns: e.props.bodyColumns - 2, isGrid,
       stage: here !== undefined && isActive(here) ? here.state.stage : undefined,
       taskNames: here === undefined ? [] : tasksOf(here.state).map(x => x.name ?? x.id ?? ''),
+      taskIssues: here?.taskIssues,
     }
     // The bar's lines: docked, the git line, the usage lines, then every stage step; inline, the active step with the plan cost, active time and limits.
     const planSlug = here !== undefined && isActive(here) ? here.state.slug : undefined
@@ -453,7 +457,7 @@ export function install(on: On): void {
       const upNext = tasks
         .filter(x => x.status === 'pending' && phases[at]?.tasks !== undefined && list<Task>(phases[at]?.tasks).includes(x))
         .slice(0, UP_NEXT_SHOWN)
-        .map(x => `${x.name ?? x.id}${isReady(x, byId) ? '' : ' (waits)'}`)
+        .map(x => `${ticket(row.taskIssues?.[x.name ?? x.id ?? ''])}${x.name ?? x.id}${isReady(x, byId) ? '' : ' (waits)'}`)
       const buttons = (
         <Box key="buttons" flexDirection="row" gap={1}>
           {!isPaused && s.stage !== 'closed' && <Button key="pause" label="Pause" onPress={() => act($, () => pause($, 'drain'))} />}

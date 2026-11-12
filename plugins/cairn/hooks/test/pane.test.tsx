@@ -72,6 +72,16 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
       await ui.unmount()
     })
 
+    test(`the epic key leads the title and the first ticket leads each up-next task (${surface})`, async ($, on) => {
+      world(on, { rows: [{ ...row(EXECUTE, WT), epic: 'SAV-16', taskIssues: { Payments: ['SAV-80', 'SAV-81'] } }] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      const text = await drawn(ui)
+      expect(text).toContain('SAV-16 Acme Storefront')
+      expect(text).toMatch(/UP NEXT  SAV-80 Payments/)
+      await ui.unmount()
+    })
+
     test(`six drift entries: the count and only the first five paths (${surface})`, async ($, on) => {
       const drift = [1, 2, 3, 4, 5, 6].map(n => ({ path: `src/stray${n}.ts`, at: 'x', reason: 'outside scope' }))
       world(on, { rows: [row(plan({ stage: 'verify', drift: [...drift, { path: 'src/acked.ts', at: 'x', reason: 'r', acked: { at: 'y' } }] }), WT)] })
