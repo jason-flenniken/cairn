@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildBoard, ownerOf, type BoardIssue } from '../board.ts';
 import { loadConfig } from '../config.ts';
-import { commonDir, landedState } from '../git.ts';
+import { branchExists, commonDir, landedState } from '../git.ts';
 import {
   effectiveBlockers,
   emptyLink,
@@ -43,7 +43,7 @@ import type { LinearChange, LinearConfig, LinearLink, State } from '../types.ts'
 import { CliError, hashText, now, readText, Refusal, writeText } from '../util.ts';
 import { gate, mutate, planCtx, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { collectSuggestions } from './suggest.ts';
-import { listPlans } from './status.ts';
+import { listPlans, stackBase } from './status.ts';
 import { onPublishSent, publish } from './publish.ts';
 
 const USAGE = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
@@ -695,8 +695,9 @@ export function onPlanLoaded(s: State): void {
 
 /** Before `approve ship`: blockers this plan's issues have in other plans must have shipped. Read before the lock. */
 export function crossPlanBlockers(ctx: Ctx, s: State): string[] {
+  const stack = stackedOnBlocker(ctx, s);
   const l = s.linear;
-  if (!l) return [];
+  if (!l) return stack;
   const others = otherPlans(ctx, s.slug);
   const byKey = new Map([...l.known, ...l.issues].map((i) => [i.key, i]));
   const inPlan = new Set(takenIssues(l).map((i) => i.key));
@@ -710,11 +711,19 @@ export function crossPlanBlockers(ctx: Ctx, s: State): string[] {
       if (o.stage !== 'learn' && o.stage !== 'closed') out.push(`${i.key} needs ${b}, which plan ${o.slug} has not shipped (it is in ${o.stage})`);
       else if (!merged(ctx, o.state)) out.push(`${i.key} needs ${b}, which plan ${o.slug} has not merged yet`);
     }
-  return [...new Set(out)];
+  return [...new Set([...stack, ...out])];
+}
+
+/** A plan started with `--after` ships only once the plan it stacked on has merged: until then its branch carries that plan's work. */
+function stackedOnBlocker(ctx: Ctx, s: State): string[] {
+  if (!s.stackedOn) return [];
+  const base = stackBase(ctx, s.stackedOn.slug);
+  if (!base) return branchExists(s.stackedOn.branch, ctx.top) ? [`it is stacked on plan ${s.stackedOn.slug}, which cannot be read, so it is not known to have merged`] : [];
+  return merged(ctx, base.state) ? [] : [`it is stacked on plan ${base.state.slug}, which has not merged yet (it is in ${base.state.stage})`];
 }
 
 /** Whether another plan's branch has landed in its base. Its state came from another branch, so its refs are checked first (`mergeState` does). */
-function merged(ctx: Ctx, s: State): boolean {
+export function merged(ctx: Ctx, s: State): boolean {
   try {
     const rel = resolvePlanDir(s.slug, { ref: s.branch, cwd: ctx.top }) ?? '';
     return landedState(ctx.top, s.branch, s.base, rel, join(commonDir(ctx.mainRoot), PR_CACHE)) === 'merged';
@@ -767,8 +776,12 @@ const FULL_READ_DAYS = 3;
 
 const blockedText = (x: BoardIssue) => `blocked by ${x.blockedBy.map((b) => (b.where ? `${b.key} [${b.where}]` : b.key)).join(', ')}`;
 
+/** `alongside SAV-16 (plan sav-16-repo-ci-observability, verify)`, one entry per plan. */
+const alongsideText = (after: { key: string; slug: string; stage: string }[]) =>
+  `alongside ${after.map((a) => `${a.key} (plan ${a.slug}, ${a.stage})`).join(', ')}`;
+
 const issueLine = (x: BoardIssue, indent: string) =>
-  `${indent}${x.status === 'done' ? '✓' : x.status === 'in plan' ? '▸' : x.status === 'ready' ? '○' : '✗'} ${x.key} ${x.title}${x.plan ? `: ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})` : ''}${x.status === 'blocked' ? `: ${blockedText(x)}` : ''}`;
+  `${indent}${x.status === 'done' ? '✓' : x.status === 'in plan' ? '▸' : x.status === 'ready' ? '○' : x.status === 'alongside' ? '⇉' : '✗'} ${x.key} ${x.title}${x.plan ? `: ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})` : ''}${x.status === 'blocked' ? `: ${blockedText(x)}` : ''}${x.status === 'alongside' ? `: ${alongsideText(x.after ?? [])}` : ''}`;
 
 function board(ctx: Ctx, opts: Opts): Result {
   const snap = loadSnapshot(ctx, typeof opts.project === 'string' ? opts.project : undefined);
@@ -800,9 +813,9 @@ function board(ctx: Ctx, opts: Opts): Result {
     const kids = every.filter((x) => inside(x.key));
     const top = data.milestones.flatMap((m) => m.epics).find((e) => e.key === epicKey);
     const epic = top ?? { key: epicKey, title: byKey.get(epicKey)!.title, done: kids.filter((k) => k.status === 'done').length, total: kids.length, plans: [...new Set(kids.map((k) => k.plan?.slug).filter((x): x is string => !!x))], issues: kids };
-    const counts = { total: kids.length, done: epic.done, inPlan: kids.filter((x) => x.status === 'in plan').length, ready: kids.filter((x) => x.status === 'ready').length, blocked: kids.filter((x) => x.status === 'blocked').length };
+    const counts = { total: kids.length, done: epic.done, inPlan: kids.filter((x) => x.status === 'in plan').length, ready: kids.filter((x) => x.status === 'ready').length, alongside: kids.filter((x) => x.status === 'alongside').length, blocked: kids.filter((x) => x.status === 'blocked').length };
     const milestones = [{ name: byKey.get(epicKey)!.milestone ?? 'No milestone', counts, epics: [epic], issues: [] as BoardIssue[] }];
-    const lines = [header, `${milestones[0].name}: ${counts.done}/${counts.total} done, ${counts.inPlan} in a plan, ${counts.ready} ready, ${counts.blocked} blocked`, `  epic ${epic.key} ${epic.title}: ${epic.done}/${epic.total} done${epic.plans.length ? `, plans: ${epic.plans.join(', ')}` : ''}`, ...epic.issues.map((x) => issueLine(x, '    '))];
+    const lines = [header, `${milestones[0].name}: ${counts.done}/${counts.total} done, ${counts.inPlan} in a plan, ${counts.ready} ready, ${counts.alongside} alongside, ${counts.blocked} blocked`, `  epic ${epic.key} ${epic.title}: ${epic.done}/${epic.total} done${epic.plans.length ? `, plans: ${epic.plans.join(', ')}` : ''}`, ...epic.issues.map((x) => issueLine(x, '    '))];
     return { message: lines.join('\n'), data: { ...data, ...extra, milestones } };
   }
 
@@ -824,6 +837,10 @@ function board(ctx: Ctx, opts: Opts): Result {
   if (data.ready.length) {
     lines.push('Ready to start:');
     for (const r of data.ready) lines.push(`  ${r.key} ${r.title}${r.unblocks > 0 ? `, unblocks ${r.unblocks}` : ''}${r.milestone !== data.focus ? ` [${r.milestone}]` : ''}${r.kind === 'epic' ? ` (/cairn:new --from-linear ${r.key})` : ''}`);
+  }
+  if (data.alongside.length) {
+    lines.push('Can start alongside:');
+    for (const r of data.alongside) lines.push(`  ${r.key} ${r.title} ${alongsideText(r.after)}${r.unblocks > 0 ? `, unblocks ${r.unblocks}` : ''}${r.milestone !== data.focus ? ` [${r.milestone}]` : ''}${r.kind === 'epic' ? ` (/cairn:new --from-linear ${r.key})` : ''}`);
   }
   if (data.waiting.length) {
     lines.push('Waiting:');

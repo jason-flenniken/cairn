@@ -84,6 +84,23 @@ export function linearRows(ui: Ui, board: CairnBoard | null, note: string | null
     })
   }
 
+  const alongside = board.alongside ?? []
+  if (alongside.length > 0) {
+    rows.push(<Text key="linear:al" bold wrap="truncate-end">⇉ CAN START ALONGSIDE</Text>)
+    alongside.slice(0, 4).forEach(r => {
+      const where = r.milestone && r.milestone !== focus ? clean(r.milestone) : ''
+      const first = r.after[0]
+      const more = r.after.length > 1 ? ` +${r.after.length - 1}` : ''
+      rows.push(indent(`linear:al:${r.key}`, (
+        <Box flexDirection="column">
+          <Text wrap="wrap">{clean(`${r.key} ${r.title}`)}{r.unblocks > 0 ? ` unblocks ${r.unblocks}` : ''}{where !== '' && <Text dimColor>{`  ${where}`}</Text>}</Text>
+          {first !== undefined && <Text dimColor wrap="wrap">{clean(`starts on ${first.branch}`) + more}</Text>}
+        </Box>
+      )))
+    })
+    if (alongside.length > 4) rows.push(indent('linear:al:more', <Text dimColor>{`+${alongside.length - 4} more`}</Text>))
+  }
+
   const waiting = board.waiting ?? []
   if (waiting.length > 0) {
     rows.push(<Text key="linear:wt" dimColor wrap="truncate-end">· WAITING</Text>)

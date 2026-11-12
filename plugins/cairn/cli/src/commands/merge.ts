@@ -6,6 +6,9 @@ import { loadState, log } from '../state.ts';
 import { mutate, planCtx, runTests, type Opts, type Result } from '../shared.ts';
 import { now, pluginRoot, readText, Refusal } from '../util.ts';
 import { refreshMemory } from './memory.ts';
+import { merged as planMerged } from './linear.ts';
+import { stackBase } from './status.ts';
+import type { PlanCtx } from '../shared.ts';
 
 const short = (sha: string) => sha.slice(0, 7);
 
@@ -65,6 +68,64 @@ function mergeBase(pc: ReturnType<typeof planCtx>, baseRef: string, message: str
 }
 
 /**
+ * For a plan started with `--after`: merge in the base plan's new commits, or, once that plan has merged, merge the
+ * repo's main branch in and move the plan onto it. Returns what it did in one line, or undefined when nothing was due.
+ * Refuses on a dirty worktree and on a conflict (the merge is aborted, so nothing changes). Merges it makes are
+ * recorded as its own, so a ship approval given earlier still holds.
+ */
+export function restack(pc: PlanCtx): string | undefined {
+  const s0 = loadState(pc.plan.dir);
+  const st = s0.stackedOn;
+  if (!st) return undefined;
+  const wt = pc.plan.worktree;
+  const rel = planRelOf(pc.plan);
+  if (currentBranch(wt) !== s0.branch) throw new Refusal(`the plan worktree is on ${currentBranch(wt)}, not the plan branch ${s0.branch}`);
+  const dirty = git(['status', '--porcelain'], wt).split('\n').filter((l) => l && !l.slice(3).startsWith(`${rel}/`));
+  if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.map((l) => l.slice(3)).join(', ')}`, ['commit or remove them, then run cairn next again']);
+
+  const row = stackBase(pc.ctx, st.slug);
+  // A base plan whose branch is gone was merged and deleted.
+  const landed = row ? planMerged(pc.ctx, row.state) : !branchExists(st.branch, wt) && !gitOk(['show-ref', '--verify', '--quiet', `refs/remotes/origin/${st.branch}`], wt);
+  const hasOrigin = gitOk(['remote', 'get-url', 'origin'], wt);
+  let target = '';
+  let ref: string;
+  if (landed) {
+    target = row?.state.base ?? pc.ctx.worktrees[0]?.branch ?? 'main';
+    if (!safeRef(wt, target)) throw new Refusal(`the branch "${target}" is not a valid branch name`);
+    if (hasOrigin) {
+      const fetched = gitTry(['fetch', '-q', 'origin', `+refs/heads/${target}:refs/remotes/origin/${target}`], wt);
+      if (!fetched.ok) throw new Refusal(`could not fetch origin/${target}, so it may have moved unseen: ${fetched.out}`, ['check the network or credentials, then run cairn next again']);
+      ref = `origin/${target}`;
+    } else ref = target;
+  } else if (branchExists(st.branch, wt)) ref = st.branch;
+  else if (hasOrigin && gitOk(['show-ref', '--verify', '--quiet', `refs/remotes/origin/${st.branch}`], wt)) ref = `origin/${st.branch}`;
+  else return undefined;
+
+  let mergedSha: string | undefined;
+  let behind = 0;
+  if (!gitOk(['merge-base', '--is-ancestor', ref, 'HEAD'], wt)) {
+    behind = Number(git(['rev-list', '--count', `HEAD..${ref}`], wt));
+    const m = mergeBase(pc, ref, `Merge ${landed ? target : st.branch} into ${s0.branch}`);
+    if (!m.ok)
+      throw new Refusal(
+        `${ref} has ${behind} commit${behind === 1 ? '' : 's'} that conflict with this branch${m.conflicted.length ? ` in ${m.conflicted.join(', ')}` : `: ${m.out}`}. The merge was aborted; nothing changed.`,
+        [`merge ${ref} into ${s0.branch} in the plan worktree, resolve the conflicts, and run the tests`, 'then run cairn next again'],
+      );
+    mergedSha = git(['rev-parse', 'HEAD'], wt);
+  }
+  if (!landed && !mergedSha) return undefined;
+  mutate(pc, landed ? `moved onto ${target} after ${st.slug} merged` : `merged ${st.slug} into the plan`, (s) => {
+    if (mergedSha) (s.baseMerges ??= []).push(mergedSha);
+    if (landed) {
+      s.base = target;
+      delete s.stackedOn;
+      log(s, 'restacked', `moved onto ${target} after ${st.slug} merged`);
+    } else log(s, 'restacked', `merged ${behind} new commit${behind === 1 ? '' : 's'} from ${st.slug}`);
+  });
+  return landed ? `moved onto ${target} after ${st.slug} merged` : `merged ${behind} new commit${behind === 1 ? '' : 's'} from ${st.slug}`;
+}
+
+/**
  * `cairn merge-check`: run right before merging the plan's pull request. Refuses when code changed after the ship
  * approval (and clears it, so the user approves again), merges the base in when it moved (refusing on a conflict,
  * with the merge aborted), and runs the tests until a head passes. Prints the HEAD it checked.
@@ -73,6 +134,8 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
   const pc = planCtx(ctx);
   const wt = pc.plan.worktree;
   const rel = planRelOf(pc.plan);
+  // A stacked plan moves onto main first, so the checks below see its real base.
+  const restacked = loadState(pc.plan.dir).stackedOn ? restack(pc) : undefined;
   const s0 = loadState(pc.plan.dir);
   if (!['ship', 'learn', 'closed'].includes(s0.stage)) throw new Refusal(`merge-check runs after the ship approval; the plan is in ${s0.stage}`);
   if (s0.reapprove) throw new Refusal(`the ship needs approving again: ${s0.reapprove.why}`, reapproveFixes(s0.slug, wt));
@@ -82,7 +145,7 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
   const dirty = git(['status', '--porcelain'], wt).split('\n').filter((l) => l && !l.slice(3).startsWith(`${rel}/`));
   if (dirty.length) throw new Refusal(`the plan worktree has uncommitted changes: ${dirty.map((l) => l.slice(3)).join(', ')}`, ['commit or remove them, then run cairn merge-check again']);
 
-  const notes: string[] = [];
+  const notes: string[] = restacked ? [`Restacked: ${restacked}.`] : [];
   // Checking against a stale origin is the failure this command exists to prevent, so a failed fetch refuses.
   // The explicit refspec updates origin/<base> even in a single-branch clone.
   let baseRef = s0.base;

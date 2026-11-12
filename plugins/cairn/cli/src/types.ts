@@ -173,6 +173,8 @@ export interface State {
   reapprove?: { at: string; why: string };
   /** Merges of the base that `cairn merge-check` made itself, cleanly: commits it can vouch for after the approval. */
   baseMerges?: string[];
+  /** Set by `cairn new --after`: the plan whose branch this one started on. `cairn restack` clears it once that plan has merged. */
+  stackedOn?: { slug: string; branch: string };
   /** The last head `cairn merge-check` saw the tests pass on. Only plan-folder commits since it skip the tests. */
   mergeChecked?: string;
   planHash?: string;

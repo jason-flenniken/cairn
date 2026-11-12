@@ -341,6 +341,10 @@ A blocked-by link set on an epic makes every one of its sub-issues wait. When su
 
 **The pane.** The Linear tab in the live pane shows the same sections, with every milestone at the top: a progress bar for the first unfinished one, ✓ for finished ones, and one line per later one. Blocked work is dim; red is only for a loop in the blocked-by links. Agent cards show the ticket key before the task name (`8 · SAV-66 Move the app…`, with `+1` when a task covers more than one ticket), the plan header shows the epic key, and UP NEXT shows each task's key.
 
+### Several plans at once
+
+When the work you want next is blocked only by work another open plan has built (or has in review), `/cairn:board` lists it under "Can start alongside". `/cairn:new --from-linear <KEY>` then offers to start the new plan on that plan's branch (`cairn new <slug> --after <plan>`), so you don't wait for the merge. The new plan shows `Stacked on <plan>`. Each time you run `/cairn:next`, it merges in whatever the other plan added. It cannot ship before that plan has merged. Once it has, `cairn next` (or `cairn merge-check`) merges main in and moves the plan onto main; a conflict stops it with the files named.
+
 ## Configuration
 
 Each repo has `.cairn/config.json`, which cairn creates the first time:
