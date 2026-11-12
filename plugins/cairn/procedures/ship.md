@@ -57,12 +57,12 @@ When you drafted any, ask with AskUserQuestion as its own question (a plain choi
 **Done when:** `cairn status --json` shows the ship approval, and any rules the user ticked are committed.
 
 ## 6. Open the PR
-Run `cd <plan worktree> && cairn step opening-pr`. Then, from the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan, and keeping its Revert line). Put the PR URL into the record's Links section and commit it on the plan branch.
+Run `cd <plan worktree> && cairn step opening-pr`. Then, from the plan worktree: push the plan branch, then `gh pr create --base <base> --head <state.branch> --title "<plan title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped, the Links section pointing at the PRD and plan, and keeping its Revert line). When `cairn status --json` shows `state.linear`, add a `Fixes SAV-n` line for each issue the plan built (not the ones released or left under Issues not taken), so Linear's GitHub integration links the pull request. Put the PR URL into the record's Links section and commit it on the plan branch.
 
 **Done when:** `gh pr create` printed a URL, and `RECORD.md` links to it.
 
 ## 7. Advance
-Run `cairn advance`. Report the PR URL in one line.
+Run `cairn advance` (on a plan with Linear issues, `cairn advance --pr <PR URL>`, so the pull request link goes in the comment on each issue). Report the PR URL in one line.
 
 **Done when:** the stage is `learn`. Then run `cairn next --json` and follow the procedure it names. The merge is the last step of the whole plan: `learn.md` (and `fix.md` for a fix) sends you back to the Merge section below once the plan is closed.
 
@@ -79,4 +79,6 @@ Closing records everything first so every record lands on main with the merge; `
    - Merge it now (Recommended): run `gh pr merge <PR URL> --merge --match-head-commit <sha>`, with the sha `cairn merge-check` printed, so GitHub merges exactly what was checked. If the repo disallows merge commits, use the method it allows (`--squash` or `--rebase`) with the same flag. If it fails (checks pending, the head moved, no access), say why; when the branch moved, run step 1 again before asking again.
    - I'll merge it: stop; the plan stays "PR open" until the user merges. The pushed branch is the one that was checked.
 
-**Done when:** the PR is merged (`gh pr view <PR URL> --json state` says `MERGED`) or the user chose to merge it themselves.
+5. When `cairn status --json` shows `state.linear` and the PR is merged, run `cd <plan worktree> && cairn linear pending`. It queues the Done statuses once the plan branch has landed in its base, and lists everything unsent. Send what it lists as `procedures/linear-sync.md` describes. When the user merges it themselves later, `cairn next` (run in the plan worktree, or `/cairn:next` on main, which points at the merged plan's worktree) queues the Done statuses and routes to the sync.
+
+**Done when:** the PR is merged (`gh pr view <PR URL> --json state` says `MERGED`) or the user chose to merge it themselves, and on a plan with Linear issues the merged plan's Linear updates were sent.

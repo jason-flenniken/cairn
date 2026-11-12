@@ -71,6 +71,8 @@ export function world(on: On, init: WorldInit = {}) {
     raw: undefined as string | undefined,
     records: undefined as unknown[] | undefined,
     recordsFail: false,
+    /** `cairn linear board --json` answer; unset, the CLI refuses as it does with no snapshot. */
+    linearBoard: undefined as Record<string, unknown> | undefined,
     mtimes: new Map<string, number>([[STATE, 1]]),
     runs: [] as string[][],
     toasts: [] as string[],
@@ -114,6 +116,11 @@ export function world(on: On, init: WorldInit = {}) {
     }
     if (args.join(' ') === 'records --json' && w.recordsFail) return answer(1, JSON.stringify({ ok: false, error: 'boom' }))
     if (args.join(' ') === 'records --json') return answer(0, JSON.stringify({ ok: true, records: w.records ?? [] }))
+    if (args.join(' ') === 'linear board --json') {
+      return w.linearBoard === undefined
+        ? answer(2, JSON.stringify({ ok: false, refused: 'no Linear project has been read yet', fixes: ['/cairn:board <project> reads one from Linear'] }))
+        : answer(0, JSON.stringify(w.linearBoard))
+    }
     if (args.join(' ') === 'status --json') {
       const here = w.rows.find(r => r.worktree === w.cwd)
       return here === undefined

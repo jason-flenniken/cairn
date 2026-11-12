@@ -20,6 +20,8 @@ Run `cairn status --json`. Read the stage, the plan slug, and the track.
 ## 2. Create the plan
 Pick a slug: lowercase words joined by hyphens, from the bug (for example `login-redirect-loop`). Run `cairn new <slug> --track fix --title "<bug>"`. It starts the plan at stage repro on its own branch and worktree.
 
+When the arguments are a Linear issue key (`/cairn:fix SAV-123`), take the bug from the ticket and put the key in the slug (`sav-123-login-redirect-loop`). Fetch the issue through the Linear MCP (`get_issue` with `relations` in its `fields` list, mapped as `procedures/new.md` step 2a says), then pipe it to the new plan as a single-issue import, as in `procedures/new.md` step 2a: `cd <plan worktree> && cairn linear import` with `{ "selection": "SAV-123", "issues": [{ "key": "SAV-123", "title": "…", "url": "…", "stateType": "…" }] }`. The fix plan then moves the issue to In Progress and posts the pull request link like any other.
+
 Tell the user the worktree path that `cairn new` printed, in one line. Do not switch into it with EnterWorktree. Stay at the repo root and run each later `cairn` command as `cd <plan worktree> && cairn <command>`, except an override command, which runs alone.
 
 **Done when:** `cairn status --json` shows track `fix` at stage repro, and the user has the worktree path.

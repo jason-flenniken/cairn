@@ -68,6 +68,32 @@ export type CairnRecord = {
   followUps: { text: string; area: string; status: string }[]
 }
 
+/** One issue of `cairn linear board --json`. */
+export type CairnBoardIssue = {
+  key: string
+  title: string
+  milestone?: string
+  parent?: string
+  status: 'done' | 'in plan' | 'ready' | 'blocked'
+  plan?: { slug: string; stage: string; progress: string }
+  blockedBy: { key: string; where: string }[]
+}
+
+/** `cairn linear board --json`: the Linear project's progress across milestones, epics and plans. */
+export type CairnBoard = {
+  project: string
+  readAt: string
+  ageMinutes: number
+  milestones: {
+    name: string
+    counts: { total: number; done: number; inPlan: number; ready: number; blocked: number }
+    epics: { key: string; title: string; done: number; total: number; plans: string[]; issues: CairnBoardIssue[] }[]
+    issues: CairnBoardIssue[]
+  }[]
+  plans: { slug: string; title?: string; stage: string; issues: string[]; stalled: boolean }[]
+  cycle: string[] | null
+}
+
 /** The pane's last good read: every plan, and the slug of the one the session works on (isFallback: chosen from the repo root, not by location). */
 export type CairnView = { plans: CairnPlanRow[]; here?: string; isFallback?: boolean }
 
@@ -132,7 +158,7 @@ declare module 'claude-code' {
       /** Ticked while anything is active, so the pane redraws its timers. */
       now: number
       /** The pane's tab. */
-      tab: 'now' | 'history' | 'records'
+      tab: 'now' | 'history' | 'records' | 'changelog' | 'linear'
       /** The session's usage as `session.measure` last reported it, and the model in use; null before the first measurement. */
       usage: { cost?: SessionCost; context: SessionContextUsage; rateLimits: SessionRateLimit[]; model?: string } | null
       /** The session cost recorded as a plan's starting point; null until one is. */
@@ -149,6 +175,12 @@ declare module 'claude-code' {
       records: CairnRecord[] | null
       /** The record whose details the Records tab shows; null while none is open. */
       openRecord: string | null
+      /** Whether the repo's cairn config has a "linear" block; the Linear tab shows only then. */
+      linearSetup: boolean
+      /** The Linear tab's last good board read; null until read or when no project has been read. */
+      linearBoard: CairnBoard | null
+      /** The CLI's refusal for the last board read (for example no project read yet); null after a good read. */
+      linearNote: string | null
     }
   }
 }

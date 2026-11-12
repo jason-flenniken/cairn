@@ -26,6 +26,7 @@ allowed-tools:
   - "Bash(cairn escalate:*)"
   - "Bash(cairn level:*)"
   - "Bash(cairn test:*)"
+  - "Bash(cairn linear:*)"
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/reporting.md` before talking to the user.

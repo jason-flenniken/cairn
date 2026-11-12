@@ -12,6 +12,8 @@ import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProbl
 import { closeMemory } from './memory.ts';
 import { configGate, configHash, fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
+import { prdLinearProblems } from '../linear.ts';
+import { crossPlanBlockers, followupsFor, linearPrdGate, onAdvance, onPrdApproved, recordRequirements, type FollowupInfo } from './linear.ts';
 
 const STAGE_ORDER: Record<Track, Stage[]> = {
   feature: STAGES.filter((x) => x !== 'repro'),
@@ -98,7 +100,8 @@ export function readyFor(pc: { plan: { dir: string } }): Ready | undefined {
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return undefined;
     if (s.stage === 'prd' && !s.approvals.prd) {
       const md = readText(file('prd.md'));
-      return md && !prdProblems(md).length ? { kind: 'prd', file: file('prd.md'), summary: prdSummary(md) } : undefined;
+      const linearOk = !s.linear || !md || !prdLinearProblems(s.linear, md).length;
+      return md && !prdProblems(md).length && linearOk ? { kind: 'prd', file: file('prd.md'), summary: prdSummary(md) } : undefined;
     }
     if (s.stage === 'plan' && !s.approvals.plan) {
       const md = readText(file('plan.md'));
@@ -133,8 +136,10 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         gate(s.stage === 'prd', s, 'approve prd', opts, `the plan is in ${s.stage}, not prd`);
         const problems = prdProblems(md);
         gate(!problems.length, s, 'approve prd', opts, problems.join('; '), ['finish prd.md, resolving open questions with the user']);
+        linearPrdGate(s, md, opts);
         s.approvals.prd = { ...approval(), hash: md ? hashText(md) : undefined };
         log(s, 'PRD approved', source);
+        if (md) onPrdApproved(pc, s, md);
         return { message: 'PRD approved. Next: `cairn advance` to planning.' };
       });
     }
@@ -150,6 +155,8 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         gate(s.stage === 'plan', s, 'approve plan', opts, `the plan is in ${s.stage}, not plan`);
         gate(s.phases.length > 0, s, 'approve plan', opts, 'no plan is loaded', ['cairn plan load']);
         gate(!!md && s.planHash === hashText(md), s, 'approve plan', opts, 'plan.md changed since it was loaded', ['cairn plan load']);
+        // Issues pulled in or released since the PRD was approved are held to the same rules.
+        linearPrdGate(s, readText(planFile(pc, 'prd.md')), opts);
         s.approvals.plan = { ...approval(), hash: s.planHash };
         s.configHash = configHash(pc.cfg);
         log(s, 'plan approved', source);
@@ -157,13 +164,16 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         const prd = readText(planFile(pc, 'prd.md'));
         if (prdEditedSinceApproval(s, prd)) {
           s.approvals.prd = { ...approval(), hash: hashText(prd as string) };
+          recordRequirements(s, prd as string);
           log(s, 'PRD edits accepted with the plan', source);
           return { message: 'Plan approved, and the PRD edits with it. Next: `cairn advance` to execution.' };
         }
         return { message: 'Plan approved. Next: `cairn advance` to execution.' };
       });
     }
-    case 'ship':
+    case 'ship': {
+      // Blockers in other plans are read before the lock: listing plans reads other branches.
+      const waiting = crossPlanBlockers(pc.ctx, loadState(pc.plan.dir));
       return mutate(pc, 'ship approved', (s) => {
         // After the ship stage, only a cleared approval (code changed since it) can be given again.
         const again = !!s.reapprove;
@@ -171,12 +181,14 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         gate(s.evidence.review?.result === 'pass', s, 'approve ship', opts, 'review has not passed', ['run the review procedure, then cairn evidence review pass']);
         const record = recordCheck(pc, fastLane(s) ? 'fix' : 'feature');
         gate(!record.problems.length, s, 'approve ship', opts, record.problems.join('; '), [record.fix]);
+        gate(!waiting.length, s, 'approve ship', opts, `this plan builds on work another plan has not shipped: ${waiting.join('; ')}`, ['ship the other plan first']);
         s.approvals.ship = { ...approval(), sha: git(['rev-parse', 'HEAD'], pc.plan.worktree) };
         delete s.reapprove;
         log(s, again ? 'ship approved again' : 'ship approved', source);
         if (again) return { message: 'Ship approved again. Next: `cairn merge-check`, then merge.' };
         return { message: 'Ship approved. Next: open the PR, then `cairn advance`; offer the merge last.' };
       });
+    }
     default:
       throw new CliError(APPROVE_USAGE);
   }
@@ -192,6 +204,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
   if (closing) configGate(pre, pc.cfg, 'close', opts);
   const record = closing ? recordCheck(pc, 'fix') : undefined;
   const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : undefined;
+  const followups: FollowupInfo[] | undefined = closing && pre.linear ? followupsFor(pc, pre.slug) : undefined;
   let to: Stage | undefined;
   const r = mutate(pc, undefined, (s) => {
     to = nextStage(s);
@@ -231,7 +244,9 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
     if (to === 'ship' && levelOf(s) === 'mvp')
       for (const t of allTasks(s))
         if (t.status === 'done' && t.level === 'mvp' && !t.risky) addHardening(s, { area: 'quality', text: `Task "${t.name}" ran at MVP without a per-task review.`, where: t.scope });
+    const from = s.stage;
     setStage(s, to);
+    onAdvance(pc, s, from, to, opts, followups);
     if (to === 'execute') {
       const p = currentPhase(s);
       if (p && p.status === 'pending') p.status = 'in_progress';
@@ -249,10 +264,13 @@ export function cmdClose(ctx: Ctx, opts: Opts): Result {
   configGate(loadState(pc.plan.dir), pc.cfg, 'close', opts);
   const record = recordCheck(pc, 'feature');
   const tests = runTests(pc.cfg, pc.plan.worktree);
+  const pre = loadState(pc.plan.dir);
+  const followups = pre.linear ? followupsFor(pc, pre.slug) : [];
   const r = mutate(pc, 'closed', (s) => {
     gate(s.stage === 'learn', s, 'close', opts, `the plan is in ${s.stage}, not learn`);
     closeGates(pc, s, opts, record, tests);
     setStage(s, 'closed');
+    onAdvance(pc, s, 'learn', 'closed', opts, followups);
     log(s, 'closed');
     return { message: `Closed "${s.title}". The record is ${join(pc.plan.dir, 'RECORD.md')}.` };
   });

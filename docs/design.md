@@ -83,7 +83,7 @@ It borrows the best pieces of CE, SP, Pocock, and the Vercel pack. All three plu
     - Pause drains: in-flight slices finish their current sub-step, work in progress is committed in their worktrees, and `handoff.md` is written.
     - In the next session, the pane lists every plan with its next action and a Resume button. Resume re-runs only the unfinished sub-steps.
     - "Stop now" skips the drain. `/cairn:resume <plan>` is the fallback.
-13. **Ticketing.** A one-way mirror, opt-in per repo, built as an adapter (Linear first). The mapping:
+13. **Ticketing.** *Superseded by `docs/plans/2026-11-12-linear-integration-design.md`.* A one-way mirror, opt-in per repo, built as an adapter (Linear first). The mapping:
     - plan → project
     - phase → milestone
     - slice → issue with blocked-by links

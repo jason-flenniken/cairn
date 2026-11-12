@@ -16,9 +16,9 @@ var __commonJS = (cb, mod) => function __require2() {
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    for (let key2 of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key2) && key2 !== except)
+        __defProp(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });
   }
   return to;
 };
@@ -108,11 +108,11 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path) {
-      const ctrl = callVisitor(key, node, visitor, path);
+    function visit_(key2, node, visitor, path) {
+      const ctrl = callVisitor(key2, node, visitor, path);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path, ctrl);
-        return visit_(key, ctrl, visitor, path);
+        replaceNode(key2, path, ctrl);
+        return visit_(key2, ctrl, visitor, path);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
@@ -156,11 +156,11 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path) {
-      const ctrl = await callVisitor(key, node, visitor, path);
+    async function visitAsync_(key2, node, visitor, path) {
+      const ctrl = await callVisitor(key2, node, visitor, path);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path, ctrl);
-        return visitAsync_(key, ctrl, visitor, path);
+        replaceNode(key2, path, ctrl);
+        return visitAsync_(key2, ctrl, visitor, path);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
@@ -210,27 +210,27 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path) {
+    function callVisitor(key2, node, visitor, path) {
       if (typeof visitor === "function")
-        return visitor(key, node, path);
+        return visitor(key2, node, path);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path);
+        return visitor.Map?.(key2, node, path);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path);
+        return visitor.Seq?.(key2, node, path);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path);
+        return visitor.Pair?.(key2, node, path);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path);
+        return visitor.Scalar?.(key2, node, path);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path);
+        return visitor.Alias?.(key2, node, path);
       return void 0;
     }
-    function replaceNode(key, path, node) {
+    function replaceNode(key2, path, node) {
       const parent = path[path.length - 1];
       if (identity.isCollection(parent)) {
-        parent.items[key] = node;
+        parent.items[key2] = node;
       } else if (identity.isPair(parent)) {
-        if (key === "key")
+        if (key2 === "key")
           parent.key = node;
         else
           parent.value = node;
@@ -491,7 +491,7 @@ var require_anchors = __commonJS({
 var require_applyReviver = __commonJS({
   "node_modules/yaml/dist/doc/applyReviver.js"(exports) {
     "use strict";
-    function applyReviver(reviver, obj, key, val) {
+    function applyReviver(reviver, obj, key2, val) {
       if (val && typeof val === "object") {
         if (Array.isArray(val)) {
           for (let i = 0, len = val.length; i < len; ++i) {
@@ -531,7 +531,7 @@ var require_applyReviver = __commonJS({
           }
         }
       }
-      return reviver.call(obj, key, val);
+      return reviver.call(obj, key2, val);
     }
     exports.applyReviver = applyReviver;
   }
@@ -894,14 +894,14 @@ var require_Collection = __commonJS({
         if (isEmptyPath(path))
           this.add(value);
         else {
-          const [key, ...rest] = path;
-          const node = this.get(key, true);
+          const [key2, ...rest] = path;
+          const node = this.get(key2, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
           else if (node === void 0 && this.schema)
-            this.set(key, collectionFromPath(this.schema, rest, value));
+            this.set(key2, collectionFromPath(this.schema, rest, value));
           else
-            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+            throw new Error(`Expected YAML collection at ${key2}. Remaining path: ${rest}`);
         }
       }
       /**
@@ -909,14 +909,14 @@ var require_Collection = __commonJS({
        * @returns `true` if the item was found and removed.
        */
       deleteIn(path) {
-        const [key, ...rest] = path;
+        const [key2, ...rest] = path;
         if (rest.length === 0)
-          return this.delete(key);
-        const node = this.get(key, true);
+          return this.delete(key2);
+        const node = this.get(key2, true);
         if (identity.isCollection(node))
           return node.deleteIn(rest);
         else
-          throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+          throw new Error(`Expected YAML collection at ${key2}. Remaining path: ${rest}`);
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -924,8 +924,8 @@ var require_Collection = __commonJS({
        * `true` (collections are always returned intact).
        */
       getIn(path, keepScalar) {
-        const [key, ...rest] = path;
-        const node = this.get(key, true);
+        const [key2, ...rest] = path;
+        const node = this.get(key2, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
         else
@@ -943,10 +943,10 @@ var require_Collection = __commonJS({
        * Checks if the collection includes a value with the key `key`.
        */
       hasIn(path) {
-        const [key, ...rest] = path;
+        const [key2, ...rest] = path;
         if (rest.length === 0)
-          return this.has(key);
-        const node = this.get(key, true);
+          return this.has(key2);
+        const node = this.get(key2, true);
         return identity.isCollection(node) ? node.hasIn(rest) : false;
       }
       /**
@@ -954,17 +954,17 @@ var require_Collection = __commonJS({
        * boolean to add/remove the item from the set.
        */
       setIn(path, value) {
-        const [key, ...rest] = path;
+        const [key2, ...rest] = path;
         if (rest.length === 0) {
-          this.set(key, value);
+          this.set(key2, value);
         } else {
-          const node = this.get(key, true);
+          const node = this.get(key2, true);
           if (identity.isCollection(node))
             node.setIn(rest, value);
           else if (node === void 0 && this.schema)
-            this.set(key, collectionFromPath(this.schema, rest, value));
+            this.set(key2, collectionFromPath(this.schema, rest, value));
           else
-            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+            throw new Error(`Expected YAML collection at ${key2}. Remaining path: ${rest}`);
         }
       }
     };
@@ -978,13 +978,13 @@ var require_Collection = __commonJS({
 var require_stringifyComment = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
-    var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
+    var stringifyComment = (str2) => str2.replace(/^(?!$)(?: $)?/gm, "#");
     function indentComment(comment, indent) {
       if (/^\n+$/.test(comment))
         return comment.substring(1);
       return indent ? comment.replace(/^(?! *$)/gm, indent) : comment;
     }
-    var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
+    var lineComment = (str2, indent, comment) => str2.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str2.endsWith(" ") ? "" : " ") + comment;
     exports.indentComment = indentComment;
     exports.lineComment = lineComment;
     exports.stringifyComment = stringifyComment;
@@ -1138,16 +1138,16 @@ var require_stringifyString = __commonJS({
       lineWidth: ctx.options.lineWidth,
       minContentWidth: ctx.options.minContentWidth
     });
-    var containsDocumentMarker = (str) => /^(%|---|\.\.\.)/m.test(str);
-    function lineLengthOverLimit(str, lineWidth, indentLength) {
+    var containsDocumentMarker = (str2) => /^(%|---|\.\.\.)/m.test(str2);
+    function lineLengthOverLimit(str2, lineWidth, indentLength) {
       if (!lineWidth || lineWidth < 0)
         return false;
       const limit = lineWidth - indentLength;
-      const strLen = str.length;
+      const strLen = str2.length;
       if (strLen <= limit)
         return false;
       for (let i = 0, start = 0; i < strLen; ++i) {
-        if (str[i] === "\n") {
+        if (str2[i] === "\n") {
           if (i - start > limit)
             return true;
           start = i + 1;
@@ -1164,11 +1164,11 @@ var require_stringifyString = __commonJS({
       const { implicitKey } = ctx;
       const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
       const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
-      let str = "";
+      let str2 = "";
       let start = 0;
       for (let i = 0, ch = json[i]; ch; ch = json[++i]) {
         if (ch === " " && json[i + 1] === "\\" && json[i + 2] === "n") {
-          str += json.slice(start, i) + "\\ ";
+          str2 += json.slice(start, i) + "\\ ";
           i += 1;
           start = i;
           ch = "\\";
@@ -1177,38 +1177,38 @@ var require_stringifyString = __commonJS({
           switch (json[i + 1]) {
             case "u":
               {
-                str += json.slice(start, i);
+                str2 += json.slice(start, i);
                 const code = json.substr(i + 2, 4);
                 switch (code) {
                   case "0000":
-                    str += "\\0";
+                    str2 += "\\0";
                     break;
                   case "0007":
-                    str += "\\a";
+                    str2 += "\\a";
                     break;
                   case "000b":
-                    str += "\\v";
+                    str2 += "\\v";
                     break;
                   case "001b":
-                    str += "\\e";
+                    str2 += "\\e";
                     break;
                   case "0085":
-                    str += "\\N";
+                    str2 += "\\N";
                     break;
                   case "00a0":
-                    str += "\\_";
+                    str2 += "\\_";
                     break;
                   case "2028":
-                    str += "\\L";
+                    str2 += "\\L";
                     break;
                   case "2029":
-                    str += "\\P";
+                    str2 += "\\P";
                     break;
                   default:
                     if (code.substr(0, 2) === "00")
-                      str += "\\x" + code.substr(2);
+                      str2 += "\\x" + code.substr(2);
                     else
-                      str += json.substr(i, 6);
+                      str2 += json.substr(i, 6);
                 }
                 i += 5;
                 start = i + 1;
@@ -1218,14 +1218,14 @@ var require_stringifyString = __commonJS({
               if (implicitKey || json[i + 2] === '"' || json.length < minMultiLineLength) {
                 i += 1;
               } else {
-                str += json.slice(start, i) + "\n\n";
+                str2 += json.slice(start, i) + "\n\n";
                 while (json[i + 2] === "\\" && json[i + 3] === "n" && json[i + 4] !== '"') {
-                  str += "\n";
+                  str2 += "\n";
                   i += 2;
                 }
-                str += indent;
+                str2 += indent;
                 if (json[i + 2] === " ")
-                  str += "\\";
+                  str2 += "\\";
                 i += 1;
                 start = i + 1;
               }
@@ -1234,8 +1234,8 @@ var require_stringifyString = __commonJS({
               i += 1;
           }
       }
-      str = start ? str + json.slice(start) : json;
-      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
+      str2 = start ? str2 + json.slice(start) : json;
+      return implicitKey ? str2 : foldFlowLines.foldFlowLines(str2, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
     }
     function singleQuotedString(value, ctx) {
       if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
@@ -1363,15 +1363,15 @@ ${indent}${start}${value}${end}`;
           return quotedString(value, ctx);
         }
       }
-      const str = value.replace(/\n+/g, `$&
+      const str2 = value.replace(/\n+/g, `$&
 ${indent}`);
       if (actualString) {
-        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
+        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str2);
         const { compat, tags } = ctx.doc.schema;
         if (tags.some(test) || compat?.some(test))
           return quotedString(value, ctx);
       }
-      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+      return implicitKey ? str2 : foldFlowLines.foldFlowLines(str2, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
     }
     function stringifyString(item, ctx, onComment, onChompKeep) {
       const { implicitKey, inFlow } = ctx;
@@ -1523,11 +1523,11 @@ var require_stringify = __commonJS({
       const props = stringifyProps(node, tagObj, ctx);
       if (props.length > 0)
         ctx.indentAtStart = (ctx.indentAtStart ?? 0) + props.length + 1;
-      const str = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
+      const str2 = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
       if (!props)
-        return str;
-      return identity.isScalar(node) || str[0] === "{" || str[0] === "[" ? `${props} ${str}` : `${props}
-${ctx.indent}${str}`;
+        return str2;
+      return identity.isScalar(node) || str2[0] === "{" || str2[0] === "[" ? `${props} ${str2}` : `${props}
+${ctx.indent}${str2}`;
     }
     exports.createStringifyContext = createStringifyContext;
     exports.stringify = stringify;
@@ -1542,19 +1542,19 @@ var require_stringifyPair = __commonJS({
     var Scalar = require_Scalar();
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
-    function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
+    function stringifyPair({ key: key2, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
-      let keyComment = identity.isNode(key) && key.comment || null;
+      let keyComment = identity.isNode(key2) && key2.comment || null;
       if (simpleKeys) {
         if (keyComment) {
           throw new Error("With simple keys, key nodes cannot have comments");
         }
-        if (identity.isCollection(key) || !identity.isNode(key) && typeof key === "object") {
+        if (identity.isCollection(key2) || !identity.isNode(key2) && typeof key2 === "object") {
           const msg = "With simple keys, collection cannot be used as a key value";
           throw new Error(msg);
         }
       }
-      let explicitKey = !simpleKeys && (!key || keyComment && value == null && !ctx.inFlow || identity.isCollection(key) || (identity.isScalar(key) ? key.type === Scalar.Scalar.BLOCK_FOLDED || key.type === Scalar.Scalar.BLOCK_LITERAL : typeof key === "object"));
+      let explicitKey = !simpleKeys && (!key2 || keyComment && value == null && !ctx.inFlow || identity.isCollection(key2) || (identity.isScalar(key2) ? key2.type === Scalar.Scalar.BLOCK_FOLDED || key2.type === Scalar.Scalar.BLOCK_LITERAL : typeof key2 === "object"));
       ctx = Object.assign({}, ctx, {
         allNullValues: false,
         implicitKey: !explicitKey && (simpleKeys || !allNullValues),
@@ -1562,8 +1562,8 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
-      if (!explicitKey && !ctx.inFlow && str.length > 1024) {
+      let str2 = stringify.stringify(key2, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      if (!explicitKey && !ctx.inFlow && str2.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
         explicitKey = true;
@@ -1572,27 +1572,27 @@ var require_stringifyPair = __commonJS({
         if (allNullValues || value == null) {
           if (keyCommentDone && onComment)
             onComment();
-          return str === "" ? "?" : explicitKey ? `? ${str}` : str;
+          return str2 === "" ? "?" : explicitKey ? `? ${str2}` : str2;
         }
       } else if (allNullValues && !simpleKeys || value == null && explicitKey) {
-        str = `? ${str}`;
+        str2 = `? ${str2}`;
         if (keyComment && !keyCommentDone) {
-          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
         } else if (chompKeep && onChompKeep)
           onChompKeep();
-        return str;
+        return str2;
       }
       if (keyCommentDone)
         keyComment = null;
       if (explicitKey) {
         if (keyComment)
-          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
-        str = `? ${str}
+          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
+        str2 = `? ${str2}
 ${indent}:`;
       } else {
-        str = `${str}:`;
+        str2 = `${str2}:`;
         if (keyComment)
-          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
       }
       let vsb, vcb, valueComment;
       if (identity.isNode(value)) {
@@ -1608,7 +1608,7 @@ ${indent}:`;
       }
       ctx.implicitKey = false;
       if (!explicitKey && !keyComment && identity.isScalar(value))
-        ctx.indentAtStart = str.length + 1;
+        ctx.indentAtStart = str2.length + 1;
       chompKeep = false;
       if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor) {
         ctx.indent = ctx.indent.substring(2);
@@ -1652,16 +1652,16 @@ ${ctx.indent}`;
       } else if (valueStr === "" || valueStr[0] === "\n") {
         ws = "";
       }
-      str += ws + valueStr;
+      str2 += ws + valueStr;
       if (ctx.inFlow) {
         if (valueCommentDone && onComment)
           onComment();
       } else if (valueComment && !valueCommentDone) {
-        str += stringifyComment.lineComment(str, ctx.indent, commentString(valueComment));
+        str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(valueComment));
       } else if (chompKeep && onChompKeep) {
         onChompKeep();
       }
-      return str;
+      return str2;
     }
     exports.stringifyPair = stringifyPair;
   }
@@ -1706,7 +1706,7 @@ var require_merge = __commonJS({
       }),
       stringify: () => MERGE_KEY
     };
-    var isMergeKey = (ctx, key) => (merge.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge.tag && tag.default);
+    var isMergeKey = (ctx, key2) => (merge.identify(key2) || identity.isScalar(key2) && (!key2.type || key2.type === Scalar.Scalar.PLAIN) && merge.identify(key2.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge.tag && tag.default);
     function addMergeToJSMap(ctx, map, value) {
       const source = resolveAliasValue(ctx, value);
       if (identity.isSeq(source))
@@ -1723,14 +1723,14 @@ var require_merge = __commonJS({
       if (!identity.isMap(source))
         throw new Error("Merge sources must be maps or map aliases");
       const srcMap = source.toJSON(null, ctx, Map);
-      for (const [key, value2] of srcMap) {
+      for (const [key2, value2] of srcMap) {
         if (map instanceof Map) {
-          if (!map.has(key))
-            map.set(key, value2);
+          if (!map.has(key2))
+            map.set(key2, value2);
         } else if (map instanceof Set) {
-          map.add(key);
-        } else if (!Object.prototype.hasOwnProperty.call(map, key)) {
-          Object.defineProperty(map, key, {
+          map.add(key2);
+        } else if (!Object.prototype.hasOwnProperty.call(map, key2)) {
+          Object.defineProperty(map, key2, {
             value: value2,
             writable: true,
             enumerable: true,
@@ -1758,19 +1758,19 @@ var require_addPairToJSMap = __commonJS({
     var stringify = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
-    function addPairToJSMap(ctx, map, { key, value }) {
-      if (identity.isNode(key) && key.addToJSMap)
-        key.addToJSMap(ctx, map, value);
-      else if (merge.isMergeKey(ctx, key))
+    function addPairToJSMap(ctx, map, { key: key2, value }) {
+      if (identity.isNode(key2) && key2.addToJSMap)
+        key2.addToJSMap(ctx, map, value);
+      else if (merge.isMergeKey(ctx, key2))
         merge.addMergeToJSMap(ctx, map, value);
       else {
-        const jsKey = toJS.toJS(key, "", ctx);
+        const jsKey = toJS.toJS(key2, "", ctx);
         if (map instanceof Map) {
           map.set(jsKey, toJS.toJS(value, jsKey, ctx));
         } else if (map instanceof Set) {
           map.add(jsKey);
         } else {
-          const stringKey = stringifyKey(key, jsKey, ctx);
+          const stringKey = stringifyKey(key2, jsKey, ctx);
           const jsValue = toJS.toJS(value, stringKey, ctx);
           if (stringKey in map)
             Object.defineProperty(map, stringKey, {
@@ -1785,19 +1785,19 @@ var require_addPairToJSMap = __commonJS({
       }
       return map;
     }
-    function stringifyKey(key, jsKey, ctx) {
+    function stringifyKey(key2, jsKey, ctx) {
       if (jsKey === null)
         return "";
       if (typeof jsKey !== "object")
         return String(jsKey);
-      if (identity.isNode(key) && ctx?.doc) {
+      if (identity.isNode(key2) && ctx?.doc) {
         const strCtx = stringify.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
         strCtx.inFlow = true;
         strCtx.inStringifyKey = true;
-        const strKey = key.toString(strCtx);
+        const strKey = key2.toString(strCtx);
         if (!ctx.mapKeyWarned) {
           let jsonStr = JSON.stringify(strKey);
           if (jsonStr.length > 40)
@@ -1821,24 +1821,24 @@ var require_Pair = __commonJS({
     var stringifyPair = require_stringifyPair();
     var addPairToJSMap = require_addPairToJSMap();
     var identity = require_identity();
-    function createPair(key, value, ctx) {
-      const k = createNode.createNode(key, void 0, ctx);
+    function createPair(key2, value, ctx) {
+      const k = createNode.createNode(key2, void 0, ctx);
       const v = createNode.createNode(value, void 0, ctx);
       return new Pair(k, v);
     }
     var Pair = class _Pair {
-      constructor(key, value = null) {
+      constructor(key2, value = null) {
         Object.defineProperty(this, identity.NODE_TYPE, { value: identity.PAIR });
-        this.key = key;
+        this.key = key2;
         this.value = value;
       }
       clone(schema) {
-        let { key, value } = this;
-        if (identity.isNode(key))
-          key = key.clone(schema);
+        let { key: key2, value } = this;
+        if (identity.isNode(key2))
+          key2 = key2.clone(schema);
         if (identity.isNode(value))
           value = value.clone(schema);
-        return new _Pair(key, value);
+        return new _Pair(key2, value);
       }
       toJSON(_, ctx) {
         const pair = ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
@@ -1888,31 +1888,31 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str2 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str3 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
-          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
+          str3 += stringifyComment.lineComment(str3, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
           chompKeep = false;
-        lines.push(blockItemPrefix + str2);
+        lines.push(blockItemPrefix + str3);
       }
-      let str;
+      let str2;
       if (lines.length === 0) {
-        str = flowChars.start + flowChars.end;
+        str2 = flowChars.start + flowChars.end;
       } else {
-        str = lines[0];
+        str2 = lines[0];
         for (let i = 1; i < lines.length; ++i) {
           const line = lines[i];
-          str += line ? `
+          str2 += line ? `
 ${indent}${line}` : "\n";
         }
       }
       if (comment) {
-        str += "\n" + stringifyComment.indentComment(commentString(comment), indent);
+        str2 += "\n" + stringifyComment.indentComment(commentString(comment), indent);
         if (onComment)
           onComment();
       } else if (chompKeep && onChompKeep)
         onChompKeep();
-      return str;
+      return str2;
     }
     function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
       const { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
@@ -1955,21 +1955,21 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str = stringify.stringify(item, itemCtx, () => comment = null);
-        reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
+        let str2 = stringify.stringify(item, itemCtx, () => comment = null);
+        reqNewline || (reqNewline = lines.length > linesAtValue || str2.includes("\n"));
         if (i < items.length - 1) {
-          str += ",";
+          str2 += ",";
         } else if (ctx.options.trailingComma) {
           if (ctx.options.lineWidth > 0) {
-            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str2.length + 2) > ctx.options.lineWidth);
           }
           if (reqNewline) {
-            str += ",";
+            str2 += ",";
           }
         }
         if (comment)
-          str += stringifyComment.lineComment(str, itemIndent, commentString(comment));
-        lines.push(str);
+          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment));
+        lines.push(str2);
         linesAtValue = lines.length;
       }
       const { start, end } = flowChars;
@@ -1981,11 +1981,11 @@ ${indent}${line}` : "\n";
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
-          let str = start;
+          let str2 = start;
           for (const line of lines)
-            str += line ? `
+            str2 += line ? `
 ${indentStep}${indent}${line}` : "\n";
-          return `${str}
+          return `${str2}
 ${indent}${end}`;
         } else {
           return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
@@ -2014,11 +2014,11 @@ var require_YAMLMap = __commonJS({
     var identity = require_identity();
     var Pair = require_Pair();
     var Scalar = require_Scalar();
-    function findPair(items, key) {
-      const k = identity.isScalar(key) ? key.value : key;
+    function findPair(items, key2) {
+      const k = identity.isScalar(key2) ? key2.value : key2;
       for (const it of items) {
         if (identity.isPair(it)) {
-          if (it.key === key || it.key === k)
+          if (it.key === key2 || it.key === k)
             return it;
           if (identity.isScalar(it.key) && it.key.value === k)
             return it;
@@ -2041,20 +2041,20 @@ var require_YAMLMap = __commonJS({
       static from(schema, obj, ctx) {
         const { keepUndefined, replacer } = ctx;
         const map = new this(schema);
-        const add = (key, value) => {
+        const add = (key2, value) => {
           if (typeof replacer === "function")
-            value = replacer.call(obj, key, value);
-          else if (Array.isArray(replacer) && !replacer.includes(key))
+            value = replacer.call(obj, key2, value);
+          else if (Array.isArray(replacer) && !replacer.includes(key2))
             return;
           if (value !== void 0 || keepUndefined)
-            map.items.push(Pair.createPair(key, value, ctx));
+            map.items.push(Pair.createPair(key2, value, ctx));
         };
         if (obj instanceof Map) {
-          for (const [key, value] of obj)
-            add(key, value);
+          for (const [key2, value] of obj)
+            add(key2, value);
         } else if (obj && typeof obj === "object") {
-          for (const key of Object.keys(obj))
-            add(key, obj[key]);
+          for (const key2 of Object.keys(obj))
+            add(key2, obj[key2]);
         }
         if (typeof schema.sortMapEntries === "function") {
           map.items.sort(schema.sortMapEntries);
@@ -2094,23 +2094,23 @@ var require_YAMLMap = __commonJS({
           this.items.push(_pair);
         }
       }
-      delete(key) {
-        const it = findPair(this.items, key);
+      delete(key2) {
+        const it = findPair(this.items, key2);
         if (!it)
           return false;
         const del = this.items.splice(this.items.indexOf(it), 1);
         return del.length > 0;
       }
-      get(key, keepScalar) {
-        const it = findPair(this.items, key);
+      get(key2, keepScalar) {
+        const it = findPair(this.items, key2);
         const node = it?.value;
         return (!keepScalar && identity.isScalar(node) ? node.value : node) ?? void 0;
       }
-      has(key) {
-        return !!findPair(this.items, key);
+      has(key2) {
+        return !!findPair(this.items, key2);
       }
-      set(key, value) {
-        this.add(new Pair.Pair(key, value), true);
+      set(key2, value) {
+        this.add(new Pair.Pair(key2, value), true);
       }
       /**
        * @param ctx - Conversion context, originally set in Document#toJS()
@@ -2199,15 +2199,15 @@ var require_YAMLSeq = __commonJS({
        *
        * @returns `true` if the item was found and removed.
        */
-      delete(key) {
-        const idx = asItemIndex(key);
+      delete(key2) {
+        const idx = asItemIndex(key2);
         if (typeof idx !== "number")
           return false;
         const del = this.items.splice(idx, 1);
         return del.length > 0;
       }
-      get(key, keepScalar) {
-        const idx = asItemIndex(key);
+      get(key2, keepScalar) {
+        const idx = asItemIndex(key2);
         if (typeof idx !== "number")
           return void 0;
         const it = this.items[idx];
@@ -2219,8 +2219,8 @@ var require_YAMLSeq = __commonJS({
        * `key` must contain a representation of an integer for this to succeed.
        * It may be wrapped in a `Scalar`.
        */
-      has(key) {
-        const idx = asItemIndex(key);
+      has(key2) {
+        const idx = asItemIndex(key2);
         return typeof idx === "number" && idx < this.items.length;
       }
       /**
@@ -2230,10 +2230,10 @@ var require_YAMLSeq = __commonJS({
        * If `key` does not contain a representation of an integer, this will throw.
        * It may be wrapped in a `Scalar`.
        */
-      set(key, value) {
-        const idx = asItemIndex(key);
+      set(key2, value) {
+        const idx = asItemIndex(key2);
         if (typeof idx !== "number")
-          throw new Error(`Expected a valid index, not ${key}.`);
+          throw new Error(`Expected a valid index, not ${key2}.`);
         const prev = this.items[idx];
         if (identity.isScalar(prev) && Scalar.isScalarValue(value))
           prev.value = value;
@@ -2267,8 +2267,8 @@ var require_YAMLSeq = __commonJS({
           let i = 0;
           for (let it of obj) {
             if (typeof replacer === "function") {
-              const key = obj instanceof Set ? it : String(i++);
-              it = replacer.call(obj, key, it);
+              const key2 = obj instanceof Set ? it : String(i++);
+              it = replacer.call(obj, key2, it);
             }
             seq.items.push(createNode.createNode(it, void 0, ctx));
           }
@@ -2276,8 +2276,8 @@ var require_YAMLSeq = __commonJS({
         return seq;
       }
     };
-    function asItemIndex(key) {
-      let idx = identity.isScalar(key) ? key.value : key;
+    function asItemIndex(key2) {
+      let idx = identity.isScalar(key2) ? key2.value : key2;
       if (idx && typeof idx === "string")
         idx = Number(idx);
       return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
@@ -2317,7 +2317,7 @@ var require_string = __commonJS({
       identify: (value) => typeof value === "string",
       default: true,
       tag: "tag:yaml.org,2002:str",
-      resolve: (str) => str,
+      resolve: (str2) => str2,
       stringify(item, ctx, onComment, onChompKeep) {
         ctx = Object.assign({ actualString: true }, ctx);
         return stringifyString.stringifyString(item, ctx, onComment, onChompKeep);
@@ -2355,7 +2355,7 @@ var require_bool = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:bool",
       test: /^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$/,
-      resolve: (str) => new Scalar.Scalar(str[0] === "t" || str[0] === "T"),
+      resolve: (str2) => new Scalar.Scalar(str2[0] === "t" || str2[0] === "T"),
       stringify({ source, value }, ctx) {
         if (source && boolTag.test.test(source)) {
           const sv = source[0] === "t" || source[0] === "T";
@@ -2407,7 +2407,7 @@ var require_float = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
-      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      resolve: (str2) => str2.slice(-3).toLowerCase() === "nan" ? NaN : str2[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
       stringify: stringifyNumber.stringifyNumber
     };
     var floatExp = {
@@ -2416,7 +2416,7 @@ var require_float = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "EXP",
       test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
-      resolve: (str) => parseFloat(str),
+      resolve: (str2) => parseFloat(str2),
       stringify(node) {
         const num = Number(node.value);
         return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
@@ -2427,11 +2427,11 @@ var require_float = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/,
-      resolve(str) {
-        const node = new Scalar.Scalar(parseFloat(str));
-        const dot = str.indexOf(".");
-        if (dot !== -1 && str[str.length - 1] === "0")
-          node.minFractionDigits = str.length - dot - 1;
+      resolve(str2) {
+        const node = new Scalar.Scalar(parseFloat(str2));
+        const dot = str2.indexOf(".");
+        if (dot !== -1 && str2[str2.length - 1] === "0")
+          node.minFractionDigits = str2.length - dot - 1;
         return node;
       },
       stringify: stringifyNumber.stringifyNumber
@@ -2448,7 +2448,7 @@ var require_int = __commonJS({
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
-    var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
+    var intResolve = (str2, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str2) : parseInt(str2.substring(offset), radix);
     function intStringify(node, radix, prefix) {
       const { value } = node;
       if (intIdentify(value) && value >= 0)
@@ -2461,7 +2461,7 @@ var require_int = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "OCT",
       test: /^0o[0-7]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 2, 8, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 2, 8, opt),
       stringify: (node) => intStringify(node, 8, "0o")
     };
     var int = {
@@ -2469,7 +2469,7 @@ var require_int = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:int",
       test: /^[-+]?[0-9]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 0, 10, opt),
       stringify: stringifyNumber.stringifyNumber
     };
     var intHex = {
@@ -2478,7 +2478,7 @@ var require_int = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "HEX",
       test: /^0x[0-9a-fA-F]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 2, 16, opt),
       stringify: (node) => intStringify(node, 16, "0x")
     };
     exports.int = int;
@@ -2531,7 +2531,7 @@ var require_schema2 = __commonJS({
         identify: (value) => typeof value === "string",
         default: true,
         tag: "tag:yaml.org,2002:str",
-        resolve: (str) => str,
+        resolve: (str2) => str2,
         stringify: stringifyJSON
       },
       {
@@ -2548,7 +2548,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:bool",
         test: /^true$|^false$/,
-        resolve: (str) => str === "true",
+        resolve: (str2) => str2 === "true",
         stringify: stringifyJSON
       },
       {
@@ -2556,7 +2556,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:int",
         test: /^-?(?:0|[1-9][0-9]*)$/,
-        resolve: (str, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str, 10),
+        resolve: (str2, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str2) : parseInt(str2, 10),
         stringify: ({ value }) => intIdentify(value) ? value.toString() : JSON.stringify(value)
       },
       {
@@ -2564,7 +2564,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:float",
         test: /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?$/,
-        resolve: (str) => parseFloat(str),
+        resolve: (str2) => parseFloat(str2),
         stringify: stringifyJSON
       }
     ];
@@ -2572,9 +2572,9 @@ var require_schema2 = __commonJS({
       default: true,
       tag: "",
       test: /^/,
-      resolve(str, onError) {
-        onError(`Unresolved plain scalar ${JSON.stringify(str)}`);
-        return str;
+      resolve(str2, onError) {
+        onError(`Unresolved plain scalar ${JSON.stringify(str2)}`);
+        return str2;
       }
     };
     var schema = [map.map, seq.seq].concat(jsonScalars, jsonError);
@@ -2606,10 +2606,10 @@ var require_binary = __commonJS({
         if (typeof node_buffer.Buffer === "function") {
           return node_buffer.Buffer.from(src, "base64");
         } else if (typeof atob === "function") {
-          const str = atob(src.replace(/[\n\r]/g, ""));
-          const buffer = new Uint8Array(str.length);
-          for (let i = 0; i < str.length; ++i)
-            buffer[i] = str.charCodeAt(i);
+          const str2 = atob(src.replace(/[\n\r]/g, ""));
+          const buffer = new Uint8Array(str2.length);
+          for (let i = 0; i < str2.length; ++i)
+            buffer[i] = str2.charCodeAt(i);
           return buffer;
         } else {
           onError("This environment does not support reading binary tags; either Buffer or atob is required");
@@ -2620,28 +2620,28 @@ var require_binary = __commonJS({
         if (!value)
           return "";
         const buf = value;
-        let str;
+        let str2;
         if (typeof node_buffer.Buffer === "function") {
-          str = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
+          str2 = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
         } else if (typeof btoa === "function") {
           let s = "";
           for (let i = 0; i < buf.length; ++i)
             s += String.fromCharCode(buf[i]);
-          str = btoa(s);
+          str2 = btoa(s);
         } else {
           throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
         }
         type ?? (type = Scalar.Scalar.BLOCK_LITERAL);
         if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
           const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
-          const n = Math.ceil(str.length / lineWidth);
+          const n = Math.ceil(str2.length / lineWidth);
           const lines = new Array(n);
           for (let i = 0, o = 0; i < n; ++i, o += lineWidth) {
-            lines[i] = str.substr(o, lineWidth);
+            lines[i] = str2.substr(o, lineWidth);
           }
-          str = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
+          str2 = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
         }
-        return stringifyString.stringifyString({ comment, type, value: str }, ctx, onComment, onChompKeep);
+        return stringifyString.stringifyString({ comment, type, value: str2 }, ctx, onComment, onChompKeep);
       }
     };
     exports.binary = binary;
@@ -2691,25 +2691,25 @@ ${cn.comment}` : item.comment;
         for (let it of iterable) {
           if (typeof replacer === "function")
             it = replacer.call(iterable, String(i++), it);
-          let key, value;
+          let key2, value;
           if (Array.isArray(it)) {
             if (it.length === 2) {
-              key = it[0];
+              key2 = it[0];
               value = it[1];
             } else
               throw new TypeError(`Expected [key, value] tuple: ${it}`);
           } else if (it && it instanceof Object) {
             const keys = Object.keys(it);
             if (keys.length === 1) {
-              key = keys[0];
-              value = it[key];
+              key2 = keys[0];
+              value = it[key2];
             } else {
               throw new TypeError(`Expected tuple with one key, not ${keys.length} keys`);
             }
           } else {
-            key = it;
+            key2 = it;
           }
-          pairs2.items.push(Pair.createPair(key, value, ctx));
+          pairs2.items.push(Pair.createPair(key2, value, ctx));
         }
       return pairs2;
     }
@@ -2756,16 +2756,16 @@ var require_omap = __commonJS({
         if (ctx?.onCreate)
           ctx.onCreate(map);
         for (const pair of this.items) {
-          let key, value;
+          let key2, value;
           if (identity.isPair(pair)) {
-            key = toJS.toJS(pair.key, "", ctx);
-            value = toJS.toJS(pair.value, key, ctx);
+            key2 = toJS.toJS(pair.key, "", ctx);
+            value = toJS.toJS(pair.value, key2, ctx);
           } else {
-            key = toJS.toJS(pair, "", ctx);
+            key2 = toJS.toJS(pair, "", ctx);
           }
-          if (map.has(key))
+          if (map.has(key2))
             throw new Error("Ordered maps must not include duplicate keys");
-          map.set(key, value);
+          map.set(key2, value);
         }
         return map;
       }
@@ -2786,12 +2786,12 @@ var require_omap = __commonJS({
       resolve(seq, onError) {
         const pairs$1 = pairs.resolvePairs(seq, onError);
         const seenKeys = [];
-        for (const { key } of pairs$1.items) {
-          if (identity.isScalar(key)) {
-            if (seenKeys.includes(key.value)) {
-              onError(`Ordered maps must not include duplicate keys: ${key.value}`);
+        for (const { key: key2 } of pairs$1.items) {
+          if (identity.isScalar(key2)) {
+            if (seenKeys.includes(key2.value)) {
+              onError(`Ordered maps must not include duplicate keys: ${key2.value}`);
             } else {
-              seenKeys.push(key.value);
+              seenKeys.push(key2.value);
             }
           }
         }
@@ -2847,7 +2847,7 @@ var require_float2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
-      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      resolve: (str2) => str2.slice(-3).toLowerCase() === "nan" ? NaN : str2[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
       stringify: stringifyNumber.stringifyNumber
     };
     var floatExp = {
@@ -2856,7 +2856,7 @@ var require_float2 = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "EXP",
       test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
-      resolve: (str) => parseFloat(str.replace(/_/g, "")),
+      resolve: (str2) => parseFloat(str2.replace(/_/g, "")),
       stringify(node) {
         const num = Number(node.value);
         return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
@@ -2867,11 +2867,11 @@ var require_float2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*$/,
-      resolve(str) {
-        const node = new Scalar.Scalar(parseFloat(str.replace(/_/g, "")));
-        const dot = str.indexOf(".");
+      resolve(str2) {
+        const node = new Scalar.Scalar(parseFloat(str2.replace(/_/g, "")));
+        const dot = str2.indexOf(".");
         if (dot !== -1) {
-          const f = str.substring(dot + 1).replace(/_/g, "");
+          const f = str2.substring(dot + 1).replace(/_/g, "");
           if (f[f.length - 1] === "0")
             node.minFractionDigits = f.length;
         }
@@ -2891,34 +2891,34 @@ var require_int2 = __commonJS({
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
-    function intResolve(str, offset, radix, { intAsBigInt }) {
-      const sign = str[0];
+    function intResolve(str2, offset, radix, { intAsBigInt }) {
+      const sign = str2[0];
       if (sign === "-" || sign === "+")
         offset += 1;
-      str = str.substring(offset).replace(/_/g, "");
+      str2 = str2.substring(offset).replace(/_/g, "");
       if (intAsBigInt) {
         switch (radix) {
           case 2:
-            str = `0b${str}`;
+            str2 = `0b${str2}`;
             break;
           case 8:
-            str = `0o${str}`;
+            str2 = `0o${str2}`;
             break;
           case 16:
-            str = `0x${str}`;
+            str2 = `0x${str2}`;
             break;
         }
-        const n2 = BigInt(str);
+        const n2 = BigInt(str2);
         return sign === "-" ? BigInt(-1) * n2 : n2;
       }
-      const n = parseInt(str, radix);
+      const n = parseInt(str2, radix);
       return sign === "-" ? -1 * n : n;
     }
     function intStringify(node, radix, prefix) {
       const { value } = node;
       if (intIdentify(value)) {
-        const str = value.toString(radix);
-        return value < 0 ? "-" + prefix + str.substr(1) : prefix + str;
+        const str2 = value.toString(radix);
+        return value < 0 ? "-" + prefix + str2.substr(1) : prefix + str2;
       }
       return stringifyNumber.stringifyNumber(node);
     }
@@ -2928,7 +2928,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "BIN",
       test: /^[-+]?0b[0-1_]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 2, 2, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 2, 2, opt),
       stringify: (node) => intStringify(node, 2, "0b")
     };
     var intOct = {
@@ -2937,7 +2937,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "OCT",
       test: /^[-+]?0[0-7_]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 1, 8, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 1, 8, opt),
       stringify: (node) => intStringify(node, 8, "0")
     };
     var int = {
@@ -2945,7 +2945,7 @@ var require_int2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:int",
       test: /^[-+]?[0-9][0-9_]*$/,
-      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 0, 10, opt),
       stringify: stringifyNumber.stringifyNumber
     };
     var intHex = {
@@ -2954,7 +2954,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "HEX",
       test: /^[-+]?0x[0-9a-fA-F_]+$/,
-      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      resolve: (str2, _onError, opt) => intResolve(str2, 2, 16, opt),
       stringify: (node) => intStringify(node, 16, "0x")
     };
     exports.int = int;
@@ -2976,14 +2976,14 @@ var require_set = __commonJS({
         super(schema);
         this.tag = _YAMLSet.tag;
       }
-      add(key) {
+      add(key2) {
         let pair;
-        if (identity.isPair(key))
-          pair = key;
-        else if (key && typeof key === "object" && "key" in key && "value" in key && key.value === null)
-          pair = new Pair.Pair(key.key, null);
+        if (identity.isPair(key2))
+          pair = key2;
+        else if (key2 && typeof key2 === "object" && "key" in key2 && "value" in key2 && key2.value === null)
+          pair = new Pair.Pair(key2.key, null);
         else
-          pair = new Pair.Pair(key, null);
+          pair = new Pair.Pair(key2, null);
         const prev = YAMLMap.findPair(this.items, pair.key);
         if (!prev)
           this.items.push(pair);
@@ -2992,18 +2992,18 @@ var require_set = __commonJS({
        * If `keepPair` is `true`, returns the Pair matching `key`.
        * Otherwise, returns the value of that Pair's key.
        */
-      get(key, keepPair) {
-        const pair = YAMLMap.findPair(this.items, key);
+      get(key2, keepPair) {
+        const pair = YAMLMap.findPair(this.items, key2);
         return !keepPair && identity.isPair(pair) ? identity.isScalar(pair.key) ? pair.key.value : pair.key : pair;
       }
-      set(key, value) {
+      set(key2, value) {
         if (typeof value !== "boolean")
           throw new Error(`Expected boolean value for set(key, value) in a YAML set, not ${typeof value}`);
-        const prev = YAMLMap.findPair(this.items, key);
+        const prev = YAMLMap.findPair(this.items, key2);
         if (prev && !value) {
           this.items.splice(this.items.indexOf(prev), 1);
         } else if (!prev && value) {
-          this.items.push(new Pair.Pair(key));
+          this.items.push(new Pair.Pair(key2));
         }
       }
       toJSON(_, ctx) {
@@ -3058,9 +3058,9 @@ var require_timestamp = __commonJS({
   "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
-    function parseSexagesimal(str, asBigInt) {
-      const sign = str[0];
-      const parts = sign === "-" || sign === "+" ? str.substring(1) : str;
+    function parseSexagesimal(str2, asBigInt) {
+      const sign = str2[0];
+      const parts = sign === "-" || sign === "+" ? str2.substring(1) : str2;
       const num = (n) => asBigInt ? BigInt(n) : Number(n);
       const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
       return sign === "-" ? num(-1) * res : res;
@@ -3097,7 +3097,7 @@ var require_timestamp = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "TIME",
       test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+$/,
-      resolve: (str, _onError, { intAsBigInt }) => parseSexagesimal(str, intAsBigInt),
+      resolve: (str2, _onError, { intAsBigInt }) => parseSexagesimal(str2, intAsBigInt),
       stringify: stringifySexagesimal
     };
     var floatTime = {
@@ -3106,7 +3106,7 @@ var require_timestamp = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "TIME",
       test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*$/,
-      resolve: (str) => parseSexagesimal(str, false),
+      resolve: (str2) => parseSexagesimal(str2, false),
       stringify: stringifySexagesimal
     };
     var timestamp = {
@@ -3117,8 +3117,8 @@ var require_timestamp = __commonJS({
       // may be omitted altogether, resulting in a date format. In such a case, the time part is
       // assumed to be 00:00:00Z (start of day, UTC).
       test: RegExp("^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:t|T|[ \\t]+)([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}(\\.[0-9]+)?)(?:[ \\t]*(Z|[-+][012]?[0-9](?::[0-9]{2})?))?)?$"),
-      resolve(str) {
-        const match = str.match(timestamp.test);
+      resolve(str2) {
+        const match = str2.match(timestamp.test);
         if (!match)
           throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
         const [, year, month, day2, hour, minute, second] = match.map(Number);
@@ -3250,7 +3250,7 @@ var require_tags = __commonJS({
         if (Array.isArray(customTags))
           tags = [];
         else {
-          const keys = Array.from(schemas.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
+          const keys = Array.from(schemas.keys()).filter((key2) => key2 !== "yaml11").map((key2) => JSON.stringify(key2)).join(", ");
           throw new Error(`Unknown schema "${schemaName}"; use one of ${keys} or define customTags array`);
         }
       }
@@ -3266,7 +3266,7 @@ var require_tags = __commonJS({
         const tagObj = typeof tag === "string" ? tagsByName[tag] : tag;
         if (!tagObj) {
           const tagName = JSON.stringify(tag);
-          const keys = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
+          const keys = Object.keys(tagsByName).map((key2) => JSON.stringify(key2)).join(", ");
           throw new Error(`Unknown custom tag ${tagName}; use one of ${keys}`);
         }
         if (!tags2.includes(tagObj))
@@ -3530,8 +3530,8 @@ var require_Document = __commonJS({
        * Convert a key and a value into a `Pair` using the current schema,
        * recursively wrapping all values as `Scalar` or `Collection` nodes.
        */
-      createPair(key, value, options = {}) {
-        const k = this.createNode(key, null, options);
+      createPair(key2, value, options = {}) {
+        const k = this.createNode(key2, null, options);
         const v = this.createNode(value, null, options);
         return new Pair.Pair(k, v);
       }
@@ -3539,8 +3539,8 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      delete(key) {
-        return assertCollection(this.contents) ? this.contents.delete(key) : false;
+      delete(key2) {
+        return assertCollection(this.contents) ? this.contents.delete(key2) : false;
       }
       /**
        * Removes a value from the document.
@@ -3560,8 +3560,8 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      get(key, keepScalar) {
-        return identity.isCollection(this.contents) ? this.contents.get(key, keepScalar) : void 0;
+      get(key2, keepScalar) {
+        return identity.isCollection(this.contents) ? this.contents.get(key2, keepScalar) : void 0;
       }
       /**
        * Returns item at `path`, or `undefined` if not found. By default unwraps
@@ -3576,8 +3576,8 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value with the key `key`.
        */
-      has(key) {
-        return identity.isCollection(this.contents) ? this.contents.has(key) : false;
+      has(key2) {
+        return identity.isCollection(this.contents) ? this.contents.has(key2) : false;
       }
       /**
        * Checks if the document includes a value at `path`.
@@ -3591,11 +3591,11 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      set(key, value) {
+      set(key2, value) {
         if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, [key], value);
+          this.contents = Collection.collectionFromPath(this.schema, [key2], value);
         } else if (assertCollection(this.contents)) {
-          this.contents.set(key, value);
+          this.contents.set(key2, value);
         }
       }
       /**
@@ -3903,24 +3903,24 @@ var require_resolve_props = __commonJS({
 var require_util_contains_newline = __commonJS({
   "node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
     "use strict";
-    function containsNewline(key) {
-      if (!key)
+    function containsNewline(key2) {
+      if (!key2)
         return null;
-      switch (key.type) {
+      switch (key2.type) {
         case "alias":
         case "scalar":
         case "double-quoted-scalar":
         case "single-quoted-scalar":
-          if (key.source.includes("\n"))
+          if (key2.source.includes("\n"))
             return true;
-          if (key.end) {
-            for (const st of key.end)
+          if (key2.end) {
+            for (const st of key2.end)
               if (st.type === "newline")
                 return true;
           }
           return false;
         case "flow-collection":
-          for (const it of key.items) {
+          for (const it of key2.items) {
             for (const st of it.start)
               if (st.type === "newline")
                 return true;
@@ -3994,10 +3994,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep, value } = collItem;
+        const { start, key: key2, sep, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key2 ?? sep?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -4005,10 +4005,10 @@ var require_resolve_block_map = __commonJS({
         });
         const implicitKey = !keyProps.found;
         if (implicitKey) {
-          if (key) {
-            if (key.type === "block-seq")
+          if (key2) {
+            if (key2.type === "block-seq")
               onError(offset, "BLOCK_AS_IMPLICIT_KEY", "A block sequence may not be used as an implicit map key");
-            else if ("indent" in key && key.indent !== bm.indent)
+            else if ("indent" in key2 && key2.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
           if (!keyProps.anchor && !keyProps.tag && !sep) {
@@ -4021,17 +4021,17 @@ var require_resolve_block_map = __commonJS({
             }
             continue;
           }
-          if (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key)) {
-            onError(key ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
+          if (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key2)) {
+            onError(key2 ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
           }
         } else if (keyProps.found?.indent !== bm.indent) {
           onError(offset, "BAD_INDENT", startColMsg);
         }
         ctx.atKey = true;
         const keyStart = keyProps.end;
-        const keyNode = key ? composeNode(ctx, key, keyProps, onError) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError);
+        const keyNode = key2 ? composeNode(ctx, key2, keyProps, onError) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError);
         if (ctx.schema.compat)
-          utilFlowIndentCheck.flowIndentCheck(bm.indent, key, onError);
+          utilFlowIndentCheck.flowIndentCheck(bm.indent, key2, onError);
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
@@ -4041,7 +4041,7 @@ var require_resolve_block_map = __commonJS({
           offset: keyNode.range[2],
           onError,
           parentIndent: bm.indent,
-          startOnNewline: !key || key.type === "block-scalar"
+          startOnNewline: !key2 || key2.type === "block-scalar"
         });
         offset = valueProps.end;
         if (valueProps.found) {
@@ -4205,11 +4205,11 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep, value } = collItem;
+        const { start, key: key2, sep, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key2 ?? sep?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
@@ -4230,9 +4230,9 @@ var require_resolve_flow_collection = __commonJS({
             offset = props.end;
             continue;
           }
-          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key))
+          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key2))
             onError(
-              key,
+              key2,
               // checked by containsNewline()
               "MULTILINE_IMPLICIT_KEY",
               "Implicit keys of flow sequence pairs need to be on a single line"
@@ -4279,8 +4279,8 @@ var require_resolve_flow_collection = __commonJS({
         } else {
           ctx.atKey = true;
           const keyStart = props.end;
-          const keyNode = key ? composeNode(ctx, key, props, onError) : composeEmptyNode(ctx, keyStart, start, null, props, onError);
-          if (isBlock(key))
+          const keyNode = key2 ? composeNode(ctx, key2, props, onError) : composeEmptyNode(ctx, keyStart, start, null, props, onError);
+          if (isBlock(key2))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
           const valueProps = resolveProps.resolveProps(sep ?? [], {
@@ -5430,9 +5430,9 @@ var require_cst_scalar = __commonJS({
         ];
         if (!addEndtoBlockProps(props, "end" in token ? token.end : void 0))
           props.push({ type: "newline", offset: -1, indent, source: "\n" });
-        for (const key of Object.keys(token))
-          if (key !== "type" && key !== "offset")
-            delete token[key];
+        for (const key2 of Object.keys(token))
+          if (key2 !== "type" && key2 !== "offset")
+            delete token[key2];
         Object.assign(token, { type: "block-scalar", indent, props, source: body });
       }
     }
@@ -5480,9 +5480,9 @@ var require_cst_scalar = __commonJS({
         default: {
           const indent = "indent" in token ? token.indent : -1;
           const end = "end" in token && Array.isArray(token.end) ? token.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
-          for (const key of Object.keys(token))
-            if (key !== "type" && key !== "offset")
-              delete token[key];
+          for (const key2 of Object.keys(token))
+            if (key2 !== "type" && key2 !== "offset")
+              delete token[key2];
           Object.assign(token, { type, indent, source, end });
         }
       }
@@ -5537,12 +5537,12 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key: key2, sep, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
-      if (key)
-        res += stringifyToken(key);
+      if (key2)
+        res += stringifyToken(key2);
       if (sep)
         for (const st of sep)
           res += st.source;
@@ -6874,7 +6874,7 @@ var require_parser = __commonJS({
                   });
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
-                  const key = it.key;
+                  const key2 = it.key;
                   const sep = it.sep;
                   sep.push(this.sourceToken);
                   delete it.key;
@@ -6883,7 +6883,7 @@ var require_parser = __commonJS({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep }]
+                    items: [{ start: start2, key: key2, sep }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -7522,12 +7522,12 @@ function prMerged(cwd, branch, cacheFile) {
   if (hit && (hit.merged || Date.now() - hit.at < PR_CACHE_TTL_MS)) return hit.merged;
   if (!safeRef(cwd, branch)) return false;
   const r = spawnSync("gh", ["pr", "view", branch, "--json", "state", "-q", ".state"], { cwd, encoding: "utf8", timeout: 5e3, env: quietEnv() });
-  const merged = r.status === 0 && r.stdout.trim() === "MERGED";
+  const merged2 = r.status === 0 && r.stdout.trim() === "MERGED";
   try {
-    writeFileSync2(cacheFile, JSON.stringify({ ...cache, [branch]: { merged, at: Date.now() } }));
+    writeFileSync2(cacheFile, JSON.stringify({ ...cache, [branch]: { merged: merged2, at: Date.now() } }));
   } catch {
   }
-  return merged;
+  return merged2;
 }
 function landedState(cwd, branch, base, planRel2, cacheFile) {
   const local = mergeState(cwd, branch, base, planRel2);
@@ -7907,6 +7907,7 @@ var LEVEL_LABEL = { mvp: "MVP", standard: "Standard", polished: "Polished" };
 var SUBSTEPS = ["implementing", "reviewing", "fixing", "merging", "blocked"];
 var SUGGESTION_AREAS = ["tests", "security", "perf", "quality", "ux", "docs"];
 var SUGGESTION_SOURCES = ["task-review", "branch-review", "check", "implementer", "plan", "user", "mvp", "security-review"];
+var LINEAR_DONE_TYPES = ["completed", "canceled", "duplicate"];
 
 // plugins/cairn/cli/src/render.ts
 var day = (iso) => iso ? iso.slice(0, 10) : "";
@@ -8260,26 +8261,26 @@ function template(name) {
 }
 
 // plugins/cairn/cli/src/commands/plans.ts
-import { existsSync as existsSync7, readFileSync as readFileSync6 } from "node:fs";
-import { join as join14, resolve } from "node:path";
+import { existsSync as existsSync8, readFileSync as readFileSync6 } from "node:fs";
+import { join as join15, resolve } from "node:path";
 
 // plugins/cairn/cli/src/commands/memory.ts
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 
 // plugins/cairn/cli/src/memory.ts
-import { existsSync as existsSync6 } from "node:fs";
-import { basename as basename3, join as join12, posix } from "node:path";
+import { existsSync as existsSync7 } from "node:fs";
+import { basename as basename3, join as join13, posix } from "node:path";
 
 // plugins/cairn/cli/src/commands/records.ts
-import { existsSync as existsSync5, readdirSync as readdirSync3 } from "node:fs";
-import { basename as basename2, dirname as dirname3, join as join11 } from "node:path";
+import { existsSync as existsSync6, readdirSync as readdirSync4 } from "node:fs";
+import { basename as basename2, dirname as dirname3, join as join12 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync4, readFileSync as readFileSync5 } from "node:fs";
-import { join as join10, relative as relative2 } from "node:path";
+import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
+import { join as join11, relative as relative2 } from "node:path";
 
 // plugins/cairn/cli/src/commands/stages.ts
-import { join as join9 } from "node:path";
+import { join as join10 } from "node:path";
 
 // plugins/cairn/cli/src/commands/fix.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
@@ -8401,17 +8402,17 @@ function collectSuggestions(ctx, at = Date.now()) {
   const states = allStates(ctx);
   const all = states.flatMap((s) => s.suggestions ?? []);
   const closed = new Set(all.map((x) => x.resolves).filter((r) => !!r));
-  const merged = new Set(all.flatMap((x) => x.merges ?? []));
+  const merged2 = new Set(all.flatMap((x) => x.merges ?? []));
   const declines = /* @__PURE__ */ new Map();
   for (const x of all) if (x.declines) declines.set(x.declines, (declines.get(x.declines) ?? 0) + 1);
   return states.flatMap(
     (s) => (s.suggestions ?? []).filter((x) => !isMarker(x)).map((x) => {
-      const key = `${s.slug}:${x.id}`;
-      const declined = declines.get(key) ?? 0;
+      const key2 = `${s.slug}:${x.id}`;
+      const declined = declines.get(key2) ?? 0;
       const hardening = x.kind === "hardening";
       const old = at - Date.parse(x.at) > MAX_AGE_DAYS * 864e5;
-      const status = closed.has(key) ? "closed" : merged.has(key) ? "merged" : !hardening && (declined >= MAX_DECLINES || old) ? "expired" : "open";
-      return { ...x, slug: s.slug, key, open: status === "open", status, declined, hardening };
+      const status = closed.has(key2) ? "closed" : merged2.has(key2) ? "merged" : !hardening && (declined >= MAX_DECLINES || old) ? "expired" : "open";
+      return { ...x, slug: s.slug, key: key2, open: status === "open", status, declined, hardening };
     })
   );
 }
@@ -8459,22 +8460,22 @@ function suggestList(ctx, opts) {
     data: { suggestions: rows, open: rows.filter((x) => x.open).length }
   };
 }
-function suggestResolve(ctx, key, opts) {
-  if (!key || !/^[a-z0-9-]+:s\d+$/.test(key)) throw new CliError(USAGE);
-  const target = collectSuggestions(ctx).find((x) => x.key === key);
-  if (!target) throw new Refusal(`no suggestion ${key}`, ["cairn suggest list"]);
+function suggestResolve(ctx, key2, opts) {
+  if (!key2 || !/^[a-z0-9-]+:s\d+$/.test(key2)) throw new CliError(USAGE);
+  const target = collectSuggestions(ctx).find((x) => x.key === key2);
+  if (!target) throw new Refusal(`no suggestion ${key2}`, ["cairn suggest list"]);
   const pc = planCtx(ctx);
   return mutate(pc, void 0, (s) => {
     pushSuggestion(s, {
       area: target.area,
-      text: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}`,
+      text: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key2}`,
       where: target.where,
       from: "user",
-      resolves: key,
+      resolves: key2,
       ...opts.dismiss ? { dismissed: true } : {},
       ...opts.note ? { note: String(opts.note) } : {}
     });
-    return { message: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key}.` };
+    return { message: `${opts.dismiss ? "Dismissed" : "Resolved"} ${key2}.` };
   });
 }
 var KEY = /^[a-z0-9-]+:s\d+$/;
@@ -8513,6 +8514,888 @@ function suggestDecline(ctx, keys) {
     return { message: `Declined ${targets.length}.${expired.length ? ` Now expired: ${expired.map((t) => t.key).join(", ")}.` : ""}` };
   });
 }
+
+// plugins/cairn/cli/src/linear.ts
+var ISSUE_KEY = /^[A-Z][A-Z0-9]*-\d+$/;
+var WRITE_TOOL = {
+  status: "save_issue",
+  relation: "save_issue",
+  createIssue: "save_issue",
+  comment: "save_comment",
+  statusUpdate: "save_status_update"
+};
+var linearConfig = (cfg) => cfg.linear && typeof cfg.linear.team === "string" && cfg.linear.team ? cfg.linear : void 0;
+var isDone = (i) => !!i?.stateType && LINEAR_DONE_TYPES.includes(i.stateType);
+var ISSUE_FIELDS = ["key", "title", "url", "stateType", "stateName", "milestone", "parent", "blockedBy"];
+var PLAN_FIELDS = ["team", "project", "milestone", "epic", "selection", "issues", "known"];
+var BOARD_FIELDS = ["team", "project", "milestones", "issues"];
+function str(v, where, optional = true) {
+  if (v === void 0 || v === null) {
+    if (optional) return void 0;
+    throw new CliError(`${where} is missing`);
+  }
+  if (typeof v !== "string" || !v.trim()) throw new CliError(`${where} must be a non-empty string`);
+  return v.trim();
+}
+function key(v, where) {
+  const k = str(v, where, false).toUpperCase();
+  if (!ISSUE_KEY.test(k)) throw new CliError(`${where} "${k}" is not a Linear issue key like SAV-12`);
+  return k;
+}
+function unknownKeys(obj, allowed, where) {
+  const extra = Object.keys(obj).filter((k) => !allowed.includes(k));
+  if (extra.length) throw new CliError(`${where} has unknown key${extra.length === 1 ? "" : "s"}: ${extra.join(", ")} (allowed: ${allowed.join(", ")})`);
+}
+function readIssue(raw, where) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new CliError(`${where} must be an object`);
+  const o = raw;
+  unknownKeys(o, ISSUE_FIELDS, where);
+  const k = key(o.key, `${where}.key`);
+  const blockers = [];
+  const blockedBy = [];
+  if (o.blockedBy !== void 0) {
+    if (!Array.isArray(o.blockedBy)) throw new CliError(`${where}.blockedBy must be a list`);
+    o.blockedBy.forEach((b, i) => {
+      if (b && typeof b === "object") {
+        const r = readIssue({ title: b.key, ...b }, `${where}.blockedBy[${i}]`);
+        blockers.push(r.issue);
+        blockedBy.push(r.issue.key);
+      } else blockedBy.push(key(b, `${where}.blockedBy[${i}]`));
+    });
+  }
+  const parent = o.parent === void 0 || o.parent === null ? void 0 : key(o.parent, `${where}.parent`);
+  const issue = {
+    key: k,
+    title: str(o.title, `${where}.title`, false),
+    ...str(o.url, `${where}.url`) ? { url: str(o.url, `${where}.url`) } : {},
+    ...str(o.stateType, `${where}.stateType`) ? { stateType: str(o.stateType, `${where}.stateType`).toLowerCase() } : {},
+    ...str(o.stateName, `${where}.stateName`) ? { stateName: str(o.stateName, `${where}.stateName`) } : {},
+    ...str(o.milestone, `${where}.milestone`) ? { milestone: str(o.milestone, `${where}.milestone`) } : {},
+    ...parent ? { parent } : {},
+    blockedBy: [...new Set(blockedBy.filter((b) => b !== k))]
+  };
+  return { issue, blockers, has: { blockedBy: o.blockedBy !== void 0, parent: o.parent !== void 0 } };
+}
+function readIssues(raw, where, required) {
+  const present2 = /* @__PURE__ */ new Map();
+  if (raw === void 0 && !required) return { issues: [], blockers: [], present: present2 };
+  if (!Array.isArray(raw) || required && !raw.length) throw new CliError(`${where} must be a ${required ? "non-empty " : ""}list of issues`);
+  const seen = /* @__PURE__ */ new Set();
+  const issues = [];
+  const blockers = [];
+  raw.forEach((r, i) => {
+    const x = readIssue(r, `${where}[${i}]`);
+    if (seen.has(x.issue.key)) throw new CliError(`${where} lists ${x.issue.key} twice`);
+    seen.add(x.issue.key);
+    issues.push(x.issue);
+    blockers.push(...x.blockers);
+    present2.set(x.issue.key, x.has);
+  });
+  return { issues, blockers, present: present2 };
+}
+function parseJson(text, what) {
+  let doc;
+  try {
+    doc = JSON.parse(text);
+  } catch (e) {
+    throw new CliError(`${what} is not valid JSON: ${e.message}`);
+  }
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) throw new CliError(`${what} must be a JSON object`);
+  return doc;
+}
+function readPlanImport(doc) {
+  unknownKeys(doc, PLAN_FIELDS, "the import");
+  const main2 = readIssues(doc.issues, "issues", true);
+  const extra = readIssues(doc.known, "known", false);
+  const inPlan = new Set(main2.issues.map((i) => i.key));
+  const known = /* @__PURE__ */ new Map();
+  for (const k of [...main2.blockers, ...extra.issues, ...extra.blockers]) if (!inPlan.has(k.key) && !known.has(k.key)) known.set(k.key, k);
+  const epic = doc.epic === void 0 || doc.epic === null ? void 0 : key(doc.epic, "epic");
+  return {
+    team: str(doc.team, "team"),
+    project: str(doc.project, "project"),
+    milestone: str(doc.milestone, "milestone"),
+    ...epic ? { epic } : {},
+    selection: str(doc.selection, "selection"),
+    issues: main2.issues,
+    known: [...known.values()],
+    present: new Map([...extra.present, ...main2.present])
+  };
+}
+function readBoardImport(doc) {
+  unknownKeys(doc, BOARD_FIELDS, "the board import");
+  const project = str(doc.project, "project", false);
+  const milestones = doc.milestones === void 0 ? [] : doc.milestones;
+  if (!Array.isArray(milestones) || milestones.some((m) => typeof m !== "string")) throw new CliError("milestones must be a list of milestone names");
+  const { issues, blockers } = readIssues(doc.issues, "issues", false);
+  const have = new Set(issues.map((i) => i.key));
+  const known = [...new Map(blockers.filter((b) => !have.has(b.key)).map((b) => [b.key, b])).values()];
+  return { team: str(doc.team, "team"), project, milestones, issues, known, readAt: now() };
+}
+var takenIssues = (l) => l.issues.filter((i) => !i.released);
+function parentKeys(issues) {
+  const keys = new Set(issues.map((i) => i.key));
+  return new Set(issues.map((i) => i.parent).filter((p) => !!p && keys.has(p)));
+}
+function effectiveBlockers(i, byKey, depends2 = []) {
+  const out = /* @__PURE__ */ new Set();
+  const seen = /* @__PURE__ */ new Set();
+  let cur = i;
+  while (cur && !seen.has(cur.key)) {
+    seen.add(cur.key);
+    for (const b of cur.blockedBy) out.add(b);
+    for (const d of depends2) if (d.key === cur.key) out.add(d.on);
+    cur = cur.parent ? byKey.get(cur.parent) : void 0;
+  }
+  for (const s of seen) out.delete(s);
+  return [...out];
+}
+var allByKey = (l) => new Map([...l.known, ...l.issues].map((i) => [i.key, i]));
+function findIssueCycle(issues, depends2 = [], viaParents = false) {
+  const keys = new Set(issues.map((i) => i.key));
+  const byKey = new Map(issues.map((i) => [i.key, i]));
+  const direct = (i) => [...i.blockedBy, ...depends2.filter((d) => d.key === i.key).map((d) => d.on)];
+  const deps = new Map(issues.map((i) => [i.key, (viaParents ? effectiveBlockers(i, byKey, depends2) : direct(i)).filter((b) => keys.has(b))]));
+  const mark = /* @__PURE__ */ new Map();
+  const stack = [];
+  const visit = (k) => {
+    if (mark.get(k) === 2) return;
+    if (mark.get(k) === 1) return [...stack.slice(stack.indexOf(k)), k];
+    mark.set(k, 1);
+    stack.push(k);
+    for (const d of deps.get(k) ?? []) {
+      const c = visit(d);
+      if (c) return c;
+    }
+    stack.pop();
+    mark.set(k, 2);
+  };
+  for (const k of keys) {
+    const c = visit(k);
+    if (c) return c;
+  }
+}
+var TAG = /\[([A-Z][A-Z0-9]*-\d+(?:\s*,\s*[A-Z][A-Z0-9]*-\d+)*)\]/g;
+function issueRequirements(prdMd, keys) {
+  const wanted = new Set(keys);
+  const out = /* @__PURE__ */ new Map();
+  const sec = sections(prdMd);
+  const body = sec.get("requirements") ?? sec.get("functional requirements") ?? "";
+  for (const line of body.split("\n")) {
+    const fr = line.match(/\*\*(FR-\d+)\*\*/)?.[1] ?? line.match(/\bFR-\d+\b/)?.[0];
+    if (!fr) continue;
+    for (const m of line.matchAll(TAG))
+      for (const k of m[1].split(",").map((x) => x.trim()))
+        if (wanted.has(k)) {
+          const list2 = out.get(k) ?? [];
+          if (!list2.includes(fr)) list2.push(fr);
+          out.set(k, list2);
+        }
+  }
+  return out;
+}
+function reasonFor(body, ...keys) {
+  for (const line of (body ?? "").split("\n")) {
+    if (!keys.every((k) => new RegExp(`\\b${k}\\b`).test(line))) continue;
+    const rest = keys.reduce((t, k) => t.replace(new RegExp(`\\b${k}\\b`, "g"), ""), line).replace(/^[\s\-*:]+|[\s.:,;\-–—()[\]]+$/g, "").replace(/[\s:,;\-–—]+/g, " ").trim();
+    if (rest.length >= 3) return rest;
+  }
+  return void 0;
+}
+var notTakenReason = (prdMd, k) => reasonFor(sections(prdMd).get("issues not taken"), k);
+function outsideBlockers(l, taken = takenIssues(l)) {
+  const byKey = allByKey(l);
+  const inPlan = new Set(taken.map((i) => i.key));
+  const out = [];
+  for (const i of taken)
+    for (const b of effectiveBlockers(i, byKey, l.depends))
+      if (!inPlan.has(b) && !isDone(byKey.get(b)) && !out.some((x) => x.key === i.key && x.blocker === b)) out.push({ key: i.key, blocker: b });
+  return out;
+}
+function blockersText(list2, note = () => "") {
+  const by = /* @__PURE__ */ new Map();
+  for (const x of list2) by.set(x.blocker, [...by.get(x.blocker) ?? [], x.key]);
+  return [...by].map(([b, ks]) => `${b}${note(b)} (blocks ${ks.join(", ")})`).join("; ");
+}
+function prdLinearProblems(l, prdMd) {
+  const p = [];
+  const reqs = issueRequirements(prdMd, l.issues.map((i) => i.key));
+  const notTaken = new Set(l.issues.filter((i) => i.released || notTakenReason(prdMd, i.key)).map((i) => i.key));
+  const parents = parentKeys(l.issues);
+  const untagged = l.issues.filter((i) => !reqs.has(i.key) && !notTaken.has(i.key) && !parents.has(i.key));
+  if (untagged.length)
+    p.push(`these Linear issues are on no requirement and not under ## Issues not taken: ${untagged.map((i) => i.key).join(", ")}. Tag a requirement with [KEY], or list the issue under ## Issues not taken with a reason`);
+  const both = l.issues.filter((i) => reqs.has(i.key) && notTakenReason(prdMd, i.key));
+  if (both.length) p.push(`${both.map((i) => i.key).join(", ")} ${both.length === 1 ? "is" : "are"} both on a requirement and under ## Issues not taken: keep one`);
+  const named = sections(prdMd).get("issues not taken") ?? "";
+  const noReason = l.issues.filter((i) => !i.released && new RegExp(`\\b${i.key}\\b`).test(named) && !notTakenReason(prdMd, i.key));
+  if (noReason.length) p.push(`## Issues not taken lists ${noReason.map((i) => i.key).join(", ")} without a reason`);
+  const taken = l.issues.filter((i) => !notTaken.has(i.key));
+  const decisions = sections(prdMd).get("outside blockers");
+  const decidedLater = /* @__PURE__ */ new Set([...l.depends.map((d) => d.on), ...l.changes.filter((c) => c.handled && c.on).map((c) => c.on)]);
+  const open = outsideBlockers(l, taken).filter((x) => !reasonFor(decisions, x.blocker) && !decidedLater.has(x.blocker));
+  if (open.length)
+    p.push(`blockers outside the plan have no decision under ## Outside blockers: ${blockersText(open)}. Pull the blocker in, leave the blocked issue out, or go ahead with a reason`);
+  const cycle = findIssueCycle(taken, l.depends);
+  if (cycle) p.push(`the plan's issues block each other in a loop: ${cycle.join(" \u2192 ")}. Remove one of these links in Linear, then refresh`);
+  return p;
+}
+function issueOrderProblems(l, phases, prdMd, planMd) {
+  const taken = takenIssues(l);
+  const p = [];
+  const cycle = findIssueCycle(taken, l.depends);
+  if (cycle) return [`the plan's issues block each other in a loop: ${cycle.join(" \u2192 ")}. Remove one link in Linear and refresh`];
+  const reqs = issueRequirements(prdMd, taken.map((i) => i.key));
+  const tasks = phases.flatMap((ph, pi) => ph.tasks.map((t) => ({ t, pi })));
+  const byId = new Map(tasks.map((x) => [x.t.id, x]));
+  const before = (a, b) => {
+    const pa = byId.get(a.id).pi;
+    if (pa < byId.get(b.id).pi) return true;
+    const seen = /* @__PURE__ */ new Set();
+    const walk = (id) => {
+      if (seen.has(id)) return false;
+      seen.add(id);
+      for (const d of byId.get(id)?.t.blockedBy ?? []) if (d === a.id || (byId.get(d)?.pi ?? -1) > pa || walk(d)) return true;
+      return false;
+    };
+    return walk(b.id);
+  };
+  const order = sections(planMd).get("issue order");
+  const byKey = allByKey(l);
+  const inPlan = new Set(taken.map((i) => i.key));
+  for (const b of taken) {
+    const bFrs = reqs.get(b.key) ?? [];
+    if (!bFrs.length) continue;
+    for (const a of effectiveBlockers(b, byKey, l.depends)) {
+      if (!inPlan.has(a)) continue;
+      const under2 = (k) => [k, ...taken.filter((x) => x.parent === k).flatMap((x) => under2(x.key))];
+      const aFrs = [...new Set(under2(a).flatMap((k) => reqs.get(k) ?? []))];
+      const ta = tasks.filter((x) => x.t.covers.some((c) => aFrs.includes(c))).map((x) => x.t);
+      const tb = tasks.filter((x) => x.t.covers.some((c) => bFrs.includes(c)) && !x.t.covers.some((c) => aFrs.includes(c))).map((x) => x.t);
+      if (reasonFor(order, b.key, a)) continue;
+      for (const y of tb)
+        for (const x of ta)
+          if (x.id !== y.id && !before(x, y))
+            p.push(`task "${y.id}" (${b.key}) must come after task "${x.id}" (${a}), since ${b.key} is blocked by ${a}: add ${x.id} to its blocked_by, move it to a later phase, or explain under ## Issue order`);
+    }
+  }
+  return p;
+}
+var RANK = ["not started", "in progress", "built", "shipped"];
+function issueProgress(s) {
+  const out = /* @__PURE__ */ new Map();
+  const l = s.linear;
+  if (!l) return out;
+  const tasks = allTasks(s);
+  const shipped = s.stage === "learn" || s.stage === "closed";
+  const fixLane = s.track === "fix" && !!s.repro;
+  const leaf = (i) => {
+    const mine = fixLane ? tasks : tasks.filter((t) => t.covers.some((c) => i.requirements?.includes(c)));
+    if (shipped && (mine.length || fixLane)) return "shipped";
+    if (!mine.length) return "not started";
+    if (mine.every((t) => t.status === "done")) return "built";
+    return mine.some((t) => t.status !== "pending") ? "in progress" : "not started";
+  };
+  const parents = parentKeys(takenIssues(l));
+  const children = (k) => takenIssues(l).filter((i) => i.parent === k);
+  const of = (i) => {
+    if (i.released) return "not taken";
+    if (!parents.has(i.key) || i.requirements?.length) return leaf(i);
+    const kids = children(i.key).map(of).filter((x) => x !== "not taken");
+    if (!kids.length) return "not started";
+    const low = kids.reduce((m, k) => Math.min(m, RANK.indexOf(k)), RANK.length - 1);
+    if (low > 0) return RANK[low];
+    return kids.some((k) => k !== "not started") ? "in progress" : "not started";
+  };
+  for (const i of l.issues) out.set(i.key, of(i));
+  return out;
+}
+function queueWrite(l, w) {
+  if (l.outbox.some((x) => x.dedupe === w.dedupe)) return void 0;
+  const entry2 = { id: `l${l.outbox.length + 1}`, ...w, queuedAt: now() };
+  l.outbox.push(entry2);
+  return entry2;
+}
+var unsent = (l) => (l?.outbox ?? []).filter((w) => !w.sentAt && !w.dropped);
+var due = (l) => unsent(l).filter((w) => !w.held);
+var STATUS_TYPE = { inProgress: "started", done: "completed" };
+var statusFor = (cfg, move2) => cfg?.statuses?.[move2] ?? STATUS_TYPE[move2];
+function queueStatus(l, cfg, k, move2, why) {
+  const state = statusFor(cfg, move2);
+  if (!state) return void 0;
+  return queueWrite(l, { kind: "status", target: k, payload: { id: k, state }, why, dedupe: `status:${k}:${move2}` });
+}
+var queueComment = (l, k, body, why, dedupe) => queueWrite(l, { kind: "comment", target: k, payload: { issueId: k, body }, why, dedupe: `comment:${k}:${dedupe}` });
+var keysText = (xs) => xs.map((x) => x.key).join(", ");
+function emptyLink(team) {
+  return { team, issues: [], known: [], importedAt: now(), depends: [], changes: [], outbox: [] };
+}
+
+// plugins/cairn/cli/src/commands/linear.ts
+import { existsSync as existsSync4, readdirSync as readdirSync3 } from "node:fs";
+import { join as join9 } from "node:path";
+var USAGE2 = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
+  | drop <id> --note "\u2026" | hold <id> --note "\u2026" | depends <KEY> --on <KEY> --reason "\u2026" | ack <change> --as taken|later|noted [--note "\u2026"]
+  | release <KEY> --reason "\u2026" | board [--project "<name>"] [--json]`;
+var NO_CONFIG = (where) => new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
+function inputText(ctx, opts) {
+  if (typeof opts.file === "string") {
+    const t = readText(join9(ctx.cwd, opts.file)) ?? readText(opts.file);
+    if (t === void 0) throw new CliError(`cannot read --file ${opts.file}`);
+    return t;
+  }
+  if (typeof opts.stdin === "string" && opts.stdin.trim()) return opts.stdin;
+  throw new CliError("cairn linear import needs the issues as JSON: pipe them in, or pass --file <path>");
+}
+function cmdLinear(ctx, sub, arg, opts) {
+  switch (sub) {
+    case void 0:
+    case "status":
+      return linearStatus(ctx);
+    case "import":
+      return opts.board ? importBoard(ctx, opts) : opts.refresh ? refreshPlan(ctx, opts) : importPlan(ctx, opts);
+    case "pending":
+      return pending(ctx);
+    case "sent":
+      return markSent(ctx, arg, opts);
+    case "drop":
+      return drop(ctx, arg, opts);
+    case "hold":
+      return hold(ctx, arg, opts);
+    case "depends":
+      return depends(ctx, arg, opts);
+    case "ack":
+      return ack(ctx, arg, opts);
+    case "release":
+      return release(ctx, arg, opts);
+    case "board":
+      return board(ctx, opts);
+    default:
+      throw new CliError(USAGE2);
+  }
+}
+function linkOf(s) {
+  if (!s.linear)
+    throw new Refusal("this plan has no Linear issues", [
+      ["discover", "prd", "repro"].includes(s.stage) ? "pull them in first: cairn linear import --file <issues.json>" : "issues are pulled in when a plan starts: start a new plan for them with /cairn:new --from-linear"
+    ]);
+  return s.linear;
+}
+var bookkeeping = (s, msg) => s.stage === "closed" ? void 0 : msg;
+function otherPlans(ctx, slug) {
+  try {
+    return listPlans(ctx).filter((r) => wellFormed(r.state.linear) && r.state.slug !== slug).map((r) => ({ slug: r.state.slug, stage: r.state.stage, state: r.state }));
+  } catch {
+    return [];
+  }
+}
+function wellFormed(l) {
+  if (!l || typeof l !== "object") return false;
+  const x = l;
+  const issuesOk = (v) => Array.isArray(v) && v.every((i) => i && typeof i.key === "string" && Array.isArray(i.blockedBy) && i.blockedBy.every((b) => typeof b === "string"));
+  return issuesOk(x.issues) && issuesOk(x.known) && Array.isArray(x.depends) && x.depends.every((d) => d && typeof d.key === "string" && typeof d.on === "string") && Array.isArray(x.outbox) && Array.isArray(x.changes);
+}
+var ownerOf = (plans, k) => plans.find((p) => p.state.linear.issues.some((i) => i.key === k && !i.released) && p.stage !== "closed") ?? plans.find((p) => p.state.linear.issues.some((i) => i.key === k && !i.released));
+function importPlan(ctx, opts) {
+  const pc = planCtx(ctx);
+  const cfg = linearConfig(pc.cfg);
+  if (!cfg) throw NO_CONFIG(".cairn/config.json");
+  const doc = readPlanImport(parseJson(inputText(ctx, opts), "the import"));
+  const others = otherPlans(ctx, pc.plan.slug);
+  return mutate(pc, "Linear issues imported", (s) => {
+    if (s.linear) throw new Refusal("this plan already has its Linear issues", ["to re-read them from Linear: cairn linear import --refresh --file <issues.json>"]);
+    if (!["discover", "prd", "repro"].includes(s.stage)) throw new Refusal(`issues are pulled in when a plan starts; this one is in ${s.stage}`, ["start a new plan for them with /cairn:new --from-linear"]);
+    const l = { ...emptyLink(doc.team ?? cfg.team), ...doc.project ? { project: doc.project } : {}, ...doc.milestone ? { milestone: doc.milestone } : {}, ...doc.epic ? { epic: doc.epic } : {}, ...doc.selection ? { selection: doc.selection } : {}, issues: doc.issues, known: doc.known };
+    s.linear = l;
+    log(s, "Linear issues imported", `${doc.issues.length}: ${keysText(doc.issues)}`);
+    const lines = [`Pulled in ${doc.issues.length} Linear issue${doc.issues.length === 1 ? "" : "s"}: ${keysText(doc.issues)}.`];
+    const parents = parentKeys(doc.issues);
+    if (parents.size) {
+      const leaves = doc.issues.filter((i) => !parents.has(i.key));
+      lines.push(`Epic${parents.size === 1 ? "" : "s"} ${[...parents].join(", ")}: ${leaves.length} sub-issue${leaves.length === 1 ? "" : "s"} to build.${leaves.length > 8 ? ' That is a lot for one plan: offer to take part of it now and leave the rest under ## Issues not taken ("later plan").' : ""}`);
+      const elsewhere = leaves.filter((i) => i.milestone && doc.milestone && i.milestone !== doc.milestone);
+      if (elsewhere.length) lines.push(`Sub-issues in other milestones came along with their parent: ${elsewhere.map((i) => `${i.key} (${i.milestone})`).join(", ")}.`);
+    }
+    const ob = outsideBlockers(l);
+    if (ob.length)
+      lines.push(
+        `Blockers outside the plan and not done: ${blockersText(ob, (b) => {
+          const o = ownerOf(others, b);
+          return o ? ` [in plan ${o.slug}, ${o.stage}]` : "";
+        })}. Discover decides each: pull it in, leave the blocked issues out, or go ahead with a reason (## Outside blockers).`
+      );
+    const claimed = doc.issues.map((i) => ({ i, o: ownerOf(others, i.key) })).filter((x) => x.o && x.o.stage !== "closed");
+    if (claimed.length) lines.push(`Warning: already in another active plan: ${claimed.map((x) => `${x.i.key} (${x.o.slug}, ${x.o.stage})`).join(", ")}.`);
+    const cycle = findIssueCycle(doc.issues);
+    if (cycle) lines.push(`Warning: these issues block each other in a loop: ${cycle.join(" \u2192 ")}. The plan can't load until one link is removed in Linear.`);
+    return { message: lines.join("\n"), data: { issues: doc.issues.map((i) => i.key), parents: [...parents], outsideBlockers: ob, cycle: cycle ?? null } };
+  });
+}
+function refreshPlan(ctx, opts) {
+  const pc = planCtx(ctx);
+  const doc = readPlanImport(parseJson(inputText(ctx, opts), "the refresh"));
+  return mutate(pc, "Linear issues refreshed", (s) => {
+    const l = linkOf(s);
+    if (s.stage === "closed") throw new Refusal("the plan is closed, so it no longer follows Linear", ["see the project with /cairn:board instead"]);
+    const fresh = new Map([...doc.known, ...doc.issues].map((i) => [i.key, i]));
+    const has = (k) => doc.present.get(k) ?? { blockedBy: false, parent: false };
+    const taken = new Set(takenIssues(l).map((i) => i.key));
+    const noted = [];
+    const added = [];
+    const change = (c) => {
+      if (l.changes.some((x2) => x2.kind === c.kind && x2.key === c.key && (c.on ? x2.on === c.on : x2.issue?.key === c.issue?.key))) return;
+      const x = { id: `c${l.changes.length + 1}`, ...c, at: now() };
+      l.changes.push(x);
+      added.push(x);
+    };
+    for (const i of l.issues) {
+      const f = fresh.get(i.key);
+      if (!f) continue;
+      if (taken.has(i.key)) {
+        if (has(i.key).blockedBy) {
+          for (const b of f.blockedBy) if (!i.blockedBy.includes(b) && !l.depends.some((d) => d.key === i.key && d.on === b) && !isDone(fresh.get(b))) change({ kind: "link", key: i.key, on: b });
+          for (const b of i.blockedBy) if (!f.blockedBy.includes(b)) noted.push(`${i.key} is no longer blocked by ${b}`);
+        }
+        if (has(i.key).parent && i.parent && f.parent !== i.parent && taken.has(i.parent)) {
+          const reason = `moved out of ${i.parent} in Linear`;
+          i.released = { at: now(), reason };
+          queueComment(l, i.key, `Left cairn plan "${s.title}" (\`${s.branch}\`): ${reason}.`, `${i.key} left the plan`, "released");
+          noted.push(`${i.key} was ${reason}, so it left the plan${i.requirements?.length ? `; its requirements (${i.requirements.join(", ")}) need moving to ## Non-goals and a re-plan` : ""}`);
+        }
+      }
+      Object.assign(i, { title: f.title, url: f.url ?? i.url, stateType: f.stateType ?? i.stateType, stateName: f.stateName ?? i.stateName, milestone: f.milestone ?? i.milestone, ...has(i.key).parent ? { parent: f.parent } : {}, ...has(i.key).blockedBy ? { blockedBy: f.blockedBy } : {} });
+    }
+    const seen = new Set([...l.issues, ...l.known].map((i) => i.key));
+    for (const f of [...doc.issues, ...doc.known])
+      if (f.parent && taken.has(f.parent) && !seen.has(f.key) && !isDone(f)) change({ kind: "sub-issue", key: f.parent, issue: f });
+    const inPlan = new Set(l.issues.map((i) => i.key));
+    l.known = [...new Map([...l.known, ...doc.known, ...doc.issues.filter((i) => !inPlan.has(i.key))].filter((i) => !inPlan.has(i.key)).map((i) => [i.key, fresh.get(i.key) ?? i])).values()];
+    l.refreshedAt = now();
+    log(s, "Linear issues refreshed", [...added.map(changeText), ...noted].join("; ") || "no changes");
+    const open = l.changes.filter((c) => !c.handled);
+    const lines = [added.length ? `${added.length} change${added.length === 1 ? "" : "s"} in Linear to decide about:` : "No new links or sub-issues in Linear.", ...added.map((c) => `  ${c.id}: ${changeText(c)}`), ...noted.map((n) => `  noted: ${n}`)];
+    if (open.length) lines.push(`Open: ${open.length}. The phase can't finish until each is handled: cairn linear depends, cairn linear ack <id> --as taken|later|noted, or cairn linear release.`);
+    return { message: lines.join("\n"), data: { added, noted, open } };
+  });
+}
+var changeText = (c) => c.kind === "link" ? `${c.key} is now blocked by ${c.on}` : `${c.issue?.key} "${c.issue?.title}" was added under ${c.key}`;
+function importBoard(ctx, opts) {
+  const cfg = linearConfig(loadConfig(ctx.plan?.worktree, ctx.mainRoot));
+  if (!cfg) throw NO_CONFIG(".cairn/config.json");
+  const snap = readBoardImport(parseJson(inputText(ctx, opts), "the board import"));
+  const file = snapshotFile(ctx, snap.project);
+  writeText(file, JSON.stringify({ ...snap, team: snap.team ?? cfg.team }, null, 2) + "\n");
+  return { message: `Read ${snap.issues.length} issues of "${snap.project}" from Linear. Run cairn linear board to see it.`, data: { file, issues: snap.issues.length } };
+}
+var PR_CACHE = "cairn-pr-state.json";
+var doneQueued = (l) => !!l.mergedAt || l.outbox.some((w) => w.dedupe.startsWith("status:") && w.dedupe.endsWith(":done"));
+function mergedAwaitingDone(pc, s) {
+  if (!s.linear || s.stage !== "learn" && s.stage !== "closed" || doneQueued(s.linear)) return false;
+  let merged2 = false;
+  try {
+    merged2 = landedState(pc.plan.worktree, s.branch, s.base, planRelOf(pc.plan), join9(commonDir(pc.ctx.mainRoot), PR_CACHE)) === "merged";
+  } catch {
+    return false;
+  }
+  return merged2;
+}
+function queueDone(pc, s) {
+  const l = s.linear;
+  if (!l || doneQueued(l)) return 0;
+  const cfg = linearConfig(pc.cfg);
+  const taken = takenIssues(l);
+  const parents = parentKeys(taken);
+  const progress2 = issueProgress(s);
+  let n = 0;
+  for (const i of taken) if (!parents.has(i.key) && !isDone(i) && progress2.get(i.key) === "shipped" && queueStatus(l, cfg, i.key, "done", "the pull request is merged")) n++;
+  const all = [...l.issues, ...l.known];
+  const takenKeys = new Set(taken.map((i) => i.key));
+  for (const p of parents) {
+    const parent = all.find((i) => i.key === p);
+    if (isDone(parent)) continue;
+    const kids = all.filter((i) => i.parent === p);
+    if (kids.length && kids.every((k) => takenKeys.has(k.key) && (parents.has(k.key) || progress2.get(k.key) === "shipped") || isDone(k)) && queueStatus(l, cfg, p, "done", `every sub-issue of ${p} is done`)) n++;
+  }
+  l.mergedAt = now();
+  log(s, "Linear: merged", n ? `${n} issue(s) to mark Done` : "nothing to mark Done");
+  return n;
+}
+function pending(ctx) {
+  const pc = planCtx(ctx);
+  const pre = loadState(pc.plan.dir);
+  linkOf(pre);
+  const s = mergedAwaitingDone(pc, pre) ? mutate(pc, void 0, (x) => (queueDone(pc, x), x)) : pre;
+  const list2 = unsent(linkOf(s));
+  const lines = list2.length ? [`${list2.length} Linear update${list2.length === 1 ? "" : "s"} to send:`, ...list2.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? " (ask the user first)" : ""}${w.held ? ` (held: ${w.held.note})` : ""}: ${w.why}`)] : ["Nothing to send to Linear."];
+  return { message: lines.join("\n"), data: { pending: list2.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
+}
+function entry(l, id) {
+  if (!id) throw new CliError(USAGE2);
+  const w = l.outbox.find((x) => x.id === id);
+  if (!w) throw new Refusal(`no queued Linear update "${id}"`, ["cairn linear pending"]);
+  return w;
+}
+function markSent(ctx, id, opts) {
+  const pc = planCtx(ctx);
+  const pre = loadState(pc.plan.dir);
+  return mutate(pc, bookkeeping(pre, "Linear update sent"), (s) => {
+    const l = linkOf(s);
+    const w = entry(l, id);
+    if (w.sentAt) return { message: `${w.id} was already sent${w.ref ? ` (${w.ref})` : ""}.`, data: { already: true } };
+    if (w.dropped) throw new Refusal(`${w.id} was dropped: ${w.dropped.note}`, ["nothing to do; cairn linear pending lists what is left"]);
+    const ref = typeof opts.ref === "string" ? opts.ref.trim() : void 0;
+    w.sentAt = now();
+    if (ref) w.ref = ref;
+    if (w.kind === "createIssue" && ref) {
+      const [slug, sid] = w.target.split(":");
+      const sug = slug === s.slug ? s.suggestions?.find((x) => x.id === sid) : void 0;
+      if (sug) sug.linear = ref;
+    }
+    log(s, "Linear update sent", `${w.id} ${w.kind} ${w.target}${ref ? ` \u2192 ${ref}` : ""}`);
+    const left = unsent(l).length;
+    return { message: `Marked ${w.id} sent.${left ? ` ${left} left.` : " Nothing left to send."}`, data: { left } };
+  });
+}
+function drop(ctx, id, opts) {
+  const pc = planCtx(ctx);
+  if (typeof opts.note !== "string" || !opts.note.trim()) throw new CliError('cairn linear drop needs --note "<why it is not sent>"');
+  const pre = loadState(pc.plan.dir);
+  return mutate(pc, bookkeeping(pre, "Linear update dropped"), (s) => {
+    const w = entry(linkOf(s), id);
+    if (w.sentAt) throw new Refusal(`${w.id} was already sent`, ["nothing to do; cairn linear pending lists what is left"]);
+    w.dropped = { at: now(), note: String(opts.note) };
+    log(s, "Linear update dropped", `${w.id}: ${opts.note}`);
+    return { message: `Dropped ${w.id}; it won't be sent.` };
+  });
+}
+function hold(ctx, id, opts) {
+  const pc = planCtx(ctx);
+  if (typeof opts.note !== "string" || !opts.note.trim()) throw new CliError('cairn linear hold needs --note "<the error, or why it waits>"');
+  const pre = loadState(pc.plan.dir);
+  return mutate(pc, bookkeeping(pre, "Linear update held"), (s) => {
+    const w = entry(linkOf(s), id);
+    if (w.sentAt) return { message: `${w.id} was already sent.` };
+    if (w.dropped) throw new Refusal(`${w.id} was dropped: ${w.dropped.note}`, ["nothing to do; cairn linear pending lists what is left"]);
+    w.held = { at: now(), note: String(opts.note) };
+    log(s, "Linear update held", `${w.id}: ${opts.note}`);
+    return { message: `Held ${w.id}; the next sync tries it again.` };
+  });
+}
+function needKey(v, what) {
+  const k = typeof v === "string" ? v.toUpperCase() : "";
+  if (!ISSUE_KEY.test(k)) throw new CliError(`${what} must be a Linear issue key like SAV-12`);
+  return k;
+}
+function depends(ctx, keyArg, opts) {
+  const k = needKey(keyArg, "the blocked issue");
+  const on = needKey(opts.on, "--on");
+  if (k === on) throw new CliError("an issue cannot block itself");
+  if (typeof opts.reason !== "string" || !opts.reason.trim()) throw new CliError('cairn linear depends needs --reason "<what it needs from the blocker>"');
+  const reason = opts.reason.trim();
+  const pc = planCtx(ctx);
+  return mutate(pc, `Linear: ${k} depends on ${on}`, (s) => {
+    const l = linkOf(s);
+    const issue = l.issues.find((i) => i.key === k && !i.released);
+    if (!issue) throw new Refusal(`${k} is not one of this plan's issues`, ["cairn linear status lists them"]);
+    const cycle = findIssueCycle([...l.issues, ...l.known], [...l.depends, { key: k, on, reason, at: "" }], true);
+    if (cycle?.includes(k) && cycle.includes(on)) throw new Refusal(`that would make a loop: ${cycle.join(" \u2192 ")}`, ["record the dependency the other way round, or not at all"]);
+    const fresh = !l.depends.some((d) => d.key === k && d.on === on);
+    if (fresh) l.depends.push({ key: k, on, reason, at: now() });
+    if (!issue.blockedBy.includes(on)) {
+      queueWrite(l, { kind: "relation", target: k, payload: { id: k, blockedBy: [on] }, why: `${k} needs ${on}`, dedupe: `relation:${k}:${on}` });
+      queueComment(l, k, `Found while building: this needs ${on}. ${reason}`, `why ${k} now waits on ${on}`, `depends:${on}`);
+    }
+    for (const c of l.changes) if (!c.handled && c.kind === "link" && c.key === k && c.on === on) c.handled = { at: now(), how: "depends", note: reason };
+    log(s, "Linear dependency", `${k} on ${on}: ${reason}`);
+    const inPlan = l.issues.some((i) => i.key === on && !i.released);
+    const blocker = [...l.issues, ...l.known].find((i) => i.key === on);
+    const next = inPlan ? "Both issues are in this plan: re-plan so the tasks for it come after the tasks for the blocker (cairn plan load --replan), then the plan needs approval again." : isDone(blocker) ? `${on} is already done in Linear; nothing to wait for.` : `${on} is outside this plan and not done. Ask the user: pull it in (amend the PRD, re-plan), drop ${k} (cairn linear release ${k} --reason "\u2026"), stub it with a follow-up, or pause.`;
+    return { message: `${fresh ? "Recorded" : "Already recorded"}: ${k} depends on ${on}. ${next}`, data: { inPlan, done: isDone(blocker) } };
+  });
+}
+var ACK_AS = ["taken", "later", "noted"];
+function ack(ctx, id, opts) {
+  const as = String(opts.as ?? "");
+  if (!id || !ACK_AS.includes(as)) throw new CliError('usage: cairn linear ack <change id> --as taken|later|noted [--note "\u2026"]');
+  const note = typeof opts.note === "string" ? opts.note.trim() : void 0;
+  if (as === "noted" && !note) throw new CliError('--as noted needs --note "<why it does not block>"');
+  const pc = planCtx(ctx);
+  return mutate(pc, `Linear change ${id} handled`, (s) => {
+    const l = linkOf(s);
+    const c = l.changes.find((x) => x.id === id);
+    if (!c) throw new Refusal(`no change "${id}"`, ["cairn linear status lists open changes"]);
+    if (c.handled) return { message: `${id} was already handled (${c.handled.how}).` };
+    const subject = c.kind === "link" ? c.on : c.issue.key;
+    let msg;
+    if (as === "taken") {
+      const issue = c.issue ?? l.known.find((i) => i.key === subject);
+      if (!issue) throw new Refusal(`cairn has no details for ${subject}`, ["refresh with it included: cairn linear import --refresh"]);
+      if (!l.issues.some((i) => i.key === subject)) l.issues.push({ ...issue, blockedBy: [...issue.blockedBy] });
+      msg = `${subject} is now part of the plan. Next: add requirements tagged [${subject}] to the PRD, then re-plan (cairn plan load --replan).`;
+    } else if (as === "later") {
+      if (c.kind === "sub-issue" && !l.issues.some((i) => i.key === subject)) l.issues.push({ ...c.issue, released: { at: now(), reason: note ?? "later plan" } });
+      msg = `${subject} stays out of this plan${note ? `: ${note}` : ""}.`;
+    } else msg = `Noted: ${changeText(c)} does not hold this plan up: ${note}.`;
+    l.known = l.known.filter((i) => !l.issues.some((x) => x.key === i.key));
+    c.handled = { at: now(), how: as, ...note ? { note } : {} };
+    log(s, "Linear change handled", `${id} ${as}${note ? `: ${note}` : ""}`);
+    return { message: msg };
+  });
+}
+function release(ctx, keyArg, opts) {
+  const k = needKey(keyArg, "the issue");
+  if (typeof opts.reason !== "string" || !opts.reason.trim()) throw new CliError('cairn linear release needs --reason "\u2026"');
+  const reason = opts.reason.trim();
+  const pc = planCtx(ctx);
+  return mutate(pc, `Linear: released ${k}`, (s) => {
+    const l = linkOf(s);
+    const i = l.issues.find((x) => x.key === k);
+    if (!i) throw new Refusal(`${k} is not one of this plan's issues`, ["cairn linear status lists them"]);
+    if (i.released) return { message: `${k} was already released.` };
+    i.released = { at: now(), reason };
+    for (const c of l.changes) if (!c.handled && (c.key === k || c.issue?.key === k)) c.handled = { at: now(), how: "released", note: reason };
+    queueComment(l, k, `Released from cairn plan "${s.title}" (\`${s.branch}\`): ${reason}`, `${k} left the plan`, "released");
+    log(s, "Linear issue released", `${k}: ${reason}`);
+    const tagged = i.requirements?.length ? ` Its requirements (${i.requirements.join(", ")}) are still in the PRD: move them under ## Non-goals or drop them, then re-plan.` : "";
+    return { message: `Released ${k}: ${reason}.${tagged}` };
+  });
+}
+function linearPrdGate(s, prdMd, opts) {
+  if (!s.linear || !prdMd) return;
+  const problems = prdLinearProblems(s.linear, prdMd);
+  gate(!problems.length, s, "approve prd", opts, problems.join("; "), ["fix prd.md, then approve again"]);
+}
+function recordRequirements(s, prdMd) {
+  const l = s.linear;
+  if (!l) return;
+  const reqs = issueRequirements(prdMd, l.issues.map((i) => i.key));
+  for (const i of l.issues) {
+    i.requirements = reqs.get(i.key) ?? [];
+    const why = notTakenReason(prdMd, i.key);
+    if (!i.released && why && !i.requirements.length) i.released = { at: now(), reason: why };
+  }
+}
+function onPrdApproved(pc, s, prdMd) {
+  const l = s.linear;
+  if (!l) return;
+  recordRequirements(s, prdMd);
+  const prd = `${planRelOf(pc.plan)}/prd.md`;
+  for (const i of l.issues) {
+    if (i.released) queueComment(l, i.key, `Not taken by cairn plan "${s.title}" (\`${s.branch}\`): ${i.released.reason}`, `${i.key} is left out of the plan`, "released");
+    else if (i.requirements?.length)
+      queueComment(l, i.key, `cairn plan "${s.title}" (\`${s.branch}\`) takes this issue as ${i.requirements.join(", ")}. PRD: \`${prd}\`.`, `${i.key} is in the approved PRD`, "prd");
+  }
+}
+function onAdvance(pc, s, from, to, opts, followups) {
+  const l = s.linear;
+  if (!l) return;
+  const cfg = linearConfig(pc.cfg);
+  const taken = takenIssues(l);
+  if (to === "execute") {
+    for (const i of taken) if (!isDone(i) && i.stateType !== "started") queueStatus(l, cfg, i.key, "inProgress", "the plan started building");
+    if (l.epic && !taken.some((i) => i.key === l.epic)) {
+      const epic = l.known.find((i) => i.key === l.epic);
+      if (!isDone(epic) && epic?.stateType !== "started") queueStatus(l, cfg, l.epic, "inProgress", "a plan started building part of this epic");
+    }
+  }
+  if (from === "ship" && (to === "learn" || to === "closed")) {
+    if (typeof opts.pr === "string" && opts.pr.trim()) l.pr = opts.pr.trim();
+    const progress2 = issueProgress(s);
+    const parents = parentKeys(taken);
+    for (const i of taken) {
+      if (parents.has(i.key) || progress2.get(i.key) !== "shipped") continue;
+      const review = queueStatus(l, cfg, i.key, "inReview", "the pull request is open");
+      queueComment(l, i.key, `Shipped by cairn plan "${s.title}" (\`${s.branch}\`)${l.pr ? `: ${l.pr}` : "; the pull request is open"}.${review ? "" : " Waiting on review and merge."}`, `${i.key} is in an open pull request`, "pr");
+    }
+    for (const p of /* @__PURE__ */ new Set([...parents, ...l.epic ? [l.epic] : []])) {
+      const kids = [...l.issues, ...l.known].filter((i) => i.parent === p);
+      const done = kids.filter((k) => isDone(k) || progress2.get(k.key) === "shipped").length;
+      if (kids.length) queueComment(l, p, `${done} of ${kids.length} sub-issues shipped (plan \`${s.branch}\`${l.pr ? `, ${l.pr}` : ""}).`, `progress on ${p}`, `epic:${s.slug}`);
+    }
+  }
+  if (to === "closed") onClose(pc, s, followups ?? []);
+}
+function followupsFor(pc, slug) {
+  try {
+    return collectSuggestions(pc.ctx).filter((x) => x.open && x.slug === slug).map((x) => ({ key: x.key, text: x.text, area: x.area, hardening: x.hardening, ...x.linear ? { linear: x.linear } : {} }));
+  } catch {
+    return [];
+  }
+}
+function onClose(pc, s, followups) {
+  const l = s.linear;
+  const taken = takenIssues(l);
+  for (const f of followups) {
+    if (f.linear) continue;
+    queueWrite(l, {
+      kind: "createIssue",
+      target: f.key,
+      payload: {
+        team: l.team,
+        title: f.text.split("\n")[0].slice(0, 120),
+        description: `${f.text}
+
+Follow-up from cairn plan "${s.title}" (\`${s.branch}\`), ${f.hardening ? "hardening" : f.area}.`,
+        ...l.project ? { project: l.project } : {},
+        ...l.milestone ? { milestone: l.milestone } : {},
+        labels: ["cairn-follow-up"]
+      },
+      why: `open follow-up ${f.key}`,
+      dedupe: `create:${f.key}`
+    });
+  }
+  if (l.project) {
+    const left = l.issues.filter((i) => i.released);
+    const body = [
+      `**${s.title}** is closed${l.pr ? ` (${l.pr})` : ""}.`,
+      `Built: ${taken.map((i) => `${i.key} ${i.title}`).join("; ") || "nothing from Linear"}.`,
+      ...left.length ? [`Left for later: ${left.map((i) => `${i.key} (${i.released.reason})`).join("; ")}.`] : [],
+      ...followups.filter((f) => !f.linear).length ? [`Follow-ups filed: ${followups.filter((f) => !f.linear).length}.`] : []
+    ].join("\n\n");
+    queueWrite(l, { kind: "statusUpdate", target: l.project, payload: { type: "project", project: l.project, health: "onTrack", body }, why: `project update for "${l.project}"`, dedupe: `update:${s.slug}`, needsApproval: true });
+  }
+}
+function onPhaseFinished(s) {
+  const l = s.linear;
+  if (!l) return;
+  const progress2 = issueProgress(s);
+  for (const i of takenIssues(l))
+    if (progress2.get(i.key) === "built") queueComment(l, i.key, `Built in cairn plan "${s.title}" (\`${s.branch}\`); checks and review come next.`, `${i.key} is built`, "built");
+}
+function linearPhaseGate(s, opts) {
+  const open = s.linear?.changes.filter((c) => !c.handled) ?? [];
+  gate(!open.length, s, "phase finish", opts, `changes in Linear are not handled yet: ${open.map((c) => `${c.id} ${changeText(c)}`).join("; ")}`, [
+    'cairn linear depends <KEY> --on <KEY> --reason "\u2026" (a real dependency)',
+    'cairn linear ack <id> --as taken|later|noted [--note "\u2026"]',
+    'cairn linear release <KEY> --reason "\u2026" (drop the blocked issue)'
+  ]);
+}
+function onPlanLoaded(s) {
+  const l = s.linear;
+  if (!l) return;
+  const inPlan = new Set(takenIssues(l).map((i) => i.key));
+  for (const c of l.changes) if (!c.handled && c.kind === "link" && inPlan.has(c.key) && inPlan.has(c.on)) c.handled = { at: now(), how: "replan" };
+}
+function crossPlanBlockers(ctx, s) {
+  const l = s.linear;
+  if (!l) return [];
+  const others = otherPlans(ctx, s.slug);
+  const byKey = new Map([...l.known, ...l.issues].map((i) => [i.key, i]));
+  const inPlan = new Set(takenIssues(l).map((i) => i.key));
+  const out = [];
+  for (const i of takenIssues(l))
+    for (const b of effectiveBlockers(i, byKey, l.depends)) {
+      if (inPlan.has(b) || isDone(byKey.get(b))) continue;
+      const o = ownerOf(others, b);
+      if (!o) continue;
+      if (o.stage !== "learn" && o.stage !== "closed") out.push(`${i.key} needs ${b}, which plan ${o.slug} has not shipped (it is in ${o.stage})`);
+      else if (!merged(ctx, o.state)) out.push(`${i.key} needs ${b}, which plan ${o.slug} has not merged yet`);
+    }
+  return [...new Set(out)];
+}
+function merged(ctx, s) {
+  try {
+    const rel = resolvePlanDir(s.slug, { ref: s.branch, cwd: ctx.top }) ?? "";
+    return landedState(ctx.top, s.branch, s.base, rel, join9(commonDir(ctx.mainRoot), PR_CACHE)) === "merged";
+  } catch {
+    return false;
+  }
+}
+function linearStatus(ctx) {
+  const pc = planCtx(ctx);
+  const s = loadState(pc.plan.dir);
+  const l = linkOf(s);
+  const progress2 = issueProgress(s);
+  const open = l.changes.filter((c) => !c.handled);
+  const lines = [
+    `Linear: ${[l.project, l.milestone, l.epic ? `epic ${l.epic}` : void 0].filter(Boolean).join(" \xB7 ") || l.team}`,
+    ...l.issues.map((i) => `  ${i.key} ${i.title}: ${progress2.get(i.key)}${i.released ? ` (${i.released.reason})` : ""}${i.requirements?.length ? ` [${i.requirements.join(", ")}]` : ""}`),
+    ...open.length ? [`Changes to decide: ${open.map((c) => `${c.id} ${changeText(c)}`).join("; ")}`] : [],
+    ...unsent(l).length ? [`${unsent(l).length} update(s) waiting to be sent: cairn linear pending`] : []
+  ];
+  return { message: lines.join("\n"), data: { linear: l, progress: Object.fromEntries(progress2), openChanges: open, pending: unsent(l).length } };
+}
+var projectSlug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
+var snapshotDir = (ctx) => join9(commonDir(ctx.mainRoot), "cairn", "linear");
+var snapshotFile = (ctx, project) => join9(snapshotDir(ctx), `${projectSlug(project)}.json`);
+function loadSnapshot(ctx, project) {
+  const dir = snapshotDir(ctx);
+  const files = existsSync4(dir) ? readdirSync3(dir).filter((f) => f.endsWith(".json")) : [];
+  const read = (f) => JSON.parse(readText(join9(dir, f)) ?? "{}");
+  if (project) {
+    const f = `${projectSlug(project)}.json`;
+    if (!files.includes(f)) throw new Refusal(`no snapshot of "${project}" yet`, [`read it from Linear first: /cairn:board ${project}`]);
+    return read(f);
+  }
+  if (files.length === 1) return read(files[0]);
+  if (!files.length) throw new Refusal("no Linear project has been read yet", ["/cairn:board <project> reads one from Linear"]);
+  throw new Refusal(`several projects have been read: ${files.map((f) => f.replace(/\.json$/, "")).join(", ")}`, ['pass --project "<name>"']);
+}
+function board(ctx, opts) {
+  const snap = loadSnapshot(ctx, typeof opts.project === "string" ? opts.project : void 0);
+  const plans = otherPlans(ctx);
+  const byKey = new Map(snap.issues.map((i) => [i.key, i]));
+  const lookup = new Map([...snap.known ?? [], ...snap.issues].map((i) => [i.key, i]));
+  const progressOf = new Map(plans.map((p) => [p.slug, issueProgress(p.state)]));
+  const depends2 = plans.flatMap((p) => p.state.linear.depends);
+  const where = (k) => {
+    const o = ownerOf(plans, k);
+    if (o) return `plan ${o.slug} (${o.stage})`;
+    const i = byKey.get(k);
+    return i ? i.milestone ? `milestone ${i.milestone}` : "this project" : "another project";
+  };
+  const statusOf = (i) => {
+    const owner = ownerOf(plans, i.key);
+    const blockers = effectiveBlockers(i, lookup, depends2).filter((b) => !isDone(lookup.get(b)));
+    const base = { key: i.key, title: i.title, ...i.milestone ? { milestone: i.milestone } : {}, ...i.parent ? { parent: i.parent } : {}, blockedBy: blockers.map((b) => ({ key: b, where: where(b) })) };
+    if (isDone(i)) return { ...base, status: "done", blockedBy: [] };
+    if (owner) return { ...base, status: "in plan", plan: { slug: owner.slug, stage: owner.stage, progress: progressOf.get(owner.slug).get(i.key) ?? "not started" } };
+    return { ...base, status: blockers.length ? "blocked" : "ready" };
+  };
+  const parents = new Set(snap.issues.map((i) => i.parent).filter((p) => !!p && byKey.has(p)));
+  const leaves = snap.issues.filter((i) => !parents.has(i.key)).map(statusOf);
+  const leafOf = new Map(leaves.map((x) => [x.key, x]));
+  const descendants = (k) => snap.issues.filter((i) => i.parent === k).flatMap((i) => parents.has(i.key) ? descendants(i.key) : [leafOf.get(i.key)]);
+  const names = [.../* @__PURE__ */ new Set([...snap.milestones, ...snap.issues.map((i) => i.milestone ?? "")])];
+  const count = (xs) => ({ total: xs.length, done: xs.filter((x) => x.status === "done").length, inPlan: xs.filter((x) => x.status === "in plan").length, ready: xs.filter((x) => x.status === "ready").length, blocked: xs.filter((x) => x.status === "blocked").length });
+  const epicOf = (p) => {
+    const kids = descendants(p);
+    return { key: p, title: byKey.get(p).title, done: kids.filter((k) => k.status === "done").length, total: kids.length, plans: [...new Set(kids.map((k) => k.plan?.slug).filter((x) => !!x))], issues: kids };
+  };
+  const epicKey = typeof opts.epic === "string" ? opts.epic.trim().toUpperCase() : void 0;
+  if (epicKey && !parents.has(epicKey)) throw new Refusal(`${epicKey} is not an epic in "${snap.project}" as last read`, ["cairn linear board lists the epics", `or re-read the project: /cairn:board ${snap.project}`]);
+  const milestones = epicKey ? [{ name: byKey.get(epicKey).milestone ?? "No milestone", counts: count(descendants(epicKey)), epics: [epicOf(epicKey)], issues: [] }] : names.map((name) => {
+    const mine = leaves.filter((x) => (x.milestone ?? "") === name);
+    const epics = [...parents].filter((p) => !byKey.get(p).parent || !parents.has(byKey.get(p).parent)).filter((p) => (byKey.get(p).milestone ?? "") === name).map(epicOf);
+    const inEpic = new Set(epics.flatMap((e) => e.issues.map((i) => i.key)));
+    return { name: name || "No milestone", counts: count(mine), epics, issues: mine.filter((x) => !inEpic.has(x.key) && !(x.parent && parents.has(x.parent))) };
+  }).filter((m) => m.counts.total || m.epics.length);
+  const cycle = findIssueCycle(snap.issues, depends2);
+  const ageMinutes = Math.max(0, Math.round((Date.now() - Date.parse(snap.readAt)) / 6e4));
+  const week = 7 * 864e5;
+  const planRows = plans.filter((p) => p.stage !== "closed" && p.state.linear.issues.some((i) => byKey.has(i.key))).map((p) => ({ slug: p.slug, title: p.state.title, stage: p.stage, issues: takenIssues(p.state.linear).map((i) => i.key), stalled: Date.now() - Date.parse(p.state.updated) > week }));
+  const age = ageMinutes < 60 ? `${ageMinutes} min` : ageMinutes < 2880 ? `${Math.round(ageMinutes / 60)} h` : `${Math.round(ageMinutes / 1440)} days`;
+  const issueLine = (x, indent) => `${indent}${x.status === "done" ? "\u2713" : x.status === "in plan" ? "\u25B8" : x.status === "ready" ? "\u25CB" : "\u2717"} ${x.key} ${x.title}${x.plan ? `: ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})` : ""}${x.status === "blocked" ? `: blocked by ${x.blockedBy.map((b) => `${b.key} [${b.where}]`).join(", ")}` : ""}`;
+  const lines = [
+    `${snap.project}: read from Linear ${age} ago.`,
+    ...milestones.flatMap((m) => [
+      `${m.name}: ${m.counts.done}/${m.counts.total} done, ${m.counts.inPlan} in a plan, ${m.counts.ready} ready, ${m.counts.blocked} blocked`,
+      ...m.epics.flatMap((e) => [`  epic ${e.key} ${e.title}: ${e.done}/${e.total} done${e.plans.length ? `, plans: ${e.plans.join(", ")}` : ""}`, ...e.issues.map((x) => issueLine(x, "    "))]),
+      ...m.issues.map((x) => issueLine(x, "  "))
+    ]),
+    ...planRows.length ? ["Plans:", ...planRows.map((p) => `  ${p.slug} (${p.stage}): ${p.issues.join(", ")}${p.stalled ? ", no change in over a week" : ""}`)] : [],
+    ...cycle ? [`Loop in blocked-by links: ${cycle.join(" \u2192 ")}. Remove one link in Linear.`] : []
+  ];
+  return { message: lines.join("\n"), data: { project: snap.project, readAt: snap.readAt, ageMinutes, milestones, plans: planRows, cycle: cycle ?? null } };
+}
+function mergedPlansAwaitingDone(ctx) {
+  try {
+    return listPlans(ctx).filter((r) => r.worktree && wellFormed(r.state.linear) && (r.state.stage === "learn" || r.state.stage === "closed") && !doneQueued(r.state.linear) && merged(ctx, r.state)).map((r) => ({ slug: r.state.slug, worktree: r.worktree }));
+  } catch {
+    return [];
+  }
+}
+var pendingCount = (s) => due(s.linear).length;
 
 // plugins/cairn/cli/src/commands/stages.ts
 var STAGE_ORDER = {
@@ -8568,12 +9451,13 @@ var WRITING_STEPS = ["drafting", "checking", "recording"];
 function readyFor(pc) {
   try {
     const s = loadState(pc.plan.dir);
-    const file = (name) => join9(pc.plan.dir, name);
+    const file = (name) => join10(pc.plan.dir, name);
     const pcLike = pc;
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return void 0;
     if (s.stage === "prd" && !s.approvals.prd) {
       const md = readText(file("prd.md"));
-      return md && !prdProblems(md).length ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0;
+      const linearOk = !s.linear || !md || !prdLinearProblems(s.linear, md).length;
+      return md && !prdProblems(md).length && linearOk ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0;
     }
     if (s.stage === "plan" && !s.approvals.plan) {
       const md = readText(file("plan.md"));
@@ -8607,8 +9491,10 @@ function cmdApprove(ctx, kind, opts, io) {
         gate(s.stage === "prd", s, "approve prd", opts, `the plan is in ${s.stage}, not prd`);
         const problems = prdProblems(md);
         gate(!problems.length, s, "approve prd", opts, problems.join("; "), ["finish prd.md, resolving open questions with the user"]);
+        linearPrdGate(s, md, opts);
         s.approvals.prd = { ...approval(), hash: md ? hashText(md) : void 0 };
         log(s, "PRD approved", source);
+        if (md) onPrdApproved(pc, s, md);
         return { message: "PRD approved. Next: `cairn advance` to planning." };
       });
     }
@@ -8623,31 +9509,36 @@ function cmdApprove(ctx, kind, opts, io) {
         gate(s.stage === "plan", s, "approve plan", opts, `the plan is in ${s.stage}, not plan`);
         gate(s.phases.length > 0, s, "approve plan", opts, "no plan is loaded", ["cairn plan load"]);
         gate(!!md && s.planHash === hashText(md), s, "approve plan", opts, "plan.md changed since it was loaded", ["cairn plan load"]);
+        linearPrdGate(s, readText(planFile(pc, "prd.md")), opts);
         s.approvals.plan = { ...approval(), hash: s.planHash };
         s.configHash = configHash(pc.cfg);
         log(s, "plan approved", source);
         const prd = readText(planFile(pc, "prd.md"));
         if (prdEditedSinceApproval(s, prd)) {
           s.approvals.prd = { ...approval(), hash: hashText(prd) };
+          recordRequirements(s, prd);
           log(s, "PRD edits accepted with the plan", source);
           return { message: "Plan approved, and the PRD edits with it. Next: `cairn advance` to execution." };
         }
         return { message: "Plan approved. Next: `cairn advance` to execution." };
       });
     }
-    case "ship":
+    case "ship": {
+      const waiting = crossPlanBlockers(pc.ctx, loadState(pc.plan.dir));
       return mutate(pc, "ship approved", (s) => {
         const again = !!s.reapprove;
         gate(s.stage === "ship" || again, s, "approve ship", opts, `the plan is in ${s.stage}, not ship`);
         gate(s.evidence.review?.result === "pass", s, "approve ship", opts, "review has not passed", ["run the review procedure, then cairn evidence review pass"]);
         const record = recordCheck(pc, fastLane(s) ? "fix" : "feature");
         gate(!record.problems.length, s, "approve ship", opts, record.problems.join("; "), [record.fix]);
+        gate(!waiting.length, s, "approve ship", opts, `this plan builds on work another plan has not shipped: ${waiting.join("; ")}`, ["ship the other plan first"]);
         s.approvals.ship = { ...approval(), sha: git(["rev-parse", "HEAD"], pc.plan.worktree) };
         delete s.reapprove;
         log(s, again ? "ship approved again" : "ship approved", source);
         if (again) return { message: "Ship approved again. Next: `cairn merge-check`, then merge." };
         return { message: "Ship approved. Next: open the PR, then `cairn advance`; offer the merge last." };
       });
+    }
     default:
       throw new CliError(APPROVE_USAGE);
   }
@@ -8660,6 +9551,7 @@ function cmdAdvance(ctx, opts) {
   if (closing) configGate(pre, pc.cfg, "close", opts);
   const record = closing ? recordCheck(pc, "fix") : void 0;
   const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : void 0;
+  const followups = closing && pre.linear ? followupsFor(pc, pre.slug) : void 0;
   let to;
   const r = mutate(pc, void 0, (s) => {
     to = nextStage(s);
@@ -8698,13 +9590,15 @@ function cmdAdvance(ctx, opts) {
       for (const t of allTasks(s))
         if (t.status === "done" && t.level === "mvp" && !t.risky) addHardening(s, { area: "quality", text: `Task "${t.name}" ran at MVP without a per-task review.`, where: t.scope });
     }
+    const from = s.stage;
     setStage(s, to);
+    onAdvance(pc, s, from, to, opts, followups);
     if (to === "execute") {
       const p = currentPhase(s);
       if (p && p.status === "pending") p.status = "in_progress";
     }
     log(s, "advanced", to);
-    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join9(pc.plan.dir, "RECORD.md")}.` };
+    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join10(pc.plan.dir, "RECORD.md")}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
@@ -8715,12 +9609,15 @@ function cmdClose(ctx, opts) {
   configGate(loadState(pc.plan.dir), pc.cfg, "close", opts);
   const record = recordCheck(pc, "feature");
   const tests = runTests(pc.cfg, pc.plan.worktree);
+  const pre = loadState(pc.plan.dir);
+  const followups = pre.linear ? followupsFor(pc, pre.slug) : [];
   const r = mutate(pc, "closed", (s) => {
     gate(s.stage === "learn", s, "close", opts, `the plan is in ${s.stage}, not learn`);
     closeGates(pc, s, opts, record, tests);
     setStage(s, "closed");
+    onAdvance(pc, s, "learn", "closed", opts, followups);
     log(s, "closed");
-    return { message: `Closed "${s.title}". The record is ${join9(pc.plan.dir, "RECORD.md")}.` };
+    return { message: `Closed "${s.title}". The record is ${join10(pc.plan.dir, "RECORD.md")}.` };
   });
   return closeMemory(pc, r);
 }
@@ -8735,10 +9632,10 @@ function listPlans(ctx) {
     const ref = planRef(slug, ctx.worktrees, b);
     try {
       const rel = resolvePlanDir(slug, { ref: b, cwd: ctx.top });
-      const raw = ref.dir && existsSync4(join10(ref.dir, "state.json")) ? readFileSync5(join10(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
+      const raw = ref.dir && existsSync5(join11(ref.dir, "state.json")) ? readFileSync5(join11(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
       const state = parseState(raw);
       if (state.branch !== b) continue;
-      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join10(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join11(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
     } catch {
     }
   }
@@ -8755,11 +9652,13 @@ function warnings(pc, s) {
   if (open.length) w.push(`${open.length} file(s) changed outside the plan's scope`);
   const cw = configWarning(pc.plan.worktree);
   if (cw) w.push(cw);
+  const changes = s.linear?.changes?.filter((c) => !c.handled).length ?? 0;
+  if (changes) w.push(`Linear: ${changes} change${changes === 1 ? "" : "s"} to decide before the phase can finish (cairn linear status)`);
   return w;
 }
 function waitingOnMerge(ctx, s, cwd, planRel2) {
   if (s.stage !== "learn" && s.stage !== "closed") return false;
-  return landedState(cwd, s.branch, s.base, planRel2, join10(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
+  return landedState(cwd, s.branch, s.base, planRel2, join11(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
 }
 function cmdStatus(ctx, opts) {
   if (opts.all || !ctx.plan) {
@@ -8800,9 +9699,16 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.s
     data: { state: s, next, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
   };
 }
-var procedurePath = (name) => join10(pluginRoot(), "procedures", `${name}.md`);
+var procedurePath = (name) => join11(pluginRoot(), "procedures", `${name}.md`);
 function cmdNext(ctx) {
   if (!ctx.plan) {
+    const owed = mergedPlansAwaitingDone(ctx)[0];
+    if (owed)
+      return {
+        message: `Plan ${owed.slug} has merged and its Linear issues are not marked Done yet. Follow linear-sync from its worktree: ${owed.worktree}
+Follow: ${procedurePath("linear-sync")}`,
+        data: { plan: owed.slug, stage: null, procedure: procedurePath("linear-sync"), planWorktree: owed.worktree, summary: `${owed.slug} merged; Linear updates due.`, modActive: modIsActive(ctx) }
+      };
     const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
     if (!active.length) return { message: "No active plans. Start one.", data: { plan: null, stage: null, procedure: procedurePath("new"), summary: "No active plans.", modActive: modIsActive(ctx) } };
     return {
@@ -8813,8 +9719,11 @@ Ask the user which plan to resume (/cairn:resume <slug>) or whether to start a n
     };
   }
   const pc = planCtx(ctx);
-  const s = loadState(pc.plan.dir);
-  const n = nextFor(s);
+  let s = loadState(pc.plan.dir);
+  if (mergedAwaitingDone(pc, s)) s = mutate(pc, void 0, (x) => (queueDone(pc, x), x));
+  const queued = pendingCount(s);
+  const stageNext = nextFor(s);
+  const n = queued ? { procedure: "linear-sync", text: `Send ${queued} queued Linear update${queued === 1 ? "" : "s"} first. Then: ${stageNext.text}` } : stageNext;
   return {
     message: `${summary(s)}
 Next: ${n.text}
@@ -8826,10 +9735,10 @@ function cmdRender(ctx) {
   if (ctx.plan) {
     const pc = planCtx(ctx);
     withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
-    return { message: `Rendered ${join10(pc.plan.dir, "STATUS.md")}.` };
+    return { message: `Rendered ${join11(pc.plan.dir, "STATUS.md")}.` };
   }
   refreshMemory(ctx.top, ctx);
-  return { message: `Rendered ${join10(ctx.top, OVERVIEW_REL)} (the changelog).` };
+  return { message: `Rendered ${join11(ctx.top, OVERVIEW_REL)} (the changelog).` };
 }
 
 // plugins/cairn/cli/src/commands/records.ts
@@ -8839,7 +9748,7 @@ function whyLine(md) {
   const para = body.split(/\n\s*\n/)[0]?.replace(/\s+/g, " ").trim() ?? "";
   return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
 }
-var changelogIn = (root, e) => PLANS_DIRS.map((d) => join11(root, d, basename2(e.dir), "changelog.md")).find((p) => existsSync5(p));
+var changelogIn = (root, e) => PLANS_DIRS.map((d) => join12(root, d, basename2(e.dir), "changelog.md")).find((p) => existsSync6(p));
 function changelogEntry(e, root) {
   const path = (root === void 0 ? void 0 : changelogIn(root, e)) ?? e.changelog;
   return path ? stripControl(readText(path) ?? "").trim() : "";
@@ -8853,26 +9762,26 @@ function planEntries(ctx) {
   for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
   const bases = plansDirsIn(main2);
   for (const base of bases)
-    for (const name of readdirSync3(base)) {
-      const raw = readText(join11(base, name, "state.json"));
+    for (const name of readdirSync4(base)) {
+      const raw = readText(join12(base, name, "state.json"));
       if (raw === void 0) continue;
       try {
         const state = parseState(raw);
-        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join11(base, name) });
+        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join12(base, name) });
       } catch {
       }
     }
   return [...found.values()].map(({ state, dir }) => {
-    let recordPath = join11(dir, "RECORD.md");
-    if (!existsSync5(recordPath)) recordPath = bases.map((b) => join11(b, basename2(dir), "RECORD.md")).find((p) => existsSync5(p)) ?? recordPath;
-    let changelogPath = PLANS_DIRS.map((d) => join11(ctx.top, d, basename2(dir), "changelog.md")).find((p) => existsSync5(p)) ?? join11(dir, "changelog.md");
-    if (!existsSync5(changelogPath)) changelogPath = bases.map((b) => join11(b, basename2(dir), "changelog.md")).find((p) => existsSync5(p)) ?? changelogPath;
+    let recordPath = join12(dir, "RECORD.md");
+    if (!existsSync6(recordPath)) recordPath = bases.map((b) => join12(b, basename2(dir), "RECORD.md")).find((p) => existsSync6(p)) ?? recordPath;
+    let changelogPath = PLANS_DIRS.map((d) => join12(ctx.top, d, basename2(dir), "changelog.md")).find((p) => existsSync6(p)) ?? join12(dir, "changelog.md");
+    if (!existsSync6(changelogPath)) changelogPath = bases.map((b) => join12(b, basename2(dir), "changelog.md")).find((p) => existsSync6(p)) ?? changelogPath;
     return {
       state,
       dir,
       date: basename2(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
-      ...existsSync5(recordPath) ? { record: recordPath } : {},
-      ...existsSync5(changelogPath) ? { changelog: changelogPath } : {}
+      ...existsSync6(recordPath) ? { record: recordPath } : {},
+      ...existsSync6(changelogPath) ? { changelog: changelogPath } : {}
     };
   });
 }
@@ -8882,9 +9791,9 @@ function listRecords(ctx) {
   for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status, ...x.hardening ? { hardening: true } : {} }]);
   const entries = planEntries(ctx).map((pe) => {
     const { state, date, record } = pe;
-    let entry = "";
+    let entry2 = "";
     try {
-      entry = changelogEntry(pe, ctx.top);
+      entry2 = changelogEntry(pe, ctx.top);
     } catch {
     }
     return {
@@ -8893,7 +9802,7 @@ function listRecords(ctx) {
       date,
       stage: state.stage,
       why: stripControl(whyLine(record ? readText(record) : void 0)),
-      ...entry ? { entry } : {},
+      ...entry2 ? { entry: entry2 } : {},
       ...record ? { record } : {},
       followUps: followUps.get(state.slug) ?? []
     };
@@ -8919,7 +9828,7 @@ function cmdRecords(ctx) {
 var OVERVIEW_REL = `${DOCS_DIR}/OVERVIEW.md`;
 var CHANGELOG_MARK = "<!-- Generated by cairn from each plan's changelog entry and record. Edits here are overwritten. -->";
 var NONE = "None yet.";
-var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename3(e.dir)}/RECORD.md`).find((rel) => existsSync6(join12(root, rel)));
+var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename3(e.dir)}/RECORD.md`).find((rel) => existsSync7(join13(root, rel)));
 var byNewest = (a, b) => b.date.localeCompare(a.date) || a.state.slug.localeCompare(b.state.slug);
 function renderChangelog(root, plans) {
   const out = ["# Changelog", "", CHANGELOG_MARK, ""];
@@ -8963,10 +9872,10 @@ function memoryIndex(root, plansOf) {
 // plugins/cairn/cli/src/commands/memory.ts
 var removed = (what) => new Refusal(`${what} was removed; the changelog in ${OVERVIEW_REL} replaces it.`);
 function refreshMemory(root, ctx) {
-  const before = readText(join13(root, OVERVIEW_REL));
+  const before = readText(join14(root, OVERVIEW_REL));
   const after = renderChangelog(root, planEntries(ctx));
   if (before === after) return [];
-  writeText(join13(root, OVERVIEW_REL), after);
+  writeText(join14(root, OVERVIEW_REL), after);
   return [OVERVIEW_REL];
 }
 function writeMemory(pc, s) {
@@ -9010,12 +9919,12 @@ function cmdNew(ctx, slug, opts) {
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-    wt = join14(root, worktreeName(branch));
+    wt = join15(root, worktreeName(branch));
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
   const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
-  const dir = join14(wt, rel);
-  writeText(join14(dir, "decisions.md"), `# Decisions: ${title}
+  const dir = join15(wt, rel);
+  writeText(join15(dir, "decisions.md"), `# Decisions: ${title}
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
@@ -9039,11 +9948,11 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   };
 }
 function cmdProductInit(ctx) {
-  const dir = join14(ctx.top, `${DOCS_DIR}/product`);
-  const prd = join14(dir, "PRD.md");
-  if (existsSync7(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
+  const dir = join15(ctx.top, `${DOCS_DIR}/product`);
+  const prd = join15(dir, "PRD.md");
+  if (existsSync8(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
   writeText(prd, template("product-prd.md") ?? "# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n");
-  writeText(join14(dir, "decisions", ".gitkeep"), "");
+  writeText(join15(dir, "decisions", ".gitkeep"), "");
   return { message: `Created ${DOCS_DIR}/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
 }
 var REMOVED_DECIDE_OPTS = ["lasting", "promote", "replaces", "areas", "paths", "plan", "date"];
@@ -9083,9 +9992,9 @@ _${now().slice(0, 16).replace("T", " ")}_
 }
 
 // plugins/cairn/cli/src/commands/level.ts
-var USAGE2 = "usage: cairn level mvp|standard|polished [--human]";
+var USAGE3 = "usage: cairn level mvp|standard|polished [--human]";
 function cmdLevel(ctx, value, opts, io) {
-  if (!value) throw new CliError(USAGE2);
+  if (!value) throw new CliError(USAGE3);
   if (!isLevel(value)) throw new Refusal(`"${value}" is not a level: use ${LEVELS.join(", ")}`);
   const to = value;
   const pc = planCtx(ctx);
@@ -9267,6 +10176,8 @@ function cmdPlanLoad(ctx, opts) {
   const prdMd = readText(planFile(pc, "prd.md")) ?? "";
   if (!planMd) throw new Refusal("plan.md does not exist", ["write it from templates/plan.md"]);
   const parsed = parsePlan(planMd, prdMd);
+  const link = loadState(pc.plan.dir).linear;
+  if (link && !parsed.problems.length) parsed.problems.push(...issueOrderProblems(link, parsed.phases, prdMd, planMd));
   if (parsed.problems.length) throw new Refusal(`plan.md is not loadable:
   - ${parsed.problems.join("\n  - ")}`, ["fix plan.md, then cairn plan load"]);
   return mutate(pc, "plan loaded", (s) => {
@@ -9279,6 +10190,7 @@ function cmdPlanLoad(ctx, opts) {
     if (lostDone.length) throw new Refusal(`the new plan drops tasks that already started or finished: ${lostDone.join(", ")}`, ["keep them in plan.md"]);
     s.phases = phases;
     s.planHash = hashText(planMd);
+    onPlanLoaded(s);
     if (replanning) {
       setStage(s, "plan");
       delete s.approvals.plan;
@@ -9295,8 +10207,8 @@ function cmdPlanLoad(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/tasks.ts
-import { existsSync as existsSync8 } from "node:fs";
-import { basename as basename4, join as join15 } from "node:path";
+import { existsSync as existsSync9 } from "node:fs";
+import { basename as basename4, join as join16 } from "node:path";
 var MAX_FIX_ROUNDS = 2;
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
@@ -9335,7 +10247,7 @@ function taskStart(pc, id, opts) {
   const { plan: plan2, ctx, cfg } = pc;
   const r = mutate(pc, void 0, (s) => {
     const branch = taskBranch(plan2.slug, id);
-    const path = join15(worktreeRoot(cfg, ctx.mainRoot), `${basename4(plan2.worktree)}--${id}`);
+    const path = join16(worktreeRoot(cfg, ctx.mainRoot), `${basename4(plan2.worktree)}--${id}`);
     const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
@@ -9355,7 +10267,7 @@ function taskStart(pc, id, opts) {
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base = git(["rev-parse", pb], plan2.worktree);
     let setup = "";
-    if (!existsSync8(path)) {
+    if (!existsSync9(path)) {
       if (branchExists(branch, plan2.worktree)) git(["worktree", "add", "-q", path, branch], plan2.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan2.worktree);
       setup = runSetup(cfg, path, ctx.mainRoot);
@@ -9392,16 +10304,16 @@ function taskDone(pc, id, opts) {
   if (sl.status !== "in_progress" || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`);
   const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
-  const merged = branchExists(sl.branch, plan2.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree);
-  const dirty = sl.worktree && existsSync8(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const merged2 = branchExists(sl.branch, plan2.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree);
+  const dirty = sl.worktree && existsSync9(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan2.worktree) ? git(["rev-parse", "--short", sl.branch], plan2.worktree) : void 0;
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
-  const checkable = merged && !dirty && !planDirty;
+  const checkable = merged2 && !dirty && !planDirty;
   const tests = checkable ? runTests(pc.cfg, plan2.worktree) : void 0;
   const testedCommit = tests ? git(["rev-parse", "HEAD"], plan2.worktree) : void 0;
   const fix = fastLane(pre);
-  const repro = fix && merged && pre.repro ? runRepro(pre.repro.cmd, plan2.worktree, pc.cfg) : void 0;
+  const repro = fix && merged2 && pre.repro ? runRepro(pre.repro.cmd, plan2.worktree, pc.cfg) : void 0;
   const heads = [pb, ...tip ? [sl.branch] : []];
   const changed = fix && sl.base ? new Set(heads.flatMap((h) => changedFiles(plan2.worktree, plan2.slug, sl.base, h))).size : 0;
   const outside = tip && sl.base ? changedFiles(plan2.worktree, plan2.slug, sl.base, sl.branch).filter((f) => !matchesAny(f, sl.scope)) : [];
@@ -9414,7 +10326,7 @@ function taskDone(pc, id, opts) {
     gate(commits > 0, s, "task done", opts, `${cur.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
     gate(!planDirty, s, "task done", opts, `the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
     gate(!stray.length, s, "task done", opts, `commits for task "${cur.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(", ")}`, [`move these commits to the task branch (git cherry-pick them onto ${cur.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
-    gate(merged, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan2.worktree} merge --no-ff ${cur.branch}`]);
+    gate(merged2, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan2.worktree} merge --no-ff ${cur.branch}`]);
     testsGate(tests ?? (checkable ? void 0 : { ok: false, ran: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts, cur.scope);
     if (fix) {
       gate(repro?.outcome === "passes", s, "task done", opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` \u2192 ${repro.detail})` : "the repro was not run: the task is not merged", ["fix the bug so the repro command exits 0"]);
@@ -9436,8 +10348,8 @@ function taskDone(pc, id, opts) {
       data: { phaseComplete: !left }
     };
   });
-  if (merged && sl.worktree && existsSync8(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
-  if (merged) gitOk(["branch", "-d", sl.branch], plan2.worktree);
+  if (merged2 && sl.worktree && existsSync9(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
+  if (merged2) gitOk(["branch", "-d", sl.branch], plan2.worktree);
   return r;
 }
 
@@ -9462,8 +10374,8 @@ function cmdStep(ctx, name, opts) {
 }
 
 // plugins/cairn/cli/src/commands/merge.ts
-import { existsSync as existsSync9, readdirSync as readdirSync4 } from "node:fs";
-import { join as join16, relative as relative3 } from "node:path";
+import { existsSync as existsSync10, readdirSync as readdirSync5 } from "node:fs";
+import { join as join17, relative as relative3 } from "node:path";
 var short = (sha) => sha.slice(0, 7);
 var reapproveFixes = (slug, worktree) => [
   `the user approves the ship again in the approval menu tagged [cairn:approve ship ${slug}], or presses Approve in the cairn pane`,
@@ -9534,7 +10446,7 @@ function cmdMergeCheck(ctx, _opts) {
       throw new Refusal(`the ship needs approving again: ${why}`, reapproveFixes(s0.slug, wt));
     }
   } else notes.push("This plan was approved before cairn pinned approvals to a commit, so changes since then were not checked.");
-  let merged;
+  let merged2;
   if (!gitOk(["merge-base", "--is-ancestor", baseRef, "HEAD"], wt)) {
     const behind = Number(git(["rev-list", "--count", `HEAD..${baseRef}`], wt));
     const m = mergeBase(pc, baseRef, `Merge ${s0.base} into ${s0.branch} before merging`);
@@ -9543,9 +10455,9 @@ function cmdMergeCheck(ctx, _opts) {
         `${s0.base} has ${behind} new commit${behind === 1 ? "" : "s"} that conflict with this branch${m.conflicted.length ? ` in ${m.conflicted.join(", ")}` : `: ${m.out}`}. The merge was aborted; nothing changed.`,
         [`merge ${s0.base} into ${s0.branch} in the plan worktree, resolve the conflicts, and run the tests`, "then run cairn merge-check again: a merge resolved by hand is new code, so it asks for the ship approval again"]
       );
-    merged = { sha: git(["rev-parse", "HEAD"], wt), behind };
+    merged2 = { sha: git(["rev-parse", "HEAD"], wt), behind };
     mutate(pc, `merge ${s0.base} before merging`, (s) => {
-      (s.baseMerges ??= []).push(merged.sha);
+      (s.baseMerges ??= []).push(merged2.sha);
       log(s, "base merged", `${s0.base}: ${behind} new commit${behind === 1 ? "" : "s"}, merged cleanly`);
     });
   }
@@ -9554,8 +10466,8 @@ function cmdMergeCheck(ctx, _opts) {
   const tests = untested ? runTests(pc.cfg, wt) : void 0;
   if (tests && !tests.ok) {
     mutate(pc, "tests fail at merge check", (s) => log(s, "merge check failed", `${tests.cmd}: ${tests.tail}`));
-    throw new Refusal(`tests fail${merged ? ` with ${s0.base} merged in` : ""}: ${tests.tail}`, [
-      merged ? "fix it on the plan branch (the clean merge stays)" : "fix it on the plan branch",
+    throw new Refusal(`tests fail${merged2 ? ` with ${s0.base} merged in` : ""}: ${tests.tail}`, [
+      merged2 ? "fix it on the plan branch (the clean merge stays)" : "fix it on the plan branch",
       "then run cairn merge-check again: the fix is new code, so it asks for the ship approval again"
     ]);
   }
@@ -9563,15 +10475,15 @@ function cmdMergeCheck(ctx, _opts) {
   const tested = git(["rev-parse", "HEAD"], wt);
   mutate(pc, "merge checked", (s) => {
     if (tests?.ok) s.mergeChecked = tested;
-    log(s, "merge checked", `${merged ? `${s0.base} merged` : `up to date with ${s0.base}`}${tests ? ", tests pass" : ""}`);
+    log(s, "merge checked", `${merged2 ? `${s0.base} merged` : `up to date with ${s0.base}`}${tests ? ", tests pass" : ""}`);
   });
   const head = git(["rev-parse", "HEAD"], wt);
-  const said = merged ? `${s0.base} had moved ${merged.behind} commit${merged.behind === 1 ? "" : "s"}: merged it in cleanly.` : `Up to date with ${s0.base}.`;
+  const said = merged2 ? `${s0.base} had moved ${merged2.behind} commit${merged2.behind === 1 ? "" : "s"}: merged it in cleanly.` : `Up to date with ${s0.base}.`;
   const testSaid = tests ? ` The tests pass (${tests.tail}).` : !untested ? " Tests passed on this code at the last check." : "";
   const pinned = approved ? " Nothing changed since the ship approval that it does not cover." : "";
   return {
     message: [`${said}${testSaid}${pinned}`, ...notes, `Checked ${head}. Push the plan branch, then merge with: gh pr merge <PR> --merge --match-head-commit ${head}`].join("\n"),
-    data: { head, base: baseRef, merged: !!merged, behind: merged?.behind ?? 0, tests: tests ? tests.tail : null, notes }
+    data: { head, base: baseRef, merged: !!merged2, behind: merged2?.behind ?? 0, tests: tests ? tests.tail : null, notes }
   };
 }
 var PR_MERGE = /^Merge pull request #(\d+) from [^/\s]+\/(\S+)/;
@@ -9581,8 +10493,8 @@ var SQUASH = /\(#(\d+)\)$/;
 var TASK_MERGE = /^merge task (\S+)/;
 function planByPr(root, pr) {
   for (const dir of plansDirsIn(root))
-    for (const name of readdirSync4(dir))
-      if (new RegExp(`^- PR: \\S*/pull/${pr}(?!\\d)`, "m").test(readText(join16(dir, name, "RECORD.md")) ?? "")) return relative3(root, join16(dir, name));
+    for (const name of readdirSync5(dir))
+      if (new RegExp(`^- PR: \\S*/pull/${pr}(?!\\d)`, "m").test(readText(join17(dir, name, "RECORD.md")) ?? "")) return relative3(root, join17(dir, name));
   return void 0;
 }
 function cmdTrace(ctx, spec, opts) {
@@ -9614,7 +10526,7 @@ function cmdTrace(ctx, spec, opts) {
     if (slug) {
       t.plan = slug;
       const rel = planRelIn(slug, root);
-      if (existsSync9(join16(root, rel))) t.record = `${rel}/RECORD.md`;
+      if (existsSync10(join17(root, rel))) t.record = `${rel}/RECORD.md`;
     } else if (t.pr) {
       const rel = planByPr(root, t.pr);
       if (rel) {
@@ -9671,12 +10583,14 @@ function cmdPhase(ctx, action, opts) {
   return mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s);
     gate(cur.verdict?.result !== "red", s, "phase finish", opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"]);
+    linearPhaseGate(s, opts);
     if (!reused) testsGate(tests, s, "phase finish", opts);
     const testText = reused ? `tests green (${last.tests.split(" \u2192 ").pop()})` : tests ? `tests ${tests.ok ? "green" : "RED"} (${tests.tail})` : "no test command";
     const suggestions = newSuggestionsText(s);
     const drift = s.drift.filter((d) => !d.acked);
     cur.status = "done";
     log(s, "phase finished", `${cur.name} (${testText})`);
+    onPhaseFinished(s);
     const following = currentPhase(s);
     let next;
     if (following) {
@@ -9710,34 +10624,34 @@ function cmdTest(ctx, opts) {
 }
 
 // plugins/cairn/cli/src/commands/migrate.ts
-import { existsSync as existsSync10, lstatSync, mkdirSync as mkdirSync3, readdirSync as readdirSync5, renameSync as renameSync2, rmdirSync as rmdirSync2 } from "node:fs";
-import { dirname as dirname4, join as join17 } from "node:path";
+import { existsSync as existsSync11, lstatSync, mkdirSync as mkdirSync3, readdirSync as readdirSync6, renameSync as renameSync2, rmdirSync as rmdirSync2 } from "node:fs";
+import { dirname as dirname4, join as join18 } from "node:path";
 var PAIRS = [
   [LEGACY_CAIRN_DIR, CAIRN_DIR],
   [LEGACY_DOCS_DIR, DOCS_DIR]
 ];
 function isCairns(root, old) {
-  if (old === LEGACY_CAIRN_DIR) return existsSync10(join17(root, old, "config.json"));
-  if (existsSync10(join17(root, old, "product"))) return true;
-  const plans = join17(root, old, "plans");
-  return existsSync10(plans) && readdirSync5(plans).some((n) => existsSync10(join17(plans, n, "state.json")));
+  if (old === LEGACY_CAIRN_DIR) return existsSync11(join18(root, old, "config.json"));
+  if (existsSync11(join18(root, old, "product"))) return true;
+  const plans = join18(root, old, "plans");
+  return existsSync11(plans) && readdirSync6(plans).some((n) => existsSync11(join18(plans, n, "state.json")));
 }
 var legacyLayout = (root) => PAIRS.map(([old]) => old).filter((p) => isCairns(root, p));
 var tracked = (root, rel) => git(["ls-files", "--", rel], root) !== "";
 function move(root, from, to) {
-  mkdirSync3(dirname4(join17(root, to)), { recursive: true });
+  mkdirSync3(dirname4(join18(root, to)), { recursive: true });
   if (tracked(root, from)) git(["mv", from, to], root);
-  else renameSync2(join17(root, from), join17(root, to));
+  else renameSync2(join18(root, from), join18(root, to));
 }
 var present = (root, rel) => {
   try {
-    lstatSync(join17(root, rel));
+    lstatSync(join18(root, rel));
     return true;
   } catch {
     return false;
   }
 };
-var isDir = (root, rel) => lstatSync(join17(root, rel)).isDirectory();
+var isDir = (root, rel) => lstatSync(join18(root, rel)).isDirectory();
 function plan(root, old, next, out) {
   if (!present(root, next)) {
     out.moves.push([old, next]);
@@ -9748,10 +10662,10 @@ function plan(root, old, next, out) {
     return;
   }
   out.dirs.push(old);
-  for (const n of readdirSync5(join17(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
+  for (const n of readdirSync6(join18(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
 }
 var prune = (root, dirs) => {
-  for (const d of [...dirs].reverse()) if (existsSync10(join17(root, d)) && !readdirSync5(join17(root, d)).length) rmdirSync2(join17(root, d));
+  for (const d of [...dirs].reverse()) if (existsSync11(join18(root, d)) && !readdirSync6(join18(root, d)).length) rmdirSync2(join18(root, d));
 };
 function cmdMigrate(ctx) {
   if (ctx.plan) throw new Refusal("run cairn migrate on the main branch, outside any plan");
@@ -9796,10 +10710,10 @@ function parseScorecard(md) {
     return { rows: empty(), problems: [`cairn-direction YAML does not parse: ${e.message}`] };
   }
   const problems = [];
-  const list2 = (key) => {
-    const v = doc?.[key] ?? [];
+  const list2 = (key2) => {
+    const v = doc?.[key2] ?? [];
     if (!Array.isArray(v)) {
-      problems.push(`\`${key}\` must be a list`);
+      problems.push(`\`${key2}\` must be a list`);
       return [];
     }
     return v;
@@ -9808,13 +10722,13 @@ function parseScorecard(md) {
     if (typeof r?.evidence !== "string" || !PATH_LINE.test(r.evidence.trim())) problems.push(`${label}: evidence must be path:line (got ${JSON.stringify(r?.evidence)})`);
   };
   const rows = empty();
-  for (const key of ["requirements", "nfr"])
-    for (const r of list2(key)) {
-      const label = `${key} row ${r?.id ?? "(no id)"}`;
+  for (const key2 of ["requirements", "nfr"])
+    for (const r of list2(key2)) {
+      const label = `${key2} row ${r?.id ?? "(no id)"}`;
       if (typeof r?.id !== "string" || !r.id) problems.push(`${label}: needs an id`);
       if (!VERDICTS.includes(r?.verdict)) problems.push(`${label}: verdict must be one of ${VERDICTS.join("|")}`);
       evidence(label, r);
-      rows[key].push(r);
+      rows[key2].push(r);
     }
   for (const r of list2("unplanned")) {
     const label = `unplanned row "${r?.what ?? "(no description)"}"`;
@@ -9882,7 +10796,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join18 } from "node:path";
+import { join as join19 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -9906,7 +10820,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join18(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join19(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -9939,8 +10853,8 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync11 } from "node:fs";
-import { dirname as dirname5, isAbsolute, join as join19, relative as relative4, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync12 } from "node:fs";
+import { dirname as dirname5, isAbsolute, join as join20, relative as relative4, resolve as resolve2 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function indexFor(ctx) {
   try {
@@ -9955,11 +10869,13 @@ var startOut = (...parts) => {
 };
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync11(join19(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync12(join20(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", indexFor(ctx));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
+    const queued = pendingCount(s);
+    if (queued) lines.push(`${queued} Linear update${queued === 1 ? "" : "s"} waiting to be sent; /cairn:next sends them first.`);
     if (ctx.task) {
       const sl = findTask(s, ctx.task);
       if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(", ")}. Never edit ${DOCS_DIRS.find((d) => planRelOf(pc.plan).startsWith(`${d}/`)) ?? DOCS_DIR}/.`);
@@ -9978,9 +10894,9 @@ function hookPostEdit(input) {
   if (!file) return "";
   const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
   let dir = dirname5(abs);
-  while (!existsSync11(dir) && dirname5(dir) !== dir) dir = dirname5(dir);
+  while (!existsSync12(dir) && dirname5(dir) !== dir) dir = dirname5(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync11(join19(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync12(join20(ctx.plan.dir, "state.json"))) return "";
   const rel = relative4(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (isCairnPath(rel)) return "";
@@ -10015,7 +10931,7 @@ function hookPostEdit(input) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board"]);
 var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];
@@ -10054,7 +10970,7 @@ ${v}` : v;
   }
   return { pos, opts };
 }
-var USAGE3 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
+var USAGE4 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] | new <slug> --title "\u2026" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
@@ -10062,9 +10978,11 @@ var USAGE3 = `cairn: plan state for the agent-driven lifecycle. See references/c
   index | pause [--now] | resume [<slug>] | close | render | records | migrate
   merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
+  linear [status] | linear import|pending|sent|drop|depends|ack|release|board \u2026 (plans that pull Linear issues in)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
-function run(argv, cwd = process.cwd()) {
+function run(argv, cwd = process.cwd(), stdin) {
   const { pos, opts } = parseArgs(argv, cwd);
+  if (stdin !== void 0) opts.stdin = stdin;
   const [cmd, a, b, ...rest] = pos;
   const ctx = () => context(cwd);
   switch (cmd) {
@@ -10131,13 +11049,15 @@ function run(argv, cwd = process.cwd()) {
       return cmdTrace(ctx(), a, opts);
     case "render":
       return cmdRender(ctx());
+    case "linear":
+      return cmdLinear(ctx(), a, b, opts);
     case void 0:
     case "help":
     case "--help":
-      return { message: USAGE3 };
+      return { message: USAGE4 };
     default:
       throw new CliError(`unknown command "${cmd}"
-${USAGE3}`);
+${USAGE4}`);
   }
 }
 function readStdin() {
@@ -10159,7 +11079,8 @@ function main(argv) {
   }
   const json = argv.includes("--json");
   try {
-    const r = run(argv);
+    const piped = argv[0] === "linear" && argv[1] === "import" && !argv.some((x) => x === "--file" || x.startsWith("--file=")) && !process.stdin.isTTY;
+    const r = run(argv, process.cwd(), piped ? readFileSync7(0, "utf8") : void 0);
     if (json || r.message !== "") process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + "\n");
     return 0;
   } catch (e) {

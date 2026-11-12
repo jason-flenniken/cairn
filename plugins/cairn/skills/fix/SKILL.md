@@ -26,6 +26,7 @@ allowed-tools:
   - "Bash(cairn escalate:*)"
   - "Bash(cairn level:*)"
   - "Bash(cairn test:*)"
+  - "Bash(cairn linear:*)"
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/reporting.md` before talking to the user.
@@ -35,3 +36,5 @@ Read `${CLAUDE_PLUGIN_ROOT}/procedures/fix.md` and follow it exactly, step by st
 Procedure files are not variable-expanded: wherever one says `CLAUDE_PLUGIN_ROOT`, use this path: `${CLAUDE_PLUGIN_ROOT}`.
 
 Arguments: $ARGUMENTS
+
+The arguments may be a Linear issue key (`SAV-123`) in place of a bug description: the fix plan then imports that issue (procedure step 2).

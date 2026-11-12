@@ -2,7 +2,7 @@
 // state files and stop documents and re-reads `cairn status --all --json` only when one changed (NFR-01).
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit, RenderChildren, SessionStartInput, Timer } from 'claude-code'
-import type { CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
+import type { CairnBoard, CairnBoardIssue, CairnPlanRow, CairnPlanState, CairnRecord, CairnView } from '../../types/index.d.ts'
 import { LINGER_MS, readAgents, readFeed, readMain, readMainIdleSince, readTick } from './activity.ts'
 import { approvalCard, approvePress, confirmAndApprove, confirmAndSetLevel, readBackCard } from './approval.tsx'
 import { levelOrStandard, readReadBack } from './approve.ts'
@@ -12,7 +12,7 @@ import { agentCard, agentLines, foldedLine, mainCard, orderCards, type CardConte
 import { cairn } from './cli.ts'
 import { closeDoc, docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
 import { gitLine, readGit, startGit, trackGit } from './git.ts'
-import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task } from './header.tsx'
+import { isActive, list, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task, type Ui } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
 import { act, cells, message } from './util.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
@@ -24,11 +24,16 @@ type Drift = { path?: string; acked?: unknown }
 const view = atom({ plugin: 'cairn', key: 'view' } as const, null as CairnView | null)
 const isTurnRunning = atom({ plugin: 'cairn', key: 'isTurnRunning' } as const, false)
 // The tab showing; the pane opens on Now.
-const tab = atom({ plugin: 'cairn', key: 'tab' } as const, 'now' as 'now' | 'history' | 'records' | 'changelog')
+const tab = atom({ plugin: 'cairn', key: 'tab' } as const, 'now' as 'now' | 'history' | 'records' | 'changelog' | 'linear')
 // Records tab: the last `cairn records --json` (null until read) and the plan whose record is open.
 const records = atom({ plugin: 'cairn', key: 'records' } as const, null as CairnRecord[] | null)
 const openRecord = atom({ plugin: 'cairn', key: 'openRecord' } as const, null as string | null)
+// Linear tab: whether the repo's config has a "linear" block (the only reason the tab shows), the last good board, and the CLI's refusal.
+const linearSetup = atom({ plugin: 'cairn', key: 'linearSetup' } as const, false)
+const linearBoard = atom({ plugin: 'cairn', key: 'linearBoard' } as const, null as CairnBoard | null)
+const linearNote = atom({ plugin: 'cairn', key: 'linearNote' } as const, null as string | null)
 const TABS = [['now', 'Now'], ['history', 'History'], ['records', 'Records'], ['changelog', 'Changelog']] as const
+const LINEAR_TAB = ['linear', 'Linear'] as const
 
 const PANE = 'cairn'
 const PANE_PREF = 'pane'
@@ -110,6 +115,33 @@ async function fetchRecords($: EngineInterface): Promise<void> {
   await update($, records, () => found)
 }
 
+/** Reads `cairn linear board --json` into the Linear tab. A refusal clears the board and keeps its words; a failed run keeps what was there. */
+async function fetchLinear($: EngineInterface): Promise<void> {
+  const r = await cairn($, ['linear', 'board', '--json'], quick).catch(() => undefined)
+  const body = r?.json as { ok?: unknown; refused?: unknown; milestones?: unknown } | undefined
+  if (r?.exitCode === 0 && body?.ok === true && Array.isArray(body.milestones)) {
+    await update($, linearBoard, () => body as unknown as CairnBoard)
+    await update($, linearNote, () => null)
+  } else if (typeof body?.refused === 'string') {
+    await update($, linearBoard, () => null)
+    await update($, linearNote, () => body.refused as string)
+  }
+}
+
+/** True when the main checkout's or the shown plan's cairn config has a "linear" block: one or two small file reads, no CLI run. */
+async function hasLinear($: EngineInterface, worktree: string | undefined): Promise<boolean> {
+  const roots = [worktree, common?.endsWith('/.git') ? common.slice(0, -5) : undefined]
+  for (const root of roots) {
+    if (root === undefined) continue
+    const raw = await $.fs.read(`${root}/.cairn/config.json`).catch(() => $.fs.read(`${root}/.sdlc/config.json`)).catch(() => undefined)
+    try {
+      const cfg = JSON.parse(raw ?? '') as { linear?: unknown }
+      if (typeof cfg.linear === 'object' && cfg.linear !== null) return true
+    } catch { /* absent or not JSON: not set up here */ }
+  }
+  return false
+}
+
 /** The files whose modification times say a plan changed: live state files and stop documents, plan branches, worktrees. */
 function watched(plans: CairnPlanRow[]): string[] {
   return [
@@ -151,8 +183,11 @@ async function refresh($: EngineInterface): Promise<boolean> {
   await update($, view, () => next)
   await showStatus($, next)
   await trackCost($, next)
+  const isSetUp = await hasLinear($, plans.find(p => p.state.slug === next.here)?.worktree)
+  if (isSetUp !== (await read($, linearSetup))) await update($, linearSetup, () => isSetUp)
   const shown = await read($, tab)
   if (shown === 'records' || shown === 'changelog') await fetchRecords($)
+  if (shown === 'linear' && isSetUp) await fetchLinear($)
   return true
 }
 
@@ -337,7 +372,9 @@ export function install(on: On): void {
     const { Box, Button, Markdown, Text } = ui
     const v = await read($, view)
     const isRunning = await read($, isTurnRunning)
-    const shownTab = await read($, tab)
+    const isLinear = await read($, linearSetup)
+    const stored = await read($, tab)
+    const shownTab = stored === 'linear' && !isLinear ? 'now' : stored
     const openedRecord = await read($, openRecord)
     await readTick($)
     const t = await $.clock.now()
@@ -469,11 +506,12 @@ export function install(on: On): void {
 
     const tabs = (
       <Box key="tabs" flexDirection="row" gap={1}>
-        {TABS.map(([id, name]) => (
+        {(isLinear ? [...TABS, LINEAR_TAB] : TABS).map(([id, name]) => (
           <Button key={`tab:${id}`} label={name} variant={shownTab === id ? 'primary' : undefined} onPress={() => act($, async () => {
             await update($, tab, () => id)
             void scrollToStart($, PANE)
             if (id === 'records' || id === 'changelog') await fetchRecords($)
+            if (id === 'linear') await fetchLinear($)
           })} />
         ))}
       </Box>
@@ -552,6 +590,12 @@ export function install(on: On): void {
       ], barLines)
     }
 
+    if (!isInline && shownTab === 'linear') {
+      const board = await read($, linearBoard)
+      const note = await read($, linearNote)
+      return frame(e, [tabs, ...linearRows(ui, board, note)], barLines)
+    }
+
     if (!isInline && shownTab === 'history') {
       const lines = here === undefined ? [] : recentLines(here.state, await readFeed($), t).reverse()
       return frame(e, [
@@ -592,6 +636,46 @@ export function install(on: On): void {
       ),
     ], barLines)
   })
+}
+
+const MARKS = { done: '✓', 'in plan': '▸', ready: '○', blocked: '✗' } as const
+const MARK_COLOR = { done: 'green', 'in plan': 'cyan', ready: undefined, blocked: 'red' } as const
+
+/** The Linear tab's rows: header, then per milestone its counts, epics and issues, stalled plans and a loop warning. */
+function linearRows(ui: Ui, board: CairnBoard | null, note: string | null) {
+  const { Box, Text } = ui
+  if (board === null) {
+    const hint = note !== null && !/no Linear project has been read yet/.test(note) ? stripControl(note) : 'No Linear project read yet. Run /cairn:board <project>.'
+    return [<Text key="linear:none" dimColor wrap="wrap">{hint}</Text>]
+  }
+  const mins = board.ageMinutes
+  const age = mins < 60 ? `${mins} min` : mins < 2880 ? `${Math.round(mins / 60)} h` : `${Math.round(mins / 1440)} days`
+  const issue = (x: CairnBoardIssue, indent: string, id: string) => {
+    const extra = x.status === 'in plan' && x.plan ? ` · ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})`
+      : x.status === 'blocked' ? ` · blocked by ${x.blockedBy.map(b => `${b.key} [${b.where}]`).join(', ')}` : ''
+    return <Text key={id} color={MARK_COLOR[x.status]} wrap="wrap">{stripControl(`${indent}${MARKS[x.status]} ${x.key} ${x.title}${extra}`)}</Text>
+  }
+  return [
+    <Text key="linear:head" bold wrap="truncate-end">{stripControl(`${board.project} · read ${age} ago`)}</Text>,
+    ...board.milestones.map((m, mi) => (
+      <Box key={`linear:m:${mi}`} flexDirection="column">
+        <Text bold wrap="wrap">{stripControl(`${m.name}: ${m.counts.done}/${m.counts.total} done · ${m.counts.inPlan} in plan · ${m.counts.ready} ready · ${m.counts.blocked} blocked`)}</Text>
+        {m.epics.map(ep => (
+          <Box key={`linear:e:${ep.key}`} flexDirection="column">
+            <Text wrap="wrap">{stripControl(`  epic ${ep.key} ${ep.title}: ${ep.done}/${ep.total}${ep.plans.length > 0 ? ` · plans ${ep.plans.join(', ')}` : ''}`)}</Text>
+            {ep.issues.map(x => issue(x, '    ', `linear:i:${ep.key}:${x.key}`))}
+          </Box>
+        ))}
+        {m.issues.map(x => issue(x, '  ', `linear:i:${mi}:${x.key}`))}
+      </Box>
+    )),
+    board.plans.some(p => p.stalled) && (
+      <Text key="linear:stalled" color="yellow" wrap="wrap">{stripControl(`No change in over a week: ${board.plans.filter(p => p.stalled).map(p => `${p.slug} (${p.stage})`).join(', ')}`)}</Text>
+    ),
+    board.cycle !== null && board.cycle.length > 0 && (
+      <Text key="linear:cycle" color="red" wrap="wrap">{stripControl(`Loop in blocked-by links: ${board.cycle.join(' → ')}. Remove one link in Linear.`)}</Text>
+    ),
+  ]
 }
 
 /** FR-17: `cairn resume <slug>` shows where that plan lives; the list is read again either way. */

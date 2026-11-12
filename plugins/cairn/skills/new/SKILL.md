@@ -26,6 +26,7 @@ allowed-tools:
   - "Bash(cairn escalate:*)"
   - "Bash(cairn level:*)"
   - "Bash(cairn test:*)"
+  - "Bash(cairn linear:*)"
 ---
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/reporting.md` before talking to the user.
@@ -35,3 +36,5 @@ Read `${CLAUDE_PLUGIN_ROOT}/procedures/new.md` and follow it exactly, step by st
 Procedure files are not variable-expanded: wherever one says `CLAUDE_PLUGIN_ROOT`, use this path: `${CLAUDE_PLUGIN_ROOT}`.
 
 Arguments: $ARGUMENTS
+
+The arguments may hold `--from-linear <SAV-100 | SAV-101,SAV-102 | milestone:"…" | project:"…">`: pull those Linear issues into the plan (procedure step 2a).

@@ -6,6 +6,7 @@ import { levelOf, loadState, log, setStage } from '../state.ts';
 import type { State, Suggestion } from '../types.ts';
 import { CliError, Refusal } from '../util.ts';
 import { gate, mutate, planCtx, runTests, testsGate, type Opts, type Result, type TestRun } from '../shared.ts';
+import { linearPhaseGate, onPhaseFinished } from './linear.ts';
 
 /** "3 new suggestions (2 tests, 1 security)" for suggestions logged since the last phase boundary. */
 export function newSuggestionsText(s: State): string {
@@ -42,12 +43,14 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
   return mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s)!;
     gate(cur.verdict?.result !== 'red', s, 'phase finish', opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ''}`, ['fix what the report flags, then re-run `cairn evidence phase`']);
+    linearPhaseGate(s, opts);
     if (!reused) testsGate(tests, s, 'phase finish', opts);
     const testText = reused ? `tests green (${last!.tests!.split(' → ').pop()})` : tests ? `tests ${tests.ok ? 'green' : 'RED'} (${tests.tail})` : 'no test command';
     const suggestions = newSuggestionsText(s);
     const drift = s.drift.filter((d) => !d.acked);
     cur.status = 'done';
     log(s, 'phase finished', `${cur.name} (${testText})`);
+    onPhaseFinished(s);
     const following = currentPhase(s);
     let next: string;
     if (following) {

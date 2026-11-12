@@ -136,6 +136,8 @@ export interface Suggestion {
   kind?: 'hardening';
   /** The test command a failing-suite hardening item is about; at most one stays open per command. */
   testCmd?: string;
+  /** The Linear issue this follow-up was filed as, once sent. */
+  linear?: string;
 }
 
 export interface LogEntry {
@@ -178,7 +180,93 @@ export interface State {
   evidence: { verify?: Evidence; review?: Evidence };
   drift: DriftEntry[];
   suggestions?: Suggestion[];
+  /** Present only on plans that pulled Linear issues in (`cairn linear import`). */
+  linear?: LinearLink;
   log: LogEntry[];
+}
+
+/** Linear status types (a team's statuses each have one). */
+export const LINEAR_DONE_TYPES = ['completed', 'canceled', 'duplicate'] as const;
+
+/** One Linear issue a plan pulled in, or one it knows about through a link. */
+export interface LinearIssue {
+  key: string;
+  title: string;
+  url?: string;
+  /** The issue's status type in Linear when last read: backlog, unstarted, started, completed, canceled. */
+  stateType?: string;
+  stateName?: string;
+  milestone?: string;
+  /** Key of the parent issue, when this is a sub-issue. */
+  parent?: string;
+  /** Keys of issues that block this one, in Linear. */
+  blockedBy: string[];
+  /** FR ids tagged with this key in the PRD, recorded when the PRD is approved. */
+  requirements?: string[];
+  /** Left out of the plan: the PRD lists it under `## Issues not taken`, or `cairn linear release` dropped it. */
+  released?: { at: string; reason: string };
+}
+
+export type LinearWriteKind = 'status' | 'comment' | 'relation' | 'statusUpdate' | 'createIssue';
+
+/** A write to Linear that cairn queued and the agent sends through the Linear MCP. */
+export interface LinearWrite {
+  id: string;
+  kind: LinearWriteKind;
+  /** Issue key (status, comment, relation), project name (statusUpdate), or suggestion key (createIssue). */
+  target: string;
+  /** The parameters for the Linear tool, ready to pass as-is. */
+  payload: Record<string, unknown>;
+  /** What this write is for, in one line, for the person reading the queue. */
+  why: string;
+  /** Same dedupe key, same write: queueing it again is a no-op. */
+  dedupe: string;
+  /** The user approves it before it is sent (project status updates). */
+  needsApproval?: boolean;
+  queuedAt: string;
+  sentAt?: string;
+  /** What Linear returned: a new issue key, a comment url. */
+  ref?: string;
+  dropped?: { at: string; note: string };
+  /** Tried and not sent (the send failed, no Linear tools, or the user held it): retried at the next sync, but `cairn next` doesn't route for it alone. */
+  held?: { at: string; note: string };
+}
+
+/** A change seen on refresh that the plan has to decide about before its phase can finish. */
+export interface LinearChange {
+  id: string;
+  kind: 'link' | 'sub-issue';
+  /** The in-plan issue the change touches. */
+  key: string;
+  /** For a link: the blocker. */
+  on?: string;
+  /** For a new sub-issue: the issue as Linear has it. */
+  issue?: LinearIssue;
+  at: string;
+  handled?: { at: string; how: 'depends' | 'taken' | 'later' | 'noted' | 'replan' | 'released'; note?: string };
+}
+
+export interface LinearLink {
+  team: string;
+  project?: string;
+  milestone?: string;
+  /** Key of the parent issue whose sub-issues the plan works through. */
+  epic?: string;
+  /** How the plan picked its issues, as the user gave it ("SAV-100", "milestone:M1"). */
+  selection?: string;
+  issues: LinearIssue[];
+  /** Issues outside the plan that in-plan issues reference (blockers, an epic's other sub-issues), as last read. */
+  known: LinearIssue[];
+  importedAt: string;
+  refreshedAt?: string;
+  /** Dependencies found while building, recorded with `cairn linear depends`. */
+  depends: { key: string; on: string; reason: string; at: string }[];
+  changes: LinearChange[];
+  outbox: LinearWrite[];
+  /** The pull request url, given to `cairn advance --pr` when the plan moves past ship. */
+  pr?: string;
+  /** When cairn first saw the plan's branch merged and queued the Done statuses. */
+  mergedAt?: string;
 }
 
 export interface Config {
@@ -197,4 +285,13 @@ export interface Config {
   reproTimeoutMinutes?: number;
   /** The level `/cairn:new` pre-selects: mvp, standard or polished. Standard when unset. */
   defaultLevel?: string;
+  /** Opt-in Linear link. Without it, nothing Linear-related runs. */
+  linear?: LinearConfig;
+}
+
+export interface LinearConfig {
+  /** Team key, e.g. "SAV". */
+  team: string;
+  /** Status names to use. By default cairn moves issues by status type (started, completed); review has no type, so without `inReview` that move is a comment. */
+  statuses?: { inProgress?: string; inReview?: string; done?: string };
 }
