@@ -6,7 +6,7 @@
   "branch": "feature/clearer-linear-pane",
   "base": "main",
   "created": "2026-11-12T21:10:27.252Z",
-  "updated": "2026-11-12T21:44:47.982Z",
+  "updated": "2026-11-12T21:44:48.218Z",
   "stage": "execute",
   "stageHistory": [
     {
@@ -77,7 +77,7 @@
     {
       "id": "cli-facts",
       "name": "The CLI computes the sections and ticket keys",
-      "status": "awaiting_approval",
+      "status": "done",
       "tasks": [
         {
           "id": "board-sections",
@@ -173,7 +173,7 @@
     {
       "id": "pane",
       "name": "The pane draws them",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "linear-tab",
@@ -461,6 +461,11 @@
       "at": "2026-11-12T21:44:47.982Z",
       "event": "task done",
       "detail": "Text board in the same sections"
+    },
+    {
+      "at": "2026-11-12T21:44:48.217Z",
+      "event": "phase finished",
+      "detail": "The CLI computes the sections and ticket keys (tests green (0 fail))"
     }
   ],
   "cairnVersion": "0.12.1",
