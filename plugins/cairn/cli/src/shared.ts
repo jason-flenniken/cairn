@@ -35,6 +35,8 @@ export interface TestRun {
   ran: boolean;
   cmd: string;
   tail: string;
+  /** Everything the suite printed, for a log file; never put in a message. */
+  output?: string;
 }
 
 /**
@@ -122,7 +124,7 @@ export function runTests(cfg: Config, cwd: string): TestRun | undefined {
   if (!cfg.test) return undefined;
   const r = spawnSync('sh', ['-c', cfg.test], { cwd, encoding: 'utf8', env: childEnv(), maxBuffer: 64 * 1024 * 1024 });
   const lines = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.split('\n').map((l) => l.trim()).filter(Boolean);
-  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}` };
+  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}`, output: lines.join('\n') };
 }
 
 /** A hardening item is a follow-up an MVP plan leaves behind; its `where` is never empty. */

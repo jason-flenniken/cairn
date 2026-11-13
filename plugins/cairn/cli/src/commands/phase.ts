@@ -5,10 +5,12 @@ import { currentPhase } from '../ready.ts';
 import { levelOf, loadState, log, setStage } from '../state.ts';
 import type { State, Suggestion } from '../types.ts';
 import { CliError, Refusal } from '../util.ts';
-import { gate, mutate, planCtx, runTests, testsGate, type Opts, type Result, type TestRun } from '../shared.ts';
+import { gate, mutate, planCtx, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { linearPhaseGate, onPhaseFinished } from './linear.ts';
 import { linearConfig } from '../linear.ts';
-import { withFreshStart } from './brief.ts';
+import { withFreshStart, workDir } from './brief.ts';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 /** "3 new suggestions (2 tests, 1 security)" for suggestions logged since the last phase boundary. */
 export function newSuggestionsText(s: State): string {
@@ -88,6 +90,23 @@ export function cmdTest(ctx: Ctx, opts: Opts): Result {
     // A red run below MVP is reported, not gated, on purpose: only a green run or an MVP plan goes through testsGate here.
     if (tests.ok || mvp) testsGate(tests, s, 'check', opts);
     const note = !tests.ok && mvp ? ' Recorded as a hardening item; the plan continues.' : '';
-    return { message: `Tests ${tests.ok ? 'green' : 'RED'} (\`${tests.cmd}\` → ${tests.tail}).${note}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail } };
+    // A red run keeps its full output out of the session: it goes to a log a fix agent reads, with a few failing lines here.
+    const logPath = !tests.ok && tests.ran ? testLog(pc, tests.output ?? '') : undefined;
+    const failing = logPath ? failingLines(tests.output ?? '') : [];
+    const more = logPath ? `${failing.length ? `\n${failing.map((l) => `  ${l}`).join('\n')}` : ''}\nFull output: ${logPath}` : '';
+    return { message: `Tests ${tests.ok ? 'green' : 'RED'} (\`${tests.cmd}\` → ${tests.tail}).${note}${more}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail, ...(logPath ? { log: logPath, failing } : {}) } };
   });
+}
+
+const FAILING = /\b(?:fail(?:ed|ing|ure)?|error)\b|✗|✖|^not ok\b/i;
+
+/** Up to five lines that name a failure, in order. */
+export const failingLines = (output: string): string[] => output.split('\n').filter((l) => FAILING.test(l)).slice(0, 5).map((l) => (l.length > 200 ? `${l.slice(0, 199)}…` : l));
+
+/** Writes a red run's output to <work>/reports/tests.log and returns the path. */
+function testLog(pc: PlanCtx, output: string): string {
+  const path = join(workDir(pc), 'reports', 'tests.log');
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${output}\n`);
+  return path;
 }

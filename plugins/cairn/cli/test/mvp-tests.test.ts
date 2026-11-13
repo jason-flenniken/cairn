@@ -1,5 +1,6 @@
 import './no-auto-gc.ts';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -139,8 +140,13 @@ test('cairn test: MVP red opens the item and succeeds; Standard red only reports
 
   const wt2 = planAt('ct2', 'standard');
   red();
-  assert.match(run(['test'], wt2).message, /RED/);
+  const r = run(['test'], wt2);
+  assert.match(r.message, /RED/);
   assert.equal(items(wt2, 'ct2').length, 0);
+  // The full output stays out of the session: it is in a log under the work folder, named in the message.
+  const log = (r.data as { log?: string }).log!;
+  assert.ok(log.endsWith('/reports/tests.log') && existsSync(log));
+  assert.match(r.message, /Full output: .*tests\.log/);
 });
 
 test('MVP close with a red suite closes, and the failure shows in status --json', () => {
