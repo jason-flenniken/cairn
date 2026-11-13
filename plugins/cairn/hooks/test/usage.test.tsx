@@ -211,4 +211,26 @@ describe('context file for the fresh start', () => {
     expect(ctxWrites(w)).toEqual([])
     await ui.unmount()
   })
+
+  test('a session at the repo root writes for the one active plan', async ($, on) => {
+    resetContextThrottle()
+    const one = world(on, { cwd: MAIN, rows: [row(BUILD, WT)] })
+    session(on, measure(10))
+    await start($, MAIN)
+    const ui = await mount($, 'terminal')
+    await first($)
+    expect(ctxWrites(one.w).map(x => x.path)).toEqual([CONTEXT])
+    await ui.unmount()
+  })
+
+  test('at the repo root with two active plans nothing is written', async ($, on) => {
+    resetContextThrottle()
+    const { w } = world(on, { cwd: MAIN, rows: [row(BUILD, WT), row(plan({ slug: 'cart', stage: 'plan' }), '/repo/.worktrees/cart')] })
+    session(on, measure(10))
+    await start($, MAIN)
+    const ui = await mount($, 'terminal')
+    await first($)
+    expect(ctxWrites(w)).toEqual([])
+    await ui.unmount()
+  })
 })

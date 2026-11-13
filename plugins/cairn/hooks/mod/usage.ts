@@ -33,7 +33,9 @@ export function resetContextThrottle(): void {
  */
 async function writeContext($: EngineInterface, context: { percent?: number; tokens?: number }): Promise<void> {
   const v = await read($, view)
-  const slug = v === null || v.isFallback ? undefined : v.here
+  // A session at the repo root (where execute runs) has no plan by location; it is still unambiguous with one active plan.
+  const sole = v?.isFallback && v.plans.filter(r => r.state.stage !== 'closed').length === 1
+  const slug = v === null || (v.isFallback && !sole) ? undefined : v.here
   if (slug === undefined || context.percent === undefined || context.tokens === undefined) return
   const now = await $.clock.now()
   const pct = Math.round(context.percent * 10) / 10
