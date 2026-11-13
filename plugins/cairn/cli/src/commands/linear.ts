@@ -33,6 +33,7 @@ import {
   takenIssues,
   unsent,
   due,
+  claimedNow,
   WRITE_TOOL,
   ISSUE_KEY,
   type BoardSnapshot,
@@ -72,7 +73,7 @@ export function cmdLinear(ctx: Ctx, sub: string | undefined, arg: string | undef
     case 'import':
       return opts.board ? importBoard(ctx, opts) : opts.refresh ? refreshPlan(ctx, opts) : importPlan(ctx, opts);
     case 'pending':
-      return pending(ctx);
+      return pending(ctx, opts);
     case 'sent':
       return markSent(ctx, arg, opts);
     case 'drop':
@@ -316,15 +317,23 @@ export function queueDone(pc: PlanCtx, s: State): number {
   return n;
 }
 
-function pending(ctx: Ctx): Result {
+function pending(ctx: Ctx, opts: Opts = {}): Result {
   const pc = planCtx(ctx);
   const pre = loadState(pc.plan.dir);
   linkOf(pre);
   // State is written only when the merge queued something.
   const s = mergedAwaitingDone(pc, pre) ? mutate(pc, undefined, (x) => (queueDone(pc, x), x)) : pre;
-  const list = unsent(linkOf(s));
+  // --claim: a sender takes the due entries nobody holds, and marks them under the lock so no second sender gets them.
+  const list = opts.claim
+    ? mutate(pc, undefined, (x) => {
+        const at = Date.now();
+        const mine = due(linkOf(x)).filter((w) => !claimedNow(w, at));
+        for (const w of mine) w.claimedAt = new Date(at).toISOString();
+        return mine;
+      })
+    : unsent(linkOf(s));
   const lines = list.length
-    ? [`${list.length} Linear update${list.length === 1 ? '' : 's'} to send:`, ...list.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? ' (ask the user first)' : ''}${w.held ? ` (held: ${w.held.note})` : ''}: ${w.why}`)]
+    ? [`${list.length} Linear update${list.length === 1 ? '' : 's'} to send${opts.claim ? ' (claimed for 10 minutes)' : ''}:`, ...list.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? ' (ask the user first)' : ''}${w.held ? ` (held: ${w.held.note})` : ''}: ${w.why}`)]
     : ['Nothing to send to Linear.'];
   return { message: lines.join('\n'), data: { pending: list.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
 }
@@ -348,6 +357,7 @@ function markSent(ctx: Ctx, id: string | undefined, opts: Opts): Result {
     // A ticket cairn filed for a published plan joins the plan: its key is recorded and what waited on it is queued.
     const filed = onPublishSent(s, w, ref, linearConfig(pc.cfg));
     w.sentAt = now();
+    delete w.claimedAt;
     if (ref) w.ref = ref;
     // A follow-up filed as an issue remembers its key, so a later close never files it twice.
     if (w.kind === 'createIssue' && ref) {
@@ -384,6 +394,7 @@ function hold(ctx: Ctx, id: string | undefined, opts: Opts): Result {
     if (w.sentAt) return { message: `${w.id} was already sent.` };
     if (w.dropped) throw new Refusal(`${w.id} was dropped: ${w.dropped.note}`, ['nothing to do; cairn linear pending lists what is left']);
     w.held = { at: now(), note: String(opts.note) };
+    delete w.claimedAt;
     log(s, 'Linear update held', `${w.id}: ${opts.note}`);
     return { message: `Held ${w.id}; the next sync tries it again.` };
   });

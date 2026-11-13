@@ -37,6 +37,10 @@ export interface TestRun {
   tail: string;
   /** Everything the suite printed, for a log file; never put in a message. */
   output?: string;
+  /** A red run's log file (`<work>/reports/tests.log`), set by `recordTestRun`. */
+  log?: string;
+  /** Up to five failing lines of a red run, set by `recordTestRun`. */
+  failing?: string[];
 }
 
 /**
@@ -141,7 +145,7 @@ export function pushSuggestion(s: State, partial: Omit<Suggestion, 'id' | 'at'>)
 }
 
 /** The union of the plan's task scopes: where a whole-suite failure is said to be. */
-const planScope = (s: State): string[] => {
+export const planScope = (s: State): string[] => {
   const all = [...new Set(allTasks(s).flatMap((t) => t.scope))];
   return all.length ? all : ['**'];
 };
@@ -173,7 +177,7 @@ export function testsGate(t: TestRun | undefined, s: State, event: string, opts:
     log(s, `warning: ${event}`, `tests are not green (\`${t.cmd}\` → ${t.tail}); recorded as a hardening item`);
     return t;
   }
-  gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` → ${t.tail})`, ['fix the failing tests, then retry']);
+  gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` → ${t.tail})${t.log ? `. Full output: ${t.log}` : ''}`, ['fix the failing tests, then retry']);
   return t;
 }
 

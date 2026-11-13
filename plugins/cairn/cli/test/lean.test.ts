@@ -408,3 +408,287 @@ test('the Linear queue line points at the background sender', () => {
   const src = readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8');
   assert.match(src, /queued: send \$\{n === 1 \? 'it' : 'them'\} with the linear-sender agent in the background \(it follows/);
 });
+
+// ---------- review fixes ----------
+
+const RED_TEST = 'if [ -f red.flag ]; then echo "FAIL src/charge/charge.test.ts: charges twice"; echo "1 failed"; exit 1; fi';
+const stateFile = (w: World) => join(pd(w.wt, 'billing'), 'state.json');
+const editState = (w: World, fn: (s: State) => void) => {
+  const s = w.state();
+  fn(s);
+  writeFileSync(stateFile(w), JSON.stringify(s, null, 2));
+};
+const outboxOf = (ids: string[]) =>
+  ids.map((id) => ({ id, kind: 'comment' as const, target: 'SAV-1', payload: { issueId: 'SAV-1', body: `note ${id}` }, why: `why ${id}`, dedupe: `d:${id}`, queuedAt: new Date().toISOString() }));
+const withOutbox = (w: World, writes: object[]) =>
+  editState(w, (s) => {
+    s.linear = { team: 'SAV', issues: [], known: [], importedAt: new Date().toISOString(), depends: [], changes: [], outbox: writes as never };
+  });
+
+test('linear pending --claim: two senders get disjoint sets, and the queued line counts only what a sender can send', () => {
+  const w = world();
+  const [a, b, c, d] = outboxOf(['l1', 'l2', 'l3', 'l4']);
+  withOutbox(w, [a, b, { ...c, needsApproval: true }, { ...d, held: { at: new Date().toISOString(), note: 'tool missing' } }]);
+  const queued = (msg: string) => msg.match(/(\d+) Linear updates? queued/)?.[1];
+  assert.equal(queued(ok(w.wt, 'ready').message), '2', 'held and needs-approval entries are not counted');
+  const first = ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[];
+  assert.deepEqual(first.map((x) => x.id), ['l1', 'l2', 'l3'], 'due entries, not the held one');
+  const second = ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[];
+  assert.deepEqual(second, [], 'a second sender gets nothing');
+  assert.equal(queued(ok(w.wt, 'ready').message), undefined, 'claimed entries leave the queued line');
+  assert.ok(w.state().linear!.outbox[0].claimedAt);
+  // Without --claim the list is unchanged: everything unsent, claimed or not.
+  assert.equal((ok(w.wt, 'linear', 'pending').data!.pending as unknown[]).length, 4);
+  // sent clears the claim; a claim older than ten minutes is due again.
+  ok(w.wt, 'linear', 'sent', 'l1');
+  assert.equal(w.state().linear!.outbox[0].claimedAt, undefined);
+  editState(w, (s) => {
+    s.linear!.outbox[1].claimedAt = new Date(Date.now() - 11 * 60 * 1000).toISOString();
+  });
+  assert.equal(queued(ok(w.wt, 'ready').message), '1');
+  assert.deepEqual((ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[]).map((x) => x.id), ['l2']);
+});
+
+test('every brief carries the task facts and the PRD and plan paths; the security brief quotes the PRD security section', () => {
+  const w = world();
+  ok(w.wt, 'task', 'start', 'charge');
+  const dir = pd(w.wt, 'billing');
+  const build = readFileSync(join(w.wt, '.cairn/work/billing/briefs/charge-build.md'), 'utf8');
+  assert.match(build, /## Task facts\n\n- Scope: src\/charge\/\*\*, docs\/cairn\/\*\*\n- Risky: no\n- Complexity: standard\n- Blocked by: nothing\n/);
+  assert.ok(build.includes(`- PRD: ${join(dir, 'prd.md')}\n- Plan: ${join(dir, 'plan.md')}\n`));
+  const sec0 = readFileSync(ok(w.wt, 'task', 'brief', 'charge', '--role', 'security').data!.path as string, 'utf8');
+  assert.match(sec0, /## PRD security section\n\n\(the PRD has no Security section/);
+  write(join(dir, 'prd.md'), `${PRD}\n## Security\n- Misuse case: replaying a charge request. Control: idempotency key.\n`);
+  const sec = readFileSync(ok(w.wt, 'task', 'brief', 'charge', '--role', 'security').data!.path as string, 'utf8');
+  assert.match(sec, /## PRD security section\n\n- Misuse case: replaying a charge request\. Control: idempotency key\./);
+  assert.match(sec, /- Scope: src\/charge/);
+  const review = readFileSync(ok(w.wt, 'task', 'brief', 'charge', '--role', 'review').data!.path as string, 'utf8');
+  assert.doesNotMatch(review, /PRD security section/);
+  const fix = readFileSync(ok(w.wt, 'task', 'brief', 'charge', '--role', 'fix').data!.path as string, 'utf8');
+  assert.match(fix, /## Task facts/);
+  assert.ok(fix.includes(join(dir, 'plan.md')));
+  const later = ok(w.wt, 'task', 'brief', 'receipt');
+  assert.match(readFileSync(later.data!.path as string, 'utf8'), /- Blocked by: charge\n/);
+});
+
+test('task merge: a dirty task worktree refuses before any merge, leaving no merge commit on the plan branch', () => {
+  const w = world();
+  const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+  commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
+  write(join(tw, 'src/charge/scratch.ts'), 'wip\n');
+  const planTip = g(w.wt, 'rev-parse', 'HEAD');
+  const e = refusal(w.wt, 'task', 'merge', 'charge');
+  assert.match(e.message, /task worktree has uncommitted changes/);
+  assert.equal(g(w.wt, 'rev-parse', 'HEAD'), planTip, 'the plan branch did not move');
+  assert.doesNotMatch(g(w.wt, 'log', '--format=%s', '-5'), /merge task/);
+  assert.equal(w.state().phases[0].tasks[0].status, 'in_progress');
+  // No commits at all is refused the same way, and stray edits in the plan worktree too.
+  rmSync(join(tw, 'src/charge/scratch.ts'));
+  const w2 = world();
+  ok(w2.wt, 'task', 'start', 'charge');
+  assert.match(refusal(w2.wt, 'task', 'merge', 'charge').message, /has no commits since the task started/);
+  const w3 = world();
+  const tw3 = ok(w3.wt, 'task', 'start', 'charge').data!.worktree as string;
+  commitIn(tw3, 'src/charge/index.ts', 'x\n', 'charge');
+  write(join(w3.wt, 'loose.txt'), 'x\n');
+  const tip3 = g(w3.wt, 'rev-parse', 'HEAD');
+  assert.match(refusal(w3.wt, 'task', 'merge', 'charge').message, /plan worktree has uncommitted changes outside cairn's files/);
+  assert.equal(g(w3.wt, 'rev-parse', 'HEAD'), tip3);
+});
+
+test('a red task done writes tests.log, records lastRed, and the fix brief shows it; a green run clears it', () => {
+  const w = world({ test: RED_TEST });
+  const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+  commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
+  commitIn(tw, 'red.flag', 'x\n', 'break it');
+  const e = refusal(w.wt, 'task', 'merge', 'charge');
+  const log = join(w.wt, '.cairn/work/billing/reports/tests.log');
+  assert.match(e.message, /^tests are not green \(.*\)\. Full output: .*tests\.log$/);
+  assert.ok(e.message.endsWith(`Full output: ${log}`));
+  assert.match(e.fixes[0], /the merge stays in place/);
+  assert.match(readFileSync(log, 'utf8'), /FAIL src\/charge\/charge\.test\.ts: charges twice/);
+  const red = w.state().lastRed!;
+  assert.equal(red.log, log);
+  assert.deepEqual(red.failing, ['FAIL src/charge/charge.test.ts: charges twice', '1 failed']);
+  assert.match(g(w.wt, 'log', '--format=%s', '-3'), /merge task charge/, 'the merge is in place');
+  assert.equal(w.state().phases[0].tasks[0].status, 'in_progress');
+  const md = readFileSync(ok(w.wt, 'task', 'brief', 'charge', '--role', 'fix').data!.path as string, 'utf8');
+  assert.match(md, /## Last red test run\n\n  FAIL src\/charge\/charge\.test\.ts: charges twice\n  1 failed\nFull output: .*tests\.log/);
+  // Fixed on the merged tree: the next merge is a green task done and clears the record.
+  g(w.wt, 'rm', '-q', 'red.flag');
+  g(w.wt, 'commit', '-q', '-m', 'fix');
+  const done = ok(w.wt, 'task', 'merge', 'charge');
+  assert.match(done.message, /already merged/);
+  assert.equal(w.state().phases[0].tasks[0].status, 'done');
+  assert.equal(w.state().lastRed, undefined);
+});
+
+test('cairn test: a red run logs and records lastRed; the build runs too and both are reported', () => {
+  const w = world({ test: RED_TEST, build: 'echo compiled ok' });
+  write(join(w.wt, 'red.flag'), 'x\n');
+  const r = ok(w.wt, 'test');
+  assert.match(r.message, /^Tests RED/);
+  assert.match(r.message, /Full output: .*tests\.log\nBuild green \(`echo compiled ok` → compiled ok\)\.$/);
+  assert.equal(w.state().lastRed!.log, r.data!.log);
+  assert.deepEqual(r.data!.build, { ran: true, ok: true, command: 'echo compiled ok', summary: 'compiled ok' });
+  rmSync(join(w.wt, 'red.flag'));
+  const green = ok(w.wt, 'test');
+  assert.match(green.message, /^Tests green \(.*\)\. Build green/);
+  assert.equal(w.state().lastRed, undefined);
+  const bad = world({ build: 'echo no >&2; exit 3' });
+  assert.match(ok(bad.wt, 'test').message, /^Tests green .*\. Build RED \(`echo no >&2; exit 3` → no\)\.$/);
+});
+
+test('cairn new keeps the work folder out of git before any task starts', () => {
+  const w = world();
+  assert.match(readFileSync(join(w.repo, '.git/info/exclude'), 'utf8'), /^\.cairn\/work\/$/m);
+  mkdirSync(join(w.wt, '.cairn/work/billing/reports'), { recursive: true });
+  write(join(w.wt, '.cairn/work/billing/reports/early.md'), 'written before execute\n');
+  assert.equal(g(w.wt, 'status', '--porcelain', '--', '.', ':!docs'), '');
+});
+
+const reviewReport = (w: World, name: string, lines: string[]) => {
+  const p = join(w.wt, '.cairn/work/billing/reports', name);
+  write(p, lines.join('\n'));
+  return p;
+};
+
+test('re-review: the brief lists the prior must-fix and reuses the report path; Prior lines keep open items and clear addressed ones', () => {
+  const w = world();
+  ok(w.wt, 'task', 'start', 'charge');
+  const report = reviewReport(w, 'charge-review.md', [
+    'Verdict: FIX',
+    '1. Critical | security | injection | src/charge/index.ts:40 | amount is concatenated into SQL | use a bound parameter',
+    '2. Required | quality | logic | src/charge/index.ts:12 | retries the charge twice | guard it',
+  ]);
+  ok(w.wt, 'review', 'record', 'charge', report);
+  const b = ok(w.wt, 'task', 'brief', 'charge', '--role', 'review', '--again');
+  assert.equal(b.data!.report, report, 'the same report path as the first review');
+  assert.match(b.message, /^Brief for re-review · Charge: .*charge-review-again\.md\. Report to: .*charge-review\.md\.$/);
+  const md = readFileSync(b.data!.path as string, 'utf8');
+  assert.match(md, /^# Re-review: Charge \(charge\)/);
+  assert.match(md, /1\. Critical \| security \| injection \| src\/charge\/index\.ts:40/);
+  assert.match(md, /2\. Required \| quality \| logic \| src\/charge\/index\.ts:12/);
+  assert.match(md, /The fix report: .*reports\/charge-fix\.md/);
+  assert.match(md, /Prior: <path:line> \| addressed\|open/);
+  assert.match(md, new RegExp(`Write your full report to: ${report.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  // One item still open, one addressed, and a new breakage as a normal line.
+  write(report, ['Verdict: FIX', 'Prior: src/charge/index.ts:40 | open | still concatenated', 'Prior: src/charge/index.ts:12 | addressed | guarded now', '1. Required | tests | gap | src/charge/new.ts:3 | fix broke refunds | restore it'].join('\n'));
+  const r = ok(w.wt, 'review', 'record', 'charge', report);
+  assert.equal(r.message, 'FIX: 2 must-fix (tests: src/charge/new.ts:3; security: src/charge/index.ts:40); 0 logged as follow-ups.');
+  const must = w.state().phases[0].tasks[0].mustFix!;
+  const kept = must.find((x) => x.where === 'src/charge/index.ts:40')!;
+  assert.deepEqual([kept.label, kept.area, kept.cls, kept.problem, kept.fix], ['Critical', 'security', 'injection', 'still concatenated', 'use a bound parameter']);
+  assert.ok(!must.some((x) => x.where === 'src/charge/index.ts:12'), 'the addressed item is gone');
+  // Everything addressed: PASS, and a verdict FIX with only open Prior lines is not refused.
+  write(report, 'Verdict: FIX\nPrior: src/charge/index.ts:40 | open | nope\n');
+  assert.match(ok(w.wt, 'review', 'record', 'charge', report).message, /^FIX: 1 must-fix/);
+  write(report, 'Verdict: PASS\nPrior: src/charge/index.ts:40 | addressed | done\n');
+  assert.equal(ok(w.wt, 'review', 'record', 'charge', report).message, 'PASS: 0 logged as follow-ups.');
+  assert.equal(w.state().phases[0].tasks[0].mustFix, undefined);
+  // Security re-review writes to the security report; --again needs a reviewing role.
+  assert.match(ok(w.wt, 'task', 'brief', 'charge', '--role', 'security', '--again').data!.report as string, /reports\/charge-security\.md$/);
+  assert.throws(() => ok(w.wt, 'task', 'brief', 'charge', '--again'), /--again needs --role review or --role security/);
+  // Branch re-review: the same file replaces the branch must-fix.
+  const br = reviewReport(w, 'branch-review.md', ['Verdict: FIX', '1. Required | tests | gap | src/a.ts:1 | nothing tests refunds | add one']);
+  ok(w.wt, 'review', 'record', 'branch', br);
+  assert.equal(w.state().branchMustFix!.length, 1);
+  write(br, 'Verdict: PASS\nPrior: src/a.ts:1 | addressed | test added\n');
+  ok(w.wt, 'review', 'record', 'branch', br);
+  assert.equal(w.state().branchMustFix, undefined);
+});
+
+test('MVP: review record files Optional, Nit and pre-existing findings as hardening items', () => {
+  const w = world();
+  w.user(() => ok(w.wt, 'level', 'mvp'));
+  ok(w.wt, 'task', 'start', 'charge');
+  const report = reviewReport(w, 'charge-review.md', [
+    'Verdict: PASS',
+    '1. Optional | tests | coverage | src/charge/index.ts:5 | no test for zero amounts | add one',
+    '2. Nit | docs | wording | n/a | typo | fix it',
+    '3. Critical pre-existing | security | auth | src/old.ts:9 | old hole | later',
+  ]);
+  const r = ok(w.wt, 'review', 'record', 'charge', report);
+  assert.equal(r.message, 'PASS: 3 logged as follow-ups.');
+  const items = w.state().suggestions!;
+  assert.deepEqual(items.map((x) => x.kind), ['hardening', 'hardening', 'hardening']);
+  assert.deepEqual(items[0].where, ['src/charge/index.ts']);
+  assert.deepEqual(items[1].where, ['src/charge/**', 'docs/cairn/**', 'src/refund/**', 'src/receipt/**'], 'no path: the plan scope');
+  assert.deepEqual(items[2].where, ['src/old.ts']);
+  assert.equal(ok(w.wt, 'status', '--json').data!.hardeningItems, 3);
+  // Recording again adds nothing; at Standard the same lines are ordinary follow-ups.
+  assert.match(ok(w.wt, 'review', 'record', 'charge', report).message, /0 logged/);
+  const std = world();
+  ok(std.wt, 'task', 'start', 'charge');
+  ok(std.wt, 'review', 'record', 'charge', reviewReport(std, 'charge-review.md', ['Verdict: PASS', '1. Optional | tests | coverage | src/charge/index.ts:5 | no test | add one']));
+  assert.equal(std.state().suggestions![0].kind, undefined);
+});
+
+test('the fix brief groups the must-fix by class', () => {
+  const w = world();
+  ok(w.wt, 'task', 'start', 'charge');
+  const report = reviewReport(w, 'charge-review.md', [
+    'Verdict: FIX',
+    '1. Critical | security | injection | a.ts:1 | sql | bind it',
+    '2. Required | quality | logic | b.ts:2 | retry | guard',
+    '3. Required | security | injection | c.ts:3 | shell | quote it',
+  ]);
+  ok(w.wt, 'review', 'record', 'charge', report);
+  const md = readFileSync(ok(w.wt, 'task', 'brief', 'charge', '--role', 'fix').data!.path as string, 'utf8');
+  assert.match(md, /### injection\n\n1\. Critical \| security \| injection \| a\.ts:1 \| sql \| bind it\n2\. Required \| security \| injection \| c\.ts:3 \| shell \| quote it\n\n### logic\n\n3\. Required \| quality \| logic \| b\.ts:2 \| retry \| guard\n/);
+});
+
+test('review record: security is decided by the file name, relative paths resolve, rows and class-less lines parse', () => {
+  const w = world();
+  ok(w.wt, 'task', 'start', 'charge');
+  // A folder called "security" does not make a task review a security review.
+  const dir = join(w.wt, '.cairn/work/billing/reports/security');
+  write(join(dir, 'charge-review.md'), 'Verdict: PASS\n1. Optional | tests | cov | a.ts:1 | gap | add\n');
+  ok(w.wt, 'review', 'record', 'charge', '.cairn/work/billing/reports/security/charge-review.md');
+  write(join(w.wt, '.cairn/work/billing/reports/charge-security.md'), 'Verdict: PASS\n1. Optional | security | hdr | b.ts:1 | header | add\n');
+  ok(w.wt, 'review', 'record', 'charge', join(w.wt, '.cairn/work/billing/reports/../reports/charge-security.md'));
+  assert.deepEqual(w.state().suggestions!.map((x) => x.from), ['task-review', 'security-review']);
+  write(join(w.wt, '.cairn/work/billing/reports/branch-security.md'), 'Verdict: FIX\n1. Required | security | authz | c.ts:2 | open route | guard it\n');
+  const rel = ok(w.wt, 'review', 'record', 'branch', '.cairn/work/billing/reports/branch-security.md');
+  assert.equal(w.state().branchMustFix![0].report, join(w.wt, '.cairn/work/billing/reports/branch-security.md'), 'stored as an absolute path');
+  assert.equal(rel.data!.verdict, 'FIX');
+  const f = parseFindings(['| Critical | security | injection | a.ts:4 | bad | fix it |', '| 2 | **Required** | quality | b.ts:1 | slow | cache |', '3. Required | quality | c.ts:9 | no class here | fix here', '| Optional | tests | cov | d.ts:2 | only four |', '| Prior | a | b |'].join('\n'));
+  assert.deepEqual(f.map((x) => [x.label, x.area, x.cls, x.where, x.problem, x.fix]), [
+    ['Critical', 'security', 'injection', 'a.ts:4', 'bad', 'fix it'],
+    ['Required', 'quality', 'unclassified', 'b.ts:1', 'slow', 'cache'],
+    ['Required', 'quality', 'unclassified', 'c.ts:9', 'no class here', 'fix here'],
+    ['Optional', 'tests', 'cov', 'd.ts:2', 'only four', ''],
+  ]);
+});
+
+test('status --json drops the follow-up list and the Linear payloads unless --full; status --all keeps what the pane reads', () => {
+  const w = world();
+  withOutbox(w, outboxOf(['l1']));
+  editState(w, (s) => {
+    s.suggestions = [{ id: 's1', area: 'tests', text: 'cover it', where: ['src/**'], from: 'implementer', at: new Date().toISOString() }];
+  });
+  const slim = ok(w.wt, 'status', '--json').data!;
+  const st = slim.state as State;
+  assert.equal(st.suggestions, undefined);
+  assert.equal(st.log, undefined);
+  assert.equal(st.linear!.outbox.length, 1);
+  assert.equal((st.linear!.outbox[0] as { payload?: unknown }).payload, undefined);
+  assert.equal(st.linear!.outbox[0].why, 'why l1');
+  assert.deepEqual(slim.suggestionCounts, { logged: 1, open: 1, hardening: 0 });
+  const full = ok(w.wt, 'status', '--json', '--full').data!.state as State;
+  assert.equal(full.suggestions!.length, 1);
+  assert.ok((full.linear!.outbox[0] as { payload?: unknown }).payload);
+  assert.ok(Array.isArray(full.log));
+  // The pane and the approval menus read these from `status --all --json`.
+  const row = (ok(w.wt, 'status', '--all', '--json').data!.plans as { state: State; worktree: string; dir: string; ready?: unknown; next: unknown; level: string; linearDue?: number }[])[0];
+  assert.equal(row.state.slug, 'billing');
+  assert.equal(row.state.stage, 'execute');
+  assert.ok(Array.isArray(row.state.phases) && row.state.phases[0].tasks.length > 0);
+  assert.ok(row.state.approvals.prd && row.state.updated);
+  assert.ok(Array.isArray(row.state.log) && row.state.log.length > 0, 'the pane builds its recent-activity feed from the log');
+  assert.equal(row.state.suggestions, undefined);
+  assert.equal((row.state.linear!.outbox[0] as { payload?: unknown }).payload, undefined);
+  assert.equal(row.worktree, w.wt);
+  assert.ok(row.dir && row.next && row.level);
+  assert.equal(row.linearDue, 1);
+});

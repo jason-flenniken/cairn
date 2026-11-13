@@ -8,9 +8,9 @@ import { isCairnPath } from '../paths.ts';
 import { phaseStatus } from '../plan-parse.ts';
 import { currentPhase, findTask, readySet } from '../ready.ts';
 import { loadState, log, setStage } from '../state.ts';
-import { SUBSTEPS, type Substep } from '../types.ts';
+import { SUBSTEPS, type State, type Substep, type Task } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
-import { taskBrief, taskReport, writeBrief } from './brief.ts';
+import { recordTestRun, taskBrief, taskReport, writeBrief } from './brief.ts';
 import { ensureExcluded, gate, mutate, planCtx, runSetup, runTests, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
 import { syncTickets } from './linear.ts';
@@ -138,7 +138,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const commits = tip && sl.base ? Number(git(['rev-list', '--count', `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
   const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   const checkable = merged && !dirty && !planDirty;
-  const tests = checkable ? runTests(pc.cfg, plan.worktree) : undefined;
+  const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan.worktree)) : undefined;
   const testedCommit = tests ? git(['rev-parse', 'HEAD'], plan.worktree) : undefined;
   // The fix track adds: the repro now passes, and the fix stays small (FR-25). Both are checked even when an
   // override waives the checks above: the repro whenever the task is merged, the size whenever there is a base.
@@ -193,6 +193,28 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
 
 const DOCS_ROOTS = ['docs/cairn/', 'docs/sdlc/'];
 
+/**
+ * The cheap `task done` checks, run before `task merge` touches the plan branch, so a refusal leaves no merge commit behind:
+ * the task worktree is clean, the task branch has commits, the plan worktree has no stray edits, and no commit for the task
+ * went straight onto the plan branch. The first problem found is refused. Tests are the only check left for after the merge.
+ */
+function preMergeChecks(pc: PlanCtx, pre: State, sl: Task, opts: Opts): void {
+  const { plan } = pc;
+  const pb = pre.branch;
+  configGate(pre, pc.cfg, 'task merge', opts);
+  if (opts.override) return; // task done checks again, with the user's proof, and logs the override
+  const dirty = sl.worktree && existsSync(sl.worktree) ? git(['status', '--porcelain'], sl.worktree) : '';
+  if (dirty) throw new Refusal('the task worktree has uncommitted changes', [`commit or discard them in ${sl.worktree}`]);
+  const commits = sl.base ? Number(git(['rev-list', '--count', `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
+  if (commits <= 0) throw new Refusal(`${sl.branch} has no commits since the task started`, ['the implementer commits its work on the task branch, in the task worktree']);
+  const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
+  if (planDirty)
+    throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
+  const stray = sl.base && !fastLane(pre) ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !isCairnPath(f) && matchesAny(f, sl.scope))) : [];
+  if (stray.length)
+    throw new Refusal(`commits for task "${sl.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(', ')}`, [`move these commits to the task branch (git cherry-pick them onto ${sl.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
+}
+
 /** Merge the task branch into the plan branch (--no-ff), settle plan-file conflicts, then run `task done`. */
 function taskMerge(pc: PlanCtx, id: string, opts: Opts): Result {
   const { plan } = pc;
@@ -202,7 +224,9 @@ function taskMerge(pc: PlanCtx, id: string, opts: Opts): Result {
   if (sl.status !== 'in_progress' || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`, ['cairn task start ' + id]);
   const pb = pre.branch;
   if (!branchExists(sl.branch, plan.worktree)) throw new Refusal(`branch ${sl.branch} does not exist`);
+  preMergeChecks(pc, pre, sl, opts);
   let note: string;
+  let didMerge = false;
   if (!gitOk(['merge-base', '--is-ancestor', sl.branch, pb], plan.worktree)) {
     if (git(['rev-parse', '--abbrev-ref', 'HEAD'], plan.worktree) !== pb) throw new Refusal(`the plan worktree is not on ${pb}`, [`git -C ${plan.worktree} switch ${pb}`]);
     const m = gitTry(['merge', '--no-ff', sl.branch, '-m', `merge task ${id}`], plan.worktree);
@@ -230,11 +254,20 @@ function taskMerge(pc: PlanCtx, id: string, opts: Opts): Result {
       kept = ` Kept the plan's side of ${files.length} plan file${files.length === 1 ? '' : 's'} that conflicted.`;
     }
     note = `Merged ${sl.branch} into ${pb}.${kept}`;
+    didMerge = true;
   } else note = `${sl.branch} was already merged into ${pb}.`;
   if (sl.mergeConflict)
     mutate(pc, undefined, (s) => {
       delete findTask(s, id)!.mergeConflict;
     });
-  const r = taskDone(pc, id, opts);
+  let r: Result;
+  try {
+    r = taskDone(pc, id, opts);
+  } catch (e) {
+    // Red tests after the merge: the merge stays (the fix runs on the merged tree) and the refusal says so.
+    if (e instanceof Refusal && didMerge && e.message.startsWith('tests are not green'))
+      throw new Refusal(e.message, [`the merge stays in place: ${sl.branch} is merged into ${pb}. Fix on the merged tree in ${plan.worktree}, then run cairn task merge ${id} again`, ...e.fixes]);
+    throw e;
+  }
   return { ...r, message: `${note}\n${r.message}`, data: { ...r.data, merged: true } };
 }

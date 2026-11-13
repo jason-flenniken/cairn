@@ -31,9 +31,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// node_modules/yaml/dist/nodes/identity.js
+// ../../../node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
-  "node_modules/yaml/dist/nodes/identity.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/identity.js"(exports) {
     "use strict";
     var ALIAS = Symbol.for("yaml.alias");
     var DOC = Symbol.for("yaml.document");
@@ -88,9 +88,9 @@ var require_identity = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/visit.js
+// ../../../node_modules/yaml/dist/visit.js
 var require_visit = __commonJS({
-  "node_modules/yaml/dist/visit.js"(exports) {
+  "../../../node_modules/yaml/dist/visit.js"(exports) {
     "use strict";
     var identity = require_identity();
     var BREAK = Symbol("break visit");
@@ -246,9 +246,9 @@ var require_visit = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/directives.js
+// ../../../node_modules/yaml/dist/doc/directives.js
 var require_directives = __commonJS({
-  "node_modules/yaml/dist/doc/directives.js"(exports) {
+  "../../../node_modules/yaml/dist/doc/directives.js"(exports) {
     "use strict";
     var identity = require_identity();
     var visit = require_visit();
@@ -417,9 +417,9 @@ var require_directives = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/anchors.js
+// ../../../node_modules/yaml/dist/doc/anchors.js
 var require_anchors = __commonJS({
-  "node_modules/yaml/dist/doc/anchors.js"(exports) {
+  "../../../node_modules/yaml/dist/doc/anchors.js"(exports) {
     "use strict";
     var identity = require_identity();
     var visit = require_visit();
@@ -487,9 +487,9 @@ var require_anchors = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/applyReviver.js
+// ../../../node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = __commonJS({
-  "node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+  "../../../node_modules/yaml/dist/doc/applyReviver.js"(exports) {
     "use strict";
     function applyReviver(reviver, obj, key2, val) {
       if (val && typeof val === "object") {
@@ -537,9 +537,9 @@ var require_applyReviver = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/toJS.js
+// ../../../node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = __commonJS({
-  "node_modules/yaml/dist/nodes/toJS.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/toJS.js"(exports) {
     "use strict";
     var identity = require_identity();
     function toJS(value, arg, ctx) {
@@ -567,9 +567,9 @@ var require_toJS = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Node.js
+// ../../../node_modules/yaml/dist/nodes/Node.js
 var require_Node = __commonJS({
-  "node_modules/yaml/dist/nodes/Node.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/Node.js"(exports) {
     "use strict";
     var applyReviver = require_applyReviver();
     var identity = require_identity();
@@ -608,9 +608,9 @@ var require_Node = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Alias.js
+// ../../../node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = __commonJS({
-  "node_modules/yaml/dist/nodes/Alias.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/Alias.js"(exports) {
     "use strict";
     var anchors = require_anchors();
     var visit = require_visit();
@@ -726,9 +726,9 @@ var require_Alias = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Scalar.js
+// ../../../node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = __commonJS({
-  "node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/Scalar.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Node = require_Node();
@@ -756,9 +756,9 @@ var require_Scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/createNode.js
+// ../../../node_modules/yaml/dist/doc/createNode.js
 var require_createNode = __commonJS({
-  "node_modules/yaml/dist/doc/createNode.js"(exports) {
+  "../../../node_modules/yaml/dist/doc/createNode.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var identity = require_identity();
@@ -831,9 +831,9 @@ var require_createNode = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Collection.js
+// ../../../node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = __commonJS({
-  "node_modules/yaml/dist/nodes/Collection.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var identity = require_identity();
@@ -974,9 +974,9 @@ var require_Collection = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyComment.js
+// ../../../node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+  "../../../node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
     var stringifyComment = (str2) => str2.replace(/^(?!$)(?: $)?/gm, "#");
     function indentComment(comment, indent) {
@@ -991,9 +991,9 @@ var require_stringifyComment = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/foldFlowLines.js
+// ../../../node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = __commonJS({
-  "node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+  "../../../node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
     "use strict";
     var FOLD_FLOW = "flow";
     var FOLD_BLOCK = "block";
@@ -1127,9 +1127,9 @@ ${indent}${text.slice(fold + 1, end2)}`;
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyString.js
+// ../../../node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+  "../../../node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var foldFlowLines = require_foldFlowLines();
@@ -1410,9 +1410,9 @@ ${indent}`);
   }
 });
 
-// node_modules/yaml/dist/stringify/stringify.js
+// ../../../node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = __commonJS({
-  "node_modules/yaml/dist/stringify/stringify.js"(exports) {
+  "../../../node_modules/yaml/dist/stringify/stringify.js"(exports) {
     "use strict";
     var anchors = require_anchors();
     var identity = require_identity();
@@ -1534,9 +1534,9 @@ ${ctx.indent}${str2}`;
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyPair.js
+// ../../../node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+  "../../../node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -1667,9 +1667,9 @@ ${ctx.indent}`;
   }
 });
 
-// node_modules/yaml/dist/log.js
+// ../../../node_modules/yaml/dist/log.js
 var require_log = __commonJS({
-  "node_modules/yaml/dist/log.js"(exports) {
+  "../../../node_modules/yaml/dist/log.js"(exports) {
     "use strict";
     var node_process = __require("process");
     function debug(logLevel, ...messages) {
@@ -1689,9 +1689,9 @@ var require_log = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -1749,9 +1749,9 @@ var require_merge = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/addPairToJSMap.js
+// ../../../node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = __commonJS({
-  "node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
     "use strict";
     var log2 = require_log();
     var merge = require_merge();
@@ -1813,9 +1813,9 @@ var require_addPairToJSMap = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/Pair.js
+// ../../../node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = __commonJS({
-  "node_modules/yaml/dist/nodes/Pair.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/Pair.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var stringifyPair = require_stringifyPair();
@@ -1853,9 +1853,9 @@ var require_Pair = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyCollection.js
+// ../../../node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+  "../../../node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var stringify = require_stringify();
@@ -2004,9 +2004,9 @@ ${indent}${end}`;
   }
 });
 
-// node_modules/yaml/dist/nodes/YAMLMap.js
+// ../../../node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = __commonJS({
-  "node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
     "use strict";
     var stringifyCollection = require_stringifyCollection();
     var addPairToJSMap = require_addPairToJSMap();
@@ -2148,9 +2148,9 @@ var require_YAMLMap = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/common/map.js
+// ../../../node_modules/yaml/dist/schema/common/map.js
 var require_map = __commonJS({
-  "node_modules/yaml/dist/schema/common/map.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/common/map.js"(exports) {
     "use strict";
     var identity = require_identity();
     var YAMLMap = require_YAMLMap();
@@ -2170,9 +2170,9 @@ var require_map = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/nodes/YAMLSeq.js
+// ../../../node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = __commonJS({
-  "node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+  "../../../node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var stringifyCollection = require_stringifyCollection();
@@ -2286,9 +2286,9 @@ var require_YAMLSeq = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/common/seq.js
+// ../../../node_modules/yaml/dist/schema/common/seq.js
 var require_seq = __commonJS({
-  "node_modules/yaml/dist/schema/common/seq.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/common/seq.js"(exports) {
     "use strict";
     var identity = require_identity();
     var YAMLSeq = require_YAMLSeq();
@@ -2308,9 +2308,9 @@ var require_seq = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/common/string.js
+// ../../../node_modules/yaml/dist/schema/common/string.js
 var require_string = __commonJS({
-  "node_modules/yaml/dist/schema/common/string.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/common/string.js"(exports) {
     "use strict";
     var stringifyString = require_stringifyString();
     var string = {
@@ -2327,9 +2327,9 @@ var require_string = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/common/null.js
+// ../../../node_modules/yaml/dist/schema/common/null.js
 var require_null = __commonJS({
-  "node_modules/yaml/dist/schema/common/null.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/common/null.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var nullTag = {
@@ -2345,9 +2345,9 @@ var require_null = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/core/bool.js
+// ../../../node_modules/yaml/dist/schema/core/bool.js
 var require_bool = __commonJS({
-  "node_modules/yaml/dist/schema/core/bool.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/core/bool.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var boolTag = {
@@ -2369,9 +2369,9 @@ var require_bool = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyNumber.js
+// ../../../node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+  "../../../node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
     "use strict";
     function stringifyNumber({ format, minFractionDigits, tag, value }) {
       if (typeof value === "bigint")
@@ -2396,9 +2396,9 @@ var require_stringifyNumber = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/core/float.js
+// ../../../node_modules/yaml/dist/schema/core/float.js
 var require_float = __commonJS({
-  "node_modules/yaml/dist/schema/core/float.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/core/float.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
@@ -2442,9 +2442,9 @@ var require_float = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/core/int.js
+// ../../../node_modules/yaml/dist/schema/core/int.js
 var require_int = __commonJS({
-  "node_modules/yaml/dist/schema/core/int.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/core/int.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -2487,9 +2487,9 @@ var require_int = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/core/schema.js
+// ../../../node_modules/yaml/dist/schema/core/schema.js
 var require_schema = __commonJS({
-  "node_modules/yaml/dist/schema/core/schema.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/core/schema.js"(exports) {
     "use strict";
     var map = require_map();
     var _null = require_null();
@@ -2515,9 +2515,9 @@ var require_schema = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/json/schema.js
+// ../../../node_modules/yaml/dist/schema/json/schema.js
 var require_schema2 = __commonJS({
-  "node_modules/yaml/dist/schema/json/schema.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/json/schema.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var map = require_map();
@@ -2582,9 +2582,9 @@ var require_schema2 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
     "use strict";
     var node_buffer = __require("buffer");
     var Scalar = require_Scalar();
@@ -2648,9 +2648,9 @@ var require_binary = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -2726,9 +2726,9 @@ ${cn.comment}` : item.comment;
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
     "use strict";
     var identity = require_identity();
     var toJS = require_toJS();
@@ -2804,9 +2804,9 @@ var require_omap = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool2 = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     function boolStringify({ value, source }, ctx) {
@@ -2836,9 +2836,9 @@ var require_bool2 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/float.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float2 = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
@@ -2885,9 +2885,9 @@ var require_float2 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/int.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int2 = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -2964,9 +2964,9 @@ var require_int2 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/set.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -3053,9 +3053,9 @@ var require_set = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     function parseSexagesimal(str2, asBigInt) {
@@ -3141,9 +3141,9 @@ var require_timestamp = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// ../../../node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema3 = __commonJS({
-  "node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
     "use strict";
     var map = require_map();
     var _null = require_null();
@@ -3185,9 +3185,9 @@ var require_schema3 = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/tags.js
+// ../../../node_modules/yaml/dist/schema/tags.js
 var require_tags = __commonJS({
-  "node_modules/yaml/dist/schema/tags.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/tags.js"(exports) {
     "use strict";
     var map = require_map();
     var _null = require_null();
@@ -3279,9 +3279,9 @@ var require_tags = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/schema/Schema.js
+// ../../../node_modules/yaml/dist/schema/Schema.js
 var require_Schema = __commonJS({
-  "node_modules/yaml/dist/schema/Schema.js"(exports) {
+  "../../../node_modules/yaml/dist/schema/Schema.js"(exports) {
     "use strict";
     var identity = require_identity();
     var map = require_map();
@@ -3311,9 +3311,9 @@ var require_Schema = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/stringify/stringifyDocument.js
+// ../../../node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = __commonJS({
-  "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+  "../../../node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
     var stringify = require_stringify();
@@ -3391,9 +3391,9 @@ var require_stringifyDocument = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/doc/Document.js
+// ../../../node_modules/yaml/dist/doc/Document.js
 var require_Document = __commonJS({
-  "node_modules/yaml/dist/doc/Document.js"(exports) {
+  "../../../node_modules/yaml/dist/doc/Document.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var Collection = require_Collection();
@@ -3700,9 +3700,9 @@ var require_Document = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/errors.js
+// ../../../node_modules/yaml/dist/errors.js
 var require_errors = __commonJS({
-  "node_modules/yaml/dist/errors.js"(exports) {
+  "../../../node_modules/yaml/dist/errors.js"(exports) {
     "use strict";
     var YAMLError = class extends Error {
       constructor(name, pos, code, message) {
@@ -3765,9 +3765,9 @@ ${pointer}
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-props.js
+// ../../../node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/resolve-props.js"(exports) {
     "use strict";
     function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
       let spaceBefore = false;
@@ -3899,9 +3899,9 @@ var require_resolve_props = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/util-contains-newline.js
+// ../../../node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = __commonJS({
-  "node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
     "use strict";
     function containsNewline(key2) {
       if (!key2)
@@ -3941,9 +3941,9 @@ var require_util_contains_newline = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/util-flow-indent-check.js
+// ../../../node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = __commonJS({
-  "node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
     "use strict";
     var utilContainsNewline = require_util_contains_newline();
     function flowIndentCheck(indent, fc, onError) {
@@ -3959,9 +3959,9 @@ var require_util_flow_indent_check = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/util-map-includes.js
+// ../../../node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = __commonJS({
-  "node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
     "use strict";
     var identity = require_identity();
     function mapIncludes(ctx, items, search) {
@@ -3975,9 +3975,9 @@ var require_util_map_includes = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-block-map.js
+// ../../../node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
     "use strict";
     var Pair = require_Pair();
     var YAMLMap = require_YAMLMap();
@@ -4083,9 +4083,9 @@ var require_resolve_block_map = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-block-seq.js
+// ../../../node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
     "use strict";
     var YAMLSeq = require_YAMLSeq();
     var resolveProps = require_resolve_props();
@@ -4134,9 +4134,9 @@ var require_resolve_block_seq = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-end.js
+// ../../../node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-end.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/resolve-end.js"(exports) {
     "use strict";
     function resolveEnd(end, offset, reqSpace, onError) {
       let comment = "";
@@ -4177,9 +4177,9 @@ var require_resolve_end = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-flow-collection.js
+// ../../../node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -4371,9 +4371,9 @@ var require_resolve_flow_collection = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/compose-collection.js
+// ../../../node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = __commonJS({
-  "node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/compose-collection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -4436,9 +4436,9 @@ var require_compose_collection = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-block-scalar.js
+// ../../../node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     function resolveBlockScalar(ctx, scalar, onError) {
@@ -4619,9 +4619,9 @@ var require_resolve_block_scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// ../../../node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = __commonJS({
-  "node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var resolveEnd = require_resolve_end();
@@ -4840,9 +4840,9 @@ var require_resolve_flow_scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/compose-scalar.js
+// ../../../node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = __commonJS({
-  "node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -4921,9 +4921,9 @@ var require_compose_scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// ../../../node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = __commonJS({
-  "node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
     "use strict";
     function emptyScalarPosition(offset, before, pos) {
       if (before) {
@@ -4951,9 +4951,9 @@ var require_util_empty_scalar_position = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/compose-node.js
+// ../../../node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = __commonJS({
-  "node_modules/yaml/dist/compose/compose-node.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/compose-node.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var identity = require_identity();
@@ -5057,9 +5057,9 @@ var require_compose_node = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/compose-doc.js
+// ../../../node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = __commonJS({
-  "node_modules/yaml/dist/compose/compose-doc.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/compose-doc.js"(exports) {
     "use strict";
     var Document = require_Document();
     var composeNode = require_compose_node();
@@ -5100,9 +5100,9 @@ var require_compose_doc = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/compose/composer.js
+// ../../../node_modules/yaml/dist/compose/composer.js
 var require_composer = __commonJS({
-  "node_modules/yaml/dist/compose/composer.js"(exports) {
+  "../../../node_modules/yaml/dist/compose/composer.js"(exports) {
     "use strict";
     var node_process = __require("process");
     var directives = require_directives();
@@ -5308,9 +5308,9 @@ ${end.comment}` : end.comment;
   }
 });
 
-// node_modules/yaml/dist/parse/cst-scalar.js
+// ../../../node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = __commonJS({
-  "node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+  "../../../node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
     "use strict";
     var resolveBlockScalar = require_resolve_block_scalar();
     var resolveFlowScalar = require_resolve_flow_scalar();
@@ -5493,9 +5493,9 @@ var require_cst_scalar = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/cst-stringify.js
+// ../../../node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = __commonJS({
-  "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+  "../../../node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
     var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
@@ -5554,9 +5554,9 @@ var require_cst_stringify = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/cst-visit.js
+// ../../../node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = __commonJS({
-  "node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+  "../../../node_modules/yaml/dist/parse/cst-visit.js"(exports) {
     "use strict";
     var BREAK = Symbol("break visit");
     var SKIP = Symbol("skip children");
@@ -5616,9 +5616,9 @@ var require_cst_visit = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/cst.js
+// ../../../node_modules/yaml/dist/parse/cst.js
 var require_cst = __commonJS({
-  "node_modules/yaml/dist/parse/cst.js"(exports) {
+  "../../../node_modules/yaml/dist/parse/cst.js"(exports) {
     "use strict";
     var cstScalar = require_cst_scalar();
     var cstStringify = require_cst_stringify();
@@ -5718,9 +5718,9 @@ var require_cst = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/lexer.js
+// ../../../node_modules/yaml/dist/parse/lexer.js
 var require_lexer = __commonJS({
-  "node_modules/yaml/dist/parse/lexer.js"(exports) {
+  "../../../node_modules/yaml/dist/parse/lexer.js"(exports) {
     "use strict";
     var cst = require_cst();
     function isEmpty(ch) {
@@ -6307,9 +6307,9 @@ var require_lexer = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/line-counter.js
+// ../../../node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = __commonJS({
-  "node_modules/yaml/dist/parse/line-counter.js"(exports) {
+  "../../../node_modules/yaml/dist/parse/line-counter.js"(exports) {
     "use strict";
     var LineCounter = class {
       constructor() {
@@ -6338,9 +6338,9 @@ var require_line_counter = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/parse/parser.js
+// ../../../node_modules/yaml/dist/parse/parser.js
 var require_parser = __commonJS({
-  "node_modules/yaml/dist/parse/parser.js"(exports) {
+  "../../../node_modules/yaml/dist/parse/parser.js"(exports) {
     "use strict";
     var node_process = __require("process");
     var cst = require_cst();
@@ -7212,9 +7212,9 @@ var require_parser = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/public-api.js
+// ../../../node_modules/yaml/dist/public-api.js
 var require_public_api = __commonJS({
-  "node_modules/yaml/dist/public-api.js"(exports) {
+  "../../../node_modules/yaml/dist/public-api.js"(exports) {
     "use strict";
     var composer = require_composer();
     var Document = require_Document();
@@ -7309,9 +7309,9 @@ var require_public_api = __commonJS({
   }
 });
 
-// node_modules/yaml/dist/index.js
+// ../../../node_modules/yaml/dist/index.js
 var require_dist = __commonJS({
-  "node_modules/yaml/dist/index.js"(exports) {
+  "../../../node_modules/yaml/dist/index.js"(exports) {
     "use strict";
     var composer = require_composer();
     var Document = require_Document();
@@ -7363,7 +7363,7 @@ var require_dist = __commonJS({
 
 // plugins/cairn/cli/src/main.ts
 import { readFileSync as readFileSync7 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { resolve as resolve4 } from "node:path";
 
 // plugins/cairn/cli/src/locate.ts
 import { existsSync as existsSync2, readdirSync, readFileSync as readFileSync3 } from "node:fs";
@@ -8246,7 +8246,7 @@ function testsGate(t, s, event, opts, scope) {
     log(s, `warning: ${event}`, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail}); recorded as a hardening item`);
     return t;
   }
-  gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail})`, ["fix the failing tests, then retry"]);
+  gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail})${t.log ? `. Full output: ${t.log}` : ""}`, ["fix the failing tests, then retry"]);
   return t;
 }
 function runSetup(cfg, wt, mainRoot) {
@@ -8290,18 +8290,18 @@ function template(name) {
 
 // plugins/cairn/cli/src/commands/plans.ts
 import { existsSync as existsSync10, readFileSync as readFileSync6 } from "node:fs";
-import { join as join17, resolve } from "node:path";
+import { join as join17, resolve as resolve2 } from "node:path";
 
 // plugins/cairn/cli/src/commands/memory.ts
 import { join as join16 } from "node:path";
 
 // plugins/cairn/cli/src/memory.ts
 import { existsSync as existsSync9 } from "node:fs";
-import { basename as basename3, join as join15, posix } from "node:path";
+import { basename as basename4, join as join15, posix } from "node:path";
 
 // plugins/cairn/cli/src/commands/records.ts
 import { existsSync as existsSync8, readdirSync as readdirSync6 } from "node:fs";
-import { basename as basename2, dirname as dirname3, join as join14 } from "node:path";
+import { basename as basename3, dirname as dirname4, join as join14 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
 import { existsSync as existsSync7, readFileSync as readFileSync5 } from "node:fs";
@@ -8309,7 +8309,7 @@ import { join as join13, relative as relative3 } from "node:path";
 
 // plugins/cairn/cli/src/commands/brief.ts
 import { existsSync as existsSync3, mkdirSync as mkdirSync3, readdirSync as readdirSync3, writeFileSync as writeFileSync3 } from "node:fs";
-import { join as join8 } from "node:path";
+import { basename as basename2, dirname as dirname3, join as join8, resolve } from "node:path";
 
 // plugins/cairn/cli/src/commands/suggest.ts
 import { readdirSync as readdirSync2 } from "node:fs";
@@ -8460,6 +8460,7 @@ var ROLES = ["build", "review", "security", "fix"];
 function workDir(pc) {
   const root = join8(pc.plan.worktree, CAIRN_DIR, "work");
   const dir = join8(root, pc.plan.slug);
+  ensureExcluded(pc.ctx.mainRoot, `${CAIRN_DIR}/work/`);
   for (const sub of ["briefs", "reports", "research"]) mkdirSync3(join8(dir, sub), { recursive: true });
   const ignore = join8(root, ".gitignore");
   if (!existsSync3(ignore)) writeFileSync3(ignore, "*\n");
@@ -8509,45 +8510,111 @@ var taskBits = (pc, s, sl) => {
   return { branch, section, reqs, constraints, plan: s.branch };
 };
 var list2 = (items) => items.map((x) => `- ${x}`).join("\n");
-function buildBrief(pc, s, sl, role) {
+var classHeading = (cls) => cls.trim() || "unclassified";
+var mustLine = (f, n) => `${n}. ${f.label} | ${f.area} | ${f.cls} | ${f.where} | ${f.problem} | ${f.fix}`;
+function factsBlock(pc, sl) {
+  return [
+    "## Task facts",
+    "",
+    `- Scope: ${sl.scope.join(", ") || "(none)"}`,
+    `- Risky: ${sl.risky ? `yes${sl.riskReason ? ` (${sl.riskReason})` : ""}` : "no"}`,
+    `- Complexity: ${sl.complexity}`,
+    `- Blocked by: ${sl.blockedBy.join(", ") || "nothing"}`,
+    `- PRD: ${planFile(pc, "prd.md")}`,
+    `- Plan: ${planFile(pc, "plan.md")}`,
+    ""
+  ];
+}
+function securityBlock(pc) {
+  const prd = readText(planFile(pc, "prd.md")) ?? "";
+  const body = clean(sections(prd).get("security") ?? "");
+  return ["## PRD security section", "", body || "(the PRD has no Security section: review against the security checklist alone)", ""];
+}
+var priorMustFix = (sl, report) => (sl.mustFix ?? []).filter((x) => x.report === report);
+function buildBrief(pc, s, sl, role, again = false) {
   const b = taskBits(pc, s, sl);
   const report = reportPath(pc, sl.id, role);
   const worktree = sl.worktree ?? "(not started: run `cairn task start` first)";
   const where = [`Plan worktree: ${pc.plan.worktree}`, `Plan branch: ${b.plan}`, `Task branch: ${b.branch}`, `Task worktree: ${worktree}`];
-  const head = `# ${role === "build" ? "Build" : role === "fix" ? "Fix" : role === "security" ? "Security review" : "Review"}: ${sl.name} (${sl.id})`;
-  const parts = [head, "", ...where, ""];
+  const title = role === "build" ? "Build" : role === "fix" ? "Fix" : role === "security" ? "Security review" : "Review";
+  const head = `# ${again ? `Re-${title.charAt(0).toLowerCase()}${title.slice(1)}` : title}: ${sl.name} (${sl.id})`;
+  const parts = [head, "", ...where, "", ...factsBlock(pc, sl)];
   if (role === "fix") {
     const found = sl.mustFix ?? [];
     parts.push("## What to fix", "");
     if (sl.mergeConflict?.length)
       parts.push(`Merge ${b.plan} into ${b.branch} in ${worktree}, resolve the conflicts, and commit. Conflicting files:`, list2(sl.mergeConflict), "");
-    if (found.length) parts.push(...found.map((f, i) => `${i + 1}. ${f.label} | ${f.area} | ${f.cls} | ${f.where} | ${f.problem} | ${f.fix}`), "");
-    else if (!sl.mergeConflict?.length) parts.push("No must-fix findings are recorded for this task. Check the reviewer reports under reports/.", "");
+    if (found.length) {
+      const classes = [...new Set(found.map((f) => classHeading(f.cls)))];
+      let n = 0;
+      for (const c of classes) parts.push(`### ${c}`, "", ...found.filter((f) => classHeading(f.cls) === c).map((f) => mustLine(f, ++n)), "");
+    } else if (!sl.mergeConflict?.length) parts.push("No must-fix findings are recorded for this task. Check the reviewer reports under reports/.", "");
+    if (s.lastRed) parts.push("## Last red test run", "", ...s.lastRed.failing.length ? s.lastRed.failing.map((l) => `  ${l}`) : ["  (no failing line was picked out)"], `Full output: ${s.lastRed.log}`, "");
     parts.push("## Task", "", b.section, "");
   } else {
     parts.push("## Task", "", b.section, "", "## Requirements this task covers", "", b.reqs.length ? b.reqs.join("\n\n") : "None (a prefactor task).", "");
     if (b.constraints) parts.push("## Global constraints", "", b.constraints, "");
+    if (role === "security") parts.push(...securityBlock(pc));
     if (role !== "build") {
       parts.push("## What to review", "", `Diff: \`git -C ${pc.plan.worktree} diff ${b.plan}...${b.branch}\``, `The implementer's report: ${reportPath(pc, sl.id, "build")}`, "");
+      if (again) {
+        const prior = priorMustFix(sl, report);
+        parts.push(
+          "## Re-review",
+          "",
+          "This is a second look after a fix. The must-fix you recorded last time:",
+          prior.length ? prior.map((f, i) => mustLine(f, i + 1)).join("\n") : "(none is recorded: say so in the report)",
+          "",
+          `The fix report: ${reportPath(pc, sl.id, "fix")}`,
+          "",
+          "List each prior item as one line: `Prior: <path:line> | addressed|open | <note>`. Report anything the fix newly broke as normal finding lines. End with `Verdict: PASS` or `Verdict: FIX`.",
+          ""
+        );
+      }
     }
   }
   parts.push("## Report", "", `Write your full report to: ${report}`);
   return { text: parts.join("\n") + "\n", report };
 }
-function writeBrief(pc, id, role) {
+function writeBrief(pc, id, role, again = false) {
   const s = loadState(pc.plan.dir);
   const sl = findTask(s, id);
   if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
-  const { text, report } = buildBrief(pc, s, sl, role);
-  const path = join8(workDir(pc), "briefs", `${id}-${role}.md`);
+  const { text, report } = buildBrief(pc, s, sl, role, again);
+  const path = join8(workDir(pc), "briefs", `${id}-${role}${again ? "-again" : ""}.md`);
   writeFileSync3(path, text);
   return { path, report, name: sl.name };
 }
 function taskBrief(pc, id, opts) {
   const role = opts.role === void 0 ? "build" : String(opts.role);
   if (!ROLES.includes(role)) throw new CliError(`--role must be one of ${ROLES.join(", ")}`);
-  const r = writeBrief(pc, id, role);
-  return { message: `Brief for ${role} \xB7 ${r.name}: ${r.path}. Report to: ${r.report}.`, data: { path: r.path, report: r.report, role } };
+  const again = !!opts.again;
+  if (again && role !== "review" && role !== "security") throw new CliError("--again needs --role review or --role security");
+  const r = writeBrief(pc, id, role, again);
+  return { message: `Brief for ${again ? "re-" : ""}${role} \xB7 ${r.name}: ${r.path}. Report to: ${r.report}.`, data: { path: r.path, report: r.report, role } };
+}
+var FAILING = /\b(?:fail(?:ed|ing|ure)?|error)\b|✗|✖|^not ok\b/i;
+var failingLines = (output) => output.split("\n").filter((l) => FAILING.test(l)).slice(0, 5).map((l) => l.length > 200 ? `${l.slice(0, 199)}\u2026` : l);
+function testLog(pc, output) {
+  const path = join8(workDir(pc), "reports", "tests.log");
+  mkdirSync3(dirname3(path), { recursive: true });
+  writeFileSync3(path, `${output}
+`);
+  return path;
+}
+function recordTestRun(pc, t) {
+  if (!t || !t.ok && !t.ran) return t;
+  if (t.ok) {
+    if (loadState(pc.plan.dir).lastRed) mutate(pc, void 0, (s) => void delete s.lastRed);
+    return t;
+  }
+  t.log = testLog(pc, t.output ?? "");
+  t.failing = failingLines(t.output ?? "");
+  const { log: logFile, failing } = t;
+  mutate(pc, void 0, (s) => {
+    s.lastRed = { at: now(), log: logFile, failing };
+  });
+  return t;
 }
 var AREAS = SUGGESTION_AREAS;
 var area = (v) => AREAS.includes(v.toLowerCase()) ? v.toLowerCase() : "quality";
@@ -8582,6 +8649,7 @@ function reportSuggestions(md) {
 function taskReport(ctx, id, path) {
   if (!id || !path) throw new CliError("usage: cairn task report <task-id> <report-path>");
   const pc = planCtx(ctx);
+  path = resolve(ctx.cwd, path);
   const md = readReport(path);
   const status = md.match(/^\s*[*_]*Status[*_]*\s*:[*_]*\s*([A-Za-z_]+)/im)?.[1]?.toUpperCase();
   if (!status) throw new Refusal(`the report at ${path} has no Status: line`, ["the implementer ends its report with the Status / Commits / Files / Tests / Concerns / Suggestions lines"]);
@@ -8596,45 +8664,84 @@ function taskReport(ctx, id, path) {
   });
 }
 var FINDING = /^\s*(?:\d+[.)]|[-*])?\s*[*_]*(Critical|Required|Optional|Nit|FYI)[*_]*(\s+pre-existing)?\s*\|\s*(.*)$/i;
+var LABEL_CELL = /^[*_]*(Critical|Required|Optional|Nit|FYI)[*_]*(\s+pre-existing)?$/i;
+var looksLikeWhere = (x) => /^[^\s|]+$/.test(x) && (/[/.]/.test(x) || /:\d/.test(x));
+function splitFinding(line) {
+  const t = line.trim();
+  if (t.startsWith("|")) {
+    const cells = t.replace(/^\|/, "").replace(/\|\s*$/, "").split("|").map((c) => c.trim());
+    if (cells.length && /^\d+[.)]?$/.test(cells[0])) cells.shift();
+    const m2 = cells[0]?.match(LABEL_CELL);
+    return m2 ? { label: m2[1], pre: !!m2[2], fields: cells.slice(1) } : void 0;
+  }
+  const m = line.match(FINDING);
+  return m ? { label: m[1], pre: !!m[2], fields: m[3].split(/\s+\|\s+/).map((x) => x.trim()) } : void 0;
+}
 function parseFindings(md) {
   const out = [];
   for (const line of md.split("\n")) {
-    const m = line.match(FINDING);
+    const m = splitFinding(line);
     if (!m) continue;
-    const f = m[3].split(/\s+\|\s+/).map((x) => x.trim());
+    let f = m.fields;
+    if (f.length >= 4 && looksLikeWhere(f[1]) && !looksLikeWhere(f[2])) f = [f[0], "unclassified", ...f.slice(1)];
     if (f.length < 4) continue;
-    const label = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+    const label = m.label[0].toUpperCase() + m.label.slice(1).toLowerCase();
     const fix = f.length >= 5 ? f[f.length - 1] : "";
-    out.push({ label: label === "Fyi" ? "FYI" : label, area: f[0].toLowerCase(), cls: f[1], where: f[2], problem: f.slice(3, f.length >= 5 ? -1 : void 0).join(" | "), fix, report: "", preExisting: !!m[2] });
+    out.push({ label: label === "Fyi" ? "FYI" : label, area: f[0].toLowerCase(), cls: f[1], where: f[2], problem: f.slice(3, f.length >= 5 ? -1 : void 0).join(" | "), fix, report: "", preExisting: m.pre });
   }
   return out;
 }
+function parsePrior(md) {
+  const out = [];
+  for (const line of md.split("\n")) {
+    const m = line.match(/^\s*(?:\d+[.)]|[-*])?\s*[*_]*Prior[*_]*\s*:[*_]*\s*(.*)$/i);
+    if (!m) continue;
+    const f = m[1].split(/\s+\|\s+/).map((x) => x.trim());
+    const st = f[1]?.toLowerCase();
+    if (f.length < 2 || st !== "open" && st !== "addressed") continue;
+    out.push({ where: f[0], open: st === "open", note: f.slice(2).join(" | ") });
+  }
+  return out;
+}
+var isSecurityReport = (path) => /(^|-)security\.md$/i.test(basename2(path));
 function cmdReview(ctx, action, target, path) {
   if (action !== "record" || !target || !path) throw new CliError("usage: cairn review record <task-id|branch> <report-path>");
   const pc = planCtx(ctx);
+  path = resolve(ctx.cwd, path);
   const md = readReport(path);
   const findings = parseFindings(md);
   const must = findings.filter((f) => (f.label === "Critical" || f.label === "Required") && !f.preExisting);
   const ride = findings.filter((f) => f.label !== "FYI" && !must.includes(f));
+  const stillOpen = parsePrior(md).filter((p) => p.open);
   const said = md.match(/^\s*[*_]*Verdict[*_]*\s*:[*_]*\s*(PASS|FIX)/im)?.[1]?.toUpperCase();
-  if (said === "FIX" && !must.length)
+  if (said === "FIX" && !must.length && !stillOpen.length)
     throw new Refusal(`the report at ${path} says FIX but has no Critical or Required finding line to record`, ['the reviewer lists each blocking finding as "N. Critical|Required | <area> | <class> | path:line | problem | proposed fix"']);
-  const from = target === "branch" ? /security/i.test(path) ? "security-review" : "branch-review" : /security/i.test(path) ? "security-review" : "task-review";
+  const security = isSecurityReport(path);
+  const from = security ? "security-review" : target === "branch" ? "branch-review" : "task-review";
+  const reportPath2 = path;
   return mutate(pc, void 0, (s) => {
-    const mine = must.map(({ preExisting: _p, ...rest }) => ({ ...rest, report: path }));
-    if (target === "branch") s.branchMustFix = [...(s.branchMustFix ?? []).filter((x) => x.report !== path), ...mine];
+    const before = target === "branch" ? s.branchMustFix ?? [] : findTask(s, target)?.mustFix ?? [];
+    const carried = stillOpen.map((p) => {
+      const was = before.find((x) => x.report === reportPath2 && x.where === p.where);
+      return { label: was?.label ?? "Required", area: was?.area ?? "quality", cls: was?.cls ?? "unclassified", where: p.where, problem: p.note || was?.problem || "still open after the fix", fix: was?.fix ?? "", report: reportPath2 };
+    });
+    const mine = [...must.map(({ preExisting: _p, ...rest }) => ({ ...rest, report: reportPath2 })), ...carried];
+    if (target === "branch") s.branchMustFix = [...(s.branchMustFix ?? []).filter((x) => x.report !== reportPath2), ...mine];
     else {
       const sl = findTask(s, target);
       if (!sl) throw new Refusal(`no task "${target}" in this plan`, ["cairn ready", "or use `branch` for the whole-branch review"]);
-      sl.mustFix = [...(sl.mustFix ?? []).filter((x) => x.report !== path), ...mine];
+      sl.mustFix = [...(sl.mustFix ?? []).filter((x) => x.report !== reportPath2), ...mine];
       if (!sl.mustFix.length) delete sl.mustFix;
     }
     if (target === "branch" && !s.branchMustFix?.length) delete s.branchMustFix;
+    const mvp = levelOf(s) === "mvp";
     let logged = 0;
     for (const f of ride) {
       const text = `${f.problem}${f.fix ? ` Fix: ${f.fix}` : ""}`.trim();
       if (!text) continue;
-      if (logFollowUp(s, { area: area(f.area), text, where: pathOf(f.where), from }, true)) logged++;
+      const where = pathOf(f.where);
+      const item = mvp ? { area: area(f.area), text, where: where.length ? where : planScope(s), from, kind: "hardening" } : { area: area(f.area), text, where, from };
+      if (logFollowUp(s, item, true)) logged++;
     }
     log(s, "review recorded", `${target}: ${mine.length} must-fix, ${logged} follow-ups`);
     const verdict = mine.length ? "FIX" : "PASS";
@@ -9103,6 +9210,9 @@ function queueWrite(l, w) {
 }
 var unsent = (l) => (l?.outbox ?? []).filter((w) => !w.sentAt && !w.dropped);
 var due = (l) => unsent(l).filter((w) => !w.held);
+var CLAIM_MS = 10 * 60 * 1e3;
+var claimedNow = (w, at = Date.now()) => !!w.claimedAt && at - Date.parse(w.claimedAt) < CLAIM_MS;
+var sendable = (l, at = Date.now()) => due(l).filter((w) => !w.needsApproval && !claimedNow(w, at));
 var STATUS_TYPE = { inProgress: "started", done: "completed" };
 var statusFor = (cfg, move2) => cfg?.statuses?.[move2] ?? STATUS_TYPE[move2];
 function queueStatus(l, cfg, k, move2, why) {
@@ -9441,7 +9551,7 @@ function cmdLinear(ctx, sub, arg, opts) {
     case "import":
       return opts.board ? importBoard(ctx, opts) : opts.refresh ? refreshPlan(ctx, opts) : importPlan(ctx, opts);
     case "pending":
-      return pending(ctx);
+      return pending(ctx, opts);
     case "sent":
       return markSent(ctx, arg, opts);
     case "drop":
@@ -9640,13 +9750,18 @@ function queueDone(pc, s) {
   log(s, "Linear: merged", n ? `${n} issue(s) to mark Done` : "nothing to mark Done");
   return n;
 }
-function pending(ctx) {
+function pending(ctx, opts = {}) {
   const pc = planCtx(ctx);
   const pre = loadState(pc.plan.dir);
   linkOf(pre);
   const s = mergedAwaitingDone(pc, pre) ? mutate(pc, void 0, (x) => (queueDone(pc, x), x)) : pre;
-  const list3 = unsent(linkOf(s));
-  const lines = list3.length ? [`${list3.length} Linear update${list3.length === 1 ? "" : "s"} to send:`, ...list3.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? " (ask the user first)" : ""}${w.held ? ` (held: ${w.held.note})` : ""}: ${w.why}`)] : ["Nothing to send to Linear."];
+  const list3 = opts.claim ? mutate(pc, void 0, (x) => {
+    const at = Date.now();
+    const mine = due(linkOf(x)).filter((w) => !claimedNow(w, at));
+    for (const w of mine) w.claimedAt = new Date(at).toISOString();
+    return mine;
+  }) : unsent(linkOf(s));
+  const lines = list3.length ? [`${list3.length} Linear update${list3.length === 1 ? "" : "s"} to send${opts.claim ? " (claimed for 10 minutes)" : ""}:`, ...list3.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? " (ask the user first)" : ""}${w.held ? ` (held: ${w.held.note})` : ""}: ${w.why}`)] : ["Nothing to send to Linear."];
   return { message: lines.join("\n"), data: { pending: list3.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
 }
 function entry(l, id) {
@@ -9666,6 +9781,7 @@ function markSent(ctx, id, opts) {
     const ref = typeof opts.ref === "string" ? opts.ref.trim() : void 0;
     const filed = onPublishSent(s, w, ref, linearConfig(pc.cfg));
     w.sentAt = now();
+    delete w.claimedAt;
     if (ref) w.ref = ref;
     if (w.kind === "createIssue" && ref) {
       const [slug, sid] = w.target.split(":");
@@ -9698,6 +9814,7 @@ function hold(ctx, id, opts) {
     if (w.sentAt) return { message: `${w.id} was already sent.` };
     if (w.dropped) throw new Refusal(`${w.id} was dropped: ${w.dropped.note}`, ["nothing to do; cairn linear pending lists what is left"]);
     w.held = { at: now(), note: String(opts.note) };
+    delete w.claimedAt;
     log(s, "Linear update held", `${w.id}: ${opts.note}`);
     return { message: `Held ${w.id}; the next sync tries it again.` };
   });
@@ -10297,10 +10414,10 @@ function cmdMergeCheck(ctx, _opts) {
   }
   const lastGreen = s0.mergeChecked;
   const untested = !lastGreen || changesSince(wt, lastGreen, rel, []).length > 0;
-  const tests = untested ? runTests(pc.cfg, wt) : void 0;
+  const tests = untested ? recordTestRun(pc, runTests(pc.cfg, wt)) : void 0;
   if (tests && !tests.ok) {
     mutate(pc, "tests fail at merge check", (s) => log(s, "merge check failed", `${tests.cmd}: ${tests.tail}`));
-    throw new Refusal(`tests fail${merged2 ? ` with ${s0.base} merged in` : ""}: ${tests.tail}`, [
+    throw new Refusal(`tests fail${merged2 ? ` with ${s0.base} merged in` : ""}: ${tests.tail}${tests.log ? `. Full output: ${tests.log}` : ""}`, [
       merged2 ? "fix it on the plan branch (the clean merge stays)" : "fix it on the plan branch",
       "then run cairn merge-check again: the fix is new code, so it asks for the ship approval again"
     ]);
@@ -10814,10 +10931,16 @@ function readyRow(r, ctx) {
   const asked = st !== void 0 && st.stage === r.state.stage && (st.name === "approving" || st.name === "asking");
   return { ready, needsUser: ready !== void 0 || asked };
 }
-var slimState = (s) => {
-  const { log: _log, ...rest } = s;
-  return rest;
+var slimState = (s, keepLog = false) => {
+  const { log: logLines, suggestions: _suggestions, linear, ...rest } = s;
+  return {
+    ...rest,
+    ...keepLog ? { log: logLines } : {},
+    ...linear ? { linear: { ...linear, outbox: linear.outbox.map(({ payload: _payload, ...w }) => w) } } : {}
+  };
 };
+var suggestionCounts = (s, open, hardening) => ({ logged: (s.suggestions ?? []).length, open, hardening });
+var slimRow = (s) => slimState(s, true);
 function cmdStatus(ctx, opts) {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
@@ -10827,7 +10950,7 @@ function cmdStatus(ctx, opts) {
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     const openSuggestions2 = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions: openSuggestions2, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
+${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full ? r.state : slimRow(r.state), next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions: openSuggestions2, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -10855,7 +10978,7 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.s
       ...w.map((x) => `! ${x}`),
       ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []
     ].join("\n"),
-    data: { state: opts.full ? s : slimState(s), next, ...s.linear ? { foundational: foundationalSafe(s, pc) } : {}, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
+    data: { state: opts.full ? s : slimState(s), suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...s.linear ? { foundational: foundationalSafe(s, pc) } : {}, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
   };
 }
 var procedurePath = (name) => join13(pluginRoot(), "procedures", `${name}.md`);
@@ -10923,7 +11046,7 @@ function whyLine(md) {
   const para = body.split(/\n\s*\n/)[0]?.replace(/\s+/g, " ").trim() ?? "";
   return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
 }
-var changelogIn = (root, e) => PLANS_DIRS.map((d) => join14(root, d, basename2(e.dir), "changelog.md")).find((p) => existsSync8(p));
+var changelogIn = (root, e) => PLANS_DIRS.map((d) => join14(root, d, basename3(e.dir), "changelog.md")).find((p) => existsSync8(p));
 function changelogEntry(e, root) {
   const path = (root === void 0 ? void 0 : changelogIn(root, e)) ?? e.changelog;
   return path ? stripControl(readText(path) ?? "").trim() : "";
@@ -10932,7 +11055,7 @@ function changelogText(e, root) {
   return changelogEntry(e, root) || stripControl(whyLine(e.record ? readText(e.record) : void 0));
 }
 function planEntries(ctx) {
-  const main2 = dirname3(commonDir(ctx.top));
+  const main2 = dirname4(commonDir(ctx.top));
   const found = /* @__PURE__ */ new Map();
   for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
   const bases = plansDirsIn(main2);
@@ -10948,20 +11071,20 @@ function planEntries(ctx) {
     }
   return [...found.values()].map(({ state, dir }) => {
     let recordPath = join14(dir, "RECORD.md");
-    if (!existsSync8(recordPath)) recordPath = bases.map((b) => join14(b, basename2(dir), "RECORD.md")).find((p) => existsSync8(p)) ?? recordPath;
-    let changelogPath = PLANS_DIRS.map((d) => join14(ctx.top, d, basename2(dir), "changelog.md")).find((p) => existsSync8(p)) ?? join14(dir, "changelog.md");
-    if (!existsSync8(changelogPath)) changelogPath = bases.map((b) => join14(b, basename2(dir), "changelog.md")).find((p) => existsSync8(p)) ?? changelogPath;
+    if (!existsSync8(recordPath)) recordPath = bases.map((b) => join14(b, basename3(dir), "RECORD.md")).find((p) => existsSync8(p)) ?? recordPath;
+    let changelogPath = PLANS_DIRS.map((d) => join14(ctx.top, d, basename3(dir), "changelog.md")).find((p) => existsSync8(p)) ?? join14(dir, "changelog.md");
+    if (!existsSync8(changelogPath)) changelogPath = bases.map((b) => join14(b, basename3(dir), "changelog.md")).find((p) => existsSync8(p)) ?? changelogPath;
     return {
       state,
       dir,
-      date: basename2(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
+      date: basename3(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
       ...existsSync8(recordPath) ? { record: recordPath } : {},
       ...existsSync8(changelogPath) ? { changelog: changelogPath } : {}
     };
   });
 }
 function listRecords(ctx) {
-  const byMain = { ...ctx, top: dirname3(commonDir(ctx.top)) };
+  const byMain = { ...ctx, top: dirname4(commonDir(ctx.top)) };
   const followUps = /* @__PURE__ */ new Map();
   for (const x of collectSuggestions(byMain)) followUps.set(x.slug, [...followUps.get(x.slug) ?? [], { text: x.text, area: x.area, status: x.status, ...x.hardening ? { hardening: true } : {} }]);
   const entries = planEntries(ctx).map((pe) => {
@@ -11003,7 +11126,7 @@ function cmdRecords(ctx) {
 var OVERVIEW_REL = `${DOCS_DIR}/OVERVIEW.md`;
 var CHANGELOG_MARK = "<!-- Generated by cairn from each plan's changelog entry and record. Edits here are overwritten. -->";
 var NONE = "None yet.";
-var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename3(e.dir)}/RECORD.md`).find((rel) => existsSync9(join15(root, rel)));
+var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename4(e.dir)}/RECORD.md`).find((rel) => existsSync9(join15(root, rel)));
 var byNewest = (a, b) => b.date.localeCompare(a.date) || a.state.slug.localeCompare(b.state.slug);
 function renderChangelog(root, plans) {
   const out = ["# Changelog", "", CHANGELOG_MARK, ""];
@@ -11110,6 +11233,7 @@ function cmdNew(ctx, slug, opts) {
     wt = join17(root, worktreeName(branch));
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
+  ensureExcluded(ctx.mainRoot, `${CAIRN_DIR}/work/`);
   const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
   const dir = join17(wt, rel);
   writeText(join17(dir, "decisions.md"), `# Decisions: ${title}
@@ -11157,7 +11281,7 @@ function cmdDecide(ctx, question, answer, opts) {
 function readDecisionFile(cwd, file) {
   let data;
   try {
-    data = JSON.parse(readFileSync6(resolve(cwd, file), "utf8"));
+    data = JSON.parse(readFileSync6(resolve2(cwd, file), "utf8"));
   } catch (e) {
     throw new CliError(`cannot read decision file ${file}: ${e.message}`);
   }
@@ -11425,7 +11549,7 @@ Next: approve the plan with the user.`,
 
 // plugins/cairn/cli/src/commands/tasks.ts
 import { existsSync as existsSync11 } from "node:fs";
-import { basename as basename4, join as join18 } from "node:path";
+import { basename as basename5, join as join18 } from "node:path";
 var MAX_FIX_ROUNDS = 2;
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
@@ -11468,7 +11592,7 @@ function taskStart(pc, id, opts) {
   let needsSetup = false;
   const r = mutate(pc, void 0, (s) => {
     const branch = taskBranch(plan2.slug, id);
-    const path = join18(worktreeRoot(cfg, ctx.mainRoot), `${basename4(plan2.worktree)}--${id}`);
+    const path = join18(worktreeRoot(cfg, ctx.mainRoot), `${basename5(plan2.worktree)}--${id}`);
     const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
@@ -11539,7 +11663,7 @@ function taskDone(pc, id, opts) {
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
   const checkable = merged2 && !dirty && !planDirty;
-  const tests = checkable ? runTests(pc.cfg, plan2.worktree) : void 0;
+  const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan2.worktree)) : void 0;
   const testedCommit = tests ? git(["rev-parse", "HEAD"], plan2.worktree) : void 0;
   const fix = fastLane(pre);
   const repro = fix && merged2 && pre.repro ? runRepro(pre.repro.cmd, plan2.worktree, pc.cfg) : void 0;
@@ -11583,6 +11707,22 @@ function taskDone(pc, id, opts) {
   return r;
 }
 var DOCS_ROOTS = ["docs/cairn/", "docs/sdlc/"];
+function preMergeChecks(pc, pre, sl, opts) {
+  const { plan: plan2 } = pc;
+  const pb = pre.branch;
+  configGate(pre, pc.cfg, "task merge", opts);
+  if (opts.override) return;
+  const dirty = sl.worktree && existsSync11(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  if (dirty) throw new Refusal("the task worktree has uncommitted changes", [`commit or discard them in ${sl.worktree}`]);
+  const commits = sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
+  if (commits <= 0) throw new Refusal(`${sl.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
+  const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
+  if (planDirty)
+    throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
+  const stray = sl.base && !fastLane(pre) ? directCommits(plan2.worktree, sl.base, pb).filter((c) => c.files.some((f) => !isCairnPath(f) && matchesAny(f, sl.scope))) : [];
+  if (stray.length)
+    throw new Refusal(`commits for task "${sl.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(", ")}`, [`move these commits to the task branch (git cherry-pick them onto ${sl.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
+}
 function taskMerge(pc, id, opts) {
   const { plan: plan2 } = pc;
   const pre = loadState(plan2.dir);
@@ -11591,7 +11731,9 @@ function taskMerge(pc, id, opts) {
   if (sl.status !== "in_progress" || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`, ["cairn task start " + id]);
   const pb = pre.branch;
   if (!branchExists(sl.branch, plan2.worktree)) throw new Refusal(`branch ${sl.branch} does not exist`);
+  preMergeChecks(pc, pre, sl, opts);
   let note;
+  let didMerge = false;
   if (!gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree)) {
     if (git(["rev-parse", "--abbrev-ref", "HEAD"], plan2.worktree) !== pb) throw new Refusal(`the plan worktree is not on ${pb}`, [`git -C ${plan2.worktree} switch ${pb}`]);
     const m = gitTry(["merge", "--no-ff", sl.branch, "-m", `merge task ${id}`], plan2.worktree);
@@ -11618,12 +11760,20 @@ function taskMerge(pc, id, opts) {
       kept = ` Kept the plan's side of ${files.length} plan file${files.length === 1 ? "" : "s"} that conflicted.`;
     }
     note = `Merged ${sl.branch} into ${pb}.${kept}`;
+    didMerge = true;
   } else note = `${sl.branch} was already merged into ${pb}.`;
   if (sl.mergeConflict)
     mutate(pc, void 0, (s) => {
       delete findTask(s, id).mergeConflict;
     });
-  const r = taskDone(pc, id, opts);
+  let r;
+  try {
+    r = taskDone(pc, id, opts);
+  } catch (e) {
+    if (e instanceof Refusal && didMerge && e.message.startsWith("tests are not green"))
+      throw new Refusal(e.message, [`the merge stays in place: ${sl.branch} is merged into ${pb}. Fix on the merged tree in ${plan2.worktree}, then run cairn task merge ${id} again`, ...e.fixes]);
+    throw e;
+  }
   return { ...r, message: `${note}
 ${r.message}`, data: { ...r.data, merged: true } };
 }
@@ -11658,8 +11808,6 @@ function cmdStep(ctx, name, opts) {
 }
 
 // plugins/cairn/cli/src/commands/phase.ts
-import { mkdirSync as mkdirSync4, writeFileSync as writeFileSync4 } from "node:fs";
-import { dirname as dirname4, join as join19 } from "node:path";
 function newSuggestionsText(s) {
   const since = [...s.log].reverse().find((l) => l.event === "phase finished" || l.event === "advanced" && l.detail === "execute")?.at ?? s.created;
   const fresh = (s.suggestions ?? []).filter((x) => !x.resolves && !x.declines && x.at > since);
@@ -11685,7 +11833,7 @@ function cmdPhase(ctx, action, opts) {
   const head = git(["rev-parse", "HEAD"], plan2.worktree);
   const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? "").localeCompare(b.doneAt ?? "")).pop();
   const reused = !!(last?.testedCommit && last.tests && gitOk(["diff", "--quiet", last.testedCommit, head, "--", ".", ...cairnPathspecExcludes()], plan2.worktree));
-  const tests = reused ? void 0 : runTests(pc.cfg, plan2.worktree);
+  const tests = reused ? void 0 : recordTestRun(pc, runTests(pc.cfg, plan2.worktree));
   return withFreshStart(pc, mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s);
     gate(cur.verdict?.result !== "red", s, "phase finish", opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"]);
@@ -11716,62 +11864,57 @@ function cmdPhase(ctx, action, opts) {
 }
 function cmdTest(ctx, opts) {
   const pc = planCtx(ctx);
-  const tests = runTests(pc.cfg, pc.plan.worktree);
+  const tests = recordTestRun(pc, runTests(pc.cfg, pc.plan.worktree));
+  const build = pc.cfg.build ? runTests({ ...pc.cfg, test: pc.cfg.build }, pc.plan.worktree) : void 0;
+  const buildText = build ? ` Build ${build.ok ? "green" : "RED"} (\`${build.cmd}\` \u2192 ${build.tail}).` : "";
+  const buildData = build ? { build: { ran: build.ran, ok: build.ok, command: build.cmd, summary: build.tail } } : {};
   return mutate(pc, void 0, (s) => {
     if (!tests) {
       testsGate(tests, s, "check", opts);
-      return { message: "No test command configured: nothing was run.", data: { ran: false } };
+      return { message: `No test command configured: nothing was run.${buildText}`, data: { ran: false, ...buildData } };
     }
     const mvp = levelOf(s) === "mvp";
     if (tests.ok || mvp) testsGate(tests, s, "check", opts);
     const note = !tests.ok && mvp ? " Recorded as a hardening item; the plan continues." : "";
-    const logPath = !tests.ok && tests.ran ? testLog(pc, tests.output ?? "") : void 0;
-    const failing = logPath ? failingLines(tests.output ?? "") : [];
+    const logPath = tests.log;
+    const failing = tests.failing ?? [];
     const more = logPath ? `${failing.length ? `
 ${failing.map((l) => `  ${l}`).join("\n")}` : ""}
 Full output: ${logPath}` : "";
-    return { message: `Tests ${tests.ok ? "green" : "RED"} (\`${tests.cmd}\` \u2192 ${tests.tail}).${note}${more}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail, ...logPath ? { log: logPath, failing } : {} } };
+    return { message: `Tests ${tests.ok ? "green" : "RED"} (\`${tests.cmd}\` \u2192 ${tests.tail}).${note}${more}${more && buildText ? `
+${buildText.trim()}` : buildText}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail, ...logPath ? { log: logPath, failing } : {}, ...buildData } };
   });
-}
-var FAILING = /\b(?:fail(?:ed|ing|ure)?|error)\b|✗|✖|^not ok\b/i;
-var failingLines = (output) => output.split("\n").filter((l) => FAILING.test(l)).slice(0, 5).map((l) => l.length > 200 ? `${l.slice(0, 199)}\u2026` : l);
-function testLog(pc, output) {
-  const path = join19(workDir(pc), "reports", "tests.log");
-  mkdirSync4(dirname4(path), { recursive: true });
-  writeFileSync4(path, `${output}
-`);
-  return path;
 }
 
 // plugins/cairn/cli/src/commands/migrate.ts
-import { existsSync as existsSync12, lstatSync, mkdirSync as mkdirSync5, readdirSync as readdirSync7, renameSync as renameSync2, rmdirSync as rmdirSync2 } from "node:fs";
-import { dirname as dirname5, join as join20 } from "node:path";
+import { existsSync as existsSync12, lstatSync, mkdirSync as mkdirSync4, readdirSync as readdirSync7, renameSync as renameSync2, rmdirSync as rmdirSync2 } from "node:fs";
+import { dirname as dirname5, join as join19 } from "node:path";
 var PAIRS = [
   [LEGACY_CAIRN_DIR, CAIRN_DIR],
   [LEGACY_DOCS_DIR, DOCS_DIR]
 ];
 function isCairns(root, old) {
-  if (old === LEGACY_CAIRN_DIR) return existsSync12(join20(root, old, "config.json"));
-  if (existsSync12(join20(root, old, "product"))) return true;
-  const plans = join20(root, old, "plans");
-  return existsSync12(plans) && readdirSync7(plans).some((n) => existsSync12(join20(plans, n, "state.json")));
+  if (old === LEGACY_CAIRN_DIR) return existsSync12(join19(root, old, "config.json"));
+  if (existsSync12(join19(root, old, "product"))) return true;
+  const plans = join19(root, old, "plans");
+  return existsSync12(plans) && readdirSync7(plans).some((n) => existsSync12(join19(plans, n, "state.json")));
 }
 var legacyLayout = (root) => PAIRS.map(([old]) => old).filter((p) => isCairns(root, p));
 var tracked = (root, rel) => git(["ls-files", "--", rel], root) !== "";
 function move(root, from, to) {
-  mkdirSync5(dirname5(join20(root, to)), { recursive: true });
+  mkdirSync4(dirname5(join19(root, to)), { recursive: true });
   if (tracked(root, from)) git(["mv", from, to], root);
-  else renameSync2(join20(root, from), join20(root, to));
+  else renameSync2(join19(root, from), join19(root, to));
 }
 var present = (root, rel) => {
   try {
-    lstatSync(join20(root, rel));
+    lstatSync(join19(root, rel));
     return true;
   } catch {
     return false;
   }
 };
-var isDir = (root, rel) => lstatSync(join20(root, rel)).isDirectory();
+var isDir = (root, rel) => lstatSync(join19(root, rel)).isDirectory();
 function plan(root, old, next, out) {
   if (!present(root, next)) {
     out.moves.push([old, next]);
@@ -11782,10 +11925,10 @@ function plan(root, old, next, out) {
     return;
   }
   out.dirs.push(old);
-  for (const n of readdirSync7(join20(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
+  for (const n of readdirSync7(join19(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
 }
 var prune = (root, dirs) => {
-  for (const d of [...dirs].reverse()) if (existsSync12(join20(root, d)) && !readdirSync7(join20(root, d)).length) rmdirSync2(join20(root, d));
+  for (const d of [...dirs].reverse()) if (existsSync12(join19(root, d)) && !readdirSync7(join19(root, d)).length) rmdirSync2(join19(root, d));
 };
 function cmdMigrate(ctx) {
   if (ctx.plan) throw new Refusal("run cairn migrate on the main branch, outside any plan");
@@ -11916,7 +12059,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join21 } from "node:path";
+import { join as join20 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -11940,7 +12083,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join21(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join20(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -11974,7 +12117,7 @@ function cmdResume(ctx, slug, opts) {
 
 // plugins/cairn/cli/src/commands/hooks.ts
 import { existsSync as existsSync13 } from "node:fs";
-import { dirname as dirname6, isAbsolute, join as join22, relative as relative4, resolve as resolve2 } from "node:path";
+import { dirname as dirname6, isAbsolute, join as join21, relative as relative4, resolve as resolve3 } from "node:path";
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function indexFor(ctx) {
   try {
@@ -11989,7 +12132,7 @@ var startOut = (...parts) => {
 };
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync13(join22(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync13(join21(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", indexFor(ctx));
@@ -12014,11 +12157,11 @@ function hookSessionStart(input) {
 function hookPostEdit(input) {
   const file = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
   if (!file) return "";
-  const abs = isAbsolute(file) ? file : resolve2(input.cwd ?? process.cwd(), file);
+  const abs = isAbsolute(file) ? file : resolve3(input.cwd ?? process.cwd(), file);
   let dir = dirname6(abs);
   while (!existsSync13(dir) && dirname6(dir) !== dir) dir = dirname6(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync13(join22(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync13(join21(ctx.plan.dir, "state.json"))) return "";
   const rel = relative4(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (isCairnPath(rel) || rel === ".cairn/work" || rel.startsWith(".cairn/work/")) return "";
@@ -12053,7 +12196,7 @@ function hookPostEdit(input) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links", "claim", "again"]);
 var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];
@@ -12077,7 +12220,7 @@ ${v}` : v;
   const noteFile = opts["note-file"];
   if (typeof noteFile === "string") {
     try {
-      opts.note = readFileSync7(resolve3(cwd, noteFile), "utf8");
+      opts.note = readFileSync7(resolve4(cwd, noteFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --note-file ${noteFile}: ${e.message}`);
     }
@@ -12085,7 +12228,7 @@ ${v}` : v;
   const textFile = opts["text-file"];
   if (typeof textFile === "string") {
     try {
-      opts.text = readFileSync7(resolve3(cwd, textFile), "utf8");
+      opts.text = readFileSync7(resolve4(cwd, textFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --text-file ${textFile}: ${e.message}`);
     }
@@ -12095,12 +12238,12 @@ ${v}` : v;
 var USAGE4 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] [--json [--full]] | new <slug> --title "\u2026" [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
-  task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
   index | pause [--now] | resume [<slug>] | close | render | records | migrate
   merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
-  linear [status] | linear import|pending|sent|drop|depends|ack|release|board \u2026 (plans that pull Linear issues in)
+  linear [status] | linear import|pending [--claim]|sent|drop|depends|ack|release|board \u2026 (plans that pull Linear issues in)
 Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 var MOVES = /* @__PURE__ */ new Set(["task", "phase", "ready", "advance", "approve", "plan"]);
 function withLinearDue(cmd, cwd, r) {
@@ -12108,7 +12251,7 @@ function withLinearDue(cmd, cwd, r) {
   try {
     const ctx = context(cwd);
     if (!ctx.plan?.dir) return r;
-    const n = due(loadState(ctx.plan.dir).linear).length;
+    const n = sendable(loadState(ctx.plan.dir).linear).length;
     if (!n) return r;
     const line = `${n} Linear update${n === 1 ? "" : "s"} queued: send ${n === 1 ? "it" : "them"} with the linear-sender agent in the background (it follows ${procedurePath("linear-sync")}).`;
     return { message: r.message ? `${r.message}
