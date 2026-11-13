@@ -20,14 +20,16 @@ For each requirement, collect its text, acceptance criteria, unhappy paths, and 
 **Done when:** you hold a requirement list with criteria and code areas, and the product PRD items or know there are none.
 
 ## 2. Check
-Split the requirements into groups of two or three. Dispatch one `direction-checker` agent per group, all in one message so they run in parallel, each with `model: sonnet`. Give each: the worktree path, its requirements quoted with criteria and unhappy paths, its code areas, and the product PRD items.
+Split the requirements into groups of two or three. Dispatch one `direction-checker` agent per group, all in one message so they run in parallel, each with `model: sonnet`. Give each: the worktree path, its requirements quoted with criteria and unhappy paths, its code areas, the product PRD items, and its own report path, `<plan worktree>/.cairn/work/<slug>/reports/direction-<n>.md` (`<n>` is the group number; create `reports/` when missing). Each agent writes its rows there and returns three short lines (verdict counts, unplanned count, the path).
 
-Relay each agent's rows without changing a verdict. A row without `path:line` evidence goes back to the agent; do not fill it in yourself. A requirement an agent could not verify still needs a row, because the CLI refuses a report missing any covered requirement: tell the agent to give it `missing`, or `partial` with the nearest `path:line` and a note that it is unverified. List it under Not verified too.
+Keep each verdict as the agent wrote it. A row without `path:line` evidence goes back to the agent (SendMessage); do not fill it in yourself. Read the report files only to check this and to build step 3. A requirement an agent could not verify still needs a row, because the CLI refuses a report missing any covered requirement: tell the agent to give it `missing`, or `partial` with the nearest `path:line` and a note that it is unverified. List it under Not verified too.
 
 **Done when:** every requirement in scope has a verdict row with evidence, or a Not verified entry saying why, and unplanned code is listed or stated as none.
 
 ## 3. Write the report
 Called with a phase id: write `docs/cairn/plans/<date>-<slug>/direction/<phase-id>.md`. Called with `all`, `changed`, or ids: show the report in the reply and write no file.
+
+Build the scorecard counts and the drift list from the agents' report files (their `drift`, `doc_drift` and `not_verified` entries); the short returns and what you must show the user are all you hold in your own context.
 
 Sections, in order:
 - **Scorecard:** a table, one row per requirement: id, title, verdict, evidence, note.
@@ -37,7 +39,7 @@ Sections, in order:
 - **Not verified:** what could not be checked, and why.
 - **Next steps:** three to five ordered actions.
 
-Then end the file with exactly one fenced block, in this format, built from the agents' rows:
+Then end the file with exactly one fenced block, in this format, built from the `requirements`, `unplanned` and `nfr` rows in the agents' report files (copy them with a shell command or an edit, not retyped):
 
 ```yaml cairn-direction
 requirements:

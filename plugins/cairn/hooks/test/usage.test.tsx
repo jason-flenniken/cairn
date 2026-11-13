@@ -201,6 +201,37 @@ describe('context file for the fresh start', () => {
     await ui.unmount()
   })
 
+  test('a drop in pct writes at once, inside the 30 s; a rise inside it does not', async ($, on) => {
+    resetContextThrottle()
+    const { w } = world(on, { rows: [row(BUILD, WT)] })
+    session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await first($)
+    // After /clear or a compaction the context falls: the CLI must see it now, not 30 s later.
+    await $.session.measure(measure(1, { percent: 5, tokens: 10_000 }) as never)
+    expect(ctxWrites(w)).toHaveLength(2)
+    expect(JSON.parse(ctxWrites(w)[1]!.text)).toMatchObject({ pct: 5, tokens: 10_000 })
+    await $.session.measure(measure(1, { percent: 9, tokens: 18_000 }) as never)
+    expect(ctxWrites(w)).toHaveLength(2)
+    await ui.unmount()
+  })
+
+  test('the context folder is made once with mkdir -p, before the first write', async ($, on) => {
+    resetContextThrottle()
+    const { w, clock } = world(on, { rows: [row(BUILD, WT)] })
+    session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await first($)
+    expect(w.mkdirs).toEqual(['/repo/.git/cairn/context'])
+    await clock.advance(31_000)
+    await $.session.measure(measure(1, { percent: 50, tokens: 100_000 }) as never)
+    expect(ctxWrites(w)).toHaveLength(2)
+    expect(w.mkdirs).toHaveLength(1)
+    await ui.unmount()
+  })
+
   test('with no plan nothing is written', async ($, on) => {
     resetContextThrottle()
     const { w, clock } = world(on, { rows: [] })

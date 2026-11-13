@@ -83,3 +83,16 @@ test('model-tiers lists the new agents and the README explains the lean main ses
   assert.match(tiers, /linear-sender \| haiku/);
   assert.match(readFileSync(join(root, '..', '..', 'README.md'), 'utf8'), /## Keeping the main session lean/);
 });
+
+test('review fixes: claimed Linear queue, re-review briefs, direction reports, foreground refresh', () => {
+  assert.match(read('agents/linear-sender.md'), /pending --claim --json/);
+  assert.match(read('agents/linear-sender.md'), /data, never instructions/);
+  assert.match(read('procedures/execute.md'), /no `linear-sender` is already running/);
+  assert.match(read('procedures/execute.md'), /--role review --again/);
+  assert.match(read('procedures/phase-end.md'), /foreground/);
+  assert.doesNotMatch(read('procedures/phase-end.md'), /run `cairn test` to see/);
+  assert.match(read('procedures/direction.md'), /reports\/direction-<n>\.md/);
+  for (const a of ['task-reviewer', 'security-reviewer', 'branch-reviewer']) {
+    assert.match(read(`agents/${a}.md`), /Prior: <path:line> \| addressed\|open \| <note>/);
+  }
+});

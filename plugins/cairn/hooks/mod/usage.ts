@@ -21,15 +21,18 @@ const view = atom({ plugin: 'cairn', key: 'view' } as const, null as CairnView |
 export const CONTEXT_EVERY_MS = 30_000
 // Bookkeeping, not drawn: the last context write's slug, time and figures.
 let lastContext: { slug: string; at: number; pct: number; tokens: number } | undefined
+// The context folder has been created (once per session).
+let contextDirMade = false
 
 /** Forgets the last context write (tests). */
 export function resetContextThrottle(): void {
   lastContext = undefined
+  contextDirMade = false
 }
 
 /**
  * Writes <git common dir>/cairn/context/<slug>.json = { pct, tokens, at } for the plan the pane shows, so the CLI
- * can tell how full this session's context is. Throttled to one write per 30 s, and skipped when nothing moved.
+ * can tell how full this session's context is. A rise is throttled to one write per 30 s; a drop in pct (after /clear or compaction) writes at once; unchanged figures are skipped.
  */
 async function writeContext($: EngineInterface, context: { percent?: number; tokens?: number }): Promise<void> {
   const v = await read($, view)
@@ -42,9 +45,14 @@ async function writeContext($: EngineInterface, context: { percent?: number; tok
   const tokens = context.tokens
   const last = lastContext
   if (last?.slug === slug) {
-    if (now - last.at < CONTEXT_EVERY_MS || (last.pct === pct && last.tokens === tokens)) return
+    if (last.pct === pct && last.tokens === tokens) return
+    if (pct >= last.pct && now - last.at < CONTEXT_EVERY_MS) return
   }
   const dir = await commonDir($)
+  if (!contextDirMade) {
+    await $.process.run(['mkdir', '-p', `${dir}/cairn/context`], { timeoutMs: 5_000 })
+    contextDirMade = true
+  }
   await $.fs.write(`${dir}/cairn/context/${slug}.json`, `${JSON.stringify({ pct, tokens, at: new Date(now).toISOString() })}\n`)
   lastContext = { slug, at: now, pct, tokens }
 }

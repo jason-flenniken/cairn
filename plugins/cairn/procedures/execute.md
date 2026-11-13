@@ -30,7 +30,7 @@ Run `cd <plan worktree> && cairn status --json` once. The stage must be `execute
 
 **Done when:** the stage is `execute`, the plan is not paused, and you hold the four values above.
 
-**Linear updates.** When a `cairn` command's output says "N Linear updates queued", dispatch the `linear-sender` agent in the background (`model: haiku`, `description` "Record · Linear updates") with the plan worktree path and the plugin root, and carry on. Do not wait for it. When it returns, mention its one line only if something failed.
+**Linear updates.** When a `cairn` command's output says "N Linear updates queued", dispatch the `linear-sender` agent in the background (`model: haiku`, `description` "Record · Linear updates") with the plan worktree path and the plugin root, and carry on, but only when no `linear-sender` is already running (a running one claims the queue itself). Do not wait for it. When it returns, mention its one line only if something failed.
 
 **Pause check.** Between any two steps below (before starting a task, dispatching or messaging an agent, merging), run `cd <plan worktree> && cairn status` (one line). When it says paused, start nothing new and read `procedures/execute-cases.md` ("The plan is paused").
 
@@ -73,8 +73,8 @@ An implementer's final message is five lines: `Status`, `Commits`, `Tests`, `Con
 
 ## 6. Fix
 Only Critical and Required findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing --note "fixing classes: <class>, <class>"` (the classes come from the `FIX` line), so the plan log keeps which kinds of mistake needed fixing. Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
-- Run `cd <plan worktree> && cairn task brief <id> --role fix`. It writes the must-fix findings, grouped by class, with their proposed fixes. Send the brief path to the same implementer with SendMessage (or dispatch a fresh implementer on the same worktree when the old one has ended), `description` "Fix · <task name>". Tell it in one line to fix each class everywhere in the task's scope, not only at the lines cited, and to list the other places it fixed.
-- When it ends, run `cairn task report <id> <report path>`, then re-review once with the reviewer that raised the findings (both when both did): `cairn task brief <id> --role review` (or `security`), dispatch it with the brief path, and `cairn review record <id> <report path>`.
+- Run `cd <plan worktree> && cairn task brief <id> --role fix`. It writes the must-fix findings, grouped by class, with their proposed fixes (and the last red test run, when there is one). Send the brief path to the same implementer with SendMessage (or dispatch a fresh implementer on the same worktree when the old one has ended), `description` "Fix · <task name>". Tell it in one line to fix each class everywhere in the task's scope, not only at the lines cited, and to list the other places it fixed.
+- When it ends, run `cd <plan worktree> && cairn task report <id> <report path>`, then re-review once with the reviewer that raised the findings (both when both did): `cd <plan worktree> && cairn task brief <id> --role review --again` (or `security`). It lists the earlier must-fix findings and writes to the same report path as the first review. Dispatch the reviewer with the brief path, then `cd <plan worktree> && cairn review record <id> <report path>`; recording replaces the old must-fix findings.
 - When a Critical or Required finding is still open after that attempt (or the CLI refuses another), stop work on the task and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Re-plan this task / Pause.
 
 **Done when:** the task passed, or the user chose how to proceed.
