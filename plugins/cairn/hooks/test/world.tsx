@@ -93,6 +93,8 @@ export function world(on: On, init: WorldInit = {}) {
     aborts: [] as string[],
     secrets: [] as string[],
     files: new Map<string, string>(),
+    /** Every fs.write the mod made, in order. */
+    written: [] as { path: string; text: string }[],
     views: [] as Record<string, unknown>[],
     viewDeny: undefined as string | undefined,
     scrolls: [] as { offset: number; by: number }[],
@@ -172,6 +174,7 @@ export function world(on: On, init: WorldInit = {}) {
     return { value: (w.viewDeny === undefined ? {} : { deny: w.viewDeny }) as never }
   })
   on('fs.write', (_$, e) => {
+    w.written.push({ path: e.path, text: e.text })
     if (e.path === HASH_FILE) onDisk = e.text
     return { value: undefined }
   })
