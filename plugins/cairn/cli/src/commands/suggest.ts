@@ -88,6 +88,15 @@ export function cmdSuggest(ctx: Ctx, action: string | undefined, arg: string | u
   throw new CliError(USAGE);
 }
 
+/**
+ * Add one follow-up to a plan's state (inside `mutate`). `suggest add`, `task report` and `review record` all go through
+ * here. With `dedupe`, returns undefined when the same text from the same source is already there, so recording a report twice adds nothing.
+ */
+export function logFollowUp(s: State, item: { area: Suggestion['area']; text: string; where: string[]; from: Suggestion['from']; kind?: 'hardening' }, dedupe = false): Suggestion | undefined {
+  if (dedupe && (s.suggestions ?? []).some((x) => !isMarker(x) && x.text === item.text && x.from === item.from)) return undefined;
+  return pushSuggestion(s, item);
+}
+
 function suggestAdd(ctx: Ctx, opts: Opts): Result {
   const area = String(opts.area ?? '');
   if (!(SUGGESTION_AREAS as readonly string[]).includes(area)) throw new CliError(`--area must be one of ${SUGGESTION_AREAS.join(', ')}`);
@@ -100,7 +109,7 @@ function suggestAdd(ctx: Ctx, opts: Opts): Result {
   if (kind && !list(opts.where).length) throw new CliError('--kind hardening needs at least one --where glob: the item is found later by path');
   const pc = planCtx(ctx);
   return mutate(pc, undefined, (s) => {
-    const { id } = pushSuggestion(s, { area: area as Suggestion['area'], text, where: list(opts.where), from: from as Suggestion['from'], ...(kind ? { kind: 'hardening' as const } : {}) });
+    const { id } = logFollowUp(s, { area: area as Suggestion['area'], text, where: list(opts.where), from: from as Suggestion['from'], ...(kind ? { kind: 'hardening' as const } : {}) })!;
     return { message: `${s.slug}:${id}`, data: { id, key: `${s.slug}:${id}` } };
   });
 }

@@ -13,6 +13,7 @@ import { planEntries } from './records.ts';
 import { legacyLayout } from './migrate.ts';
 import { listPlans, warnings } from './status.ts';
 import { pendingCount } from './linear.ts';
+import { workDirIfUsed } from './brief.ts';
 
 interface HookInput {
   cwd?: string;
@@ -44,6 +45,8 @@ export function hookSessionStart(input: HookInput): string {
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     const queued = pendingCount(s);
     if (queued) lines.push(`${queued} Linear update${queued === 1 ? '' : 's'} waiting to be sent; /cairn:next sends them first.`);
+    const work = workDirIfUsed(pc.plan.worktree, s.slug);
+    if (work) lines.push(`Briefs and reports: ${work}`);
     if (ctx.task) {
       const sl = findTask(s, ctx.task);
       if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit ${DOCS_DIRS.find((d) => planRelOf(pc.plan).startsWith(`${d}/`)) ?? DOCS_DIR}/.`);
@@ -70,7 +73,7 @@ export function hookPostEdit(input: HookInput): string {
   if (!ctx.plan?.dir || !existsSync(join(ctx.plan.dir, 'state.json'))) return '';
   const rel = relative(ctx.top, abs);
   if (rel.startsWith('..') || isAbsolute(rel)) return '';
-  if (isCairnPath(rel)) return '';
+  if (isCairnPath(rel) || rel === '.cairn/work' || rel.startsWith('.cairn/work/')) return '';
   const pc = planCtx(ctx);
   const logged = withLock(pc.plan.dir, () => {
     const s = loadState(pc.plan.dir);

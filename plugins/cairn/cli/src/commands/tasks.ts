@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { worktreeRoot } from '../config.ts';
-import { branchExists, directCommits, git, gitOk } from '../git.ts';
+import { branchExists, directCommits, git, gitOk, gitTry } from '../git.ts';
 import { matchesAny } from '../glob.ts';
 import { planRelOf, taskBranch, type Ctx } from '../locate.ts';
 import { isCairnPath } from '../paths.ts';
@@ -10,6 +10,7 @@ import { currentPhase, findTask, readySet } from '../ready.ts';
 import { loadState, log, setStage } from '../state.ts';
 import { SUBSTEPS, type Substep } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
+import { taskBrief, taskReport, writeBrief } from './brief.ts';
 import { ensureExcluded, gate, mutate, planCtx, runSetup, runTests, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
 import { syncTickets } from './linear.ts';
@@ -44,18 +45,21 @@ export function cmdReady(ctx: Ctx): Result {
 }
 
 export function cmdTask(ctx: Ctx, action: string | undefined, id: string | undefined, rest: string[], opts: Opts): Result {
-  if (!id) throw new CliError('usage: cairn task start|step|done <task-id> …');
+  if (!id) throw new CliError('usage: cairn task start|step|done|merge|brief|report <task-id> …');
+  if (action === 'report') return taskReport(ctx, id, rest[0]);
   const pc = planCtx(ctx);
   if (action === 'start') return taskStart(pc, id, opts);
   if (action === 'step') return taskStep(pc, id, rest[0], opts);
   if (action === 'done') return taskDone(pc, id, opts);
-  throw new CliError('usage: cairn task start|step|done <task-id>');
+  if (action === 'merge') return taskMerge(pc, id, opts);
+  if (action === 'brief') return taskBrief(pc, id, opts);
+  throw new CliError('usage: cairn task start|step|done|merge|brief|report <task-id>');
 }
 
 function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
   const { plan, ctx, cfg } = pc;
   let needsSetup = false;
-  const r = mutate(pc, undefined, (s) => {
+  const r: Result = mutate(pc, undefined, (s) => {
     // Plans recorded on old names keep them: the task branch is new-style, the folder follows the plan folder.
     const branch = taskBranch(plan.slug, id);
     const path = join(worktreeRoot(cfg, ctx.mainRoot), `${basename(plan.worktree)}--${id}`);
@@ -93,6 +97,11 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
   });
   ensureExcluded(ctx.mainRoot, '.claude/worktrees/');
   if (needsSetup) r.message += runSetup(cfg, String(r.data!.worktree), ctx.mainRoot);
+  if (!r.data!.resumed) {
+    const b = writeBrief(pc, id, 'build');
+    r.message += `\nBrief: ${b.path}`;
+    r.data = { ...r.data, brief: b.path, report: b.report };
+  }
   return r;
 }
 
@@ -180,4 +189,52 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   if (merged && sl.worktree && existsSync(sl.worktree)) gitOk(['worktree', 'remove', sl.worktree], plan.worktree);
   if (merged) gitOk(['branch', '-d', sl.branch], plan.worktree);
   return r;
+}
+
+const DOCS_ROOTS = ['docs/cairn/', 'docs/sdlc/'];
+
+/** Merge the task branch into the plan branch (--no-ff), settle plan-file conflicts, then run `task done`. */
+function taskMerge(pc: PlanCtx, id: string, opts: Opts): Result {
+  const { plan } = pc;
+  const pre = loadState(plan.dir);
+  const sl = findTask(pre, id);
+  if (!sl) throw new Refusal(`no task "${id}" in this plan`);
+  if (sl.status !== 'in_progress' || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`, ['cairn task start ' + id]);
+  const pb = pre.branch;
+  if (!branchExists(sl.branch, plan.worktree)) throw new Refusal(`branch ${sl.branch} does not exist`);
+  let note: string;
+  if (!gitOk(['merge-base', '--is-ancestor', sl.branch, pb], plan.worktree)) {
+    if (git(['rev-parse', '--abbrev-ref', 'HEAD'], plan.worktree) !== pb) throw new Refusal(`the plan worktree is not on ${pb}`, [`git -C ${plan.worktree} switch ${pb}`]);
+    const m = gitTry(['merge', '--no-ff', sl.branch, '-m', `merge task ${id}`], plan.worktree);
+    let kept = '';
+    if (!m.ok) {
+      const files = gitTry(['diff', '--name-only', '--diff-filter=U'], plan.worktree).out.split('\n').filter(Boolean);
+      const planOnly = files.length > 0 && files.every((f) => DOCS_ROOTS.some((d) => f.startsWith(d)));
+      if (!planOnly) {
+        // Leave nothing half-merged: no MERGE_HEAD, so the fixer starts from a clean plan worktree.
+        gitTry(['merge', '--abort'], plan.worktree);
+        if (!files.length) throw new Refusal(`merging ${sl.branch} into ${pb} failed: ${m.out.split('\n').slice(-2).join(' ')}`);
+        mutate(pc, undefined, (s) => {
+          findTask(s, id)!.mergeConflict = files;
+          log(s, 'task merge conflict', `${sl.name}: ${files.join(', ')}`);
+        });
+        throw new Refusal(`merging task "${sl.name}" conflicts in: ${files.join(', ')}`, [
+          `dispatch a Fix · merge implementer with \`cairn task brief ${id} --role fix\`: merge ${pb} into ${sl.branch} in ${sl.worktree}, resolve, commit; then cairn task merge ${id} again`,
+        ]);
+      }
+      for (const f of files) {
+        if (gitTry(['checkout', '--ours', '--', f], plan.worktree).ok) git(['add', '--', f], plan.worktree);
+        else git(['rm', '-q', '--', f], plan.worktree);
+      }
+      git(['commit', '-q', '--no-edit'], plan.worktree);
+      kept = ` Kept the plan's side of ${files.length} plan file${files.length === 1 ? '' : 's'} that conflicted.`;
+    }
+    note = `Merged ${sl.branch} into ${pb}.${kept}`;
+  } else note = `${sl.branch} was already merged into ${pb}.`;
+  if (sl.mergeConflict)
+    mutate(pc, undefined, (s) => {
+      delete findTask(s, id)!.mergeConflict;
+    });
+  const r = taskDone(pc, id, opts);
+  return { ...r, message: `${note}\n${r.message}`, data: { ...r.data, merged: true } };
 }
