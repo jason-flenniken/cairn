@@ -18,10 +18,14 @@ Every `Agent` dispatch passes an explicit `model`. An omitted model inherits the
 | task-reviewer (every task) | sonnet |
 | security-reviewer (risky tasks, and the whole branch) | sonnet |
 | Explore (research) | sonnet |
-| acceptance-checker, recorder | sonnet |
+| acceptance-checker, recorder, researcher | sonnet |
+| prd-writer, plan-writer | opus |
+| linear-sender | haiku |
 | branch-reviewer | opus |
 | plan-reviewer (Polished plans only) | sonnet |
 | challenger, prd-checker (Standard and Polished) | sonnet |
+
+The main session stays on Opus. The writers (prd-writer, plan-writer) are opus because they hold a whole document; the linear-sender is haiku because it only carries calls.
 
 ## Start low, escalate on evidence
 - Start one tier lower than instinct says when a task sits between two tiers.

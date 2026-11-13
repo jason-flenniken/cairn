@@ -30,7 +30,7 @@ test('every agent pins a model and every skill is user-invoked only', () => {
 test('the plan reviewer is read-only on sonnet', () => {
   const a = read('agents/plan-reviewer.md');
   assert.match(a, /^model:\s*sonnet\s*$/m);
-  assert.match(a, /^tools:\s*Read, Grep, Glob\s*$/m);
+  assert.match(a, /^tools:\s*Read, Grep, Glob, Write\s*$/m); // Write is for the report file only
 });
 
 test('the direction procedure, agent, and skill fit together', () => {
@@ -47,7 +47,8 @@ test('the direction procedure, agent, and skill fit together', () => {
   assert.ok(rows.requirements.length > 0);
   const a = read('agents/direction-checker.md');
   assert.match(a, /^model:\s*sonnet\s*$/m);
-  assert.doesNotMatch(a, /^tools:.*\b(Write|Edit)\b/m);
+  assert.match(a, /^tools:\s*Read, Grep, Glob, Bash, Write\s*$/m); // Write is for the report file only
+  assert.doesNotMatch(a, /^tools:.*\bEdit\b/m);
   const k = read('skills/direction/SKILL.md');
   assert.match(k, /^\s+- "Bash\(cairn status:\*\)"\s*$/m);
   assert.doesNotMatch(k, /cairn:\*/);

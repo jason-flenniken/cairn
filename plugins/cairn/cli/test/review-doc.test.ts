@@ -43,15 +43,17 @@ for (const [file, model] of [
     assert.match(src, /Verdict: PASS \| FIX/);
     assert.match(src, /proposed fix/);
     assert.match(src, new RegExp(`^model: ${model}$`, 'm'));
-    assert.match(src, /^tools: Read, Grep, Glob, Bash$/m);
+    assert.match(src, /^tools: Read, Grep, Glob, Bash, Write$/m); // Write is for the report file only
+    assert.match(src, /The one file you write is your report/);
+    assert.match(src, /^Report: <abs path>$/m);
   });
 }
 
-test('branch-reviewer names the axes and keeps Strengths and the FR id', () => {
+test('branch-reviewer names the axes and keeps Strengths and names the requirement', () => {
   const src = read('agents/branch-reviewer.md');
   assert.match(src, /correctness, readability, architecture, security, performance/);
   assert.match(src, /^Strengths:/m);
-  assert.match(src, /FR-xx/);
+  assert.match(src, /name the requirement a finding concerns/);
 });
 
 test('task-reviewer keeps the re-review rule', () => {

@@ -1,60 +1,42 @@
 # Plan
 
-Turn the approved PRD into phases of vertical tasks, load it, then stop for approval.
+Have the approved PRD turned into phases of vertical tasks and loaded, then stop for approval. The main thread routes; the plan-writer holds the document.
 
-Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLUGIN_ROOT}/templates/plan.md`). Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
+Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
 **Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, put the step back: `cd <plan worktree> && cairn step <drafting or checking, whichever you were on>`.
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
-- MVP: few, large vertical tasks, usually one phase, and no Test cases lists. Still set `risky: true` on every task that touches a trust boundary: that is what brings in the security review. File the areas you leave untested with `cairn suggest add --kind hardening --area tests --from plan --where <glob> --text "<what to cover and why>"` instead of the up-to-5 suggestions rule below.
+- MVP: few, large vertical tasks, usually one phase, no Test cases lists; risky tasks still get `risky: true`, and the writer files the areas it leaves untested with `cairn suggest add --kind hardening --area tests --from plan --where <glob> --text "<what to cover and why>"`. Tell the writer the level in the brief; it holds the rules.
 - Standard: as written below.
-- Polished: every task lists Test cases, each naming the failure mode it pins. Before the approval stop, run `cd <plan worktree> && cairn step checking`, then dispatch `plan-reviewer` (`model: sonnet`, `description` "Review · plan") with the paths to `prd.md` and `plan.md`. Fix what it lists as answered by the plan, settle the minor ones yourself, and ask the user about the ones that are theirs, then rerun `cairn plan load`.
+- Polished: every task lists Test cases, each naming the failure mode it pins, and step 4 runs the `plan-reviewer` fresh read.
 - A level raised after the plan was approved clears the approval: run the plan again at the new level and ask for approval again.
 
 ## 1. Check
 Run `cairn status --json`. The stage must be `plan`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 
-**Done when:** the stage is `plan`. If `plan.md` exists, read it and treat step 3 as a revision.
+**Done when:** the stage is `plan`. If `plan.md` exists, step 3 is a revision: brief a writer to revise it.
 
 ## 2. Explore
-Dispatch Explore agents (`model: sonnet`, `description` per `references/reporting.md`) in parallel, split by area the PRD touches. Each returns: existing modules and their interfaces, patterns to follow, test layout and runner, files likely to change, and refactors that would make the change easier (prefactoring). Use `path:line` evidence.
+Dispatch `researcher` agents (`model: sonnet`, `description` "Check · <area> research") in parallel, split by area the PRD touches. Each gets the path to `prd.md`, its area, and `research/<area>.md` in the work folder (`<plan worktree>/.cairn/work/<slug>/`) to write to. Each writes: existing modules and their interfaces, patterns to follow, test layout and runner, files likely to change, and refactors that would make the change easier (prefactoring), with `path:line` evidence. You do not read those files; the plan-writer does. Read only the short returns.
 
-**Done when:** you can name, for each FR, the files and seams it lands in.
+**Done when:** every researcher returned and you hold the paths of their files.
 
-## 3. Write plan.md
-Run `cd <plan worktree> && cairn step drafting`, so the pane does not offer the plan for approval while you write it. Then write `docs/cairn/plans/<date>-<slug>/plan.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. Required headings: Goal, Architecture, Phases. Keep the plan short. Slicing rules:
+## 3. Brief the writer
+Run `cd <plan worktree> && cairn step drafting`, so the pane does not offer the plan for approval while it is written. Then dispatch the `plan-writer` agent (`model: opus`, `description` "Build · plan") with a brief of paths, no pasted content: the plan folder, `prd.md`, `decisions.md`, the research files, `issues/` when `state.linear` is set, the level, `foundational` when the status shows it, and the template `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. The writer follows the slicing rules (its own prompt holds them), writes `plan.md`, runs `cairn plan load` and fixes its refusals, and returns at most 10 lines: the phases and task count, the longest-chain line `plan load` printed, any warning about other plans, questions for the user, and the path.
 
-- **Vertical:** each task is a narrow, complete path through every layer. A horizontal layer alone is never a task.
-- **Right-sized:** each task fits one fresh context window. Split further when it would not.
-- **Prefactor first:** refactors that ease the work come as the earliest tasks.
-- **Phases** are demoable milestones; the first phase proves the thinnest end-to-end path.
-- **Approaches considered** (optional; required when `cairn status --json` shows `foundational: true`): a `## Approaches considered` section with the chosen approach first, then each rejected one with the reason it lost. `cairn plan load` refuses a foundational plan without it.
-- **Issue order** (only when `cairn status --json` shows `state.linear`): when one issue is blocked by another in the plan, the tasks for the blocked issue must come after the tasks for its blocker, in a later phase or through `blocked_by`. Order the phases by dependency layers: issues with no blocker inside the plan first, the issues they unblock in later phases. `cairn plan load` refuses a task for a blocked issue that does not come after its blocker's tasks and names the pair. When the blocked issue really does not need the blocker's code, say so in an optional `## Issue order` section: `- SAV-102 and SAV-101: <reason>` (both keys on the line, with a reason). The reason goes in the record.
-- **One ticket per task** (only when `cairn status --json` shows `state.linear`): each task covers requirements of one ticket. Group the tasks by ticket and name each as a step of it, so the cards read as the ticket's work. Split a task that would span two tickets: `cairn plan load` refuses it and names the task and the tickets. A task that covers only untagged requirements goes under the plan's epic.
-- **Tickets** (only when the plan has no `state.linear`): give each task an optional `ticket: "<short title>"` naming the user-facing piece of work it belongs to. Tasks without one go under their phase's name. These become the plan's tickets if the user puts it in Linear at approval (step 5a).
-- **Parallel by default:** disjoint `scope` globs, minimal `blocked_by`. Two tasks touching the same files get an edge between them.
-- **Shorten the longest chain:** `cairn plan load` ends with a line like "Longest chain: 7 of 11 tasks (move-app → … → docs); at most 3 at once." When the chain is over half the tasks, the plan is mostly one task after another: look for a contract-first split. Pull out a small task that fixes the interface the others depend on (types, a stub, a fake), so the dependent tasks can start against it instead of waiting for the real thing. Put a `blocked_by` only where a task needs the other's result, not where it only comes later in the story. The line is a report; load still succeeds.
-- **Overlapping phases:** a later phase can say `overlap: true` (never the first). Its tasks then start as soon as their own `blocked_by` are done, even while the earlier phase is open, so each must name every earlier task it needs. Phases still finish in order. Use it when a later phase's tasks depend on only a few earlier ones; leave it off when the phase is a real milestone that needs the earlier one whole.
-- **Other plans:** `cairn plan load` and `cairn status` warn when a task here shares files with another active plan's unfinished tasks. Order the plans, or split the file, before building.
-- **Complexity:** `simple` (mechanical, 1-2 files), `standard` (default), `complex` (architecture judgment, broad integration).
-- **Coverage:** every FR is in some task's `covers`, or listed under `## Deferred requirements` with a reason.
-- **Risk:** set `risky: true` (with a one-line `riskReason`) on any task that touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data. Everything else is `risky: false`.
+You never edit `plan.md` yourself. When the longest chain is over half the tasks, send the writer one line asking for a contract-first split, and let it reload. Ask the user about its questions (AskUserQuestion, recommended first), run `cairn decide`, and send the answers to the writer with SendMessage (or a fresh `plan-writer` with the same paths, when it has ended).
 
-Under `## Phases` put exactly one `yaml cairn-tasks` block, then one `### Task: <id>` section per task with a one-line **Check:** and **Interfaces**. Only risky tasks list **Test cases** (Happy / Unhappy / Security bullets, each concrete). Each misuse case in the PRD's Security section becomes a Security test case on the task that covers it.
+**Done when:** the writer returned, its `cairn plan load` exited 0, and every question it raised is decided.
 
-When you consciously skip tests on a non-risky task (an area worth covering later), log up to 5 of them as suggestions: `cairn suggest add --area tests --from plan --where <glob> --text "<what to cover and why>"`.
+## 4. Fresh read (Polished)
+Standard and MVP skip this step. At Polished: run `cd <plan worktree> && cairn step checking`, then dispatch `plan-reviewer` (`model: sonnet`, `description` "Review · plan") with the paths to `prd.md` and `plan.md` and the report path `<work folder>/reports/plan-review.md`. It ends with the counts, the questions for the user and the report path. Send that report path to the writer with SendMessage: it applies the answered and minor items, reloads, and returns only what is for the user. Ask the user about those, send the answers to the writer, and confirm its reload exited 0.
 
-**Done when:** every task has a Check, risky tasks have concrete tests, and every FR is covered or deferred.
-
-## 4. Load
-Run `cairn plan load`. On refusal, read what it names (a cycle, an unknown FR id, a missing scope, an uncovered requirement, a task that breaks the order of two Linear issues), fix `plan.md`, and rerun.
-
-**Done when:** `cairn plan load` exits 0.
+**Done when:** the writer's reload succeeded after the review, or the level skips the step.
 
 ## 5. Stop for approval
-Run `cd <plan worktree> && cairn step approving`; the pane offers the plan for approval from here on. Then show a tree preview and about three lines of summary:
+Run `cd <plan worktree> && cairn step approving`; the pane offers the plan for approval from here on. Then show a tree preview and about three lines of summary, built from `cairn status --json` and the writer's summary (the pane shows the document; do not read `plan.md` into your context):
 
 ```
 Phase 1: Foundations
@@ -69,7 +51,7 @@ On a foundational plan, the question names the chosen approach (the summary star
 Run `cairn status --json`. If `state.approvals.plan` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. If `warnings` says prd.md changed after it was approved, approving the plan also accepts those PRD edits: say so in the question and name what changed in the PRD in plain words. There is no separate PRD re-approval. Otherwise read `modActive`.
 - True: ask with AskUserQuestion, with the tree as the preview on the first option. The question text includes `[cairn:approve plan <slug>]`, with the plan slug from the status output:
   - Approve (Recommended)
-  - Revise: run `cd <plan worktree> && cairn step drafting`, ask what to change, edit `plan.md`, rerun step 4, and return to step 5
+  - Revise: run `cd <plan worktree> && cairn step drafting`, ask what to change, send it to the writer with SendMessage (or a fresh `plan-writer` when it has ended; it reloads), and return to step 5
   - Pause: go to the pause procedure
 - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve plan --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed; it also accepts any PRD edits), then wait for them to say it's done.
 
@@ -80,13 +62,13 @@ Do not approve on the user's behalf.
 ## 5a. Offer to put the plan in Linear
 Only when `.cairn/config.json` has a `linear` block and `cairn status --json` shows no `state.linear`. Once the plan is approved, ask once with AskUserQuestion: "Put this plan in Linear?" Name the tickets it would file (each task's `ticket:`, else its phase's name).
 - Not now (Recommended): go on. The plan stays out of Linear.
-- Yes: ask for the Linear project (and milestone, optional), then run `cd <plan worktree> && cairn linear publish --project "<project>" [--milestone "<milestone>"]`. Then follow `procedures/linear-sync.md`: it files the epic, then the tickets under it, then the blocked-by links between them. From then on the plan moves its tickets like one pulled in from Linear.
+- Yes: ask for the Linear project (and milestone, optional), then run `cd <plan worktree> && cairn linear publish --project "<project>" [--milestone "<milestone>"]`. Then dispatch the `linear-sender` agent (`model: haiku`, `description` "Record · Linear tickets") with the plan worktree path and the plugin root; it files the epic, then the tickets under it, then the blocked-by links between them, following `procedures/linear-sync.md`. Wait for it here: the plan's tickets need their keys. From then on the plan moves its tickets like one pulled in from Linear.
 
 **Done when:** the user answered, and on Yes the epic and tickets are filed.
 
 ## 6. Confirm and advance
-Run `cairn status --json` and check that the plan approval is recorded. If it is not, say what the menu outcome or the terminal output reported. If `plan.md` changed since loading, rerun `cairn plan load` and return to step 5.
+Run `cairn status --json` and check that the plan approval is recorded. If it is not, say what the menu outcome or the terminal output reported. If `plan.md` changed since loading, have the writer reload it (SendMessage) and return to step 5.
 
 Once the approval is recorded, run `cairn advance`.
 
-**Done when:** the stage is `execute`. Then run `cairn next --json` and follow the procedure it names.
+**Done when:** the stage is `execute`. Then run `cairn next --json`. When its output holds a fresh-start line ("Context is at N%… start fresh with /clear, then /cairn:next."), tell the user that line and stop. Otherwise follow the procedure it names.

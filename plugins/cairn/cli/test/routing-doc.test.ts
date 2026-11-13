@@ -27,7 +27,7 @@ test('execute.md routes labels: Critical and Required to a fix, Optional and Nit
   const src = read('procedures/execute.md');
   const step = section(src, '## 5.', '## 6.');
   assert.match(step, /Critical and Required: step 6/);
-  assert.match(step, /Optional and Nit:[^\n]*cairn suggest add[^\n]*--from task-review/);
+  assert.match(step, /Optional, Nit and pre-existing findings as follow-ups itself[^\n]*--from task-review/);
   assert.match(step, /--from security-review/);
   assert.match(step, /FYI: mention once[^\n]*Do not log/);
   assert.match(section(src, '## 6.', '## 7.'), /Critical and Required/);
@@ -36,7 +36,7 @@ test('execute.md routes labels: Critical and Required to a fix, Optional and Nit
 test('review.md runs the branch and security reviewers in parallel with the same routing', () => {
   const src = read('procedures/review.md');
   assert.match(src, /in the same message[\s\S]*`branch-reviewer`[\s\S]*`security-reviewer`/);
-  assert.match(src, /Optional or Nit[^\n]*cairn suggest add[^\n]*--from branch-review/);
+  assert.match(src, /Optional, Nit and pre-existing finding as a follow-up itself[^\n]*--from branch-review/);
   assert.match(src, /--from security-review/);
   assert.match(src, /FYI/);
   assert.match(src, /Critical or Required/);
@@ -49,7 +49,7 @@ test('fix.md reviews every fix, names the wider risky list, merges before close,
   assert.match(step, /task-reviewer/);
   assert.match(step, /security-reviewer/);
   assert.match(step, /untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data/);
-  assert.match(step, /Optional and Nit[^\n]*cairn suggest add/);
+  assert.match(step, /Optional, Nit and pre-existing findings as follow-ups itself/);
   assert.doesNotMatch(src, /If it is not, run the repo's tests and record/);
   assert.match(src, /untrusted input, personal data/);
   assert.match(src, /state\.approvals\.ship[^\n]*already recorded/);

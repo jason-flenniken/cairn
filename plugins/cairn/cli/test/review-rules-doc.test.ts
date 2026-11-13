@@ -38,11 +38,11 @@ test('every reviewer emits a class, the pre-existing marker and a Not checked li
 
 test('the task reviewer gets the test line, never the implementer report', () => {
   const step = section(read('procedures/execute.md'), '## 5.', '## 6.');
-  assert.match(step, /the `Tests:` line from the implementer's report/);
-  assert.match(step, /Never pass the rest of the report/);
+  assert.match(step, /the implementer's report for its `Tests:` line/);
+  assert.match(step, /Never tell the reviewer to read the rest of the report/);
   assert.match(step, /`Concerns \/ questions:` line when the status is `DONE_WITH_CONCERNS`/);
-  assert.match(step, /Pre-existing, at any label[^\n]*never send it to step 6/);
-  assert.match(read('agents/task-reviewer.md'), /never get the implementer's account/);
+  assert.match(step, /pre-existing finding, at any label[^\n]*never sent to step 6/);
+  assert.match(read('agents/task-reviewer.md'), /never read the implementer's account/);
   const fix = section(read('procedures/execute.md'), '## 6.', '## 7.');
   assert.match(fix, /fix each class everywhere/);
   assert.match(fix, /fixing --note "fixing classes:/);
@@ -54,7 +54,7 @@ test('the branch review gets an already-reported list and fixes by class', () =>
   assert.match(section(src, '## 3.', '## 4.'), /pre-existing finding/);
   assert.match(section(src, '## 4.', '## 5.'), /fix each class everywhere/);
   assert.match(src.slice(src.indexOf('## 5.')), /Pre-existing findings never count here[\s\S]*fixed classes:/);
-  assert.match(src, /MVP:[^\n]*every pre-existing finding[^\n]*"<class>: <finding>"/);
+  assert.match(src, /MVP:[^\n]*every pre-existing finding as hardening items/);
 });
 
 test('ship drafts review rules after the approval, from the plan log, and asks apart from it', () => {
