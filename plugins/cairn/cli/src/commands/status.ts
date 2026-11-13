@@ -11,6 +11,7 @@ import { scopesOverlap } from '../glob.ts';
 import type { Phase, State } from '../types.ts';
 import { hashText, pluginRoot, readText, Refusal, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
+import { withFreshStart } from './brief.ts';
 import { restack } from './merge.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
@@ -140,6 +141,12 @@ function readyRow(r: { state: State; worktree?: string; dir: string }, ctx: Ctx)
   return { ready, needsUser: ready !== undefined || asked };
 }
 
+/** The plan state without its log: the log is long and rarely needed. `--full` keeps it. */
+const slimState = (s: State): Omit<State, 'log'> => {
+  const { log: _log, ...rest } = s;
+  return rest;
+};
+
 export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
@@ -174,7 +181,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ...(s.stackedOn ? [`Stacked on ${s.stackedOn.slug}: it started on that plan's branch and moves onto main once that plan has merged.`] : []),
       ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
       ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
+    data: { state: opts.full ? s : slimState(s), next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
   };
 }
 
@@ -219,10 +226,10 @@ export function cmdNext(ctx: Ctx): Result {
   const queued = pendingCount(s);
   const stageNext = nextFor(s);
   const n = queued ? { procedure: 'linear-sync', text: `Send ${queued} queued Linear update${queued === 1 ? '' : 's'} first. Then: ${stageNext.text}` } : stageNext;
-  return {
+  return withFreshStart(pc, {
     message: `${restacked ? `${restacked}\n` : ''}${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
     data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), ...(restacked ? { restacked } : {}) },
-  };
+  });
 }
 
 export function cmdRender(ctx: Ctx): Result {

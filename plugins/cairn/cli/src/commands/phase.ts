@@ -8,6 +8,7 @@ import { CliError, Refusal } from '../util.ts';
 import { gate, mutate, planCtx, runTests, testsGate, type Opts, type Result, type TestRun } from '../shared.ts';
 import { linearPhaseGate, onPhaseFinished } from './linear.ts';
 import { linearConfig } from '../linear.ts';
+import { withFreshStart } from './brief.ts';
 
 /** "3 new suggestions (2 tests, 1 security)" for suggestions logged since the last phase boundary. */
 export function newSuggestionsText(s: State): string {
@@ -41,7 +42,7 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
   const reused = !!(last?.testedCommit && last.tests && gitOk(['diff', '--quiet', last.testedCommit, head, '--', '.', ...cairnPathspecExcludes()], plan.worktree));
   const tests: TestRun | undefined = reused ? undefined : runTests(pc.cfg, plan.worktree);
 
-  return mutate(pc, `phase finished: ${phase.name}`, (s) => {
+  return withFreshStart(pc, mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s)!;
     gate(cur.verdict?.result !== 'red', s, 'phase finish', opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ''}`, ['fix what the report flags, then re-run `cairn evidence phase`']);
     linearPhaseGate(s, opts);
@@ -68,7 +69,7 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
       message: `Phase "${cur.name}" finished: ${cur.tasks.length} tasks, ${testText}, ${suggestions}${driftText}; ${next}.`,
       data: { phase: cur.id, next: following?.id ?? null, stage: s.stage },
     };
-  });
+  }));
 }
 
 /**

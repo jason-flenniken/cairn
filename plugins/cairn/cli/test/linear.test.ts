@@ -337,7 +337,7 @@ test('linear: an epic from import to merged, with every check and queued write',
   ok(wt, 'linear', 'ack', 'c2', '--as', 'later');
   assert.equal(state().linear!.issues.find((i) => i.key === 'SAV-106')!.released!.reason, 'later plan');
   const fin = ok(wt, 'phase', 'finish');
-  assert.match(fin.message, /\d+ Linear updates queued: send them now \(follow .*linear-sync\.md\)/, 'a phase finish says updates are waiting');
+  assert.match(fin.message, /\d+ Linear updates queued: send them with the linear-sender agent in the background \(it follows .*linear-sync\.md\)/, 'a phase finish says updates are waiting');
   assert.ok((fin.data!.linearDue as number) > 0);
   const rowDue = (ok(repo, 'status', '--all').data!.plans as { state: { slug: string }; linearDue?: number }[]).find((r) => r.state.slug === 'checkout')!.linearDue;
   assert.equal(rowDue, fin.data!.linearDue, 'status --all rows carry the waiting count for the pane');
