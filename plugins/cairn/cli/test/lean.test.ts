@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { hookPostEdit, hookSessionStart } from '../src/commands.ts';
-import { parseFindings, reportSuggestions, requirementText, taskSection } from '../src/commands/brief.ts';
+import { parseFindings, parsePrior, reportSuggestions, requirementText, taskSection } from '../src/commands/brief.ts';
 import { run } from '../src/main.ts';
 import type { State } from '../src/types.ts';
 import { Refusal } from '../src/util.ts';
@@ -411,7 +411,7 @@ test('the Linear queue line points at the background sender', () => {
 
 // ---------- review fixes ----------
 
-const RED_TEST = 'if [ -f red.flag ]; then echo "FAIL src/charge/charge.test.ts: charges twice"; echo "1 failed"; exit 1; fi';
+const RED_TEST = 'if [ -f red.flag ] || [ -f src/charge/red.flag ]; then echo "FAIL src/charge/charge.test.ts: charges twice"; echo "1 failed"; exit 1; fi';
 const stateFile = (w: World) => join(pd(w.wt, 'billing'), 'state.json');
 const editState = (w: World, fn: (s: State) => void) => {
   const s = w.state();
@@ -432,7 +432,7 @@ test('linear pending --claim: two senders get disjoint sets, and the queued line
   const queued = (msg: string) => msg.match(/(\d+) Linear updates? queued/)?.[1];
   assert.equal(queued(ok(w.wt, 'ready').message), '2', 'held and needs-approval entries are not counted');
   const first = ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[];
-  assert.deepEqual(first.map((x) => x.id), ['l1', 'l2'], 'due entries, not the held one or the one that needs approval');
+  assert.deepEqual(first.map((x) => x.id), ['l1', 'l2', 'l4'], 'unsent entries (the held one is tried again), not the one that needs approval');
   const second = ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[];
   assert.deepEqual(second, [], 'a second sender gets nothing');
   assert.equal(queued(ok(w.wt, 'ready').message), undefined, 'claimed entries leave the queued line');
@@ -447,6 +447,9 @@ test('linear pending --claim: two senders get disjoint sets, and the queued line
   });
   assert.equal(queued(ok(w.wt, 'ready').message), '1');
   assert.deepEqual((ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[]).map((x) => x.id), ['l2']);
+  // A held entry that was claimed and sent is no longer held.
+  ok(w.wt, 'linear', 'sent', 'l4');
+  assert.equal(w.state().linear!.outbox[3].held, undefined);
 });
 
 test('every brief carries the task facts and the PRD and plan paths; the security brief quotes the PRD security section', () => {
@@ -500,12 +503,14 @@ test('a red task done writes tests.log, records lastRed, and the fix brief shows
   const w = world({ test: RED_TEST });
   const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
   commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
-  commitIn(tw, 'red.flag', 'x\n', 'break it');
+  commitIn(tw, 'src/charge/red.flag', 'x\n', 'break it');
   const e = refusal(w.wt, 'task', 'merge', 'charge');
   const log = join(w.wt, '.cairn/work/billing/reports/tests.log');
   assert.match(e.message, /^tests are not green \(.*\)\. Full output: .*tests\.log$/);
   assert.ok(e.message.endsWith(`Full output: ${log}`));
   assert.match(e.fixes[0], /the merge stays in place/);
+  assert.match(e.fixes[0], new RegExp(`In ${tw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, merge `), 'the fix goes on the task branch in the task worktree');
+  assert.doesNotMatch(e.fixes[0], /Fix on the merged tree/);
   assert.match(readFileSync(log, 'utf8'), /FAIL src\/charge\/charge\.test\.ts: charges twice/);
   const red = w.state().lastRed!;
   assert.equal(red.log, log);
@@ -514,11 +519,13 @@ test('a red task done writes tests.log, records lastRed, and the fix brief shows
   assert.equal(w.state().phases[0].tasks[0].status, 'in_progress');
   const md = readFileSync(ok(w.wt, 'task', 'brief', 'charge', '--role', 'fix').data!.path as string, 'utf8');
   assert.match(md, /## Last red test run\n\n  FAIL src\/charge\/charge\.test\.ts: charges twice\n  1 failed\nFull output: .*tests\.log/);
-  // Fixed on the merged tree: the next merge is a green task done and clears the record.
-  g(w.wt, 'rm', '-q', 'red.flag');
-  g(w.wt, 'commit', '-q', '-m', 'fix');
+  // The fix is an in-scope commit on the task branch (after merging the plan branch in): the next merge takes it,
+  // is not refused as a stray commit on the plan branch, and runs a green task done that clears the record.
+  g(tw, 'merge', '-q', g(w.wt, 'rev-parse', '--abbrev-ref', 'HEAD'));
+  g(tw, 'rm', '-q', 'src/charge/red.flag');
+  g(tw, 'commit', '-q', '-m', 'fix');
   const done = ok(w.wt, 'task', 'merge', 'charge');
-  assert.match(done.message, /already merged/);
+  assert.match(done.message, /^Merged /);
   assert.equal(w.state().phases[0].tasks[0].status, 'done');
   assert.equal(w.state().lastRed, undefined);
 });
@@ -691,4 +698,99 @@ test('status --json drops the follow-up list and the Linear payloads unless --fu
   assert.equal(row.worktree, w.wt);
   assert.ok(row.dir && row.next && row.level);
   assert.equal(row.linearDue, 1);
+});
+
+// ---------- second review fixes ----------
+
+test('cairn next and the session-start line count what a sender can take, not what a running sender holds', () => {
+  const w = world();
+  const [a, b, c] = outboxOf(['l1', 'l2', 'l3']);
+  withOutbox(w, [a, b, { ...c, needsApproval: true }]);
+  assert.match(ok(w.wt, 'next').message, /Send 3 queued Linear updates first/);
+  ok(w.wt, 'linear', 'pending', '--claim', '--json');
+  const after = ok(w.wt, 'next');
+  assert.match(after.message, /Send 1 queued Linear update first/, 'only the one that needs the user is left for the main thread');
+  assert.match(String(hookSessionStart({ cwd: w.wt })), /1 Linear update waiting to be sent/);
+  ok(w.wt, 'linear', 'hold', 'l3', '--note', 'later');
+  editState(w, (s) => {
+    for (const x of s.linear!.outbox) delete x.needsApproval;
+  });
+  assert.doesNotMatch(ok(w.wt, 'next').message, /queued Linear update/, 'claimed and held entries do not route to the sync');
+});
+
+test('linear pending --claim hands out held entries again; sent and a new hold clear the old note', () => {
+  const w = world();
+  const [a] = outboxOf(['l1']);
+  withOutbox(w, [{ ...a, held: { at: new Date().toISOString(), note: 'no tools' } }]);
+  const got = ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[];
+  assert.deepEqual(got.map((x) => x.id), ['l1']);
+  ok(w.wt, 'linear', 'hold', 'l1', '--note', 'failed again');
+  assert.equal(w.state().linear!.outbox[0].held!.note, 'failed again');
+  assert.equal(w.state().linear!.outbox[0].claimedAt, undefined);
+  assert.deepEqual((ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[]).map((x) => x.id), ['l1']);
+});
+
+test('a red merge belongs to its task: another task is refused before merging, and its fix brief leaves the red run out', () => {
+  const w = world({ test: RED_TEST });
+  const tc = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+  const tr = ok(w.wt, 'task', 'start', 'refund').data!.worktree as string;
+  commitIn(tc, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
+  commitIn(tc, 'src/charge/red.flag', 'x\n', 'break it');
+  commitIn(tr, 'src/refund/index.ts', 'export const refund = 1;\n', 'refund');
+  refusal(w.wt, 'task', 'merge', 'charge');
+  assert.equal(w.state().lastRed!.task, 'charge');
+  const planTip = g(w.wt, 'rev-parse', 'HEAD');
+  const e = refusal(w.wt, 'task', 'merge', 'refund');
+  assert.match(e.message, /^the plan branch is red from task Charge's merge: fix that first/);
+  assert.equal(g(w.wt, 'rev-parse', 'HEAD'), planTip, 'nothing was merged');
+  const own = readFileSync(ok(w.wt, 'task', 'brief', 'charge', '--role', 'fix').data!.path as string, 'utf8');
+  assert.match(own, /## Last red test run/);
+  assert.doesNotMatch(own, /No must-fix findings are recorded/, 'the red run is the fix, so the empty-findings line is left out');
+  const other = readFileSync(ok(w.wt, 'task', 'brief', 'refund', '--role', 'fix').data!.path as string, 'utf8');
+  assert.doesNotMatch(other, /Last red test run/);
+  assert.match(other, /No must-fix findings are recorded/);
+  // A plan-level run (no task owns it) still shows in a fix brief.
+  editState(w, (s) => {
+    delete s.lastRed!.task;
+  });
+  assert.match(readFileSync(ok(w.wt, 'task', 'brief', 'refund', '--role', 'fix').data!.path as string, 'utf8'), /Last red test run/);
+});
+
+test('task merge refuses on a paused plan before merging', () => {
+  const w = world();
+  const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+  commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
+  editState(w, (s) => {
+    s.paused = { at: new Date().toISOString(), mode: 'drain' };
+  });
+  const tip = g(w.wt, 'rev-parse', 'HEAD');
+  const e = refusal(w.wt, 'task', 'merge', 'charge');
+  assert.match(e.message, /the plan is paused: let running steps finish/);
+  assert.match(e.fixes.join(), /\/cairn:resume continues/);
+  assert.equal(g(w.wt, 'rev-parse', 'HEAD'), tip);
+});
+
+test('review finding locations in backticks or asterisks match the stored location; MVP files the bare path', () => {
+  const md = [
+    '1. Required | quality | naming | `src/x.ts:40` | the name lies | rename it',
+    '2. Optional | quality | naming | **src/y.ts:7** | a nit | tidy',
+    'Prior: `src/x.ts:40` | open | still wrong',
+  ].join('\n');
+  const f = parseFindings(md);
+  assert.deepEqual(f.map((x) => x.where), ['src/x.ts:40', 'src/y.ts:7']);
+  assert.equal(parsePrior(md)[0].where, 'src/x.ts:40');
+  const w = world();
+  const rep = join(w.wt, '.cairn/work/billing/reports/charge-review.md');
+  write(rep, md.split('\n').slice(0, 2).join('\n'));
+  ok(w.wt, 'review', 'record', 'charge', rep);
+  write(rep, 'Verdict: FIX\nPrior: `src/x.ts:40` | open | still wrong\n');
+  ok(w.wt, 'review', 'record', 'charge', rep);
+  const must = w.state().phases[0].tasks[0].mustFix!;
+  assert.equal(must.length, 1);
+  assert.equal(must[0].where, 'src/x.ts:40');
+  assert.equal(must[0].fix, 'rename it', 'the open prior item kept what the first review said');
+  w.user(() => ok(w.wt, 'level', 'mvp'));
+  write(rep, '1. Optional | quality | naming | `src/z.ts:3` | a z nit | tidy\n');
+  ok(w.wt, 'review', 'record', 'charge', rep);
+  assert.deepEqual(w.state().suggestions!.find((x) => x.text.startsWith('a z nit') && x.kind === 'hardening' && x.where.includes('src/z.ts'))?.where, ['src/z.ts']);
 });

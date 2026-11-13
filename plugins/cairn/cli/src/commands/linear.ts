@@ -323,11 +323,12 @@ function pending(ctx: Ctx, opts: Opts = {}): Result {
   linkOf(pre);
   // State is written only when the merge queued something.
   const s = mergedAwaitingDone(pc, pre) ? mutate(pc, undefined, (x) => (queueDone(pc, x), x)) : pre;
-  // --claim: a sender takes the due entries nobody holds, and marks them under the lock so no second sender gets them.
+  // --claim: a sender takes the unsent entries nobody holds (held ones too: they are tried again) and that need no
+  // approval, and marks them under the lock so no second sender gets them.
   const list = opts.claim
     ? mutate(pc, undefined, (x) => {
         const at = Date.now();
-        const mine = due(linkOf(x)).filter((w) => !w.needsApproval && !claimedNow(w, at));
+        const mine = unsent(linkOf(x)).filter((w) => !w.needsApproval && !claimedNow(w, at));
         for (const w of mine) w.claimedAt = new Date(at).toISOString();
         return mine;
       })
@@ -358,6 +359,7 @@ function markSent(ctx: Ctx, id: string | undefined, opts: Opts): Result {
     const filed = onPublishSent(s, w, ref, linearConfig(pc.cfg));
     w.sentAt = now();
     delete w.claimedAt;
+    delete w.held;
     if (ref) w.ref = ref;
     // A follow-up filed as an issue remembers its key, so a later close never files it twice.
     if (w.kind === 'createIssue' && ref) {
@@ -962,4 +964,9 @@ export function mergedPlansAwaitingDone(ctx: Ctx): { slug: string; worktree: str
 }
 
 /** For the session-start hook: the count only, no git or network. */
-export const pendingCount = (s: State): number => due(s.linear).length;
+/**
+ * What `cairn next` routes to the sync for, and what the session-start line and a plan row's `linearDue` count: the
+ * unsent entries a sender could take now plus those waiting on the user. Held ones wait for the next sync, and ones a
+ * running sender has claimed are its work: counting them sent the main thread round in a loop while the sender worked.
+ */
+export const pendingCount = (s: State): number => due(s.linear).filter((w) => !claimedNow(w)).length;

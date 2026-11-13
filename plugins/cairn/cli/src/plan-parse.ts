@@ -70,6 +70,7 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
       if (model !== undefined && !MODELS.includes(model as Model)) problems.push(`${where}: model must be ${MODELS.join(', ')}, or left out`);
       const modelReason = typeof rs?.model_reason === 'string' && rs.model_reason.trim() ? rs.model_reason.trim() : undefined;
       if (model !== undefined && MODELS.includes(model as Model) && !modelReason) problems.push(`${where} asks for ${model} without saying why: add model_reason`);
+      if (model === undefined && rs?.model_reason !== undefined) problems.push(`${where} has model_reason but no model: add model, or take model_reason out`);
       const risky = rs?.risky === true;
       if (rs?.risky !== undefined && typeof rs.risky !== 'boolean') problems.push(`${where}: risky must be true or false`);
       const riskReason = typeof rs?.riskReason === 'string' && rs.riskReason.trim() ? rs.riskReason.trim() : undefined;

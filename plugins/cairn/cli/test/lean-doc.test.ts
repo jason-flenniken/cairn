@@ -21,6 +21,7 @@ test('the new agents have the models and tools the lean design assigns', () => {
   const sender = read('agents/linear-sender.md');
   assert.match(sender, /^model: haiku$/m);
   assert.doesNotMatch(sender.split('---')[1] ?? '', /^tools:/m, 'linear-sender inherits every tool');
+  assert.match(sender.split('---')[1] ?? '', /^disallowedTools: Write, Edit, NotebookEdit, Agent$/m, 'and cannot edit files or dispatch');
 });
 
 test('the writers hold the document guidance and cap their final message', () => {
@@ -82,6 +83,20 @@ test('model-tiers lists the new agents and the README explains the lean main ses
   assert.match(tiers, /researcher \| sonnet/);
   assert.match(tiers, /linear-sender \| haiku/);
   assert.match(readFileSync(join(root, '..', '..', 'README.md'), 'utf8'), /## Keeping the main session lean/);
+});
+
+test('second review fixes: sender claims in both listings, plan-writer returns the Opus line, merge fix goes on the task branch', () => {
+  const sync = read('procedures/linear-sync.md');
+  assert.equal(sync.match(/pending --claim --json/g)?.length, 2, 'steps 1 and 3 claim');
+  assert.match(sync, /cairn linear pending --json` \(no `--claim`\) lists them/);
+  assert.match(read('procedures/plan.md'), /only when none is already running/);
+  assert.match(read('agents/plan-writer.md'), /`Opus builds:` line verbatim/);
+  assert.match(read('procedures/plan.md'), /`Opus builds:` line when it printed one/);
+  assert.match(read('procedures/execute-cases.md'), /merges the plan branch into the task branch in the task worktree, fixes and commits there/);
+  assert.doesNotMatch(read('procedures/execute-cases.md'), /on the merged tree \(`description`/);
+  assert.match(read('procedures/execute.md'), /names a different model than the original build/);
+  assert.match(read('procedures/verify.md'), /Full output:/);
+  assert.doesNotMatch(read('procedures/review.md'), /--kind hardening/);
 });
 
 test('review fixes: claimed Linear queue, re-review briefs, direction reports, foreground refresh', () => {

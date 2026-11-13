@@ -8321,7 +8321,8 @@ var STANDARD = {
 };
 var MVP = { simple: { model: "haiku" }, standard: { model: "haiku" }, complex: { model: "sonnet" } };
 function builderOf(s, t, fixAttempt = 0) {
-  let b = t.model ? { model: t.model, ...t.modelReason ? { reason: t.modelReason } : {} } : { ...(levelOf(s) === "mvp" ? MVP : STANDARD)[t.complexity] };
+  const byRole = (levelOf(s) === "mvp" ? MVP : STANDARD)[t.complexity];
+  let b = t.model ? { model: t.model, ...t.model === byRole.model && byRole.effort ? { effort: byRole.effort } : {}, ...t.modelReason ? { reason: t.modelReason } : {} } : { ...byRole };
   if (fixAttempt >= MAX_FIX_ROUNDS) {
     const up = MODELS[Math.min(MODELS.indexOf(b.model) + 1, MODELS.length - 1)];
     if (up !== b.model) b = { model: up, reason: "the last fix attempt goes one tier up" };
@@ -8561,6 +8562,7 @@ function buildBrief(pc, s, sl, role, again = false) {
   const parts = [head, "", ...where, "", ...factsBlock(pc, sl)];
   if (role === "fix") {
     const found = sl.mustFix ?? [];
+    const red = s.lastRed && (!s.lastRed.task || s.lastRed.task === sl.id) ? s.lastRed : void 0;
     parts.push("## What to fix", "");
     if (sl.mergeConflict?.length)
       parts.push(`Merge ${b.plan} into ${b.branch} in ${worktree}, resolve the conflicts, and commit. Conflicting files:`, list2(sl.mergeConflict), "");
@@ -8568,8 +8570,8 @@ function buildBrief(pc, s, sl, role, again = false) {
       const classes = [...new Set(found.map((f) => classHeading(f.cls)))];
       let n = 0;
       for (const c of classes) parts.push(`### ${c}`, "", ...found.filter((f) => classHeading(f.cls) === c).map((f) => mustLine(f, ++n)), "");
-    } else if (!sl.mergeConflict?.length) parts.push("No must-fix findings are recorded for this task. Check the reviewer reports under reports/.", "");
-    if (s.lastRed) parts.push("## Last red test run", "", ...s.lastRed.failing.length ? s.lastRed.failing.map((l) => `  ${l}`) : ["  (no failing line was picked out)"], `Full output: ${s.lastRed.log}`, "");
+    } else if (!sl.mergeConflict?.length && !red) parts.push("No must-fix findings are recorded for this task. Check the reviewer reports under reports/.", "");
+    if (red) parts.push("## Last red test run", "", ...red.failing.length ? red.failing.map((l) => `  ${l}`) : ["  (no failing line was picked out)"], `Full output: ${red.log}`, "");
     parts.push("## Task", "", b.section, "");
   } else {
     parts.push("## Task", "", b.section, "", "## Requirements this task covers", "", b.reqs.length ? b.reqs.join("\n\n") : "None (a prefactor task).", "");
@@ -8627,7 +8629,7 @@ function testLog(pc, output) {
 `);
   return path;
 }
-function recordTestRun(pc, t) {
+function recordTestRun(pc, t, task) {
   if (!t || !t.ok && !t.ran) return t;
   if (t.ok) {
     if (loadState(pc.plan.dir).lastRed) mutate(pc, void 0, (s) => void delete s.lastRed);
@@ -8637,12 +8639,13 @@ function recordTestRun(pc, t) {
   t.failing = failingLines(t.output ?? "");
   const { log: logFile, failing } = t;
   mutate(pc, void 0, (s) => {
-    s.lastRed = { at: now(), log: logFile, failing };
+    s.lastRed = { at: now(), log: logFile, failing, ...task ? { task } : {} };
   });
   return t;
 }
 var AREAS = SUGGESTION_AREAS;
 var area = (v) => AREAS.includes(v.toLowerCase()) ? v.toLowerCase() : "quality";
+var bare = (where) => where.trim().replace(/[`*]/g, "").trim();
 var pathOf = (where) => {
   const p = where.trim().replace(/:\d+(?:-\d+)?$/, "");
   return p && !/\s/.test(p) && p !== "-" && p.toLowerCase() !== "n/a" ? [p] : [];
@@ -8712,7 +8715,7 @@ function parseFindings(md) {
     if (f.length < 4) continue;
     const label = m.label[0].toUpperCase() + m.label.slice(1).toLowerCase();
     const fix = f.length >= 5 ? f[f.length - 1] : "";
-    out.push({ label: label === "Fyi" ? "FYI" : label, area: f[0].toLowerCase(), cls: f[1], where: f[2], problem: f.slice(3, f.length >= 5 ? -1 : void 0).join(" | "), fix, report: "", preExisting: m.pre });
+    out.push({ label: label === "Fyi" ? "FYI" : label, area: f[0].toLowerCase(), cls: f[1], where: bare(f[2]), problem: f.slice(3, f.length >= 5 ? -1 : void 0).join(" | "), fix, report: "", preExisting: m.pre });
   }
   return out;
 }
@@ -8724,7 +8727,7 @@ function parsePrior(md) {
     const f = m[1].split(/\s+\|\s+/).map((x) => x.trim());
     const st = f[1]?.toLowerCase();
     if (f.length < 2 || st !== "open" && st !== "addressed") continue;
-    out.push({ where: f[0], open: st === "open", note: f.slice(2).join(" | ") });
+    out.push({ where: bare(f[0]), open: st === "open", note: f.slice(2).join(" | ") });
   }
   return out;
 }
@@ -9456,10 +9459,14 @@ function ticketGroups(s) {
 }
 var STAGES2 = ["plan", "execute"];
 function builderLines(ts) {
-  const lines = [...new Set(ts.filter((t) => t.model).map((t) => `Builder: ${t.model} \u2014 ${t.modelReason}`))];
+  const lines = [...new Set(ts.filter((t) => t.model === "opus").map((t) => `Builder: opus \u2014 ${t.modelReason}`))];
   return lines.length ? `
 
-${lines.join("\n")}` : "";
++++ Agent notes
+
+${lines.join("\n")}
+
++++` : "";
 }
 function publish(ctx, opts) {
   const pc = planCtx(ctx);
@@ -9788,7 +9795,7 @@ function pending(ctx, opts = {}) {
   const s = mergedAwaitingDone(pc, pre) ? mutate(pc, void 0, (x) => (queueDone(pc, x), x)) : pre;
   const list3 = opts.claim ? mutate(pc, void 0, (x) => {
     const at = Date.now();
-    const mine = due(linkOf(x)).filter((w) => !w.needsApproval && !claimedNow(w, at));
+    const mine = unsent(linkOf(x)).filter((w) => !w.needsApproval && !claimedNow(w, at));
     for (const w of mine) w.claimedAt = new Date(at).toISOString();
     return mine;
   }) : unsent(linkOf(s));
@@ -9813,6 +9820,7 @@ function markSent(ctx, id, opts) {
     const filed = onPublishSent(s, w, ref, linearConfig(pc.cfg));
     w.sentAt = now();
     delete w.claimedAt;
+    delete w.held;
     if (ref) w.ref = ref;
     if (w.kind === "createIssue" && ref) {
       const [slug, sid] = w.target.split(":");
@@ -10291,7 +10299,7 @@ function mergedPlansAwaitingDone(ctx) {
     return [];
   }
 }
-var pendingCount = (s) => due(s.linear).length;
+var pendingCount = (s) => due(s.linear).filter((w) => !claimedNow(w)).length;
 
 // plugins/cairn/cli/src/commands/merge.ts
 var short = (sha) => sha.slice(0, 7);
@@ -10944,7 +10952,7 @@ function taskIssuesOf(s) {
   return Object.fromEntries(allTasks(s).map((t) => [t.name, taken.filter((i) => i.requirements?.some((r) => t.covers.includes(r))).map((i) => i.key)]));
 }
 function linearRowFields(s) {
-  const n = due(s.linear).length;
+  const n = pendingCount(s);
   const taskIssues = taskIssuesOf(s);
   if (!taskIssues) return n ? { linearDue: n } : {};
   return { taskIssues, ...s.linear?.epic ? { epic: s.linear.epic } : {}, ...n ? { linearDue: n } : {} };
@@ -11445,6 +11453,7 @@ function parsePlan(planMd, prdMd) {
       if (model !== void 0 && !MODELS.includes(model)) problems.push(`${where}: model must be ${MODELS.join(", ")}, or left out`);
       const modelReason = typeof rs?.model_reason === "string" && rs.model_reason.trim() ? rs.model_reason.trim() : void 0;
       if (model !== void 0 && MODELS.includes(model) && !modelReason) problems.push(`${where} asks for ${model} without saying why: add model_reason`);
+      if (model === void 0 && rs?.model_reason !== void 0) problems.push(`${where} has model_reason but no model: add model, or take model_reason out`);
       const risky = rs?.risky === true;
       if (rs?.risky !== void 0 && typeof rs.risky !== "boolean") problems.push(`${where}: risky must be true or false`);
       const riskReason = typeof rs?.riskReason === "string" && rs.riskReason.trim() ? rs.riskReason.trim() : void 0;
@@ -11701,7 +11710,7 @@ function taskDone(pc, id, opts) {
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
   const checkable = merged2 && !dirty && !planDirty;
-  const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan2.worktree)) : void 0;
+  const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan2.worktree), id) : void 0;
   const testedCommit = tests ? git(["rev-parse", "HEAD"], plan2.worktree) : void 0;
   const fix = fastLane(pre);
   const repro = fix && merged2 && pre.repro ? runRepro(pre.repro.cmd, plan2.worktree, pc.cfg) : void 0;
@@ -11749,7 +11758,13 @@ function preMergeChecks(pc, pre, sl, opts) {
   const { plan: plan2 } = pc;
   const pb = pre.branch;
   configGate(pre, pc.cfg, "task merge", opts);
+  if (pre.paused) throw new Refusal("the plan is paused: let running steps finish", ["/cairn:resume continues"]);
   if (opts.override) return;
+  const owner = pre.lastRed?.task ? findTask(pre, pre.lastRed.task) : void 0;
+  if (pre.lastRed && owner && owner.id !== sl.id && owner.status !== "done") {
+    const other = owner.name;
+    throw new Refusal(`the plan branch is red from task ${other}'s merge: fix that first`, [`finish "${other}" (its fix brief carries the failing run), then merge this task`, `Full output: ${pre.lastRed.log}`]);
+  }
   const dirty = sl.worktree && existsSync11(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   if (dirty) throw new Refusal("the task worktree has uncommitted changes", [`commit or discard them in ${sl.worktree}`]);
   const commits = sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
@@ -11809,7 +11824,7 @@ function taskMerge(pc, id, opts) {
     r = taskDone(pc, id, opts);
   } catch (e) {
     if (e instanceof Refusal && didMerge && e.message.startsWith("tests are not green"))
-      throw new Refusal(e.message, [`the merge stays in place: ${sl.branch} is merged into ${pb}. Fix on the merged tree in ${plan2.worktree}, then run cairn task merge ${id} again`, ...e.fixes]);
+      throw new Refusal(e.message, [`the merge stays in place: ${sl.branch} is merged into ${pb}. In ${sl.worktree}, merge ${pb} into ${sl.branch}, fix and commit there, then run cairn task merge ${id} again`, ...e.fixes]);
     throw e;
   }
   return { ...r, message: `${note}

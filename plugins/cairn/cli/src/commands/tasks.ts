@@ -138,7 +138,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const commits = tip && sl.base ? Number(git(['rev-list', '--count', `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
   const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   const checkable = merged && !dirty && !planDirty;
-  const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan.worktree)) : undefined;
+  const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan.worktree), id) : undefined;
   const testedCommit = tests ? git(['rev-parse', 'HEAD'], plan.worktree) : undefined;
   // The fix track adds: the repro now passes, and the fix stays small (FR-25). Both are checked even when an
   // override waives the checks above: the repro whenever the task is merged, the size whenever there is a base.
@@ -202,7 +202,13 @@ function preMergeChecks(pc: PlanCtx, pre: State, sl: Task, opts: Opts): void {
   const { plan } = pc;
   const pb = pre.branch;
   configGate(pre, pc.cfg, 'task merge', opts);
+  if (pre.paused) throw new Refusal('the plan is paused: let running steps finish', ['/cairn:resume continues']);
   if (opts.override) return; // task done checks again, with the user's proof, and logs the override
+  const owner = pre.lastRed?.task ? findTask(pre, pre.lastRed.task) : undefined;
+  if (pre.lastRed && owner && owner.id !== sl.id && owner.status !== 'done') {
+    const other = owner.name;
+    throw new Refusal(`the plan branch is red from task ${other}'s merge: fix that first`, [`finish "${other}" (its fix brief carries the failing run), then merge this task`, `Full output: ${pre.lastRed.log}`]);
+  }
   const dirty = sl.worktree && existsSync(sl.worktree) ? git(['status', '--porcelain'], sl.worktree) : '';
   if (dirty) throw new Refusal('the task worktree has uncommitted changes', [`commit or discard them in ${sl.worktree}`]);
   const commits = sl.base ? Number(git(['rev-list', '--count', `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
@@ -264,9 +270,10 @@ function taskMerge(pc: PlanCtx, id: string, opts: Opts): Result {
   try {
     r = taskDone(pc, id, opts);
   } catch (e) {
-    // Red tests after the merge: the merge stays (the fix runs on the merged tree) and the refusal says so.
+    // Red tests after the merge: the merge stays on the plan branch; the fix is committed on the task branch (a commit made
+    // straight on the plan branch would be refused by the next merge as a stray commit).
     if (e instanceof Refusal && didMerge && e.message.startsWith('tests are not green'))
-      throw new Refusal(e.message, [`the merge stays in place: ${sl.branch} is merged into ${pb}. Fix on the merged tree in ${plan.worktree}, then run cairn task merge ${id} again`, ...e.fixes]);
+      throw new Refusal(e.message, [`the merge stays in place: ${sl.branch} is merged into ${pb}. In ${sl.worktree}, merge ${pb} into ${sl.branch}, fix and commit there, then run cairn task merge ${id} again`, ...e.fixes]);
     throw e;
   }
   return { ...r, message: `${note}\n${r.message}`, data: { ...r.data, merged: true } };

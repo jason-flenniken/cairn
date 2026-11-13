@@ -62,6 +62,8 @@ test('plan parse: a model mark with a reason loads; without one, or unknown, it 
   assert.equal(ok.phases[0].tasks[0].model, undefined);
   const noWhy = parsePlan(plan(TASKS.replace(', model_reason: "undoable data migration"', '')), PRD);
   assert.match(noWhy.problems.join(), /task "k" asks for opus without saying why: add model_reason/);
+  const orphan = parsePlan(plan(TASKS.replace('complexity: simple }', 'complexity: simple, model_reason: "because" }')), PRD);
+  assert.match(orphan.problems.join(), /task "s" has model_reason but no model/);
   const unknown = parsePlan(plan(TASKS.replace('model: opus', 'model: gpt')), PRD);
   assert.match(unknown.problems.join(), /task "k": model must be haiku, sonnet, opus/);
 });
@@ -82,6 +84,10 @@ test('builderOf: complexity, plan mark, MVP and the last fix attempt', () => {
   assert.equal(builderOf(std, t('complex'), 2).effort, undefined);
   assert.equal(builderOf(std, t('simple'), 2).model, 'sonnet');
   assert.equal(builderOf(std, t('standard', { model: 'opus', modelReason: 'why' }), 2).model, 'opus');
+  // A mark that names the model the complexity picks anyway keeps that row's effort.
+  assert.deepEqual(builderOf(std, t('complex', { model: 'sonnet', modelReason: 'why' })), { model: 'sonnet', effort: 'high', reason: 'why' });
+  assert.deepEqual(builderOf(std, t('standard', { model: 'sonnet', modelReason: 'why' })), { model: 'sonnet', reason: 'why' });
+  assert.deepEqual(builderOf(std, t('complex', { model: 'haiku', modelReason: 'why' })), { model: 'haiku', reason: 'why' });
   assert.equal(builderLine({ model: 'sonnet', effort: 'high' }), 'Builder: sonnet, effort high');
   assert.equal(builderLine({ model: 'opus', reason: 'why' }), 'Builder: opus — why');
 });
@@ -89,7 +95,8 @@ test('builderOf: complexity, plan mark, MVP and the last fix attempt', () => {
 test('publish: a ticket whose task is marked carries the Builder line', () => {
   const t = (name: string, extra: Partial<Task> = {}) => ({ name, ...extra }) as Task;
   assert.equal(builderLines([t('a')]), '');
-  assert.equal(builderLines([t('a'), t('b', { model: 'opus', modelReason: 'locking' })]), '\n\nBuilder: opus — locking');
+  assert.equal(builderLines([t('a'), t('b', { model: 'opus', modelReason: 'locking' })]), '\n\n+++ Agent notes\n\nBuilder: opus — locking\n\n+++');
+  assert.equal(builderLines([t('a', { model: 'sonnet', modelReason: 'why' })]), '', 'only Opus marks are published');
 });
 
 const roots: string[] = [];

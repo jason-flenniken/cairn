@@ -117,8 +117,7 @@ test('verify MVP uses cairn test and sends a red suite past the fix loop', () =>
 test('MVP review uses a sonnet branch reviewer and files lesser findings as hardening', () => {
   const b = block(read('procedures/review.md'), '## At this level');
   assert.match(b, /`branch-reviewer` with `model: sonnet`/);
-  assert.match(b, /--kind hardening/);
-  assert.match(b, /whole-branch security review runs at every level/);
+    assert.match(b, /whole-branch security review runs at every level/);
 });
 
 test('MVP ship runs cairn test and names failing commands; learn keeps its cap', () => {

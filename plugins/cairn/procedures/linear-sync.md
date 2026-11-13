@@ -9,7 +9,7 @@ Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run 
 The Linear tools are named here by their base name (`save_issue`, `save_comment`, `save_status_update`, `create_issue_label`, `list_issue_labels`). The prefix differs between installs: use the Linear tools you have. When no Linear tools are available, say so in one line, put every entry on hold (`cd <plan worktree> && cairn linear hold <id> --note "no Linear tools"`), and go to step 5. A held entry stays queued and is tried again at the next sync, but `cairn next` no longer sends you here for it alone.
 
 ## 1. List what is waiting
-Run `cd <plan worktree> && cairn linear pending --json`. Each entry in `pending` has `id`, `kind`, `target`, `tool`, `payload`, `why`, and `needsApproval` when the user has to see it first.
+Run `cd <plan worktree> && cairn linear pending --claim --json`: it hands you the entries that need no approval, held ones included, and marks them yours for 10 minutes so no second sender files them twice. Each entry in `pending` has `id`, `kind`, `target`, `tool`, `payload`, `why`, and `needsApproval` when the user has to see it first.
 
 **Done when:** you hold the list of unsent entries.
 
@@ -28,14 +28,14 @@ The `linear-sender` sends the entries that need no approval, one at a time, in t
 
 Put any agent-specific detail you add to a description or comment (file lists, task ids, logs) in a collapsed block at the end: a line `+++ Agent notes`, the detail, then a line `+++`. The text a person reads stays short.
 
-After each send that worked, run `cd <plan worktree> && cairn linear sent <id>`. For `createIssue`, add `--ref <the new issue key>` (for example `--ref SAV-131`): cairn remembers the key so the follow-up is never filed twice, and a plan's epic or ticket joins the plan under that key. Marking a plan's epic sent queues its tickets: run `cairn linear pending --json` again and send those too.
+After each send that worked, run `cd <plan worktree> && cairn linear sent <id>`. For `createIssue`, add `--ref <the new issue key>` (for example `--ref SAV-131`): cairn remembers the key so the follow-up is never filed twice, and a plan's epic or ticket joins the plan under that key. Marking a plan's epic sent queues its tickets: run `cairn linear pending --claim --json` again and send those too.
 
 A send that fails stays queued: run `cd <plan worktree> && cairn linear hold <id> --note "<the error>"`, note it in one line, and go on to the next entry. A failure never blocks the stage. Entries listed as held were tried before: send them like the rest.
 
 **Done when:** every entry that needs no approval was sent and marked, or failed and noted.
 
 ## 4. Ask about the entries that need approval
-The main thread does this step. Entries with `needsApproval` (the project status update) are the user's words going out under their name. For each, show its `payload.body` and `payload.health`, then ask with AskUserQuestion:
+The main thread does this step: `cd <plan worktree> && cairn linear pending --json` (no `--claim`) lists them. Entries with `needsApproval` (the project status update) are the user's words going out under their name. For each, show its `payload.body` and `payload.health`, then ask with AskUserQuestion:
 - Send (Recommended): call `save_status_update` with the payload, then `cairn linear sent <id>`.
 - Edit: ask what to change, apply it to the body, and ask again.
 - Don't send: run `cd <plan worktree> && cairn linear drop <id> --note "<why>"`.
