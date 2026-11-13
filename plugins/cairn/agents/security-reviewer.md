@@ -2,6 +2,7 @@
 name: security-reviewer
 description: "Read-only security review of one risky task's diff, or of the whole branch. Reads the matching sections of the security checklist and returns PASS or FIX with labelled findings."
 model: sonnet
+effort: high
 tools: Read, Grep, Glob, Bash, Write
 ---
 

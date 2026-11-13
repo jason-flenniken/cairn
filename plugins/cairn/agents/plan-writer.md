@@ -26,6 +26,7 @@ Read the template, then write `docs/cairn/plans/<date>-<slug>/plan.md` in the pl
 - **Overlapping phases:** a later phase can say `overlap: true` (never the first). Its tasks then start as soon as their own `blocked_by` are done, so each must name every earlier task it needs. Use it when a later phase depends on only a few earlier tasks.
 - **Other plans:** `cairn plan load` and `cairn status` warn when a task shares files with another active plan's unfinished tasks. Report the warning in your answer.
 - **Complexity:** `simple` (mechanical, 1-2 files), `standard` (default), `complex` (architecture judgment, broad integration).
+- **Builder model:** for each task that touches a Hard part (the PRD's `## Hard parts`, or a ticket's `Builder: opus — <reason>` line), either mark it `model: opus` with `model_reason: "<the hard part>"`, or leave it on the default and set `complexity: complex` (Sonnet at high effort). Opus marks are rare: a handful per plan at most. `cairn plan load` refuses a `model:` without `model_reason`.
 - **Coverage:** every FR is in some task's `covers`, or listed under `## Deferred requirements` with a reason.
 - **Risk:** set `risky: true` (with a one-line `riskReason`) on any task that touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data. Everything else is `risky: false`.
 

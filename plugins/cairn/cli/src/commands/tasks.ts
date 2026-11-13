@@ -10,23 +10,23 @@ import { currentPhase, findTask, readySet } from '../ready.ts';
 import { loadState, log, setStage } from '../state.ts';
 import { SUBSTEPS, type State, type Substep, type Task } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
+import { builderLine, builderOf, MAX_FIX_ROUNDS } from '../builder.ts';
 import { recordTestRun, taskBrief, taskReport, writeBrief } from './brief.ts';
 import { ensureExcluded, gate, mutate, planCtx, runSetup, runTests, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
 import { syncTickets } from './linear.ts';
 import { linearConfig } from '../linear.ts';
 
-const MAX_FIX_ROUNDS = 2;
 const DEFAULT_FIX_MAX_FILES = 8;
 
 export function cmdReady(ctx: Ctx): Result {
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
   const r = readySet(s, pc.cfg.maxParallel);
-  const tier = { simple: 'haiku', standard: 'sonnet', complex: 'opus' } as const;
+  const builder = (x: Task) => builderOf(s, x);
   const lines = [
     r.phase ? `Phase "${r.phase.name}": ${r.ready.length} ready, ${r.inProgress.length} running, ${r.waiting.length} waiting.` : 'No phase in progress.',
-    ...r.ready.map((x) => `  ready: ${x.id} (${x.name}) model=${tier[x.complexity]}`),
+    ...r.ready.map((x) => `  ready: ${x.id} (${x.name}) model=${builder(x).model}${builder(x).effort ? ` effort=${builder(x).effort}` : ''}`),
     ...r.inProgress.map((x) => `  running: ${x.id} (${x.substep ?? 'implementing'}${x.fixRound ? `, fix attempt ${x.fixRound}` : ''}) at ${x.worktree}`),
     ...r.waiting.map((w) => `  waiting: ${w.task.id} on ${w.on.join(', ')}`),
   ];
@@ -37,7 +37,7 @@ export function cmdReady(ctx: Ctx): Result {
       paused: !!s.paused,
       phase: r.phase?.id,
       phaseStatus: r.phase?.status,
-      ready: r.ready.map((x) => ({ ...x, model: tier[x.complexity] })),
+      ready: r.ready.map((x) => ({ ...x, model: builder(x).model, builder: builder(x) })),
       inProgress: r.inProgress,
       waiting: r.waiting.map((w) => ({ id: w.task.id, on: w.on })),
     },
@@ -99,8 +99,8 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
   if (needsSetup) r.message += runSetup(cfg, String(r.data!.worktree), ctx.mainRoot);
   if (!r.data!.resumed) {
     const b = writeBrief(pc, id, 'build');
-    r.message += `\nBrief: ${b.path}`;
-    r.data = { ...r.data, brief: b.path, report: b.report };
+    r.message += `\nBrief: ${b.path}\n${builderLine(b.builder)}`;
+    r.data = { ...r.data, brief: b.path, report: b.report, builder: b.builder };
   }
   return r;
 }

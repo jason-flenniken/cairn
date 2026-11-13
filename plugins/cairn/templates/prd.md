@@ -40,6 +40,11 @@ Optional, but required when discover recorded a trust boundary. A short threat m
 - STRIDE: <per boundary, the letters that apply (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege) and the control for each>
 - Misuse cases: <how someone would abuse this, and the control>. Each becomes a Security test on the task that covers it.
 
+## Hard parts
+Optional. Only when research or the interview named some: concurrency, security-critical logic, data migrations that cannot be undone, novel algorithms, cross-cutting changes with no existing pattern. The plan decides which tasks get an Opus builder.
+
+- <where> because <reason>
+
 ## Non-functional requirements
 Optional. Only when a number matters (speed, size, compatibility).
 

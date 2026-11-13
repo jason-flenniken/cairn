@@ -15,6 +15,7 @@ Read the template, then write `docs/cairn/plans/<date>-<slug>/prd.md` in the pla
 
 - Requirements: one testable behavior each, ids `FR-01`, `FR-02`, ... in order, each with a one-line `Check:` that says how you will know it works.
 - Keep the optional sections (Unhappy paths, Security, Non-functional requirements, User stories) only where they are real for this plan; delete the rest. Security is required whenever the decisions record a trust boundary. Write it as a short threat model: trust boundaries, assets, a STRIDE pass (one line per boundary) and misuse cases. Read the Threat model section of `references/security-checklist.md` first. Leave it out only when every boundary was recorded as not applicable.
+- Hard parts: when the research files end with "Hard parts" entries, or the interview or the imported tickets (a `Builder: opus — <reason>` line in a ticket) name one, carry them into a short optional `## Hard parts` section, one line each with its reason. Leave the section out when there are none.
 - Open questions: every unresolved item is `- [ ]`. Resolved items are `- [x]` with the answer.
 - Every claim traces to a recorded decision. When the draft needs a decision that is missing, do not guess: list it as a question for the user in your answer and leave it as a `- [ ]` open question.
 - Level: MVP is a thin PRD (Problem, Solution, Requirements with one-line checks, Non-goals; Security only when a trust boundary was recorded). Polished adds Given / When / Then examples for every conditional requirement.

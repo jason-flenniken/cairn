@@ -36,7 +36,7 @@ Standard and MVP skip this step. At Polished: run `cd <plan worktree> && cairn s
 **Done when:** the writer's reload succeeded after the review, or the level skips the step.
 
 ## 5. Stop for approval
-Run `cd <plan worktree> && cairn step approving`; the pane offers the plan for approval from here on. Then show a tree preview and about three lines of summary, built from `cairn status --json` and the writer's summary (the pane shows the document; do not read `plan.md` into your context):
+Run `cd <plan worktree> && cairn step approving`; the pane offers the plan for approval from here on. Then show a tree preview and about three lines of summary, built from `cairn status --json` and the writer's summary (the pane shows the document; do not read `plan.md` into your context). When `cairn plan load` printed an "Opus builds:" line, include it in the summary: each task the plan marks for Opus, with its reason:
 
 ```
 Phase 1: Foundations

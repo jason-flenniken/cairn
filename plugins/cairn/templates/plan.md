@@ -44,7 +44,9 @@ phases:
         # ticket: "Shopping cart"  # no Linear tickets yet: the ticket this task goes under if the plan is put in Linear
         blocked_by: []         # task ids in this or an earlier phase
         scope: ["src/cart/**", "test/cart/**"]   # globs the task may touch
-        complexity: standard   # simple | standard | complex -> haiku | sonnet | opus
+        complexity: standard   # simple | standard | complex -> haiku | sonnet | sonnet at high effort
+        # model: opus          # rare: names the builder model for this task; needs model_reason (a Hard part from the PRD)
+        # model_reason: "concurrent queue handling"
         risky: false           # true when it touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data
         # riskReason: "deletes carts"   # one line, when risky
 ```

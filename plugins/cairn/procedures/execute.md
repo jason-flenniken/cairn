@@ -16,7 +16,7 @@ Keep your own context small. Agents get a path, not text: `cairn task brief` wri
 
 ## At this level
 Read `level` from `cairn status --json` (once, at the start); `references/levels.md` has the full table.
-- MVP: skip `task-reviewer`. The floor still applies: a task that touches a trust boundary gets the `security-reviewer`, and its Critical and Required findings go through step 6. Implementers run one tier below the task's complexity (the MVP table in `references/model-tiers.md`). Tests warn: a red suite at `cairn task merge` is not a refusal; the CLI files the hardening item. cairn files the unreviewed-task items itself when the plan reaches ship.
+- MVP: skip `task-reviewer`. The floor still applies: a task that touches a trust boundary gets the `security-reviewer`, and its Critical and Required findings go through step 6. Implementers run one tier below the task's complexity (the `Builder:` line gives the model). Tests warn: a red suite at `cairn task merge` is not a refusal; the CLI files the hardening item. cairn files the unreviewed-task items itself when the plan reaches ship.
 - Standard: as written below.
 - Polished: test-first for every task. Add a line to each build brief's prompt telling the implementer to write the failing test before the code, and have the task-reviewer check that it did.
 
@@ -50,7 +50,7 @@ Run `cd <plan worktree> && cairn ready --json`. For each ready task run `cd <pla
 **Done when:** every ready task is started and you hold its brief path. An empty ready list with no in-progress tasks means the phase is finished: go to step 8.
 
 ## 4. Build
-For each started task, dispatch the `implementer` agent in the background, with an explicit `model` from the task's complexity (simple: haiku, standard: sonnet, complex: opus; the status shows it) and `description` "Build · <task name>". The prompt is three lines at most:
+For each started task, dispatch the `implementer` agent in the background, with the `model` (and `effort`, when named) from the `Builder:` line `cairn task start` printed, and `description` "Build · <task name>". The prompt is three lines at most:
 
 ```
 Brief: <brief path>. Plugin root: <root>.
@@ -73,7 +73,7 @@ An implementer's final message is five lines: `Status`, `Commits`, `Tests`, `Con
 
 ## 6. Fix
 Only Critical and Required findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing --note "fixing classes: <class>, <class>"` (the classes come from the `FIX` line), so the plan log keeps which kinds of mistake needed fixing. Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
-- Run `cd <plan worktree> && cairn task brief <id> --role fix`. It writes the must-fix findings, grouped by class, with their proposed fixes (and the last red test run, when there is one). Send the brief path to the same implementer with SendMessage (or dispatch a fresh implementer on the same worktree when the old one has ended), `description` "Fix · <task name>". Tell it in one line to fix each class everywhere in the task's scope, not only at the lines cited, and to list the other places it fixed.
+- Run `cd <plan worktree> && cairn task brief <id> --role fix`. Its `Builder:` line names the model for the fix (the last attempt is one tier up). It writes the must-fix findings, grouped by class, with their proposed fixes (and the last red test run, when there is one). Send the brief path to the same implementer with SendMessage (or dispatch a fresh implementer on the same worktree when the old one has ended), `description` "Fix · <task name>". Tell it in one line to fix each class everywhere in the task's scope, not only at the lines cited, and to list the other places it fixed.
 - When it ends, run `cd <plan worktree> && cairn task report <id> <report path>`, then re-review once with the reviewer that raised the findings (both when both did): `cd <plan worktree> && cairn task brief <id> --role review --again` (or `security`). It lists the earlier must-fix findings and writes to the same report path as the first review. Dispatch the reviewer with the brief path, then `cd <plan worktree> && cairn review record <id> <report path>`; recording replaces the old must-fix findings.
 - When a Critical or Required finding is still open after that attempt (or the CLI refuses another), stop work on the task and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Re-plan this task / Pause.
 

@@ -2,6 +2,7 @@
 name: recorder
 description: "Drafts RECORD.md for a finished plan within 600 words, high level, user-visible outcomes first, and the plan's changelog.md entry within 120 words."
 model: sonnet
+effort: low
 tools: Read, Grep, Glob, Bash, Write
 ---
 

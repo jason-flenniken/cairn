@@ -23,7 +23,7 @@ Dispatch these `researcher` agents in parallel (`model: sonnet`, `description` p
 - Codebase: facts relevant to the request (stack, existing modules, patterns, tests, conventions), plus `docs/cairn/product/PRD.md` (non-goals, must-not-trade-off). Give it `docs/cairn/OVERVIEW.md` too, and ask which past plans are relevant to the request.
 - Web: only when the request touches an external API, standard, or competitor.
 
-You do not read the research files; the PRD writer does. Work from the short returns. Read `decisions.md` in the plan directory; it may hold earlier answers.
+Each research file ends with "Hard parts" (see the researcher's prompt); the PRD writer carries them into the PRD. You do not read the research files; the PRD writer does. Work from the short returns. Read `decisions.md` in the plan directory; it may hold earlier answers.
 
 **Done when:** you hold the short returns and can name the open decisions.
 
