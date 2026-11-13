@@ -24,7 +24,9 @@ const MVP: Record<Complexity, Builder> = { simple: { model: 'haiku' }, standard:
  * On the last allowed fix attempt the builder is one tier up (opus stays opus).
  */
 export function builderOf(s: Pick<State, 'level'>, t: Pick<Task, 'complexity' | 'model' | 'modelReason'>, fixAttempt = 0): Builder {
-  let b: Builder = t.model ? { model: t.model, ...(t.modelReason ? { reason: t.modelReason } : {}) } : { ...(levelOf(s) === 'mvp' ? MVP : STANDARD)[t.complexity] };
+  const byRole = (levelOf(s) === 'mvp' ? MVP : STANDARD)[t.complexity];
+  // A mark that names the model the complexity would pick anyway keeps that row's effort (sonnet on a complex task stays high).
+  let b: Builder = t.model ? { model: t.model, ...(t.model === byRole.model && byRole.effort ? { effort: byRole.effort } : {}), ...(t.modelReason ? { reason: t.modelReason } : {}) } : { ...byRole };
   if (fixAttempt >= MAX_FIX_ROUNDS) {
     const up = MODELS[Math.min(MODELS.indexOf(b.model) + 1, MODELS.length - 1)];
     if (up !== b.model) b = { model: up, reason: 'the last fix attempt goes one tier up' };

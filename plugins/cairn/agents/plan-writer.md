@@ -50,4 +50,4 @@ Then rerun `cairn plan load`.
 Apply it to `plan.md`, rerun `cairn plan load`, and answer as below.
 
 ## Final message
-At most 10 lines: the phases and task count in two lines, the longest-chain line `cairn plan load` printed (verbatim), any warning it printed about other plans, the open questions for the user (one line each, or "none"), and `Path: <abs path to plan.md>`. Nothing else.
+At most 10 lines: the phases and task count in two lines, the longest-chain line `cairn plan load` printed (verbatim), the `Opus builds:` line verbatim when it printed one, any warning it printed about other plans, the open questions for the user (one line each, or "none"), and `Path: <abs path to plan.md>`. Nothing else.

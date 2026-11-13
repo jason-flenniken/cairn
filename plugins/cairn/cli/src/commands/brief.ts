@@ -127,6 +127,8 @@ function buildBrief(pc: PlanCtx, s: State, sl: Task, role: Role, again = false):
   const parts = [head, '', ...where, '', ...factsBlock(pc, sl)];
   if (role === 'fix') {
     const found = sl.mustFix ?? [];
+    // The last red run belongs to the task whose merge or done ran it; a plan-level run (no task) shows in any fix brief.
+    const red = s.lastRed && (!s.lastRed.task || s.lastRed.task === sl.id) ? s.lastRed : undefined;
     parts.push('## What to fix', '');
     if (sl.mergeConflict?.length)
       parts.push(`Merge ${b.plan} into ${b.branch} in ${worktree}, resolve the conflicts, and commit. Conflicting files:`, list(sl.mergeConflict), '');
@@ -135,8 +137,8 @@ function buildBrief(pc: PlanCtx, s: State, sl: Task, role: Role, again = false):
       const classes = [...new Set(found.map((f) => classHeading(f.cls)))];
       let n = 0;
       for (const c of classes) parts.push(`### ${c}`, '', ...found.filter((f) => classHeading(f.cls) === c).map((f) => mustLine(f, ++n)), '');
-    } else if (!sl.mergeConflict?.length) parts.push('No must-fix findings are recorded for this task. Check the reviewer reports under reports/.', '');
-    if (s.lastRed) parts.push('## Last red test run', '', ...(s.lastRed.failing.length ? s.lastRed.failing.map((l) => `  ${l}`) : ['  (no failing line was picked out)']), `Full output: ${s.lastRed.log}`, '');
+    } else if (!sl.mergeConflict?.length && !red) parts.push('No must-fix findings are recorded for this task. Check the reviewer reports under reports/.', '');
+    if (red) parts.push('## Last red test run', '', ...(red.failing.length ? red.failing.map((l) => `  ${l}`) : ['  (no failing line was picked out)']), `Full output: ${red.log}`, '');
     parts.push('## Task', '', b.section, '');
   } else {
     parts.push('## Task', '', b.section, '', '## Requirements this task covers', '', b.reqs.length ? b.reqs.join('\n\n') : 'None (a prefactor task).', '');
@@ -205,10 +207,10 @@ export function testLog(pc: PlanCtx, output: string): string {
 
 /**
  * Keeps what a test run found: a red run (one that actually ran) writes its full output to the log and records
- * `state.lastRed`; a green run clears it. The run gets `log` and `failing` so its refusal can name the file.
+ * `state.lastRed` (with the task whose merge or done ran it, when there is one); a green run clears it. The run gets `log` and `failing` so its refusal can name the file.
  * Called right after the tests run and before any gate, so a refusal still leaves the record.
  */
-export function recordTestRun(pc: PlanCtx, t: TestRun | undefined): TestRun | undefined {
+export function recordTestRun(pc: PlanCtx, t: TestRun | undefined, task?: string): TestRun | undefined {
   if (!t || (!t.ok && !t.ran)) return t;
   if (t.ok) {
     if (loadState(pc.plan.dir).lastRed) mutate(pc, undefined, (s) => void delete s.lastRed);
@@ -218,7 +220,7 @@ export function recordTestRun(pc: PlanCtx, t: TestRun | undefined): TestRun | un
   t.failing = failingLines(t.output ?? '');
   const { log: logFile, failing } = t as { log: string; failing: string[] };
   mutate(pc, undefined, (s) => {
-    s.lastRed = { at: now(), log: logFile, failing };
+    s.lastRed = { at: now(), log: logFile, failing, ...(task ? { task } : {}) };
   });
   return t;
 }
@@ -227,6 +229,8 @@ export function recordTestRun(pc: PlanCtx, t: TestRun | undefined): TestRun | un
 
 const AREAS = SUGGESTION_AREAS as readonly string[];
 const area = (v: string): Suggestion['area'] => (AREAS.includes(v.toLowerCase()) ? (v.toLowerCase() as Suggestion['area']) : 'quality');
+/** A location as the reviewer may have formatted it: `` `src/x.ts:40` `` or `**src/x.ts:40**` is `src/x.ts:40`. */
+const bare = (where: string): string => where.trim().replace(/[`*]/g, '').trim();
 /** `src/x.ts:40` -> `src/x.ts`; a path with no line stays as it is. Nothing usable gives no scope. */
 const pathOf = (where: string): string[] => {
   const p = where.trim().replace(/:\d+(?:-\d+)?$/, '');
@@ -318,7 +322,7 @@ export function parseFindings(md: string): Finding[] {
     if (f.length < 4) continue;
     const label = m.label[0].toUpperCase() + m.label.slice(1).toLowerCase();
     const fix = f.length >= 5 ? f[f.length - 1] : '';
-    out.push({ label: label === 'Fyi' ? 'FYI' : label, area: f[0].toLowerCase(), cls: f[1], where: f[2], problem: f.slice(3, f.length >= 5 ? -1 : undefined).join(' | '), fix, report: '', preExisting: m.pre });
+    out.push({ label: label === 'Fyi' ? 'FYI' : label, area: f[0].toLowerCase(), cls: f[1], where: bare(f[2]), problem: f.slice(3, f.length >= 5 ? -1 : undefined).join(' | '), fix, report: '', preExisting: m.pre });
   }
   return out;
 }
@@ -338,7 +342,7 @@ export function parsePrior(md: string): PriorLine[] {
     const f = m[1].split(/\s+\|\s+/).map((x) => x.trim());
     const st = f[1]?.toLowerCase();
     if (f.length < 2 || (st !== 'open' && st !== 'addressed')) continue;
-    out.push({ where: f[0], open: st === 'open', note: f.slice(2).join(' | ') });
+    out.push({ where: bare(f[0]), open: st === 'open', note: f.slice(2).join(' | ') });
   }
   return out;
 }

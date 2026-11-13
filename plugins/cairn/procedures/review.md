@@ -8,7 +8,7 @@ Templates live in `templates/`, next to this `procedures/` folder. Talk to the u
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
-- MVP: in step 2 dispatch the `branch-reviewer` with `model: sonnet` instead of opus (the `security-reviewer` runs as written). in step 3 `cairn review record` files Optional, Nit and every pre-existing finding as hardening items (`--kind hardening`) at this level.
+- MVP: in step 2 dispatch the `branch-reviewer` with `model: sonnet` instead of opus (the `security-reviewer` runs as written). in step 3 `cairn review record` files Optional, Nit and every pre-existing finding as hardening items at this level.
 - Standard: as written below.
 - Polished: as written below. The simplify pass and focused reviewers are added when cairn has them.
 - The whole-branch security review runs at every level.

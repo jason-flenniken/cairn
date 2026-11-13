@@ -18,7 +18,7 @@ Run `cairn status --json`. The stage must be `verify`. Any other stage: say whic
 **Done when:** the stage is `verify`.
 
 ## 2. Tests and build
-Run `cd <plan worktree> && cairn step testing`. Then run `cd <plan worktree> && cairn test`. It runs the repo's test command (and the build command when `build` is set) and prints the counts and the failure tail only. With no test command, it says so; continue.
+Run `cd <plan worktree> && cairn step testing`. Then run `cd <plan worktree> && cairn test`. It runs the repo's test command (and the build command when `build` is set) and prints the counts and the failure tail; a red run's full output goes to the log named after "Full output:". With no test command, it says so; continue.
 
 **Done when:** you hold the pass/fail counts from a run made in this step. On failure, fix in place (step 5) before continuing.
 
@@ -64,7 +64,7 @@ Dispatch the `acceptance-checker` agent (`model: sonnet`, `description` "Check �
 **Done when:** every requirement has a verdict, and every "met but untested" item is logged.
 
 ## 5. Fix what is blocking
-Skip when tests are green, nothing is not met, no secret was found, and no reachable critical or high advisory remains. Otherwise run `cd <plan worktree> && cairn step fixing --count N` (N is the number of failing tests, unmet requirements, secrets and advisories to fix), then dispatch one `implementer` (`model: sonnet`, `description` "Fix · acceptance") on the plan worktree itself. It commits directly on the plan branch; there is no new task, phase, or re-plan. Its prompt names the plugin root, the report path `<work folder>/reports/verify-fix.md`, the acceptance report path for unmet requirements, and in a few lines the failing tests, the secret finding (file and line only) or the advisory; tell it to add a test for the fix. Then rerun step 2 (`cairn test`), step 3's blocking findings and step 4's unmet items once more.
+Skip when tests are green, nothing is not met, no secret was found, and no reachable critical or high advisory remains. Otherwise run `cd <plan worktree> && cairn step fixing --count N` (N is the number of failing tests, unmet requirements, secrets and advisories to fix), then dispatch one `implementer` (`model: sonnet`, `description` "Fix · acceptance") on the plan worktree itself. It commits directly on the plan branch; there is no new task, phase, or re-plan. Its prompt names the plugin root, the report path `<work folder>/reports/verify-fix.md`, the acceptance report path for unmet requirements, the path after "Full output:" (the full failing test log; implementers never run `cairn`), and in a few lines the failing tests, the secret finding (file and line only) or the advisory; tell it to add a test for the fix. Then rerun step 2 (`cairn test`), step 3's blocking findings and step 4's unmet items once more.
 
 If it is still failing after that one attempt, stop and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Pause.
 

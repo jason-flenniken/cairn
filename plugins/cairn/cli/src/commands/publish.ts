@@ -24,10 +24,10 @@ export function ticketGroups(s: State): Map<string, Task[]> {
 
 const STAGES = ['plan', 'execute'];
 
-/** A ticket whose tasks carry a model mark says so, so the choice travels with the ticket: `Builder: opus — <reason>`. */
+/** A ticket whose tasks are marked for Opus says so, in the description's agent notes: `Builder: opus — <reason>`. */
 export function builderLines(ts: Task[]): string {
-  const lines = [...new Set(ts.filter((t) => t.model).map((t) => `Builder: ${t.model} — ${t.modelReason}`))];
-  return lines.length ? `\n\n${lines.join('\n')}` : '';
+  const lines = [...new Set(ts.filter((t) => t.model === 'opus').map((t) => `Builder: opus — ${t.modelReason}`))];
+  return lines.length ? `\n\n+++ Agent notes\n\n${lines.join('\n')}\n\n+++` : '';
 }
 
 /** `cairn linear publish --project <p> [--milestone <m>]`: queue the epic now; its tickets follow once the epic has a key. */

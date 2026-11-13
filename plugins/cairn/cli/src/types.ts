@@ -220,7 +220,7 @@ export interface State {
   /** Blocking findings from the whole-branch review (`cairn review record branch`). */
   branchMustFix?: MustFix[];
   /** The last red test run (task done, task merge, phase finish, cairn test, merge-check); a green run clears it. The fix brief shows it. */
-  lastRed?: { at: string; log: string; failing: string[] };
+  lastRed?: { at: string; log: string; failing: string[]; task?: string };
   /** Present only on plans that pulled Linear issues in (`cairn linear import`). */
   linear?: LinearLink;
   log: LogEntry[];

@@ -15,7 +15,7 @@ import { withFreshStart } from './brief.ts';
 import { restack } from './merge.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
-import { due, isFoundational, linearConfig, takenIssues } from '../linear.ts';
+import { isFoundational, linearConfig, takenIssues } from '../linear.ts';
 import { allTasks } from '../ready.ts';
 import { mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
 import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
@@ -118,7 +118,7 @@ export function taskIssuesOf(s: State): Record<string, string[]> | undefined {
 
 /** The Linear fields a plan row carries: its task-to-issue keys and its epic. A plan without Linear issues carries neither. */
 function linearRowFields(s: State): { taskIssues?: Record<string, string[]>; epic?: string; linearDue?: number } {
-  const n = due(s.linear).length;
+  const n = pendingCount(s);
   const taskIssues = taskIssuesOf(s);
   if (!taskIssues) return n ? { linearDue: n } : {};
   return { taskIssues, ...(s.linear?.epic ? { epic: s.linear.epic } : {}), ...(n ? { linearDue: n } : {}) };
