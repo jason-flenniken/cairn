@@ -171,7 +171,7 @@ test('task start writes a build brief with the task section and the requirement 
   const brief = r.data!.brief as string;
   assert.equal(brief, join(w.wt, '.cairn/work/billing/briefs/charge-build.md'));
   assert.equal(r.data!.report, join(w.wt, '.cairn/work/billing/reports/charge-build.md'));
-  assert.match(r.message, new RegExp(`\\nBrief: ${brief.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+  assert.match(r.message, new RegExp(`\\nBrief: ${brief.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\nBuilder: sonnet$`));
   const md = readFileSync(brief, 'utf8');
   assert.match(md, /### Task: charge/);
   assert.match(md, /POST \/charge returns 201/);

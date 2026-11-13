@@ -21,6 +21,8 @@ Your prompt names the paths you need and where to write your report; if it names
 
 5. Name the longest chain of tasks that must run one after another (follow `blocked_by` plus phase order; a phase marked `overlap: true` does not wait for the whole earlier phase) and give one split that would shorten it, usually a small task that fixes an interface so dependents can start against it. Say "none needed" when the chain is under half the tasks.
 
+6. List every task marked `model: opus` with a one-line judgement (keep, or not needed, with the reason), and any `complexity: complex` task that touches one of the PRD's Hard parts but has no mark.
+
 Do not put a question the PRD already answers under "For the user". Do not list style preferences. Do not propose the answer; state the decision the user needs to make.
 
 ## Output
@@ -40,6 +42,10 @@ for_user:
 longest_chain:
   tasks: <ids in order, with the count out of the total>
   split: <one split that would shorten it, or "none needed">
+opus_marks:
+  - task: <id>
+    judgement: keep | not needed, <reason>
+unmarked_hard_parts: <complex tasks that touch a Hard part with no mark, or "none">
 not_checked: <anything you could not read or verify, with the reason, or "none">
 ```
 

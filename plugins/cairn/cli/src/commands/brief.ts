@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+import { builderLine, builderOf, type Builder } from '../builder.ts';
 import { commonDir } from '../git.ts';
 import { taskBranch, type Ctx } from '../locate.ts';
 import { findTask } from '../ready.ts';
@@ -98,6 +99,7 @@ function factsBlock(pc: PlanCtx, sl: Task): string[] {
     `- Scope: ${sl.scope.join(', ') || '(none)'}`,
     `- Risky: ${sl.risky ? `yes${sl.riskReason ? ` (${sl.riskReason})` : ''}` : 'no'}`,
     `- Complexity: ${sl.complexity}`,
+    ...(sl.model ? [`- Builder model: ${sl.model} (${sl.modelReason})`] : []),
     `- Blocked by: ${sl.blockedBy.join(', ') || 'nothing'}`,
     `- PRD: ${planFile(pc, 'prd.md')}`,
     `- Plan: ${planFile(pc, 'plan.md')}`,
@@ -163,14 +165,14 @@ function buildBrief(pc: PlanCtx, s: State, sl: Task, role: Role, again = false):
 }
 
 /** Write the brief for a task and role. Used by `cairn task brief` and `cairn task start`. */
-export function writeBrief(pc: PlanCtx, id: string, role: Role, again = false): { path: string; report: string; name: string } {
+export function writeBrief(pc: PlanCtx, id: string, role: Role, again = false): { path: string; report: string; name: string; builder: Builder } {
   const s = loadState(pc.plan.dir);
   const sl = findTask(s, id);
   if (!sl) throw new Refusal(`no task "${id}" in this plan`, ['cairn ready']);
   const { text, report } = buildBrief(pc, s, sl, role, again);
   const path = join(workDir(pc), 'briefs', `${id}-${role}${again ? '-again' : ''}.md`);
   writeFileSync(path, text);
-  return { path, report, name: sl.name };
+  return { path, report, name: sl.name, builder: builderOf(s, sl, role === 'fix' ? sl.fixRound : 0) };
 }
 
 export function taskBrief(pc: PlanCtx, id: string, opts: Opts): Result {
@@ -179,7 +181,11 @@ export function taskBrief(pc: PlanCtx, id: string, opts: Opts): Result {
   const again = !!opts.again;
   if (again && role !== 'review' && role !== 'security') throw new CliError('--again needs --role review or --role security');
   const r = writeBrief(pc, id, role as Role, again);
-  return { message: `Brief for ${again ? 're-' : ''}${role} · ${r.name}: ${r.path}. Report to: ${r.report}.`, data: { path: r.path, report: r.report, role } };
+  const builds = role === 'build' || role === 'fix';
+  return {
+    message: `Brief for ${again ? 're-' : ''}${role} · ${r.name}: ${r.path}. Report to: ${r.report}.${builds ? `\n${builderLine(r.builder)}` : ''}`,
+    data: { path: r.path, report: r.report, role, ...(builds ? { builder: r.builder } : {}) },
+  };
 }
 
 // ---------- Red test runs ----------

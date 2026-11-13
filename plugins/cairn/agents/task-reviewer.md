@@ -2,6 +2,7 @@
 name: task-reviewer
 description: "Reviews one task's diff against its spec on five axes. Returns PASS or FIX with labelled findings; every Critical or Required one names its fix."
 model: sonnet
+effort: high
 tools: Read, Grep, Glob, Bash, Write
 ---
 

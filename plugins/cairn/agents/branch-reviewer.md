@@ -2,6 +2,7 @@
 name: branch-reviewer
 description: "One whole-branch review before ship, on five axes against the review checklist. Labelled findings; Critical or Required ones block and name their fix."
 model: opus
+effort: high
 tools: Read, Grep, Glob, Bash, Write
 ---
 

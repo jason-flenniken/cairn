@@ -90,6 +90,9 @@ export interface Task {
   blockedBy: string[];
   scope: string[];
   complexity: Complexity;
+  /** The plan marks this task for a specific builder model (`model:` in plan.md), always with `modelReason`. */
+  model?: 'opus' | 'sonnet' | 'haiku';
+  modelReason?: string;
   status: TaskStatus;
   substep?: Substep;
   fixRound: number;
