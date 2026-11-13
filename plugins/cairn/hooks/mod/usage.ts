@@ -3,6 +3,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, PluginState } from 'claude-code'
 import { BAR_COLUMNS, type BarLine, type BarSeg } from './bar.tsx'
+import type { CairnView } from '../../types/index.d.ts'
+import { commonDir } from './heartbeat.ts'
 import { firstFit, fmtDuration, lineCells } from './util.ts'
 
 /** The session's usage as `session.measure` last reported it, and the model in use. */
@@ -11,6 +13,39 @@ export type CairnUsage = NonNullable<PluginState['cairn']['usage']>
 // What the bar draws lives in $.state, so a hot reload keeps it. A restart starts both over.
 const usage = atom({ plugin: 'cairn', key: 'usage' } as const, null as CairnUsage | null)
 const planBaseline = atom({ plugin: 'cairn', key: 'planBaseline' } as const, null as { slug: string; usd: number } | null)
+
+// The pane's view atom (same key as pane.tsx's; importing pane here would be circular), read for the shown plan's slug.
+const view = atom({ plugin: 'cairn', key: 'view' } as const, null as CairnView | null)
+
+/** At most one context-file write per this long. */
+export const CONTEXT_EVERY_MS = 30_000
+// Bookkeeping, not drawn: the last context write's slug, time and figures.
+let lastContext: { slug: string; at: number; pct: number; tokens: number } | undefined
+
+/** Forgets the last context write (tests). */
+export function resetContextThrottle(): void {
+  lastContext = undefined
+}
+
+/**
+ * Writes <git common dir>/cairn/context/<slug>.json = { pct, tokens, at } for the plan the pane shows, so the CLI
+ * can tell how full this session's context is. Throttled to one write per 30 s, and skipped when nothing moved.
+ */
+async function writeContext($: EngineInterface, context: { percent?: number; tokens?: number }): Promise<void> {
+  const v = await read($, view)
+  const slug = v === null || v.isFallback ? undefined : v.here
+  if (slug === undefined || context.percent === undefined || context.tokens === undefined) return
+  const now = await $.clock.now()
+  const pct = Math.round(context.percent * 10) / 10
+  const tokens = context.tokens
+  const last = lastContext
+  if (last?.slug === slug) {
+    if (now - last.at < CONTEXT_EVERY_MS || (last.pct === pct && last.tokens === tokens)) return
+  }
+  const dir = await commonDir($)
+  await $.fs.write(`${dir}/cairn/context/${slug}.json`, `${JSON.stringify({ pct, tokens, at: new Date(now).toISOString() })}\n`)
+  lastContext = { slug, at: now, pct, tokens }
+}
 
 const GAP = '  '
 const WARN_AT = 80
@@ -180,6 +215,7 @@ export function install(on: On): void {
     try {
       const model = await $.session.model().catch(() => undefined)
       await update($, usage, () => ({ cost: e.cost, context: e.context, rateLimits: e.rateLimits, model }))
+      await writeContext($, e.context)
     } catch {
       // Bookkeeping must never reach the session (NFR-07).
     }
