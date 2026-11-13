@@ -327,7 +327,7 @@ function pending(ctx: Ctx, opts: Opts = {}): Result {
   const list = opts.claim
     ? mutate(pc, undefined, (x) => {
         const at = Date.now();
-        const mine = due(linkOf(x)).filter((w) => !claimedNow(w, at));
+        const mine = due(linkOf(x)).filter((w) => !w.needsApproval && !claimedNow(w, at));
         for (const w of mine) w.claimedAt = new Date(at).toISOString();
         return mine;
       })

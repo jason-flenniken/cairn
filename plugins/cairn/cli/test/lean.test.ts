@@ -432,7 +432,7 @@ test('linear pending --claim: two senders get disjoint sets, and the queued line
   const queued = (msg: string) => msg.match(/(\d+) Linear updates? queued/)?.[1];
   assert.equal(queued(ok(w.wt, 'ready').message), '2', 'held and needs-approval entries are not counted');
   const first = ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[];
-  assert.deepEqual(first.map((x) => x.id), ['l1', 'l2', 'l3'], 'due entries, not the held one');
+  assert.deepEqual(first.map((x) => x.id), ['l1', 'l2'], 'due entries, not the held one or the one that needs approval');
   const second = ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[];
   assert.deepEqual(second, [], 'a second sender gets nothing');
   assert.equal(queued(ok(w.wt, 'ready').message), undefined, 'claimed entries leave the queued line');
