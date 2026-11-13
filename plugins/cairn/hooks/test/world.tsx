@@ -75,6 +75,8 @@ export function world(on: On, init: WorldInit = {}) {
     linearBoard: undefined as Record<string, unknown> | undefined,
     mtimes: new Map<string, number>([[STATE, 1]]),
     runs: [] as string[][],
+    /** Every `mkdir -p` the mod ran (the folder paths). */
+    mkdirs: [] as string[],
     /** The cwd each `cairn approve` ran in, in order. */
     approveCwds: [] as (string | undefined)[],
     toasts: [] as string[],
@@ -114,6 +116,10 @@ export function world(on: On, init: WorldInit = {}) {
       return answer(0, '/repo/.git\n')
     }
     if (bin === 'chmod') return answer(0, '')
+    if (bin === 'mkdir') {
+      w.mkdirs.push(args.at(-1) ?? '')
+      return answer(0, '')
+    }
     w.runs.push(args)
     if (args.join(' ') === 'status --all --json') {
       return answer(0, w.raw ?? JSON.stringify({ ok: true, message: '', plans: w.rows, modActive: true }))

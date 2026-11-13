@@ -2,7 +2,7 @@
 
 Send the updates cairn has queued for Linear, mark each one sent, then carry on with the stage. Linear owns the backlog; cairn only queues what is due and the `linear-sender` agent sends it through the Linear MCP.
 
-**Who does what.** The main thread dispatches the `linear-sender` agent (`model: haiku`, `description` "Record · Linear updates") in the background with the plan worktree path and the plugin root, and carries on with the stage; the sender runs steps 1 to 3 and returns one line ("Sent N, failed M: …"). Entries that need approval (step 4) stay queued; the main thread asks about them itself, at the next stop where the user is already answering, or right away when the stage is waiting on them. Step 5 is the main thread's.
+**Who does what.** The main thread dispatches the `linear-sender` agent (`model: haiku`, `description` "Record · Linear updates") in the background with the plan worktree path and the plugin root (only when none is already running), and carries on with the stage; the sender runs steps 1 to 3 and returns one line ("Sent N, failed M: …"). Entries that need approval (step 4) stay queued; the main thread asks about them itself, at the next stop where the user is already answering, or right away when the stage is waiting on them. Step 5 is the main thread's.
 
 Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`. The sender and you run every `cairn` command from the plan worktree: `cd <plan worktree> && cairn <command>`.
 

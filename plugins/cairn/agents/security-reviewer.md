@@ -47,7 +47,7 @@ Not checked: <what you could not check and why, or "none">
 ```
 
 Write "none" under Findings when there are none. Cite `path:line` for every finding.
-When resumed to re-review a fix: verdict each prior finding as addressed or open, check the fix diff for new breakage, and ignore code the fix did not touch. The message names the report path to write.
+When resumed to re-review a fix (or briefed with `--again`): write to the same report path as the first review. List each prior must-fix item as one line `Prior: <path:line> | addressed|open | <note>` (an `open` one counts as must-fix), check the fix diff for new breakage and report that as normal finding lines, and ignore code the fix did not touch. The brief or message names the report path.
 
 Then end with a final message of exactly three lines, and nothing else:
 

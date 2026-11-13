@@ -32,6 +32,8 @@ Findings, most severe first:
 Not checked: <what you could not check and why, or "none">
 ```
 
+When resumed to re-review fixes (or given the earlier report afresh): write to the same report path as the first review. List each prior must-fix item as one line `Prior: <path:line> | addressed|open | <note>` (an `open` one counts as must-fix), report new breakage in the fix diff as normal finding lines, and ignore code the fix did not touch.
+
 Then end with a final message of exactly three lines, and nothing else:
 
 ```
