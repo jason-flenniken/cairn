@@ -216,6 +216,8 @@ export interface State {
   suggestions?: Suggestion[];
   /** Blocking findings from the whole-branch review (`cairn review record branch`). */
   branchMustFix?: MustFix[];
+  /** The last red test run (task done, task merge, phase finish, cairn test, merge-check); a green run clears it. The fix brief shows it. */
+  lastRed?: { at: string; log: string; failing: string[] };
   /** Present only on plans that pulled Linear issues in (`cairn linear import`). */
   linear?: LinearLink;
   log: LogEntry[];
@@ -274,6 +276,8 @@ export interface LinearWrite {
   dropped?: { at: string; note: string };
   /** Tried and not sent (the send failed, no Linear tools, or the user held it): retried at the next sync, but `cairn next` doesn't route for it alone. */
   held?: { at: string; note: string };
+  /** ISO time `cairn linear pending --claim` handed this to a sender; for 10 minutes no other sender gets it. `sent` and `hold` clear it. */
+  claimedAt?: string;
 }
 
 /** A change seen on refresh that the plan has to decide about before its phase can finish. */

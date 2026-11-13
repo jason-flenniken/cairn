@@ -9,6 +9,7 @@ import { refreshMemory } from './memory.ts';
 import { stackLanded } from './linear.ts';
 import { allTasks } from '../ready.ts';
 import { stackBase } from './status.ts';
+import { recordTestRun } from './brief.ts';
 import type { PlanCtx } from '../shared.ts';
 
 const short = (sha: string) => sha.slice(0, 7);
@@ -209,10 +210,10 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
   // The tests run until a head passes: only plan-folder commits since the last green head skip them.
   const lastGreen = s0.mergeChecked;
   const untested = !lastGreen || changesSince(wt, lastGreen, rel, []).length > 0;
-  const tests = untested ? runTests(pc.cfg, wt) : undefined;
+  const tests = untested ? recordTestRun(pc, runTests(pc.cfg, wt)) : undefined;
   if (tests && !tests.ok) {
     mutate(pc, 'tests fail at merge check', (s) => log(s, 'merge check failed', `${tests.cmd}: ${tests.tail}`));
-    throw new Refusal(`tests fail${merged ? ` with ${s0.base} merged in` : ''}: ${tests.tail}`, [
+    throw new Refusal(`tests fail${merged ? ` with ${s0.base} merged in` : ''}: ${tests.tail}${tests.log ? `. Full output: ${tests.log}` : ''}`, [
       merged ? 'fix it on the plan branch (the clean merge stays)' : 'fix it on the plan branch',
       'then run cairn merge-check again: the fix is new code, so it asks for the ship approval again',
     ]);

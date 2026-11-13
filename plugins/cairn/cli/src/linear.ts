@@ -599,6 +599,13 @@ export const unsent = (l: LinearLink | undefined): LinearWrite[] => (l?.outbox ?
 /** Unsent and not on hold: what `cairn next` sends the agent to the sync for. Held entries wait for the next sync. */
 export const due = (l: LinearLink | undefined): LinearWrite[] => unsent(l).filter((w) => !w.held);
 
+/** How long a claimed entry belongs to its sender before another may take it. */
+export const CLAIM_MS = 10 * 60 * 1000;
+/** Whether a sender holds this entry right now. */
+export const claimedNow = (w: LinearWrite, at: number = Date.now()): boolean => !!w.claimedAt && at - Date.parse(w.claimedAt) < CLAIM_MS;
+/** What a background sender can send now: due, not waiting on the user, not claimed by another sender. */
+export const sendable = (l: LinearLink | undefined, at: number = Date.now()): LinearWrite[] => due(l).filter((w) => !w.needsApproval && !claimedNow(w, at));
+
 export type StatusMove = 'inProgress' | 'inReview' | 'done';
 const STATUS_TYPE: Partial<Record<StatusMove, string>> = { inProgress: 'started', done: 'completed' };
 
