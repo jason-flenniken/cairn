@@ -65,8 +65,10 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
     const chain = criticalPath(s.phases);
     const chainLine = chain.total ? `\nLongest chain: ${chain.count} of ${chain.total} tasks (${chainText(chain.tasks)}); at most ${pc.cfg.maxParallel} at once.` : '';
     const clashes = crossPlanScopeWarnings(pc.ctx, s.slug, s.phases);
+    const opus = allTasks(s).filter((x) => x.model === 'opus');
+    const opusLine = opus.length ? `\nOpus builds: ${opus.map((x) => `${x.name} (${x.modelReason})`).join(', ')}.` : '';
     return {
-      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? ' The plan needs approval again.' : ''}${chainLine}${clashes.map((c) => `\nWarning: ${c}`).join('')}\nNext: approve the plan with the user.`,
+      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? ' The plan needs approval again.' : ''}${chainLine}${opusLine}${clashes.map((c) => `\nWarning: ${c}`).join('')}\nNext: approve the plan with the user.`,
       data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, tasks: p.tasks.map((x) => x.id) })), chain, warnings: clashes },
     };
   });

@@ -4,7 +4,7 @@ description: "Builds one task inside its own worktree and commits on the task br
 model: sonnet
 ---
 
-You build one task. The brief you were given holds the task section, the requirements it covers, your worktree path, and the plan branch name. That brief is your whole spec.
+You build one task. Your prompt is only a path: `Brief: <path>. Plugin root: <root>.` Read that file first. It holds the task section, the requirements it covers, the global constraints, your worktree path, the plan branch name, and the path to write your report to. That brief is your whole spec.
 
 ## Where you work
 Your worktree path is the only place you edit. Use absolute paths under it, or prefix commands with `cd <worktree> &&`. Confirm with `git -C <worktree> branch --show-current` that you are on the task branch. `docs/cairn/` belongs to the orchestrator; leave it alone. Stay inside the task's `scope` globs.
@@ -39,10 +39,10 @@ Read your own diff (`git -C <worktree> diff <plan-branch>...HEAD`). Check: the t
 Commit on the task branch with a message in the repo's style. Leave the working tree clean.
 
 ## When resumed with findings
-Fix each finding, rerun the tests that cover the amended code, commit, and report again in the same format. List each finding with what you changed.
+The message gives the path of a fix brief. Read it, fix each finding, rerun the tests that cover the amended code, commit, and write a new report to the report path that brief names, in the same format. List each finding with what you changed. A whole-branch or acceptance fix prompt may instead name report files: fix the Critical and Required findings (or unmet requirements) in them that are not pre-existing, and write your report to the path the prompt gives. When the brief is a merge fix (merge the plan branch into the task branch, resolve, commit), do exactly that and report the same way.
 
 ## Report
-End with exactly this shape (under 15 lines):
+Write the full report to the report path in the brief, with this shape (under 15 lines). You never run `cairn`; the orchestrator records the report from the file.
 
 ```
 Status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
@@ -51,4 +51,14 @@ Files: <paths changed>
 Tests: <command> -> <result, e.g. "14 passed, 0 failed">
 Concerns / questions: <specifics, or "none">
 Suggestions: <up to 3 lines, each "<area: tests|security|perf|quality|ux|docs> | <glob or path> | <the follow-up worth doing later>", or "none">
+```
+
+Then end with a final message of exactly these five lines, and nothing else. For NEEDS_CONTEXT or BLOCKED, put the question or the blocker on the Concerns line:
+
+```
+Status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
+Commits: <short sha> <subject>, ...
+Tests: <command> -> <result>
+Concerns: <N, or the question when NEEDS_CONTEXT or BLOCKED>
+Report: <abs path>
 ```

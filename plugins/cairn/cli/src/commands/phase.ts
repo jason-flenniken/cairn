@@ -5,9 +5,10 @@ import { currentPhase } from '../ready.ts';
 import { levelOf, loadState, log, setStage } from '../state.ts';
 import type { State, Suggestion } from '../types.ts';
 import { CliError, Refusal } from '../util.ts';
-import { gate, mutate, planCtx, runTests, testsGate, type Opts, type Result, type TestRun } from '../shared.ts';
+import { gate, mutate, planCtx, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { linearPhaseGate, onPhaseFinished } from './linear.ts';
 import { linearConfig } from '../linear.ts';
+import { recordTestRun, withFreshStart } from './brief.ts';
 
 /** "3 new suggestions (2 tests, 1 security)" for suggestions logged since the last phase boundary. */
 export function newSuggestionsText(s: State): string {
@@ -39,9 +40,9 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
   const head = git(['rev-parse', 'HEAD'], plan.worktree);
   const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? '').localeCompare(b.doneAt ?? '')).pop();
   const reused = !!(last?.testedCommit && last.tests && gitOk(['diff', '--quiet', last.testedCommit, head, '--', '.', ...cairnPathspecExcludes()], plan.worktree));
-  const tests: TestRun | undefined = reused ? undefined : runTests(pc.cfg, plan.worktree);
+  const tests: TestRun | undefined = reused ? undefined : recordTestRun(pc, runTests(pc.cfg, plan.worktree));
 
-  return mutate(pc, `phase finished: ${phase.name}`, (s) => {
+  return withFreshStart(pc, mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s)!;
     gate(cur.verdict?.result !== 'red', s, 'phase finish', opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ''}`, ['fix what the report flags, then re-run `cairn evidence phase`']);
     linearPhaseGate(s, opts);
@@ -68,7 +69,7 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
       message: `Phase "${cur.name}" finished: ${cur.tasks.length} tasks, ${testText}, ${suggestions}${driftText}; ${next}.`,
       data: { phase: cur.id, next: following?.id ?? null, stage: s.stage },
     };
-  });
+  }));
 }
 
 /**
@@ -77,16 +78,26 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
  */
 export function cmdTest(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
-  const tests = runTests(pc.cfg, pc.plan.worktree);
+  const tests = recordTestRun(pc, runTests(pc.cfg, pc.plan.worktree));
+  // The build command (when set) runs in the same pass; a red build is reported, like a red suite below MVP.
+  const build = pc.cfg.build ? runTests({ ...pc.cfg, test: pc.cfg.build }, pc.plan.worktree) : undefined;
+  const buildText = build ? ` Build ${build.ok ? 'green' : 'RED'} (\`${build.cmd}\` → ${build.tail}).` : '';
+  const buildData = build ? { build: { ran: build.ran, ok: build.ok, command: build.cmd, summary: build.tail } } : {};
   return mutate(pc, undefined, (s) => {
     if (!tests) {
       testsGate(tests, s, 'check', opts);
-      return { message: 'No test command configured: nothing was run.', data: { ran: false } };
+      return { message: `No test command configured: nothing was run.${buildText}`, data: { ran: false, ...buildData } };
     }
     const mvp = levelOf(s) === 'mvp';
     // A red run below MVP is reported, not gated, on purpose: only a green run or an MVP plan goes through testsGate here.
     if (tests.ok || mvp) testsGate(tests, s, 'check', opts);
     const note = !tests.ok && mvp ? ' Recorded as a hardening item; the plan continues.' : '';
-    return { message: `Tests ${tests.ok ? 'green' : 'RED'} (\`${tests.cmd}\` → ${tests.tail}).${note}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail } };
+    // A red run keeps its full output out of the session: it is in a log a fix agent reads, with a few failing lines here.
+    const logPath = tests.log;
+    const failing = tests.failing ?? [];
+    const more = logPath ? `${failing.length ? `\n${failing.map((l) => `  ${l}`).join('\n')}` : ''}\nFull output: ${logPath}` : '';
+    return { message: `Tests ${tests.ok ? 'green' : 'RED'} (\`${tests.cmd}\` → ${tests.tail}).${note}${more}${more && buildText ? `\n${buildText.trim()}` : buildText}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail, ...(logPath ? { log: logPath, failing } : {}), ...buildData } };
   });
 }
+
+export { failingLines } from './brief.ts';

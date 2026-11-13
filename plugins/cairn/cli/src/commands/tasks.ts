@@ -1,31 +1,32 @@
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { worktreeRoot } from '../config.ts';
-import { branchExists, directCommits, git, gitOk } from '../git.ts';
+import { branchExists, directCommits, git, gitOk, gitTry } from '../git.ts';
 import { matchesAny } from '../glob.ts';
 import { planRelOf, taskBranch, type Ctx } from '../locate.ts';
 import { isCairnPath } from '../paths.ts';
 import { phaseStatus } from '../plan-parse.ts';
 import { currentPhase, findTask, readySet } from '../ready.ts';
 import { loadState, log, setStage } from '../state.ts';
-import { SUBSTEPS, type Substep } from '../types.ts';
+import { SUBSTEPS, type State, type Substep, type Task } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
+import { builderLine, builderOf, MAX_FIX_ROUNDS } from '../builder.ts';
+import { recordTestRun, taskBrief, taskReport, writeBrief } from './brief.ts';
 import { ensureExcluded, gate, mutate, planCtx, runSetup, runTests, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
 import { syncTickets } from './linear.ts';
 import { linearConfig } from '../linear.ts';
 
-const MAX_FIX_ROUNDS = 2;
 const DEFAULT_FIX_MAX_FILES = 8;
 
 export function cmdReady(ctx: Ctx): Result {
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
   const r = readySet(s, pc.cfg.maxParallel);
-  const tier = { simple: 'haiku', standard: 'sonnet', complex: 'opus' } as const;
+  const builder = (x: Task) => builderOf(s, x);
   const lines = [
     r.phase ? `Phase "${r.phase.name}": ${r.ready.length} ready, ${r.inProgress.length} running, ${r.waiting.length} waiting.` : 'No phase in progress.',
-    ...r.ready.map((x) => `  ready: ${x.id} (${x.name}) model=${tier[x.complexity]}`),
+    ...r.ready.map((x) => `  ready: ${x.id} (${x.name}) model=${builder(x).model}${builder(x).effort ? ` effort=${builder(x).effort}` : ''}`),
     ...r.inProgress.map((x) => `  running: ${x.id} (${x.substep ?? 'implementing'}${x.fixRound ? `, fix attempt ${x.fixRound}` : ''}) at ${x.worktree}`),
     ...r.waiting.map((w) => `  waiting: ${w.task.id} on ${w.on.join(', ')}`),
   ];
@@ -36,7 +37,7 @@ export function cmdReady(ctx: Ctx): Result {
       paused: !!s.paused,
       phase: r.phase?.id,
       phaseStatus: r.phase?.status,
-      ready: r.ready.map((x) => ({ ...x, model: tier[x.complexity] })),
+      ready: r.ready.map((x) => ({ ...x, model: builder(x).model, builder: builder(x) })),
       inProgress: r.inProgress,
       waiting: r.waiting.map((w) => ({ id: w.task.id, on: w.on })),
     },
@@ -44,18 +45,21 @@ export function cmdReady(ctx: Ctx): Result {
 }
 
 export function cmdTask(ctx: Ctx, action: string | undefined, id: string | undefined, rest: string[], opts: Opts): Result {
-  if (!id) throw new CliError('usage: cairn task start|step|done <task-id> …');
+  if (!id) throw new CliError('usage: cairn task start|step|done|merge|brief|report <task-id> …');
+  if (action === 'report') return taskReport(ctx, id, rest[0]);
   const pc = planCtx(ctx);
   if (action === 'start') return taskStart(pc, id, opts);
   if (action === 'step') return taskStep(pc, id, rest[0], opts);
   if (action === 'done') return taskDone(pc, id, opts);
-  throw new CliError('usage: cairn task start|step|done <task-id>');
+  if (action === 'merge') return taskMerge(pc, id, opts);
+  if (action === 'brief') return taskBrief(pc, id, opts);
+  throw new CliError('usage: cairn task start|step|done|merge|brief|report <task-id>');
 }
 
 function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
   const { plan, ctx, cfg } = pc;
   let needsSetup = false;
-  const r = mutate(pc, undefined, (s) => {
+  const r: Result = mutate(pc, undefined, (s) => {
     // Plans recorded on old names keep them: the task branch is new-style, the folder follows the plan folder.
     const branch = taskBranch(plan.slug, id);
     const path = join(worktreeRoot(cfg, ctx.mainRoot), `${basename(plan.worktree)}--${id}`);
@@ -93,6 +97,11 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
   });
   ensureExcluded(ctx.mainRoot, '.claude/worktrees/');
   if (needsSetup) r.message += runSetup(cfg, String(r.data!.worktree), ctx.mainRoot);
+  if (!r.data!.resumed) {
+    const b = writeBrief(pc, id, 'build');
+    r.message += `\nBrief: ${b.path}\n${builderLine(b.builder)}`;
+    r.data = { ...r.data, brief: b.path, report: b.report, builder: b.builder };
+  }
   return r;
 }
 
@@ -129,7 +138,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const commits = tip && sl.base ? Number(git(['rev-list', '--count', `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
   const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   const checkable = merged && !dirty && !planDirty;
-  const tests = checkable ? runTests(pc.cfg, plan.worktree) : undefined;
+  const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan.worktree), id) : undefined;
   const testedCommit = tests ? git(['rev-parse', 'HEAD'], plan.worktree) : undefined;
   // The fix track adds: the repro now passes, and the fix stays small (FR-25). Both are checked even when an
   // override waives the checks above: the repro whenever the task is merged, the size whenever there is a base.
@@ -180,4 +189,92 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   if (merged && sl.worktree && existsSync(sl.worktree)) gitOk(['worktree', 'remove', sl.worktree], plan.worktree);
   if (merged) gitOk(['branch', '-d', sl.branch], plan.worktree);
   return r;
+}
+
+const DOCS_ROOTS = ['docs/cairn/', 'docs/sdlc/'];
+
+/**
+ * The cheap `task done` checks, run before `task merge` touches the plan branch, so a refusal leaves no merge commit behind:
+ * the task worktree is clean, the task branch has commits, the plan worktree has no stray edits, and no commit for the task
+ * went straight onto the plan branch. The first problem found is refused. Tests are the only check left for after the merge.
+ */
+function preMergeChecks(pc: PlanCtx, pre: State, sl: Task, opts: Opts): void {
+  const { plan } = pc;
+  const pb = pre.branch;
+  configGate(pre, pc.cfg, 'task merge', opts);
+  if (pre.paused) throw new Refusal('the plan is paused: let running steps finish', ['/cairn:resume continues']);
+  if (opts.override) return; // task done checks again, with the user's proof, and logs the override
+  const owner = pre.lastRed?.task ? findTask(pre, pre.lastRed.task) : undefined;
+  if (pre.lastRed && owner && owner.id !== sl.id && owner.status !== 'done') {
+    const other = owner.name;
+    throw new Refusal(`the plan branch is red from task ${other}'s merge: fix that first`, [`finish "${other}" (its fix brief carries the failing run), then merge this task`, `Full output: ${pre.lastRed.log}`]);
+  }
+  const dirty = sl.worktree && existsSync(sl.worktree) ? git(['status', '--porcelain'], sl.worktree) : '';
+  if (dirty) throw new Refusal('the task worktree has uncommitted changes', [`commit or discard them in ${sl.worktree}`]);
+  const commits = sl.base ? Number(git(['rev-list', '--count', `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
+  if (commits <= 0) throw new Refusal(`${sl.branch} has no commits since the task started`, ['the implementer commits its work on the task branch, in the task worktree']);
+  const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
+  if (planDirty)
+    throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
+  const stray = sl.base && !fastLane(pre) ? directCommits(plan.worktree, sl.base, pb).filter((c) => c.files.some((f) => !isCairnPath(f) && matchesAny(f, sl.scope))) : [];
+  if (stray.length)
+    throw new Refusal(`commits for task "${sl.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(', ')}`, [`move these commits to the task branch (git cherry-pick them onto ${sl.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
+}
+
+/** Merge the task branch into the plan branch (--no-ff), settle plan-file conflicts, then run `task done`. */
+function taskMerge(pc: PlanCtx, id: string, opts: Opts): Result {
+  const { plan } = pc;
+  const pre = loadState(plan.dir);
+  const sl = findTask(pre, id);
+  if (!sl) throw new Refusal(`no task "${id}" in this plan`);
+  if (sl.status !== 'in_progress' || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`, ['cairn task start ' + id]);
+  const pb = pre.branch;
+  if (!branchExists(sl.branch, plan.worktree)) throw new Refusal(`branch ${sl.branch} does not exist`);
+  preMergeChecks(pc, pre, sl, opts);
+  let note: string;
+  let didMerge = false;
+  if (!gitOk(['merge-base', '--is-ancestor', sl.branch, pb], plan.worktree)) {
+    if (git(['rev-parse', '--abbrev-ref', 'HEAD'], plan.worktree) !== pb) throw new Refusal(`the plan worktree is not on ${pb}`, [`git -C ${plan.worktree} switch ${pb}`]);
+    const m = gitTry(['merge', '--no-ff', sl.branch, '-m', `merge task ${id}`], plan.worktree);
+    let kept = '';
+    if (!m.ok) {
+      const files = gitTry(['diff', '--name-only', '--diff-filter=U'], plan.worktree).out.split('\n').filter(Boolean);
+      const planOnly = files.length > 0 && files.every((f) => DOCS_ROOTS.some((d) => f.startsWith(d)));
+      if (!planOnly) {
+        // Leave nothing half-merged: no MERGE_HEAD, so the fixer starts from a clean plan worktree.
+        gitTry(['merge', '--abort'], plan.worktree);
+        if (!files.length) throw new Refusal(`merging ${sl.branch} into ${pb} failed: ${m.out.split('\n').slice(-2).join(' ')}`);
+        mutate(pc, undefined, (s) => {
+          findTask(s, id)!.mergeConflict = files;
+          log(s, 'task merge conflict', `${sl.name}: ${files.join(', ')}`);
+        });
+        throw new Refusal(`merging task "${sl.name}" conflicts in: ${files.join(', ')}`, [
+          `dispatch a Fix · merge implementer with \`cairn task brief ${id} --role fix\`: merge ${pb} into ${sl.branch} in ${sl.worktree}, resolve, commit; then cairn task merge ${id} again`,
+        ]);
+      }
+      for (const f of files) {
+        if (gitTry(['checkout', '--ours', '--', f], plan.worktree).ok) git(['add', '--', f], plan.worktree);
+        else git(['rm', '-q', '--', f], plan.worktree);
+      }
+      git(['commit', '-q', '--no-edit'], plan.worktree);
+      kept = ` Kept the plan's side of ${files.length} plan file${files.length === 1 ? '' : 's'} that conflicted.`;
+    }
+    note = `Merged ${sl.branch} into ${pb}.${kept}`;
+    didMerge = true;
+  } else note = `${sl.branch} was already merged into ${pb}.`;
+  if (sl.mergeConflict)
+    mutate(pc, undefined, (s) => {
+      delete findTask(s, id)!.mergeConflict;
+    });
+  let r: Result;
+  try {
+    r = taskDone(pc, id, opts);
+  } catch (e) {
+    // Red tests after the merge: the merge stays on the plan branch; the fix is committed on the task branch (a commit made
+    // straight on the plan branch would be refused by the next merge as a stray commit).
+    if (e instanceof Refusal && didMerge && e.message.startsWith('tests are not green'))
+      throw new Refusal(e.message, [`the merge stays in place: ${sl.branch} is merged into ${pb}. In ${sl.worktree}, merge ${pb} into ${sl.branch}, fix and commit there, then run cairn task merge ${id} again`, ...e.fixes]);
+    throw e;
+  }
+  return { ...r, message: `${note}\n${r.message}`, data: { ...r.data, merged: true } };
 }

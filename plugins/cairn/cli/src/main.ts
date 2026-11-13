@@ -29,6 +29,7 @@ import {
   cmdRender,
   cmdResume,
   cmdTask,
+  cmdReview,
   cmdStatus,
   cmdLinear,
   context,
@@ -38,11 +39,11 @@ import {
   type Result,
 } from './commands.ts';
 import { CliError, Refusal } from './util.ts';
-import { due } from './linear.ts';
+import { sendable } from './linear.ts';
 import { loadState } from './state.ts';
 import { procedurePath } from './commands/status.ts';
 
-const BOOLEAN = new Set(['json', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board', 'merge', 'links']);
+const BOOLEAN = new Set(['json', 'full', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board', 'merge', 'links', 'claim', 'again']);
 /** Flags that may repeat; the values are joined with newlines. */
 const REPEATABLE = new Set(['where', 'for']);
 
@@ -84,14 +85,14 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
 }
 
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
-  next | status [--all] | new <slug> --title "…" [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
+  next | status [--all] [--json [--full]] | new <slug> --title "…" [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
-  task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
+  task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
   index | pause [--now] | resume [<slug>] | close | render | records | migrate
   merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
-  linear [status] | linear import|pending|sent|drop|depends|ack|release|board … (plans that pull Linear issues in)
+  linear [status] | linear import|pending [--claim]|sent|drop|depends|ack|release|board … (plans that pull Linear issues in)
 Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
 
 /** Commands that move a plan along, and so may queue Linear updates: each says when updates are waiting to be sent. */
@@ -103,9 +104,9 @@ function withLinearDue(cmd: string | undefined, cwd: string, r: Result): Result 
   try {
     const ctx = context(cwd);
     if (!ctx.plan?.dir) return r;
-    const n = due(loadState(ctx.plan.dir).linear).length;
+    const n = sendable(loadState(ctx.plan.dir).linear).length;
     if (!n) return r;
-    const line = `${n} Linear update${n === 1 ? '' : 's'} queued: send ${n === 1 ? 'it' : 'them'} now (follow ${procedurePath('linear-sync')}).`;
+    const line = `${n} Linear update${n === 1 ? '' : 's'} queued: send ${n === 1 ? 'it' : 'them'} with the linear-sender agent in the background (it follows ${procedurePath('linear-sync')}).`;
     return { message: r.message ? `${r.message}\n${line}` : line, data: { ...r.data, linearDue: n } };
   } catch {
     return r;
@@ -152,6 +153,8 @@ function dispatch(argv: string[], cwd: string, stdin?: string): Result {
       return cmdEscalate(ctx(), opts);
     case 'task':
       return cmdTask(ctx(), a, b, rest, opts);
+    case 'review':
+      return cmdReview(ctx(), a, b, rest[0]);
     case 'evidence':
       return cmdEvidence(ctx(), a, b, opts);
     case 'step':

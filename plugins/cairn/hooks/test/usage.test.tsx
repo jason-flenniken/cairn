@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
+import { resetContextThrottle } from '../mod/usage.ts'
 import { MAIN, mount, mountAs, plan, row, start, world, WT } from './world.tsx'
 
 type El = { type: string; props: Record<string, unknown>; children: (El | string)[] }
@@ -160,6 +161,107 @@ describe('inline (FR-06)', () => {
     expect(rows).toEqual(['● Build  $4.10  5h 5%  7d 39%'])
     const rowsOf = (n: El): number => n.type === 'Box' && n.props.flexDirection === 'column' ? n.children.reduce((k: number, c) => k + (typeof c === 'string' ? 1 : rowsOf(c)), 0) : 1
     expect(rowsOf((await ui.findAll({ type: 'Box' }))[0] as El)).toBeLessThanOrEqual(7)
+    await ui.unmount()
+  })
+})
+
+describe('context file for the fresh start', () => {
+  const CONTEXT = '/repo/.git/cairn/context/shop.json'
+  const ctxWrites = (w: { written: { path: string; text: string }[] }) => w.written.filter(x => x.path.includes('/cairn/context/'))
+  const first = ($: any) => $.session.measure(measure(1, { percent: 40, tokens: 80_000 }) as never)
+
+  test('a measure writes pct, tokens and a time for the shown plan', async ($, on) => {
+    resetContextThrottle()
+    const { w, clock } = world(on, { rows: [row(BUILD, WT)] })
+    session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await first($)
+    const writes = ctxWrites(w)
+    expect(writes.map(x => x.path)).toEqual([CONTEXT])
+    expect(JSON.parse(writes[0]!.text)).toEqual({ pct: 40, tokens: 80_000, at: '2026-03-01T12:00:00.000Z' })
+    await ui.unmount()
+  })
+
+  test('a second measure within 30 s does not write; after 30 s with new figures it does; unchanged figures never do', async ($, on) => {
+    resetContextThrottle()
+    const { w, clock } = world(on, { rows: [row(BUILD, WT)] })
+    session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await first($)
+    await $.session.measure(measure(1, { percent: 45, tokens: 90_000 }) as never)
+    expect(ctxWrites(w)).toHaveLength(1)
+    await clock.advance(31_000)
+    await $.session.measure(measure(1, { percent: 45, tokens: 90_000 }) as never)
+    expect(ctxWrites(w)).toHaveLength(2)
+    await clock.advance(31_000)
+    await $.session.measure(measure(1, { percent: 45, tokens: 90_000 }) as never)
+    expect(ctxWrites(w)).toHaveLength(2)
+    await ui.unmount()
+  })
+
+  test('a drop in pct writes at once, inside the 30 s; a rise inside it does not', async ($, on) => {
+    resetContextThrottle()
+    const { w } = world(on, { rows: [row(BUILD, WT)] })
+    session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await first($)
+    // After /clear or a compaction the context falls: the CLI must see it now, not 30 s later.
+    await $.session.measure(measure(1, { percent: 5, tokens: 10_000 }) as never)
+    expect(ctxWrites(w)).toHaveLength(2)
+    expect(JSON.parse(ctxWrites(w)[1]!.text)).toMatchObject({ pct: 5, tokens: 10_000 })
+    await $.session.measure(measure(1, { percent: 9, tokens: 18_000 }) as never)
+    expect(ctxWrites(w)).toHaveLength(2)
+    await ui.unmount()
+  })
+
+  test('the context folder is made once with mkdir -p, before the first write', async ($, on) => {
+    resetContextThrottle()
+    const { w, clock } = world(on, { rows: [row(BUILD, WT)] })
+    session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await first($)
+    expect(w.mkdirs).toEqual(['/repo/.git/cairn/context'])
+    await clock.advance(31_000)
+    await $.session.measure(measure(1, { percent: 50, tokens: 100_000 }) as never)
+    expect(ctxWrites(w)).toHaveLength(2)
+    expect(w.mkdirs).toHaveLength(1)
+    await ui.unmount()
+  })
+
+  test('with no plan nothing is written', async ($, on) => {
+    resetContextThrottle()
+    const { w, clock } = world(on, { rows: [] })
+    session(on, measure(10))
+    await start($, MAIN)
+    const ui = await mount($, 'terminal')
+    await first($)
+    expect(ctxWrites(w)).toEqual([])
+    await ui.unmount()
+  })
+
+  test('a session at the repo root writes for the one active plan', async ($, on) => {
+    resetContextThrottle()
+    const one = world(on, { cwd: MAIN, rows: [row(BUILD, WT)] })
+    session(on, measure(10))
+    await start($, MAIN)
+    const ui = await mount($, 'terminal')
+    await first($)
+    expect(ctxWrites(one.w).map(x => x.path)).toEqual([CONTEXT])
+    await ui.unmount()
+  })
+
+  test('at the repo root with two active plans nothing is written', async ($, on) => {
+    resetContextThrottle()
+    const { w } = world(on, { cwd: MAIN, rows: [row(BUILD, WT), row(plan({ slug: 'cart', stage: 'plan' }), '/repo/.worktrees/cart')] })
+    session(on, measure(10))
+    await start($, MAIN)
+    const ui = await mount($, 'terminal')
+    await first($)
+    expect(ctxWrites(w)).toEqual([])
     await ui.unmount()
   })
 })

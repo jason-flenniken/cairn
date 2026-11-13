@@ -24,6 +24,12 @@ export function ticketGroups(s: State): Map<string, Task[]> {
 
 const STAGES = ['plan', 'execute'];
 
+/** A ticket whose tasks are marked for Opus says so, in the description's agent notes: `Builder: opus — <reason>`. */
+export function builderLines(ts: Task[]): string {
+  const lines = [...new Set(ts.filter((t) => t.model === 'opus').map((t) => `Builder: opus — ${t.modelReason}`))];
+  return lines.length ? `\n\n+++ Agent notes\n\n${lines.join('\n')}\n\n+++` : '';
+}
+
 /** `cairn linear publish --project <p> [--milestone <m>]`: queue the epic now; its tickets follow once the epic has a key. */
 export function publish(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
@@ -95,7 +101,7 @@ export function onPublishSent(s: State, w: LinearWrite, ref: string | undefined,
         payload: {
           team: l.team,
           title: name,
-          description: `Part of cairn plan "${s.title}" (\`${s.branch}\`).\n\n${ts.map((t) => `- ${t.name} (${t.covers.join(', ') || 'groundwork'})`).join('\n')}`,
+          description: `Part of cairn plan "${s.title}" (\`${s.branch}\`).\n\n${ts.map((t) => `- ${t.name} (${t.covers.join(', ') || 'groundwork'})`).join('\n')}${builderLines(ts)}`,
           parentId: ref,
           ...(l.project ? { project: l.project } : {}),
           ...(l.milestone ? { milestone: l.milestone } : {}),

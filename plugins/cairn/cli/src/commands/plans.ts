@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CONFIG_REL, loadConfig, worktreeRoot } from '../config.ts';
 import { commitPath, git, gitOk, gitTry } from '../git.ts';
-import { DOCS_DIR } from '../paths.ts';
+import { CAIRN_DIR, DOCS_DIR } from '../paths.ts';
 import { PLANS_DIR, planBranch, planBranchesFor, planDirName, worktreeName, type Ctx } from '../locate.ts';
 import { log, newState, saveState } from '../state.ts';
 import { isLevel, LEVELS, type Level } from '../types.ts';
@@ -50,6 +50,8 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
     wt = join(root, worktreeName(branch));
     git(['worktree', 'add', '-q', '-b', branch, wt, base], ctx.top);
   }
+  // Briefs and reports agents write before the first task starts never show as untracked files.
+  ensureExcluded(ctx.mainRoot, `${CAIRN_DIR}/work/`);
   const rel = `${PLANS_DIR}/${planDirName(slug, new Date())}`;
   const dir = join(wt, rel);
   writeText(join(dir, 'decisions.md'), `# Decisions: ${title}\n\nAppend-only. Written by \`cairn decide\` as each decision is made.\n`);

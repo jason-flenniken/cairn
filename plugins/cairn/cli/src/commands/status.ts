@@ -11,10 +11,11 @@ import { scopesOverlap } from '../glob.ts';
 import type { Phase, State } from '../types.ts';
 import { hashText, pluginRoot, readText, Refusal, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
+import { withFreshStart } from './brief.ts';
 import { restack } from './merge.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
-import { due, isFoundational, linearConfig, takenIssues } from '../linear.ts';
+import { isFoundational, linearConfig, takenIssues } from '../linear.ts';
 import { allTasks } from '../ready.ts';
 import { mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
 import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
@@ -117,7 +118,7 @@ export function taskIssuesOf(s: State): Record<string, string[]> | undefined {
 
 /** The Linear fields a plan row carries: its task-to-issue keys and its epic. A plan without Linear issues carries neither. */
 function linearRowFields(s: State): { taskIssues?: Record<string, string[]>; epic?: string; linearDue?: number } {
-  const n = due(s.linear).length;
+  const n = pendingCount(s);
   const taskIssues = taskIssuesOf(s);
   if (!taskIssues) return n ? { linearDue: n } : {};
   return { taskIssues, ...(s.linear?.epic ? { epic: s.linear.epic } : {}), ...(n ? { linearDue: n } : {}) };
@@ -140,6 +141,25 @@ function readyRow(r: { state: State; worktree?: string; dir: string }, ctx: Ctx)
   return { ready, needsUser: ready !== undefined || asked };
 }
 
+/**
+ * The plan state as `status --json` shows it: no log, no follow-up list (the counts are `suggestionCounts`) and no payload on
+ * the Linear outbox entries (`cairn linear pending` has them). `--full` keeps everything.
+ */
+const slimState = (s: State, keepLog = false): State => {
+  const { log: logLines, suggestions: _suggestions, linear, ...rest } = s;
+  return {
+    ...rest,
+    ...(keepLog ? { log: logLines } : {}),
+    ...(linear ? { linear: { ...linear, outbox: linear.outbox.map(({ payload: _payload, ...w }) => w) } } : {}),
+  } as State;
+};
+
+/** What the follow-up list holds, for the slim state that no longer carries it. */
+const suggestionCounts = (s: State, open: number, hardening: number) => ({ logged: (s.suggestions ?? []).length, open, hardening });
+
+/** A `status --all` row's state: the pane reads its log, so the log stays; the follow-ups and the outbox payloads go. */
+const slimRow = (s: State): State => slimState(s, true);
+
 export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
@@ -149,7 +169,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full ? r.state : slimRow(r.state), next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -174,7 +194,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ...(s.stackedOn ? [`Stacked on ${s.stackedOn.slug}: it started on that plan's branch and moves onto main once that plan has merged.`] : []),
       ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
       ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: s, next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
+    data: { state: opts.full ? s : slimState(s), suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
   };
 }
 
@@ -219,10 +239,10 @@ export function cmdNext(ctx: Ctx): Result {
   const queued = pendingCount(s);
   const stageNext = nextFor(s);
   const n = queued ? { procedure: 'linear-sync', text: `Send ${queued} queued Linear update${queued === 1 ? '' : 's'} first. Then: ${stageNext.text}` } : stageNext;
-  return {
+  return withFreshStart(pc, {
     message: `${restacked ? `${restacked}\n` : ''}${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
     data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), ...(restacked ? { restacked } : {}) },
-  };
+  });
 }
 
 export function cmdRender(ctx: Ctx): Result {

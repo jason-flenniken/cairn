@@ -2,6 +2,7 @@ import { parse } from 'yaml';
 import { ids, missingSections, PLAN_SECTIONS, sections } from './sections.ts';
 import type { Complexity, Phase, Task } from './types.ts';
 import { SLUG } from './util.ts';
+import { MODELS, type Model } from './builder.ts';
 
 const BLOCK = /```ya?ml\s+cairn-tasks\s*\n([\s\S]*?)```/;
 const COMPLEXITY: Complexity[] = ['simple', 'standard', 'complex'];
@@ -65,12 +66,17 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
       for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Requirements`);
       if (!scope.length) problems.push(`${where}: \`scope\` must list the file globs it may touch`);
       if (!COMPLEXITY.includes(complexity)) problems.push(`${where}: complexity must be simple, standard, or complex`);
+      const model = rs?.model === undefined ? undefined : String(rs.model);
+      if (model !== undefined && !MODELS.includes(model as Model)) problems.push(`${where}: model must be ${MODELS.join(', ')}, or left out`);
+      const modelReason = typeof rs?.model_reason === 'string' && rs.model_reason.trim() ? rs.model_reason.trim() : undefined;
+      if (model !== undefined && MODELS.includes(model as Model) && !modelReason) problems.push(`${where} asks for ${model} without saying why: add model_reason`);
+      if (model === undefined && rs?.model_reason !== undefined) problems.push(`${where} has model_reason but no model: add model, or take model_reason out`);
       const risky = rs?.risky === true;
       if (rs?.risky !== undefined && typeof rs.risky !== 'boolean') problems.push(`${where}: risky must be true or false`);
       const riskReason = typeof rs?.riskReason === 'string' && rs.riskReason.trim() ? rs.riskReason.trim() : undefined;
       const ticket = rs?.ticket === undefined ? undefined : typeof rs.ticket === 'string' && rs.ticket.trim() ? rs.ticket.trim() : undefined;
       if (rs?.ticket !== undefined && !ticket) problems.push(`${where}: ticket must be a short title, or left out`);
-      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, ...(ticket ? { ticket } : {}), blockedBy, scope, complexity, status: 'pending', fixRound: 0, risky, ...(risky && riskReason ? { riskReason } : {}) });
+      tasks.push({ id: sid, name: String(rs?.name ?? sid), ...(kind === 'prefactor' ? { kind } : {}), covers, ...(ticket ? { ticket } : {}), blockedBy, scope, complexity, ...(model && modelReason && MODELS.includes(model as Model) ? { model: model as Model, modelReason } : {}), status: 'pending', fixRound: 0, risky, ...(risky && riskReason ? { riskReason } : {}) });
     }
     if (rp?.overlap !== undefined && typeof rp.overlap !== 'boolean') problems.push(`phase "${pid}": overlap must be true or false`);
     if (rp?.overlap === true && pi === 0) problems.push(`phase "${pid}": the first phase has nothing to overlap with; leave out overlap`);

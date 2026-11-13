@@ -53,20 +53,16 @@ The question names the reason and offers two options: "Escalate to a feature pla
 **Done when:** the user has chosen, and either the plan is escalated or the fix task is back in the loop.
 
 ## 6. Review
-Run `cd <plan worktree> && cairn step reviewing`. Every fix is reviewed, risky or not. Dispatch one `task-reviewer` agent (`model: sonnet`, `description` "Review · fix"). Give it only the plugin root path (`${CLAUDE_PLUGIN_ROOT}`), the bug title, the repro command from `state.repro` in `cairn status --json`, the `Tests:` line from the implementer's report, the plan worktree path, and the diff command `git diff <base>...<plan-branch>`.
+Run `cd <plan worktree> && cairn step reviewing`. Every fix is reviewed, risky or not. Dispatch one `task-reviewer` agent (`model: sonnet`, `description` "Review · fix"). The prompt is a few lines of paths: the plugin root (`${CLAUDE_PLUGIN_ROOT}`), the bug title, the repro command from `state.repro` in `cairn status --json`, the path of the implementer's report (for its `Tests:` line only), the plan worktree path, the diff command `git diff <base>...<plan-branch>`, and the report path `<plan worktree>/.cairn/work/<slug>/reports/fix-review.md` (`fix-security.md` for the security reviewer).
 
-When the fix touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data, also dispatch the `security-reviewer` agent in the same message, so both run in parallel (`model: sonnet`, `description` "Review · fix (security)"), with the same brief.
+When the fix touches auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data, also dispatch the `security-reviewer` agent in the same message, so both run in parallel (`model: sonnet`, `description` "Review · fix (security)"), with the same paths.
 
-Each reviewer returns `Verdict: PASS | FIX` and findings labelled Critical, Required, Optional, Nit or FYI, each with a class, `path:line` and a proposed fix, some marked `pre-existing`. Route them:
-- Optional and Nit: log each with `cd <plan worktree> && cairn suggest add --area <area> --from task-review --where <path> --text "<class>: <finding>"` (`--from security-review` for the security reviewer's).
-- Pre-existing, at any label (in code the fix did not touch): log it the same way; it does not block the fix. Name a pre-existing Critical to the user in one line.
-- FYI: mention once to the user. Do not log it.
-- Critical and Required, not pre-existing: these block the fix.
+Each reviewer ends with `Verdict`, `Counts` and `Report`. Record each: `cd <plan worktree> && cairn review record fix <report path>`. It logs the Optional, Nit and pre-existing findings as follow-ups itself (a pre-existing finding never blocks the fix; name a pre-existing Critical to the user in one line) and prints `PASS` or `FIX` with the must-fix findings, which block the fix. Mention FYI findings once to the user.
 
 Record the result with the existing evidence command. Pre-existing findings never count as blocking here.
 - No Critical or Required findings, other than pre-existing ones: `cairn evidence review pass --blocking 0 --note "<N follow-ups logged>"`.
 - Critical or Required findings that are not pre-existing, N of them: `cairn evidence review fail --blocking N --note "<N blocking; A advisory>; classes: <class>, <class>"`. Tell the user each one with its `path:line` and proposed fix. Then ask with AskUserQuestion, with these options in order:
-  - "Fix in place (Recommended when small)": run `cairn task start fix`. It reopens the fix task from review: the stage returns to execute, the old review result is cleared, and the repro and the task base are kept. Go to step 4 and give the implementer the findings; the one fix attempt is that reopened task, then run `cd <plan worktree> && cairn step rechecking` and review again here, limited to those findings and the fix diff.
+  - "Fix in place (Recommended when small)": run `cairn task start fix`. It reopens the fix task from review: the stage returns to execute, the old review result is cleared, and the repro and the task base are kept. Go to step 4, run `cairn task brief fix --role fix`, and give the implementer that brief path; the one fix attempt is that reopened task, then run `cd <plan worktree> && cairn step rechecking` and review again here, limited to those findings and the fix diff: `cd <plan worktree> && cairn task brief fix --role review --again` (or `--role security`) lists the earlier must-fix findings and writes to the same report path (`fix-review.md`, `fix-security.md`); then `cairn review record fix <report path>` replaces them.
   - "Escalate to a feature plan": run `cairn escalate` and stop this procedure.
   - "Hold": stop here; the plan stays at review.
 

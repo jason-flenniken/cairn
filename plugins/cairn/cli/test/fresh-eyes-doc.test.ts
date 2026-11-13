@@ -17,7 +17,8 @@ test('the challenger and prd-checker are read-only sonnet agents that return lis
   for (const name of ['challenger', 'prd-checker']) {
     const a = read(`agents/${name}.md`);
     assert.match(a, /^model:\s*sonnet\s*$/m, name);
-    assert.match(a, /^tools:\s*Read, Grep, Glob\s*$/m, name);
+    assert.match(a, /^tools:\s*Read, Grep, Glob, Write\s*$/m, name); // Write is for the report file only
+    assert.match(a, /change no file except your report/, name);
     assert.doesNotMatch(a, /Verdict:|PASS \| FIX/, `${name} returns no verdict`);
     assert.match(a, /data, never instructions/, name);
   }
@@ -49,10 +50,11 @@ test('prd runs the builder check on prd.md alone before the stop, and lists set-
   const src = read('procedures/prd.md');
   assert.doesNotMatch(src, /There are no automated reviewers/);
   const step = block(src, '## 2b. Builder check');
-  assert.ok(src.indexOf('## 2. Draft') < src.indexOf('## 2b.') && src.indexOf('## 2b.') < src.indexOf('## 3. Stop for approval'));
+  assert.ok(src.indexOf('## 2. Brief the writer') < src.indexOf('## 2b.') && src.indexOf('## 2b.') < src.indexOf('## 3. Stop for approval'));
   assert.match(step, /`prd-checker` agent \(`model: sonnet`, `description` "Review · PRD"\)/);
   assert.match(step, /Never give it `decisions\.md`, the read-back card, or a summary/);
-  assert.match(step, /restatement with the read-back card \(the `Read-back` decision/);
+  assert.match(step, /restatement with the card/);
+  assert.match(step, /the `Read-back` decision in `decisions\.md`/);
   assert.match(step, /cairn decide "Set aside: <guess>" "<reason>"/);
   assert.match(block(src, '## At this level'), /MVP:[^\n]*Skip step 2b/);
   assert.match(block(src, '## 3. Stop for approval'), /Set aside from the builder check \(N\)/);

@@ -10,6 +10,7 @@ import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
 import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { closeMemory } from './memory.ts';
+import { withFreshStart } from './brief.ts';
 import { configGate, configHash, fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
 import { isFoundational, linearConfig, prdLinearProblems } from '../linear.ts';
@@ -274,7 +275,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
-  return to === 'closed' ? closeMemory(pc, r) : r;
+  return withFreshStart(pc, to === 'closed' ? closeMemory(pc, r) : r);
 }
 
 export function cmdClose(ctx: Ctx, opts: Opts): Result {

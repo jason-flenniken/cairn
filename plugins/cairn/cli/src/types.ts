@@ -65,6 +65,18 @@ export interface Approval {
   sha?: string;
 }
 
+/** A Critical or Required review finding that blocks a task (or the branch) until fixed. */
+export interface MustFix {
+  label: string;
+  area: string;
+  cls: string;
+  where: string;
+  problem: string;
+  fix: string;
+  /** The reviewer's report file this came from; recording that file again replaces these. */
+  report: string;
+}
+
 export interface Task {
   id: string;
   name: string;
@@ -78,6 +90,9 @@ export interface Task {
   blockedBy: string[];
   scope: string[];
   complexity: Complexity;
+  /** The plan marks this task for a specific builder model (`model:` in plan.md), always with `modelReason`. */
+  model?: 'opus' | 'sonnet' | 'haiku';
+  modelReason?: string;
   status: TaskStatus;
   substep?: Substep;
   fixRound: number;
@@ -98,6 +113,10 @@ export interface Task {
   /** Risky tasks (auth, money, deletes data, migrations, public API) get TDD and a reviewer. */
   risky?: boolean;
   riskReason?: string;
+  /** Blocking findings recorded by `cairn review record`; the fix brief lists them. */
+  mustFix?: MustFix[];
+  /** Files `cairn task merge` could not merge; cleared by the next clean merge. */
+  mergeConflict?: string[];
 }
 
 export interface Phase {
@@ -198,6 +217,10 @@ export interface State {
   evidence: { verify?: Evidence; review?: Evidence };
   drift: DriftEntry[];
   suggestions?: Suggestion[];
+  /** Blocking findings from the whole-branch review (`cairn review record branch`). */
+  branchMustFix?: MustFix[];
+  /** The last red test run (task done, task merge, phase finish, cairn test, merge-check); a green run clears it. The fix brief shows it. */
+  lastRed?: { at: string; log: string; failing: string[]; task?: string };
   /** Present only on plans that pulled Linear issues in (`cairn linear import`). */
   linear?: LinearLink;
   log: LogEntry[];
@@ -256,6 +279,8 @@ export interface LinearWrite {
   dropped?: { at: string; note: string };
   /** Tried and not sent (the send failed, no Linear tools, or the user held it): retried at the next sync, but `cairn next` doesn't route for it alone. */
   held?: { at: string; note: string };
+  /** ISO time `cairn linear pending --claim` handed this to a sender; for 10 minutes no other sender gets it. `sent` and `hold` clear it. */
+  claimedAt?: string;
 }
 
 /** A change seen on refresh that the plan has to decide about before its phase can finish. */
@@ -308,6 +333,8 @@ export interface Config {
   worktreeRoot?: string;
   resumeFreshAfterMinutes?: number;
   fixMaxFiles?: number;
+  /** Context percentage at which a stage end says to start fresh with /clear. Default 40. */
+  freshStartAt?: number;
   reproTimeoutMinutes?: number;
   /** The level `/cairn:new` pre-selects: mvp, standard or polished. Standard when unset. */
   defaultLevel?: string;

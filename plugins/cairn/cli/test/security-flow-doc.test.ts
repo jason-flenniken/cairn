@@ -13,14 +13,16 @@ test('prd template and procedure describe the threat model and its trigger', () 
   for (const needle of ['Trust boundaries', 'Assets', 'STRIDE', 'Misuse cases', 'security-checklist.md']) {
     assert.ok(tpl.includes(needle), needle);
   }
-  const proc = read('procedures/prd.md');
+  // The writing guidance moved from the procedure into the prd-writer agent.
+  const proc = read('agents/prd-writer.md');
   assert.match(proc, /trust boundary/);
   assert.match(proc, /STRIDE/);
   assert.match(proc, /misuse cases/);
+  assert.match(read('procedures/prd.md'), /prd-writer/);
 });
 
 test('plan template and procedure carry the wider risky list and the misuse-case rule', () => {
-  for (const f of ['templates/plan.md', 'procedures/plan.md']) {
+  for (const f of ['templates/plan.md', 'agents/plan-writer.md']) {
     const src = read(f);
     for (const needle of ['untrusted input', 'personal data', 'new dependency', 'model output', 'shell commands']) {
       assert.ok(src.includes(needle), `${f}: ${needle}`);

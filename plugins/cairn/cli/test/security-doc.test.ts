@@ -21,8 +21,9 @@ test('security-checklist.md has tagged sections and stays short', () => {
 test('security-reviewer is read-only, sonnet, and uses the shared labels', () => {
   const src = read('agents/security-reviewer.md');
   assert.match(src, /^model: sonnet$/m);
-  assert.match(src, /^tools: Read, Grep, Glob, Bash$/m);
-  assert.doesNotMatch(src.split('---')[1] ?? '', /\b(Edit|Write)\b/);
+  assert.match(src, /^tools: Read, Grep, Glob, Bash, Write$/m); // Write is for the report file only
+  assert.doesNotMatch(src.split('---')[1] ?? '', /\bEdit\b/);
+  assert.match(src, /You may Write only your report file/);
   assert.match(src, /references\/security-checklist\.md/);
   assert.match(src, /Critical\|Required\|Optional\|Nit\|FYI/);
   assert.match(src, /Verdict: PASS \| FIX/);
