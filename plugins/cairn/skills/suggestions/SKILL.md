@@ -15,6 +15,7 @@ allowed-tools:
   - "Bash(cairn task:*)"
   - "Bash(cairn phase:*)"
   - "Bash(cairn suggest:*)"
+  - "Bash(cairn review:*)"
   - "Bash(cairn index:*)"
   - "Bash(cairn evidence:*)"
   - "Bash(cairn drift:*)"
