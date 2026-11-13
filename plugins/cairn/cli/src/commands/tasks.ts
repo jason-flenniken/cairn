@@ -6,7 +6,7 @@ import { matchesAny } from '../glob.ts';
 import { planRelOf, taskBranch, type Ctx } from '../locate.ts';
 import { isCairnPath } from '../paths.ts';
 import { phaseStatus } from '../plan-parse.ts';
-import { findTask, readySet } from '../ready.ts';
+import { currentPhase, findTask, readySet } from '../ready.ts';
 import { loadState, log, setStage } from '../state.ts';
 import { SUBSTEPS, type Substep } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
@@ -54,6 +54,7 @@ export function cmdTask(ctx: Ctx, action: string | undefined, id: string | undef
 
 function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
   const { plan, ctx, cfg } = pc;
+  let needsSetup = false;
   const r = mutate(pc, undefined, (s) => {
     // Plans recorded on old names keep them: the task branch is new-style, the folder follows the plan folder.
     const branch = taskBranch(plan.slug, id);
@@ -77,20 +78,21 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, 'task start', opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(', ')}` : `task "${sl.name}" is not in the current phase`, ['cairn ready']);
     const base = git(['rev-parse', pb], plan.worktree);
-    let setup = '';
+    // The worktree is made and recorded under the lock; setup (npm ci and the like) runs after it is released.
     if (!existsSync(path)) {
       if (branchExists(branch, plan.worktree)) git(['worktree', 'add', '-q', path, branch], plan.worktree);
       else git(['worktree', 'add', '-q', '-b', branch, path, pb], plan.worktree);
-      setup = runSetup(cfg, path, ctx.mainRoot);
+      needsSetup = true;
     }
     Object.assign(sl, { status: 'in_progress', substep: 'implementing', fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level });
     const phase = s.phases.find((p) => p.tasks.includes(sl))!;
     if (phase.status === 'pending') phase.status = 'in_progress';
     log(s, 'task started', sl.name);
     syncTickets(s, linearConfig(pc.cfg));
-    return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).${setup}`, data: { worktree: path, branch, planBranch: pb } };
+    return { message: `Started task "${sl.name}" in ${path} (branch ${branch}).`, data: { worktree: path, branch, planBranch: pb } };
   });
   ensureExcluded(ctx.mainRoot, '.claude/worktrees/');
+  if (needsSetup) r.message += runSetup(cfg, String(r.data!.worktree), ctx.mainRoot);
   return r;
 }
 
@@ -170,7 +172,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
     syncTickets(s, linearConfig(pc.cfg));
     const left = phase.tasks.filter((x) => x.status !== 'done').length;
     return {
-      message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : `Phase "${phase.name}" is built: run \`cairn phase finish\`.`}`,
+      message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`}`,
       data: { phaseComplete: !left },
     };
   });

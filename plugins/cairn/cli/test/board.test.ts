@@ -240,3 +240,78 @@ test('FR-05: epics and their issues come out in Linear order even when a child i
     ['E1', 'E2'],
   );
 });
+
+const planWith = (slug: string, keys: string[], branch: string, stage: string) => {
+  const p = planOf(slug, keys, { stage });
+  (p.state as unknown as { branch: string }).branch = branch;
+  return p;
+};
+const progressOf = (slug: string, entries: [string, IssueProgress][]) => new Map([[slug, new Map(entries)]]);
+
+test('alongside: an issue blocked only by work another open plan has built or has in review can start alongside it', () => {
+  const snap = snapOf([{ key: 'A' }, { key: 'B', blockedBy: ['A'] }, { key: 'C', blockedBy: ['A', 'Z'] }, { key: 'Z' }]);
+  for (const [prog, expected] of [['built', 'alongside'], ['in review', 'alongside'], ['shipped', 'alongside'], ['in progress', 'blocked'], ['not started', 'blocked']] as const) {
+    const b = build(snap, [planWith('p', ['A'], 'feature/p', 'verify')], progressOf('p', [['A', prog]]));
+    assert.equal(leaf(b, 'B').status, expected, prog);
+  }
+  const b = build(snap, [planWith('p', ['A'], 'feature/p', 'verify')], progressOf('p', [['A', 'built']]));
+  assert.deepEqual(leaf(b, 'B').after, [{ key: 'A', slug: 'p', stage: 'verify', branch: 'feature/p' }]);
+  assert.equal(leaf(b, 'C').status, 'blocked', 'Z is open and in no plan, so C still waits');
+  assert.deepEqual(b.alongside.map((x) => x.key), ['B']);
+  assert.deepEqual(b.alongside[0].after, [{ key: 'A', slug: 'p', stage: 'verify', branch: 'feature/p' }]);
+  assert.equal(b.waiting.some((w) => w.key === 'B'), false, 'alongside work is not listed as waiting');
+  assert.equal(b.ready.some((w) => w.key === 'B'), false);
+  assert.equal(b.milestones[0].counts.alongside, 1);
+});
+
+test('alongside: a closed plan does not count, and an issue already in a plan is in plan', () => {
+  const snap = snapOf([{ key: 'A' }, { key: 'B', blockedBy: ['A'] }, { key: 'D', blockedBy: ['A'] }]);
+  const closed = build(snap, [planWith('p', ['A'], 'feature/p', 'closed')], progressOf('p', [['A', 'shipped']]));
+  assert.equal(leaf(closed, 'B').status, 'blocked');
+  const taken = build(snap, [planWith('p', ['A'], 'feature/p', 'verify'), planWith('q', ['D'], 'feature/q', 'plan')], new Map([...progressOf('p', [['A', 'built']]), ...progressOf('q', [])]));
+  assert.equal(leaf(taken, 'D').status, 'in plan');
+  assert.equal(leaf(taken, 'B').status, 'alongside');
+});
+
+test('alongside: an epic whose open sub-issues are all ready or alongside, with one alongside, is one alongside row', () => {
+  const snap = snapOf([{ key: 'A' }, { key: 'E' }, { key: 'E1', parent: 'E', blockedBy: ['A'] }, { key: 'E2', parent: 'E', blockedBy: ['A'] }, { key: 'E3', parent: 'E' }, { key: 'F' }, { key: 'F1', parent: 'F' }, { key: 'F2', parent: 'F', blockedBy: ['Z'] }, { key: 'Z' }]);
+  const b = build(snap, [planWith('p', ['A'], 'feature/p', 'review')], progressOf('p', [['A', 'built']]));
+  assert.equal(epic(b, 'E').state, 'alongside');
+  assert.deepEqual(epic(b, 'E').after, [{ key: 'A', slug: 'p', stage: 'review', branch: 'feature/p' }]);
+  assert.deepEqual(b.alongside.map((x) => [x.key, x.kind]), [['E', 'epic']], 'its sub-issues are folded into it');
+  assert.equal(epic(b, 'F').state, 'waiting', 'a sub-issue with an open blocker outside the epic keeps it waiting');
+  assert.equal(b.waiting.some((w) => w.key === 'F'), true);
+});
+
+test('alongside: ordered like ready, by what each unblocks', () => {
+  const snap = snapOf([{ key: 'A' }, { key: 'B', blockedBy: ['A'] }, { key: 'C', blockedBy: ['A'] }, { key: 'D', blockedBy: ['C'] }]);
+  const b = build(snap, [planWith('p', ['A'], 'feature/p', 'verify')], progressOf('p', [['A', 'built']]));
+  assert.deepEqual(b.alongside.map((x) => x.key), ['C', 'B']);
+  assert.equal(b.alongside[0].unblocks, 1);
+});
+
+test('alongside: a blocker qualifies only when its plan is built, whatever the issue progress says', () => {
+  const snap = snapOf([{ key: 'A' }, { key: 'B', blockedBy: ['A'] }]);
+  const building = build(snap, [planWith('p', ['A'], 'feature/p', 'execute')], progressOf('p', [['A', 'built']]));
+  assert.equal(leaf(building, 'B').status, 'blocked', 'the plan is still in execute with tasks open');
+  const p = planWith('p', ['A'], 'feature/p', 'execute');
+  (p.state as unknown as { phases: unknown }).phases = [{ tasks: [{ status: 'done' }, { status: 'done' }] }];
+  assert.equal(leaf(build(snap, [p], progressOf('p', [['A', 'built']])), 'B').status, 'alongside', 'every task done counts as built');
+});
+
+test('alongside: an epic whose sub-issues are blocked by siblings and by a built plan is one alongside row, not waiting', () => {
+  const snap = snapOf([{ key: 'A' }, { key: 'E', blockedBy: ['A'] }, { key: 'E1', parent: 'E' }, { key: 'E2', parent: 'E', blockedBy: ['E1'] }, { key: 'E3', parent: 'E' }]);
+  const b = build(snap, [planWith('p', ['A'], 'feature/p', 'verify')], progressOf('p', [['A', 'built']]));
+  assert.equal(epic(b, 'E').state, 'alongside');
+  assert.deepEqual(epic(b, 'E').after, [{ key: 'A', slug: 'p', stage: 'verify', branch: 'feature/p' }]);
+  assert.deepEqual(b.alongside.map((x) => [x.key, x.kind]), [['E', 'epic']]);
+  assert.equal(b.waiting.some((w) => w.key === 'E'), false);
+});
+
+test('alongside: an epic with a real outside blocker waits on that blocker only', () => {
+  const snap = snapOf([{ key: 'A' }, { key: 'B' }, { key: 'E', blockedBy: ['A'] }, { key: 'E1', parent: 'E' }, { key: 'E2', parent: 'E', blockedBy: ['E1', 'B'] }, { key: 'E3', parent: 'E' }]);
+  const b = build(snap, [planWith('p', ['A'], 'feature/p', 'verify')], progressOf('p', [['A', 'built']]));
+  assert.equal(epic(b, 'E').state, 'waiting');
+  assert.deepEqual(epic(b, 'E').waitsOn, ['B']);
+  assert.deepEqual(b.waiting.find((w) => w.key === 'E')!.waitsOn, ['B']);
+});

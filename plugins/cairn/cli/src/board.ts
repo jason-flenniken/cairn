@@ -1,7 +1,16 @@
 import { effectiveBlockers, findIssueCycle, isDone, takenIssues, type BoardSnapshot, type IssueProgress } from './linear.ts';
 import type { LinearIssue, State } from './types.ts';
 
-export type BoardStatus = 'done' | 'in plan' | 'ready' | 'blocked';
+/** A plan whose work is built: in verify or later, or in execute with every task done. The rule `cairn new --after` and the board's alongside list share. */
+export function planBuilt(s: { stage: string; phases?: State['phases'] }): boolean {
+  const tasks = (s.phases ?? []).flatMap((p) => p.tasks);
+  return ['verify', 'review', 'ship', 'learn'].includes(s.stage) || (tasks.length > 0 && tasks.every((t) => t.status === 'done'));
+}
+
+export type BoardStatus = 'done' | 'in plan' | 'ready' | 'alongside' | 'blocked';
+
+/** A plan an alongside issue would stack on: the plan that holds its blocker, built or in review. */
+export type BoardAfter = { key: string; slug: string; stage: string; branch: string };
 
 export interface BoardIssue {
   key: string;
@@ -14,6 +23,8 @@ export interface BoardIssue {
   blockedBy: { key: string; where?: string }[];
   /** Open issues waiting on this one, through chains: set on ready and in-plan issues. */
   unblocks?: number;
+  /** Set on `alongside` issues: each open blocker and the plan holding it. */
+  after?: BoardAfter[];
 }
 
 export interface BoardEpic {
@@ -23,14 +34,16 @@ export interface BoardEpic {
   total: number;
   plans: string[];
   issues: BoardIssue[];
-  state: 'active' | 'ready' | 'waiting' | 'done';
+  state: 'active' | 'ready' | 'alongside' | 'waiting' | 'done';
   waitsOn: string[];
   unblocks: number;
+  /** Set on `alongside` epics: the plans its sub-issues would stack on. */
+  after?: BoardAfter[];
 }
 
 export interface BoardMilestone {
   name: string;
-  counts: { total: number; done: number; inPlan: number; ready: number; blocked: number };
+  counts: { total: number; done: number; inPlan: number; ready: number; alongside: number; blocked: number };
   epics: BoardEpic[];
   issues: BoardIssue[];
   waitsOn?: string[];
@@ -45,6 +58,8 @@ export interface BoardData {
   focus: string | null;
   inProgress: { slug: string; stage: string; epic?: string; title?: string; done: number; total: number; issues: { key: string; title: string; progress: IssueProgress }[] }[];
   ready: { key: string; title: string; kind: 'epic' | 'issue'; milestone: string; unblocks: number }[];
+  /** Open work not in a plan whose every blocker is built or in review in another open plan: it can start stacked on that plan. */
+  alongside: { key: string; title: string; kind: 'epic' | 'issue'; milestone: string; unblocks: number; after: BoardAfter[] }[];
   waiting: { key: string; title: string; kind: 'epic' | 'issue'; done?: number; total?: number; waitsOn: string[] }[];
   done: number;
   wideLinks: { epic: string; on: string; holds: number }[];
@@ -83,6 +98,19 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
     if ((x.milestone ?? '') === (i.milestone ?? '')) return undefined;
     return x.milestone ? `milestone ${x.milestone}` : 'this project';
   };
+  /** The blocker sits in a plan still open that is built (verify or later, or every task done) and whose work on it is in review or built: an issue could start on that plan's branch. */
+  const alongsideBlocker = (b: string): BoardAfter | undefined => {
+    const o = ownerOf(plans, b);
+    if (!o || o.stage === 'closed' || !planBuilt({ stage: o.stage, phases: o.state.phases })) return undefined;
+    const prog = progress.get(o.slug)?.get(b);
+    if (prog !== 'in review' && prog !== 'built' && prog !== 'shipped') return undefined;
+    return { key: b, slug: o.slug, stage: o.stage, branch: o.state.branch };
+  };
+  /** Every blocker qualifies by that rule. */
+  const alongsideOf = (blockers: string[]): BoardAfter[] | undefined => {
+    const after = blockers.map(alongsideBlocker);
+    return after.length && after.every((a): a is BoardAfter => !!a) ? after : undefined;
+  };
   const openBlockers = (i: LinearIssue) => linearOrder(effectiveBlockers(i, lookup, depends).filter((b) => !isDone(lookup.get(b))));
   const statusOf = (i: LinearIssue): BoardIssue => {
     const owner = ownerOf(plans, i.key);
@@ -94,7 +122,9 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
     const base = { key: i.key, title: i.title, ...(i.milestone ? { milestone: i.milestone } : {}), ...(i.parent ? { parent: i.parent } : {}), blockedBy };
     if (isDone(i)) return { ...base, status: 'done', blockedBy: [] };
     if (owner) return { ...base, status: 'in plan', plan: { slug: owner.slug, stage: owner.stage, progress: progress.get(owner.slug)?.get(i.key) ?? 'not started' } };
-    return { ...base, status: blockers.length ? 'blocked' : 'ready' };
+    if (!blockers.length) return { ...base, status: 'ready' };
+    const after = alongsideOf(blockers);
+    return after ? { ...base, status: 'alongside', after } : { ...base, status: 'blocked' };
   };
 
   // Built from the epics' own positions, so every list of epics comes out in Linear order.
@@ -133,23 +163,37 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
     return seen;
   };
   for (const x of leaves) {
-    if (x.status !== 'ready' && x.status !== 'in plan') continue;
+    if (x.status !== 'ready' && x.status !== 'alongside' && x.status !== 'in plan') continue;
     const r = reach([x.key]);
     r.delete(x.key);
     x.unblocks = r.size;
   }
 
+  const uniqueAfter = (xs: BoardAfter[]) => xs.filter((a, n) => xs.findIndex((b) => b.key === a.key && b.slug === a.slug) === n);
   const epicOf = (p: string): BoardEpic => {
     const kids = descendants(p);
     const inside = new Set(subtree(p));
     const open = kids.filter((k) => k.status !== 'done');
+    // A sub-issue blocked only by its siblings (built in the same plan) and by work other plans have built counts as
+    // ready or alongside: only blockers outside the epic matter.
+    const view = open.map((k) => {
+      if (k.status !== 'blocked') return { k, status: k.status, after: k.after ?? [], real: [] as string[] };
+      const outsideBlockers = k.blockedBy.map((b) => b.key).filter((b) => !inside.has(b));
+      const real = outsideBlockers.filter((b) => !alongsideBlocker(b));
+      if (real.length) return { k, status: 'blocked' as BoardStatus, after: [], real };
+      const after = outsideBlockers.map(alongsideBlocker).filter((a): a is BoardAfter => !!a);
+      return { k, status: (after.length ? 'alongside' : 'ready') as BoardStatus, after, real };
+    });
     const state: BoardEpic['state'] = kids.some((k) => k.status === 'in plan')
       ? 'active'
       : !open.length
         ? 'done'
-        : open.every((k) => k.status === 'ready')
+        : view.every((v) => v.status === 'ready')
           ? 'ready'
-          : 'waiting';
+          : view.every((v) => v.status === 'ready' || v.status === 'alongside')
+            ? 'alongside'
+            : 'waiting';
+    const after = state === 'alongside' ? uniqueAfter(view.flatMap((v) => v.after)) : undefined;
     const outside = [...reach([...inside])].filter((k) => !inside.has(k));
     return {
       key: p,
@@ -159,12 +203,13 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
       plans: [...new Set(kids.map((k) => k.plan?.slug).filter((x): x is string => !!x))],
       issues: kids,
       state,
-      waitsOn: linearOrder(open.flatMap((k) => k.blockedBy.map((b) => b.key)).filter((b) => !inside.has(b))),
+      waitsOn: linearOrder((state === 'waiting' ? view.flatMap((v) => v.real) : open.flatMap((k) => k.blockedBy.map((b) => b.key))).filter((b) => !inside.has(b))),
       unblocks: outside.length,
+      ...(after ? { after } : {}),
     };
   };
 
-  const count = (xs: BoardIssue[]) => ({ total: xs.length, done: xs.filter((x) => x.status === 'done').length, inPlan: xs.filter((x) => x.status === 'in plan').length, ready: xs.filter((x) => x.status === 'ready').length, blocked: xs.filter((x) => x.status === 'blocked').length });
+  const count = (xs: BoardIssue[]) => ({ total: xs.length, done: xs.filter((x) => x.status === 'done').length, inPlan: xs.filter((x) => x.status === 'in plan').length, ready: xs.filter((x) => x.status === 'ready').length, alongside: xs.filter((x) => x.status === 'alongside').length, blocked: xs.filter((x) => x.status === 'blocked').length });
   const named = [...new Set([...snap.milestones, ...snap.issues.map((i) => i.milestone ?? '')])].filter((n) => n);
   const names = [...named, ''];
   const topEpics = [...parents].filter((p) => !byKey.get(p)!.parent || !parents.has(byKey.get(p)!.parent!));
@@ -193,6 +238,13 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
   const ready: BoardData['ready'] = [
     ...byUnblocks(readyEpics.map((e) => ({ key: e.key, title: e.title, kind: 'epic' as const, milestone: milestoneOfRow.get(e.key) ?? NO_MILESTONE, unblocks: e.unblocks }))),
     ...byUnblocks(leaves.filter((x) => x.status === 'ready' && !inReadyEpic.has(x.key)).map((x) => ({ key: x.key, title: x.title, kind: 'issue' as const, milestone: milestoneOfRow.get(x.key) ?? NO_MILESTONE, unblocks: x.unblocks ?? 0 }))),
+  ];
+
+  const alongsideEpics = epics.filter((e) => e.state === 'alongside');
+  const inAlongsideEpic = new Set(alongsideEpics.flatMap((e) => e.issues.map((i) => i.key)));
+  const alongside: BoardData['alongside'] = [
+    ...byUnblocks(alongsideEpics.map((e) => ({ key: e.key, title: e.title, kind: 'epic' as const, milestone: milestoneOfRow.get(e.key) ?? NO_MILESTONE, unblocks: e.unblocks, after: e.after ?? [] }))),
+    ...byUnblocks(leaves.filter((x) => x.status === 'alongside' && !inAlongsideEpic.has(x.key)).map((x) => ({ key: x.key, title: x.title, kind: 'issue' as const, milestone: milestoneOfRow.get(x.key) ?? NO_MILESTONE, unblocks: x.unblocks ?? 0, after: x.after ?? [] }))),
   ];
 
   const waiting: BoardData['waiting'] = focusRow
@@ -237,6 +289,7 @@ export function buildBoard(input: { snap: BoardSnapshot; plans: BoardPlan[]; pro
     focus: focusRow ? focusRow.row.name : null,
     inProgress,
     ready,
+    alongside,
     waiting,
     done: leaves.filter((x) => x.status === 'done').length,
     wideLinks,

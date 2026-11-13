@@ -84,7 +84,7 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
 }
 
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
-  next | status [--all] | new <slug> --title "…" | product init | decide "<q>" "<a>" [--why] | decide --file <path>
+  next | status [--all] | new <slug> --title "…" [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   task start|step|done <id> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …

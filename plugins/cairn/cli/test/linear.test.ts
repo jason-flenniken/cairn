@@ -437,7 +437,7 @@ test('linear: an epic from import to merged, with every check and queued write',
   const order = [/^Checkout: read from/m, /^M1: 1\/3 done/m, /^In progress:/m, /^Ready to start:/m, /^Done: /m, /^M2: 0\/6/m, /blocked-by link to SAV-90 makes/, /^Loop in blocked-by/m, /No full read/].map(at);
   assert.ok(order.every((n) => n >= 0) && order.every((n, i) => !i || n > order[i - 1]), `sections out of order: ${order}`);
   const m2 = (b.data!.milestones as { name: string; counts: Record<string, number> }[]).find((m) => m.name === 'M2')!;
-  assert.deepEqual(m2.counts, { total: 6, done: 0, inPlan: 2, ready: 2, blocked: 2 }, 'OPS-2 is not counted, and done');
+  assert.deepEqual(m2.counts, { total: 6, done: 0, inPlan: 2, ready: 2, alongside: 0, blocked: 2 }, 'OPS-2 is not counted, and done');
   assert.doesNotMatch(b.message, /OPS-2/);
   const one = ok(repo, 'linear', 'board', '--epic', 'sav-100');
   assert.equal((one.data!.milestones as unknown[]).length, 1);
@@ -610,6 +610,42 @@ test('linear: a foundational issue makes the plan name its approach', () => {
   ok(wt, 'plan', 'load');
   ok(wt, 'step', 'approving');
   assert.match((ok(wt, 'status').data!.ready as { summary: string }).summary, /^\*\*Approach:\*\* Chosen: SQLite, one file and no server\./);
+});
+
+test('linear relink: lists both sides of an epic link, refuses what cannot be narrowed', () => {
+  refused(repo, /no snapshot of "Nope"/, 'linear', 'relink', 'SAV-800', '--project', 'Nope');
+  const snap = { project: 'Relink', milestones: ['M'], issues: [
+    { key: 'SAV-800', title: 'Jobs', milestone: 'M', blockedBy: [] as string[] },
+    { key: 'SAV-801', title: 'Queue', parent: 'SAV-800', milestone: 'M', stateName: 'Todo', stateType: 'unstarted', blockedBy: [] as string[] },
+    { key: 'SAV-802', title: 'Workers', parent: 'SAV-800', milestone: 'M', stateType: 'unstarted', blockedBy: ['SAV-801'] },
+    { key: 'SAV-803', title: 'Old', parent: 'SAV-800', milestone: 'M', stateType: 'completed', blockedBy: [] as string[] },
+    { key: 'SAV-810', title: 'Metering', milestone: 'M', blockedBy: ['SAV-800'] },
+    { key: 'SAV-811', title: 'Meter model', parent: 'SAV-810', milestone: 'M', stateType: 'unstarted', blockedBy: [] as string[] },
+    { key: 'SAV-812', title: 'Meter api', parent: 'SAV-810', milestone: 'M', stateType: 'unstarted', blockedBy: ['SAV-811'] },
+    { key: 'SAV-813', title: 'Meter ui', parent: 'SAV-810', milestone: 'M', stateType: 'started', blockedBy: [] as string[] },
+  ] };
+  run(['linear', 'import', '--board'], repo, JSON.stringify(snap));
+  const before = JSON.stringify(ok(repo, 'linear', 'board', '--project', 'Relink').data!.milestones);
+  const r = ok(repo, 'linear', 'relink', 'sav-810', '--project', 'Relink');
+  assert.match(r.message, /^SAV-810 Metering: one blocked-by link of its own\.$/m);
+  assert.match(r.message, /^Blocked by SAV-800 Jobs \(epic, 2 open sub-issues\):$/m);
+  assert.match(r.message, /^  SAV-801 Queue \[Todo\]/m);
+  assert.match(r.message, /^  SAV-802 Workers \[unstarted\]/m);
+  assert.doesNotMatch(r.message, /SAV-803/, 'done sub-issues are left out');
+  assert.match(r.message, /^SAV-810's open sub-issues \(3\):$/m);
+  assert.match(r.message, /^  SAV-812 Meter api \[unstarted\] · blocked by SAV-811/m);
+  assert.match(r.message, /get_issue/, 'issues without a saved text point at get_issue');
+  const d = ok(repo, 'linear', 'relink', 'SAV-810', '--project', 'Relink', '--json').data as { epic: { key: string }; links: { on: string; blocker: { isEpic: boolean }; blockerSubs: { key: string }[]; subs: { key: string; blockedBy: string[] }[] }[] };
+  assert.equal(d.epic.key, 'SAV-810');
+  assert.equal(d.links.length, 1);
+  assert.equal(d.links[0].on, 'SAV-800');
+  assert.equal(d.links[0].blocker.isEpic, true);
+  assert.deepEqual(d.links[0].blockerSubs.map((x) => x.key), ['SAV-801', 'SAV-802']);
+  assert.deepEqual(d.links[0].subs.map((x) => x.key), ['SAV-811', 'SAV-812', 'SAV-813']);
+  assert.deepEqual(d.links[0].subs[1].blockedBy, ['SAV-811']);
+  assert.equal(JSON.stringify(ok(repo, 'linear', 'board', '--project', 'Relink').data!.milestones), before, 'relink does not change the snapshot');
+  refused(repo, /SAV-801 is not an epic/, 'linear', 'relink', 'SAV-801', '--project', 'Relink');
+  refused(repo, /SAV-800 has no blocked-by link of its own/, 'linear', 'relink', 'SAV-800', '--project', 'Relink');
 });
 
 test('linear board: a merge read keeps links, asks only for what changed, and names ready epics', () => {

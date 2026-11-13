@@ -36,6 +36,7 @@ Phases are demoable milestones. Tasks in one phase may run in parallel when scop
 phases:
   - id: foundations            # kebab-case, unique
     name: Foundations
+    # overlap: true            # not on the first phase. Its tasks start once their own blocked_by are done, without waiting for the earlier phase to finish; name every earlier task they need in blocked_by. Phases still finish in order.
     tasks:
       - id: cart-api           # kebab-case, unique across the plan
         name: Cart API

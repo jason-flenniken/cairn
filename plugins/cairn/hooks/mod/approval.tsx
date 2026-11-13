@@ -2,13 +2,13 @@
 // Read all and Approve, and the confirm every pane or /cairn-approve approval goes through (FR-05).
 // Also the read-back card, shown while the read-back question is open in the chat.
 import type { EngineInterface } from 'claude-code'
-import type { CairnReadBack, CairnReady } from '../../types/index.d.ts'
+import type { CairnPlanRow, CairnReadBack, CairnReady } from '../../types/index.d.ts'
 import { answerReadBack, approveAs, isAskedInChat, isDialogOpen, LABEL_OF, levelAs, LEVEL_OF_LABEL, LEVELS, type Kind, type Level } from './approve.ts'
 import { openDoc } from './doc.tsx'
-import type { Ui } from './header.tsx'
-import { act, viewPress } from './util.ts'
+import { isAsking, type Ui } from './header.tsx'
+import { act, clean, viewPress } from './util.ts'
 
-const DOC_NAME = { prd: 'PRD', plan: 'Plan', ship: 'Ship record' } as const
+export const DOC_NAME = { prd: 'PRD', plan: 'Plan', ship: 'Ship record' } as const
 
 const APPROVE = 'Approve'
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -100,6 +100,64 @@ export function readBackCard(ui: Ui, rb: CairnReadBack, isInline: boolean) {
       <Text bold color="yellow">Waiting on you: read-back</Text>
       {!isInline && <Text key="card">{rb.card === '' ? 'The card is in the chat question.' : rb.card}</Text>}
       {buttons}
+    </Box>
+  )
+}
+
+/** The most waiting plans the seven-row inline pane lists; the rest are counted in its other-plans line. */
+export const INLINE_WAITING = 2
+
+const WHAT = { prd: 'PRD', plan: 'plan', ship: 'ship' } as const
+
+/**
+ * The Waiting on you block: one entry per plan in `rows` (other plans that want the person). A plan with a document
+ * ready gets Open (the doc viewer, on that plan's file) and Approve, which goes through the same confirm and read-back
+ * path as the shown plan's, with that plan's slug. A plan asking in its own session has no buttons: only its name and
+ * the worktree to go to. Inline, one row per plan with Approve alone, as the viewer is not drawn there.
+ */
+export function waitingBlock($: EngineInterface, ui: Ui, rows: CairnPlanRow[], isInline: boolean) {
+  const { Box, Button, Text } = ui
+  if (rows.length === 0) return false
+  if (isInline) {
+    return rows.slice(0, INLINE_WAITING).map(r => {
+      const slug = r.state.slug
+      const title = clean(r.state.title ?? slug)
+      const ready = r.ready
+      return ready === undefined
+        ? <Text key={`waiting:${slug}`} color="yellow" wrap="truncate-end">{`${title}: waiting for you in its session`}</Text>
+        : (
+          <Box key={`waiting:${slug}`} flexDirection="row" gap={1}>
+            <Text color="yellow" wrap="truncate-end">{`${title} · ${WHAT[ready.kind]}`}</Text>
+            <Button key={`approve:${slug}`} label="Approve" variant="primary" onPress={() => act($, () => approvePress($, slug, ready.kind))} />
+          </Box>
+        )
+    })
+  }
+  return (
+    <Box key="waiting:others" flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
+      <Text bold color="yellow">Waiting on you</Text>
+      {rows.map(r => {
+        const slug = r.state.slug
+        const title = clean(r.state.title ?? slug)
+        const ready = r.ready
+        if (ready === undefined) {
+          return (
+            <Box key={`waiting:${slug}`} flexDirection="column">
+              <Text wrap="truncate-end">{isAsking(r) ? `${title}: waiting for you in its session` : title}</Text>
+              {r.worktree !== undefined && <Text dimColor wrap="truncate-end">{clean(r.worktree)}</Text>}
+            </Box>
+          )
+        }
+        return (
+          <Box key={`waiting:${slug}`} flexDirection="column">
+            <Text wrap="truncate-end">{`${title} · ${WHAT[ready.kind]} approval`}</Text>
+            <Box flexDirection="row" gap={1}>
+              <Button key={`open:${slug}`} label="Open" onPress={() => act($, () => openDoc($, 'cairn', { file: ready.file, title: `${DOC_NAME[ready.kind]}: ${slug}`, kind: ready.kind }))} />
+              <Button key={`approve:${slug}`} label="Approve" variant="primary" onPress={() => act($, () => approvePress($, slug, ready.kind))} />
+            </Box>
+          </Box>
+        )
+      })}
     </Box>
   )
 }

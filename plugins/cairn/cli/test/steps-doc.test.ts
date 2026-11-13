@@ -16,7 +16,7 @@ const PROCEDURES: Record<string, string[]> = {
   'procedures/review.md': [...STEPS.review!],
   'procedures/ship.md': [...STEPS.ship!],
   // The fix track goes through review and ship; it has no verify stage.
-  'procedures/fix.md': ['reviewing', 'rechecking', 'recording', 'approving', 'opening-pr'],
+  'procedures/fix.md': ['reviewing', 'rechecking', 'recording', 'approving', 'opening-pr', 'asking'],
 };
 
 for (const [file, names] of Object.entries(PROCEDURES)) {
@@ -31,5 +31,13 @@ for (const [file, names] of Object.entries(PROCEDURES)) {
 test('fixing steps pass the finding count', () => {
   for (const file of ['procedures/verify.md', 'procedures/review.md']) {
     assert.match(read(file), /cairn step fixing --count N/, file);
+  }
+});
+
+test('procedures that ask a blocking question run cairn step asking, and say how it ends', () => {
+  for (const file of ['execute', 'phase-end', 'discover']) {
+    const src = read(`procedures/${file}.md`);
+    assert.match(src, /cd <plan worktree> && cairn step asking/, file);
+    assert.match(src, /cd <plan worktree> && cairn step clear/, file);
   }
 });

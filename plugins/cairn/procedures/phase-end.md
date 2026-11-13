@@ -4,6 +4,8 @@ Finish the built phase and keep going. The CLI checks the phase; there is no hum
 
 Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`. Run every `cairn` command from the plan worktree: `cd <plan worktree> && cairn <command>`.
 
+**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, run `cd <plan worktree> && cairn step clear`; a phase end has no other step.
+
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
 - MVP and Standard: as written below. The on-track check is optional.

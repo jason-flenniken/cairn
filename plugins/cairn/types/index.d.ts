@@ -52,6 +52,8 @@ export type CairnPlanRow = {
   maxParallel?: number
   /** Set only while the plan's document is ready for the human; absent while it is still being drafted. */
   ready?: CairnReady
+  /** True when the plan wants the person: a document is ready, or its step is `approving` or `asking`; the CLI works it out. */
+  needsUser?: boolean
   /** The Linear issue keys each task of the plan builds, by task name; absent until the plan is linked to Linear. */
   taskIssues?: Record<string, string[]>
   /** The Linear epic key the plan belongs to; absent when it has none. */
@@ -80,13 +82,18 @@ export type CairnBoardIssue = {
   title: string
   milestone?: string
   parent?: string
-  status: 'done' | 'in plan' | 'ready' | 'blocked'
+  status: 'done' | 'in plan' | 'ready' | 'alongside' | 'blocked'
   plan?: { slug: string; stage: string; progress: string }
   /** The issues this one waits on; `where` names the milestone or plan they sit in, when the CLI knows it. */
   blockedBy: { key: string; where?: string }[]
   /** How many other issues this one unblocks when it finishes. */
   unblocks?: number
+  /** On `alongside` issues: each open blocker and the plan holding it. */
+  after?: CairnBoardAfter[]
 }
+
+/** A plan an alongside issue or epic would stack on. */
+export type CairnBoardAfter = { key: string; slug: string; stage: string; branch: string }
 
 /** One epic of a milestone in `cairn linear board --json`, with where it stands. */
 export type CairnBoardEpic = {
@@ -97,11 +104,13 @@ export type CairnBoardEpic = {
   plans: string[]
   issues: CairnBoardIssue[]
   /** Where the epic stands: `active` has work under way, `ready` can start, `waiting` is blocked, `done` is finished. */
-  state: 'active' | 'ready' | 'waiting' | 'done'
+  state: 'active' | 'ready' | 'alongside' | 'waiting' | 'done'
   /** The keys of the epics or issues this epic waits on. */
   waitsOn: string[]
   /** How many other items this epic unblocks when it finishes. */
   unblocks?: number
+  /** On `alongside` epics: the plans its sub-issues would stack on. */
+  after?: CairnBoardAfter[]
 }
 
 /** `cairn linear board --json`: the Linear project's progress across milestones, epics and plans. */
@@ -111,7 +120,7 @@ export type CairnBoard = {
   ageMinutes: number
   milestones: {
     name: string
-    counts: { total: number; done: number; inPlan: number; ready: number; blocked: number }
+    counts: { total: number; done: number; inPlan: number; ready: number; alongside?: number; blocked: number }
     epics: CairnBoardEpic[]
     issues: CairnBoardIssue[]
     /** The milestones this one waits on. */
@@ -140,6 +149,8 @@ export type CairnBoard = {
   }[]
   /** The epics and issues that can start now, with what each one unblocks. */
   ready?: { key: string; title: string; kind: 'epic' | 'issue'; milestone: string; unblocks: number }[]
+  /** Work that can start now stacked on another open plan's branch, because its blockers are built or in review there. */
+  alongside?: { key: string; title: string; kind: 'epic' | 'issue'; milestone: string; unblocks: number; after: CairnBoardAfter[] }[]
   /** The epics and issues that wait on something, with the keys they wait on. */
   waiting?: { key: string; title: string; kind: 'epic' | 'issue'; done?: number; total?: number; waitsOn: string[] }[]
   /** How many issues in the project are done. */

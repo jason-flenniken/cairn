@@ -220,11 +220,12 @@ It has four tabs, **Now**, **History**, **Records**, and **Changelog**, and the 
 - **Waiting on you:** a yellow box, only when something needs you.
   - At the PRD, plan, and ship stops it shows the document's summary with **Read all**, which opens the full document in the pane, and **Approve**. Approve asks you to confirm, then records the approval the same way answering in the chat does. The model can't approve for you: the mod blocks it from running the approval itself.
   - During discovery it shows the read-back card while "Is this right?" is open in the chat, with buttons that answer it.
+  - Below this plan's content it also lists every other plan that waits on you, so one pane is the one place to approve from. A plan with a PRD, plan or ship record ready shows its title, what waits, **Open** (the document in the pane) and **Approve**, which goes through the same confirm as above, for that plan. A plan whose agent asked a question in its own session shows "waiting for you in its session" and the folder to go to, with no buttons: the question can only be answered there. The status line counts them ("2 plans wait on you"). Plans with nothing waiting stay in the plain other-plans list.
 - **Main session:** what the orchestrating session is doing (running tests, merging, starting agents) and for how long. It turns yellow and says **waiting for you** only while it has asked you something in the chat; between turns it reads **idle**, with how many agents are still working.
 - **Agent cards:** one per running agent: its role and task (Build, Review, Fix, Check, Record), model, time, tokens and estimated cost, current action, and step count. A finished card turns green (red if it stopped early) and stays a few seconds with its totals.
 - **UP NEXT** lists the next tasks in the phase, marking those still waiting on another task. Files edited outside every task's scope show as **out-of-scope edits**.
 - **Buttons:** **Pause** lets running work reach a safe point and stops, **Stop now** cuts the running turn and saves work in progress, **Resume** continues a paused plan, and **Status** prints where the plan stands.
-- Other plans active in the repo are listed with a **Resume** button each.
+- Other plans active in the repo that are not waiting on you are listed with a **Resume** button each.
 
 ### History
 
@@ -335,11 +336,15 @@ A ticket carrying the foundational label makes the plan foundational: `/cairn:ne
 - **Done:** a count.
 - **Later milestones:** one line each, saying what it waits on.
 
-A blocked-by link set on an epic makes every one of its sub-issues wait. When such a link holds 3 or more open sub-issues, the board flags it and suggests linking only the sub-issues that need it.
+A blocked-by link set on an epic makes every one of its sub-issues wait. When such a link holds 3 or more open sub-issues, the board flags it. Links belong on the sub-issues that truly need the blocker, so the board then offers to narrow them: for each wide epic link, cairn (`procedures/relink.md`, backed by `cairn linear relink <EPIC>`) reads the tickets on both sides, proposes which sub-issues need which blocker issue, and on your approval adds those links in Linear, removes the epic's own link, comments on the epic, and re-reads the links. The replacement links are always added before the old one is removed.
 
 `cairn linear board` prints the same thing. The snapshot is cached outside git and shared by every worktree. A normal run only re-reads the links of issues that are new or changed; `/cairn:board <project> --full` re-reads them all, and the board suggests it when the last full read is over 3 days old.
 
 **The pane.** The Linear tab in the live pane shows the same sections, with every milestone at the top: a progress bar for the first unfinished one, ✓ for finished ones, and one line per later one. Blocked work is dim; red is only for a loop in the blocked-by links. Agent cards show the ticket key before the task name (`8 · SAV-66 Move the app…`, with `+1` when a task covers more than one ticket), the plan header shows the epic key, and UP NEXT shows each task's key.
+
+### Several plans at once
+
+When the work you want next is blocked only by work another open plan has built (it is in verify or later, or every task is done) and has in review, `/cairn:board` lists it under "Can start alongside". `/cairn:new --from-linear <KEY>` then offers to start the new plan on that plan's branch (`cairn new <slug> --after <plan>`), so you don't wait for the merge. The new plan shows `Stacked on <plan>`. Each time you run `/cairn:next`, it merges in whatever the other plan added. It cannot ship before that plan has merged. Once it has, `cairn next` (or `cairn merge-check`) merges main in and moves the plan onto main; a conflict stops it with the files named.
 
 ## Configuration
 
@@ -366,7 +371,7 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 | `test` | The full test command. It runs before each task is marked done, and again at Check and close. |
 | `build` | The build command, run at Check. |
 | `start`, `seed`, `appTypes` | How to run the app, seed its data, and what kind of app it is (`web`, `expo`, `api`). These are recorded for checks that drive the running app; the lean defaults don't use them yet. |
-| `maxParallel` | How many tasks run at once (default 3). |
+| `maxParallel` | How many tasks run at once (default 3). A task in review does not count, and a fix round after review is never held back, so the cap can briefly be exceeded by the tasks returning from review. |
 | `defaultLevel` | The level `/cairn:new` picks first: `mvp`, `standard` or `polished` (default standard). |
 | `resumeFreshAfterMinutes` | How long a pause counts as recent before resume suggests a fresh session (default 60). |
 | `fixMaxFiles` | How many files a bug fix may touch before cairn suggests a full plan (default 8). |

@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildBoard, ownerOf, type BoardIssue } from '../board.ts';
 import { loadConfig } from '../config.ts';
-import { commonDir, landedState } from '../git.ts';
+import { commonDir, gitOk, gitTry, landedState, prMerged, safeRef } from '../git.ts';
 import {
   effectiveBlockers,
   emptyLink,
@@ -39,16 +39,16 @@ import {
 } from '../linear.ts';
 import { planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { loadState, log } from '../state.ts';
-import type { LinearChange, LinearConfig, LinearLink, State } from '../types.ts';
+import type { LinearChange, LinearConfig, LinearIssue, LinearLink, State } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal, writeText } from '../util.ts';
 import { gate, mutate, planCtx, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { collectSuggestions } from './suggest.ts';
-import { listPlans } from './status.ts';
+import { listPlans, stackBase } from './status.ts';
 import { onPublishSent, publish } from './publish.ts';
 
 const USAGE = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "…" | hold <id> --note "…" | depends <KEY> --on <KEY> --reason "…" | ack <change> --as taken|later|noted [--note "…"]
-  | release <KEY> --reason "…" | take <KEY> --reason "…" | board [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
+  | release <KEY> --reason "…" | take <KEY> --reason "…" | board [--project "<name>"] [--json] | relink <EPIC> [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
 
 const NO_CONFIG = (where: string) =>
   new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
@@ -89,6 +89,8 @@ export function cmdLinear(ctx: Ctx, sub: string | undefined, arg: string | undef
       return take(ctx, arg, opts);
     case 'board':
       return board(ctx, opts);
+    case 'relink':
+      return relink(ctx, arg, opts);
     case 'publish':
       return publish(ctx, opts);
     default:
@@ -695,8 +697,9 @@ export function onPlanLoaded(s: State): void {
 
 /** Before `approve ship`: blockers this plan's issues have in other plans must have shipped. Read before the lock. */
 export function crossPlanBlockers(ctx: Ctx, s: State): string[] {
+  const stack = stackedOnBlocker(ctx, s);
   const l = s.linear;
-  if (!l) return [];
+  if (!l) return stack;
   const others = otherPlans(ctx, s.slug);
   const byKey = new Map([...l.known, ...l.issues].map((i) => [i.key, i]));
   const inPlan = new Set(takenIssues(l).map((i) => i.key));
@@ -710,11 +713,36 @@ export function crossPlanBlockers(ctx: Ctx, s: State): string[] {
       if (o.stage !== 'learn' && o.stage !== 'closed') out.push(`${i.key} needs ${b}, which plan ${o.slug} has not shipped (it is in ${o.stage})`);
       else if (!merged(ctx, o.state)) out.push(`${i.key} needs ${b}, which plan ${o.slug} has not merged yet`);
     }
-  return [...new Set(out)];
+  return [...new Set([...stack, ...out])];
+}
+
+/** A plan started with `--after` ships only once the plan it stacked on has merged: until then its branch carries that plan's work. */
+function stackedOnBlocker(ctx: Ctx, s: State): string[] {
+  if (!s.stackedOn) return [];
+  const row = stackBase(ctx, s.stackedOn.slug);
+  if (stackLanded(ctx, s.stackedOn, row, ctx.top)) return [];
+  return [row ? `it is stacked on plan ${row.state.slug}, which has not merged yet (it is in ${row.state.stage})` : `it is stacked on plan ${s.stackedOn.slug}, whose branch cannot be read and whose work is not on the main branch, so it is not known to have merged`];
+}
+
+/**
+ * Whether the plan a stacked plan sits on has landed. Its plan row says so when it can be read. Otherwise (branch
+ * deleted, or kept on the remote only) the base tip recorded in `stackedOn` must be in the main branch, or the base's
+ * pull request must show as merged. A base branch that is merely gone never counts: it may have been abandoned.
+ * Reads the refs as they are (no fetch), so a stale main only delays the answer.
+ */
+export function stackLanded(ctx: Ctx, st: NonNullable<State['stackedOn']>, row: ReturnType<typeof stackBase>, cwd: string): boolean {
+  if (row && merged(ctx, row.state)) return true;
+  const target = row?.state.base ?? ctx.worktrees[0]?.branch ?? 'main';
+  if (st.tip && safeRef(cwd, target)) {
+    const inTarget = (sha: string) => [target, `origin/${target}`].some((r) => gitOk(['rev-parse', '--verify', '--quiet', `${r}^{commit}`], cwd) && gitOk(['merge-base', '--is-ancestor', sha, r], cwd));
+    const heads = [st.branch, `origin/${st.branch}`].map((r) => gitTry(['rev-parse', '--verify', '--quiet', `${r}^{commit}`], cwd)).filter((r) => r.ok).map((r) => r.out.trim());
+    if (inTarget(st.tip) && heads.every(inTarget)) return true;
+  }
+  return prMerged(cwd, st.branch, join(commonDir(ctx.mainRoot), PR_CACHE));
 }
 
 /** Whether another plan's branch has landed in its base. Its state came from another branch, so its refs are checked first (`mergeState` does). */
-function merged(ctx: Ctx, s: State): boolean {
+export function merged(ctx: Ctx, s: State): boolean {
   try {
     const rel = resolvePlanDir(s.slug, { ref: s.branch, cwd: ctx.top }) ?? '';
     return landedState(ctx.top, s.branch, s.base, rel, join(commonDir(ctx.mainRoot), PR_CACHE)) === 'merged';
@@ -767,8 +795,12 @@ const FULL_READ_DAYS = 3;
 
 const blockedText = (x: BoardIssue) => `blocked by ${x.blockedBy.map((b) => (b.where ? `${b.key} [${b.where}]` : b.key)).join(', ')}`;
 
+/** `alongside SAV-16 (plan sav-16-repo-ci-observability, verify)`, one entry per plan. */
+const alongsideText = (after: { key: string; slug: string; stage: string }[]) =>
+  `alongside ${after.map((a) => `${a.key} (plan ${a.slug}, ${a.stage})`).join(', ')}`;
+
 const issueLine = (x: BoardIssue, indent: string) =>
-  `${indent}${x.status === 'done' ? '✓' : x.status === 'in plan' ? '▸' : x.status === 'ready' ? '○' : '✗'} ${x.key} ${x.title}${x.plan ? `: ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})` : ''}${x.status === 'blocked' ? `: ${blockedText(x)}` : ''}`;
+  `${indent}${x.status === 'done' ? '✓' : x.status === 'in plan' ? '▸' : x.status === 'ready' ? '○' : x.status === 'alongside' ? '⇉' : '✗'} ${x.key} ${x.title}${x.plan ? `: ${x.plan.slug} (${x.plan.stage}, ${x.plan.progress})` : ''}${x.status === 'blocked' ? `: ${blockedText(x)}` : ''}${x.status === 'alongside' ? `: ${alongsideText(x.after ?? [])}` : ''}`;
 
 function board(ctx: Ctx, opts: Opts): Result {
   const snap = loadSnapshot(ctx, typeof opts.project === 'string' ? opts.project : undefined);
@@ -800,9 +832,9 @@ function board(ctx: Ctx, opts: Opts): Result {
     const kids = every.filter((x) => inside(x.key));
     const top = data.milestones.flatMap((m) => m.epics).find((e) => e.key === epicKey);
     const epic = top ?? { key: epicKey, title: byKey.get(epicKey)!.title, done: kids.filter((k) => k.status === 'done').length, total: kids.length, plans: [...new Set(kids.map((k) => k.plan?.slug).filter((x): x is string => !!x))], issues: kids };
-    const counts = { total: kids.length, done: epic.done, inPlan: kids.filter((x) => x.status === 'in plan').length, ready: kids.filter((x) => x.status === 'ready').length, blocked: kids.filter((x) => x.status === 'blocked').length };
+    const counts = { total: kids.length, done: epic.done, inPlan: kids.filter((x) => x.status === 'in plan').length, ready: kids.filter((x) => x.status === 'ready').length, alongside: kids.filter((x) => x.status === 'alongside').length, blocked: kids.filter((x) => x.status === 'blocked').length };
     const milestones = [{ name: byKey.get(epicKey)!.milestone ?? 'No milestone', counts, epics: [epic], issues: [] as BoardIssue[] }];
-    const lines = [header, `${milestones[0].name}: ${counts.done}/${counts.total} done, ${counts.inPlan} in a plan, ${counts.ready} ready, ${counts.blocked} blocked`, `  epic ${epic.key} ${epic.title}: ${epic.done}/${epic.total} done${epic.plans.length ? `, plans: ${epic.plans.join(', ')}` : ''}`, ...epic.issues.map((x) => issueLine(x, '    '))];
+    const lines = [header, `${milestones[0].name}: ${counts.done}/${counts.total} done, ${counts.inPlan} in a plan, ${counts.ready} ready, ${counts.alongside} alongside, ${counts.blocked} blocked`, `  epic ${epic.key} ${epic.title}: ${epic.done}/${epic.total} done${epic.plans.length ? `, plans: ${epic.plans.join(', ')}` : ''}`, ...epic.issues.map((x) => issueLine(x, '    '))];
     return { message: lines.join('\n'), data: { ...data, ...extra, milestones } };
   }
 
@@ -825,6 +857,10 @@ function board(ctx: Ctx, opts: Opts): Result {
     lines.push('Ready to start:');
     for (const r of data.ready) lines.push(`  ${r.key} ${r.title}${r.unblocks > 0 ? `, unblocks ${r.unblocks}` : ''}${r.milestone !== data.focus ? ` [${r.milestone}]` : ''}${r.kind === 'epic' ? ` (/cairn:new --from-linear ${r.key})` : ''}`);
   }
+  if (data.alongside.length) {
+    lines.push('Can start alongside:');
+    for (const r of data.alongside) lines.push(`  ${r.key} ${r.title} ${alongsideText(r.after)}${r.unblocks > 0 ? `, unblocks ${r.unblocks}` : ''}${r.milestone !== data.focus ? ` [${r.milestone}]` : ''}${r.kind === 'epic' ? ` (/cairn:new --from-linear ${r.key})` : ''}`);
+  }
   if (data.waiting.length) {
     lines.push('Waiting:');
     for (const w of data.waiting) {
@@ -841,6 +877,63 @@ function board(ctx: Ctx, opts: Opts): Result {
   if (data.cycle) lines.push(`Loop in blocked-by links: ${data.cycle.join(' → ')}. Remove one link in Linear.`);
   if (fullHint) lines.push(fullHint);
   return { message: lines.join('\n'), data: { ...data, ...extra } };
+}
+
+// ---------- Relink: narrowing an epic's own blocked-by link ----------
+
+interface RelinkIssue {
+  key: string;
+  title: string;
+  state: string;
+  /** Path of the saved issue text (`issues/<KEY>.md` in a plan folder), when one exists. */
+  text?: string;
+}
+
+/** What an agent needs to move an epic's blocked-by link down to the sub-issues that need it. Never writes to Linear or the snapshot. */
+function relink(ctx: Ctx, arg: string | undefined, opts: Opts): Result {
+  const epicKey = arg?.trim().toUpperCase();
+  if (!epicKey) throw new CliError(USAGE);
+  const snap = loadSnapshot(ctx, typeof opts.project === 'string' ? opts.project : undefined);
+  const byKey = new Map([...(snap.known ?? []), ...snap.issues].map((i) => [i.key, i]));
+  const epic = snap.issues.find((i) => i.key === epicKey);
+  const subsOf = (k: string) => snap.issues.filter((i) => i.parent === k && !isDone(i));
+  if (!epic || !snap.issues.some((i) => i.parent === epicKey))
+    throw new Refusal(`${epicKey} is not an epic in "${snap.project}" as last read`, ['cairn linear board lists the epics', `or re-read the project: /cairn:board ${snap.project}`]);
+  if (!epic.blockedBy.length) throw new Refusal(`${epicKey} has no blocked-by link of its own`, ['only a link on the epic itself can be narrowed; sub-issues already carry theirs']);
+
+  let dirs: string[] = [];
+  try {
+    dirs = listPlans(ctx).map((r) => r.dir);
+  } catch {
+    // No plans to read texts from: the texts come from Linear.
+  }
+  const textOf = (k: string): string | undefined => dirs.map((d) => join(d, 'issues', `${k}.md`)).find((f) => existsSync(f));
+  const row = (i: LinearIssue): RelinkIssue => {
+    const text = textOf(i.key);
+    return { key: i.key, title: i.title, state: i.stateName ?? i.stateType ?? 'unknown', ...(text ? { text } : {}) };
+  };
+
+  const links = epic.blockedBy.map((on) => {
+    const b = byKey.get(on);
+    const text = textOf(on);
+    return {
+      on,
+      blocker: { key: on, title: b?.title ?? on, isEpic: snap.issues.some((i) => i.parent === on), ...(text ? { text } : {}) },
+      blockerSubs: subsOf(on).map(row),
+      subs: subsOf(epicKey).map((i) => ({ ...row(i), blockedBy: i.blockedBy })),
+    };
+  });
+
+  const lines = [`${epicKey} ${epic.title}: ${links.length === 1 ? 'one blocked-by link' : `${links.length} blocked-by links`} of its own.`];
+  for (const l of links) {
+    lines.push(`Blocked by ${l.on} ${l.blocker.title}${l.blocker.isEpic ? ` (epic, ${l.blockerSubs.length} open sub-issues)` : ''}:`);
+    if (l.blocker.isEpic) for (const x of l.blockerSubs) lines.push(`  ${x.key} ${x.title} [${x.state}]${x.text ? ` · text: ${x.text}` : ''}`);
+    lines.push(`${epicKey}'s open sub-issues (${l.subs.length}):`);
+    for (const x of l.subs) lines.push(`  ${x.key} ${x.title} [${x.state}]${x.blockedBy.length ? ` · blocked by ${x.blockedBy.join(', ')}` : ''}${x.text ? ` · text: ${x.text}` : ''}`);
+  }
+  if (links.some((l) => [...l.subs, ...l.blockerSubs].some((x) => !x.text))) lines.push('Issues without a text file: read their descriptions with get_issue.');
+  const epicText = textOf(epicKey);
+  return { message: lines.join('\n'), data: { epic: { key: epicKey, title: epic.title, ...(epicText ? { text: epicText } : {}) }, links } };
 }
 
 /**

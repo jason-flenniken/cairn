@@ -55,7 +55,8 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
     const following = currentPhase(s);
     let next: string;
     if (following) {
-      following.status = 'in_progress';
+      // An overlap phase may already be built (awaiting its finish) or running: only a pending one starts here.
+      if (following.status === 'pending') following.status = 'in_progress';
       next = `next phase "${following.name}"`;
     } else {
       setStage(s, 'verify');

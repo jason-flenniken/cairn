@@ -7,9 +7,11 @@ import { OVERVIEW_REL } from '../memory.ts';
 import { modActive } from '../proof.ts';
 import { levelLabel, nextFor, stepText, summary, timingText, type IndexRow } from '../render.ts';
 import { levelOf, loadState, parseState, saveState, stageTimes } from '../state.ts';
-import type { State } from '../types.ts';
-import { hashText, pluginRoot, readText, withLock } from '../util.ts';
+import { scopesOverlap } from '../glob.ts';
+import type { Phase, State } from '../types.ts';
+import { hashText, pluginRoot, readText, Refusal, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
+import { restack } from './merge.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
 import { due, isFoundational, linearConfig, takenIssues } from '../linear.ts';
@@ -37,6 +39,36 @@ export function listPlans(ctx: Ctx): IndexRow[] {
   return rows;
 }
 
+/**
+ * One line per other active plan whose not-yet-done tasks share files with this plan's: they will likely conflict at
+ * merge time. Never throws: a plan that can't be read is skipped.
+ */
+export function crossPlanScopeWarnings(ctx: Ctx, slug: string, phases: Phase[]): string[] {
+  const mine = phases.flatMap((p) => p.tasks).filter((t) => t.status !== 'done').flatMap((t) => t.scope);
+  if (!mine.length) return [];
+  const out: string[] = [];
+  try {
+    for (const row of listPlans(ctx)) {
+      if (row.state.slug === slug || row.state.stage === 'closed') continue;
+      const theirs = row.state.phases.flatMap((p) => p.tasks).filter((t) => t.status !== 'done').flatMap((t) => t.scope);
+      const glob = mine.find((g) => scopesOverlap([g], theirs));
+      if (glob) out.push(`${glob} is also in plan ${row.state.slug} (${row.state.stage}): expect a merge conflict; order them or split the file`);
+    }
+  } catch {
+    // Status never fails over another plan's state.
+  }
+  return out;
+}
+
+/** The plan a stacked plan sits on, by slug: its state and where it is checked out. Undefined when no plan branch of that slug can be read. */
+export function stackBase(ctx: Ctx, slug: string): IndexRow | undefined {
+  try {
+    return listPlans(ctx).find((r) => r.state.slug === slug);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Whether the cairn mod's heartbeat is fresh, so procedures can pick the menu or the terminal path. */
 const modIsActive = (ctx: Ctx): boolean => modActive(commonDir(ctx.mainRoot));
 
@@ -55,6 +87,7 @@ export function warnings(pc: PlanCtx, s: State): string[] {
   } catch (e) {
     w.push((e as Error).message);
   }
+  w.push(...crossPlanScopeWarnings(pc.ctx, s.slug, s.phases));
   const changes = s.linear?.changes?.filter((c) => !c.handled).length ?? 0;
   if (changes) w.push(`Linear: ${changes} change${changes === 1 ? '' : 's'} to decide before the phase can finish (cairn linear status)`);
   return w;
@@ -99,6 +132,14 @@ function foundationalSafe(s: State, pc: PlanCtx): boolean {
   }
 }
 
+/** A row's `ready` and `needsUser`: the human is wanted when a document waits, or the plan is asking or at its approval stop. */
+function readyRow(r: { state: State; worktree?: string; dir: string }, ctx: Ctx) {
+  const ready = r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined;
+  const st = r.state.step;
+  const asked = st !== undefined && st.stage === r.state.stage && (st.name === 'approving' || st.name === 'asking');
+  return { ready, needsUser: ready !== undefined || asked };
+}
+
 export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
@@ -108,7 +149,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions, ready: r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -130,6 +171,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   return {
     message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
       ...(s.level ? [`Level: ${levelLabel(s)}`] : []),
+      ...(s.stackedOn ? [`Stacked on ${s.stackedOn.slug}: it started on that plan's branch and moves onto main once that plan has merged.`] : []),
       ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
       ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
     data: { state: s, next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
@@ -156,6 +198,21 @@ export function cmdNext(ctx: Ctx): Result {
   }
   const pc = planCtx(ctx);
   let s = loadState(pc.plan.dir);
+  // A stacked plan catches up with the plan it sits on, and moves onto main once that plan has merged.
+  let restacked: string | undefined;
+  if (s.stackedOn) {
+    try {
+      restacked = restack(pc);
+    } catch (e) {
+      if (!(e instanceof Refusal)) throw e;
+      const text = `${e.message}${e.fixes.length ? `. ${e.fixes.join('; ')}` : ''}`;
+      return {
+        message: `${summary(s)}\nNext: ${text}`,
+        data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: null, procedure: null, summary: summary(s), text, restackRefused: true, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
+      };
+    }
+    s = loadState(pc.plan.dir);
+  }
   // A merged plan's Done statuses are queued here too, so a PR the user merged later still closes its issues.
   if (mergedAwaitingDone(pc, s)) s = mutate(pc, undefined, (x) => (queueDone(pc, x), x));
   // Queued Linear updates go out before the stage's own work, so none are forgotten.
@@ -163,8 +220,8 @@ export function cmdNext(ctx: Ctx): Result {
   const stageNext = nextFor(s);
   const n = queued ? { procedure: 'linear-sync', text: `Send ${queued} queued Linear update${queued === 1 ? '' : 's'} first. Then: ${stageNext.text}` } : stageNext;
   return {
-    message: `${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
-    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx) },
+    message: `${restacked ? `${restacked}\n` : ''}${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
+    data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), ...(restacked ? { restacked } : {}) },
   };
 }
 

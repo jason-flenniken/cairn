@@ -14,12 +14,17 @@ export const STAGE_LABEL: Record<Stage, string> = {
 };
 /** The steps `cairn step` can record, by stage. The fix track uses review and ship. */
 export const STEPS: Partial<Record<Stage, readonly string[]>> = {
-  prd: ['drafting', 'checking', 'approving'],
-  plan: ['drafting', 'checking', 'approving'],
-  verify: ['testing', 'scanning', 'fixing'],
-  review: ['reviewing', 'fixing', 'rechecking'],
-  ship: ['recording', 'approving', 'opening-pr'],
+  repro: ['asking'],
+  discover: ['asking'],
+  prd: ['drafting', 'checking', 'approving', 'asking'],
+  plan: ['drafting', 'checking', 'approving', 'asking'],
+  execute: ['asking'],
+  verify: ['testing', 'scanning', 'fixing', 'asking'],
+  review: ['reviewing', 'fixing', 'rechecking', 'asking'],
+  ship: ['recording', 'approving', 'opening-pr', 'asking'],
 };
+/** `cairn step clear` drops the recorded step: the way out of `asking` at a stage with no other step. */
+export const STEP_CLEAR = 'clear';
 export const STEP_LABEL: Record<string, string> = {
   drafting: 'drafting',
   checking: 'builder check',
@@ -30,6 +35,7 @@ export const STEP_LABEL: Record<string, string> = {
   reviewing: 'reviewing',
   rechecking: 're-checking',
   approving: 'waiting on approval',
+  asking: 'waiting for your answer',
   'opening-pr': 'opening the PR',
 };
 export interface Step {
@@ -98,6 +104,8 @@ export interface Phase {
   id: string;
   name: string;
   status: PhaseStatus;
+  /** Its tasks may start once their own blocked_by are done, without waiting for the earlier phase to finish. */
+  overlap?: boolean;
   tasks: Task[];
   verdict?: { result: 'green' | 'yellow' | 'red'; at: string; commit: string; note?: string };
 }
@@ -173,6 +181,12 @@ export interface State {
   reapprove?: { at: string; why: string };
   /** Merges of the base that `cairn merge-check` made itself, cleanly: commits it can vouch for after the approval. */
   baseMerges?: string[];
+  /**
+   * Set by `cairn new --after`: the plan whose branch this one started on. `cairn next` (restack) clears it once that
+   * plan has merged. `tip` is that branch's head when last merged in: a deleted base branch counts as merged only when
+   * the tip is in the main branch (or its pull request merged).
+   */
+  stackedOn?: { slug: string; branch: string; tip?: string };
   /** The last head `cairn merge-check` saw the tests pass on. Only plan-folder commits since it skip the tests. */
   mergeChecked?: string;
   planHash?: string;

@@ -11,6 +11,14 @@ const allProcedures = readdirSync(procedureDir)
   .filter((f) => f.endsWith('.md'))
   .map((f) => f.slice(0, -3));
 
+test('board offers to narrow wide epic links with the relink procedure', () => {
+  assert.match(read('board'), /Narrow them \(Recommended\)[^\n]*procedures\/relink\.md/);
+  const relink = read('relink');
+  for (const t of ['save_issue', 'removeBlockedBy', 'save_comment', 'cairn linear relink', 'cairn linear import --board --links', 'Apply (Recommended)'])
+    assert.ok(relink.includes(t), `relink.md mentions ${t}`);
+  assert.ok(relink.indexOf('blockedBy: [<keys>]') < relink.indexOf('removeBlockedBy'), 'links are added before the epic link is removed');
+});
+
 // Each procedure with an approval menu, and the kinds its tags may name.
 const APPROVALS: Record<string, string[]> = {
   prd: ['prd'],

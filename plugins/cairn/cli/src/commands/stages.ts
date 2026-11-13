@@ -107,8 +107,8 @@ export function prdEditedSinceApproval(s: State, prd: string | undefined): boole
 
 const PRD_EDITED_NOTE = '**prd.md changed after you approved it; approving the plan also accepts those edits.**';
 
-// Steps during which the stop's document is still being written or checked, so it is not ready yet.
-const WRITING_STEPS = ['drafting', 'checking', 'recording'];
+// Steps during which the stop's document is still being written or checked (or the plan waits on a question about it), so it is not ready yet.
+const WRITING_STEPS = ['drafting', 'checking', 'recording', 'asking'];
 
 /** The stop the plan is waiting on, when approving it now would pass its checks. Never throws. */
 export function readyFor(pc: { plan: { dir: string }; cfg?: Config }): Ready | undefined {

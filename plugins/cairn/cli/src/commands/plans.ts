@@ -1,13 +1,15 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CONFIG_REL, loadConfig, worktreeRoot } from '../config.ts';
-import { commitPath, git, gitOk } from '../git.ts';
+import { commitPath, git, gitOk, gitTry } from '../git.ts';
 import { DOCS_DIR } from '../paths.ts';
 import { PLANS_DIR, planBranch, planBranchesFor, planDirName, worktreeName, type Ctx } from '../locate.ts';
 import { log, newState, saveState } from '../state.ts';
 import { isLevel, LEVELS, type Level } from '../types.ts';
 import { CliError, now, pluginVersion, readText, Refusal, SLUG, writeText } from '../util.ts';
 import { removed } from './memory.ts';
+import { stackBase } from './status.ts';
+import { planBuilt } from '../board.ts';
 import { ensureExcluded, planCtx, planFile, runSetup, template, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
@@ -18,7 +20,20 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   if (existing) throw new Refusal(`a plan named "${slug}" already exists (${existing})`, [`cairn resume ${slug}`, 'or pick another slug']);
   if (!gitOk(['rev-parse', '--verify', 'HEAD'], ctx.top)) throw new Refusal('the repository has no commits yet', ['make an initial commit first']);
   const mainBranch = ctx.worktrees[0]?.branch ?? ctx.branch;
-  const base = typeof opts.from === 'string' ? opts.from : ctx.plan ? mainBranch : ctx.branch;
+  let stackedOn: { slug: string; branch: string; tip?: string } | undefined;
+  if (opts.after !== undefined) {
+    if (track === 'fix') throw new Refusal('a fix plan cannot start after another plan', ['leave out --after', 'or start a feature plan: leave out --track fix']);
+    if (typeof opts.after !== 'string' || !opts.after) throw new CliError('usage: cairn new <slug> --after <plan slug>');
+    const row = stackBase(ctx, opts.after);
+    if (!row) throw new Refusal(`there is no plan named "${opts.after}" to start after`, ['cairn status --all lists the plans']);
+    const b = row.state;
+    if (b.stage === 'closed') throw new Refusal(`plan ${b.slug} is closed`, ['start from main instead: leave out --after']);
+    if (!planBuilt(b)) throw new Refusal(`plan ${b.slug} has not finished building yet (it is in ${b.stage})`, ['wait until its tasks are done, then run this again', 'or start from main: leave out --after']);
+    if (typeof opts.from === 'string' && opts.from !== b.branch) throw new Refusal(`--from ${opts.from} and --after ${b.slug} name different branches`, [`use --after ${b.slug} alone (it starts on ${b.branch})`, 'or use --from alone']);
+    const tip = gitTry(['rev-parse', '--verify', `refs/heads/${b.branch}`], ctx.top);
+    stackedOn = { slug: b.slug, branch: b.branch, ...(tip.ok ? { tip: tip.out } : {}) };
+  }
+  const base = stackedOn ? stackedOn.branch : typeof opts.from === 'string' ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === 'string' ? opts.title : slug;
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
   if (typeof opts.level === 'string' && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(', ')}`);
@@ -40,6 +55,7 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   writeText(join(dir, 'decisions.md'), `# Decisions: ${title}\n\nAppend-only. Written by \`cairn decide\` as each decision is made.\n`);
   const state = newState(slug, title, track, branch, base, track === 'fix' ? 'repro' : 'discover');
   state.cairnVersion = pluginVersion();
+  if (stackedOn) state.stackedOn = stackedOn;
   if (track === 'feature') {
     state.level = level;
     log(state, 'level', level);
@@ -49,12 +65,12 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   const setup = opts['no-worktree'] ? '' : runSetup(cfg, wt, ctx.mainRoot);
   return {
     message: [
-      `Started plan "${title}" on ${branch} (from ${base}).${setup}`,
+      `Started plan "${title}" on ${branch} (from ${base}${stackedOn ? `, stacked on plan ${stackedOn.slug}` : ''}).${setup}`,
       ...(badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(', ')}; using standard.`] : []),
       `Worktree: ${wt}`,
       `The plan is ready. Continue with /cairn:next from where you are.`,
     ].join('\n'),
-    data: { slug, branch, base, worktree: wt, dir, level: track === 'feature' ? level : null },
+    data: { slug, branch, base, worktree: wt, dir, level: track === 'feature' ? level : null, ...(stackedOn ? { stackedOn } : {}) },
   };
 }
 

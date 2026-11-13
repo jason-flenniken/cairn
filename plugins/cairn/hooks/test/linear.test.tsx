@@ -84,6 +84,23 @@ describe('Linear tab', () => {
     expect(text).not.toMatch(/SAV-3[01] .*Beta/)
   })
 
+  test('alongside work sits between ready and waiting, with the branch it starts on, and a long list is capped', async ($, on) => {
+    const after = [{ key: 'SAV-16', slug: 'sav-16', stage: 'verify', branch: 'feature/sav-16' }]
+    const board = { ...BOARD, alongside: [mk('SAV-17', 'Database', { kind: 'issue', milestone: 'Beta', unblocks: 2, after }), ...[1, 2, 3, 4, 5].map(n => mk(`SAV-7${n}`, `Extra ${n}`, { kind: 'issue', milestone: 'Beta', unblocks: 0, after }))] }
+    const text = await tab($, on, board)
+    expect(text).toContain('⇉ CAN START ALONGSIDE')
+    expect(text).toContain('SAV-17 Database unblocks 2')
+    expect(text).toContain('starts on feature/sav-16')
+    expect(text).toContain('+2 more')
+    const at = (n: string) => text.indexOf(n)
+    expect(at('○ READY TO START')).toBeLessThan(at('⇉ CAN START ALONGSIDE'))
+    expect(at('⇉ CAN START ALONGSIDE')).toBeLessThan(at('· WAITING'))
+  })
+
+  test('without alongside work the section is left out', async ($, on) => {
+    expect(await tab($, on, BOARD)).not.toContain('ALONGSIDE')
+  })
+
   test('nothing ready draws the one explaining line', async ($, on) => {
     const text = await tab($, on, { ...BOARD, ready: [] })
     expect(text).toContain('○ Nothing ready: everything open waits on work in progress or blocked')
