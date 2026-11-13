@@ -745,9 +745,11 @@ test('a red merge belongs to its task: another task is refused before merging, a
   assert.equal(g(w.wt, 'rev-parse', 'HEAD'), planTip, 'nothing was merged');
   const own = readFileSync(ok(w.wt, 'task', 'brief', 'charge', '--role', 'fix').data!.path as string, 'utf8');
   assert.match(own, /## Last red test run/);
+  assert.match(own, /Merge feature\/\S+ into task\/\S+ in \S+ first, so the failure below reproduces there/, 'the fixer merges the plan branch in first');
   assert.doesNotMatch(own, /No must-fix findings are recorded/, 'the red run is the fix, so the empty-findings line is left out');
   const other = readFileSync(ok(w.wt, 'task', 'brief', 'refund', '--role', 'fix').data!.path as string, 'utf8');
   assert.doesNotMatch(other, /Last red test run/);
+  assert.doesNotMatch(other, /reproduces there/);
   assert.match(other, /No must-fix findings are recorded/);
   // A plan-level run (no task owns it) still shows in a fix brief.
   editState(w, (s) => {

@@ -138,6 +138,8 @@ function buildBrief(pc: PlanCtx, s: State, sl: Task, role: Role, again = false):
       let n = 0;
       for (const c of classes) parts.push(`### ${c}`, '', ...found.filter((f) => classHeading(f.cls) === c).map((f) => mustLine(f, ++n)), '');
     } else if (!sl.mergeConflict?.length && !red) parts.push('No must-fix findings are recorded for this task. Check the reviewer reports under reports/.', '');
+    // This task's merge went red: the failure lives on the merged tree, so the fixer brings it into the task branch first.
+    if (red?.task === sl.id) parts.push(`Merge ${b.plan} into ${b.branch} in ${worktree} first, so the failure below reproduces there; then fix and commit on ${b.branch}.`, '');
     if (red) parts.push('## Last red test run', '', ...(red.failing.length ? red.failing.map((l) => `  ${l}`) : ['  (no failing line was picked out)']), `Full output: ${red.log}`, '');
     parts.push('## Task', '', b.section, '');
   } else {
