@@ -76,4 +76,4 @@ If it is still failing after that one attempt, stop and ask the user with AskUse
 ## 6. Record the result
 Run `cairn evidence verify pass --note "<tests: N passing; M requirements met, K untested; secret scan: clean or N found; audit: result or skipped>"`, or `cairn evidence verify fail --note "<one line>"` when the user stops here. Then run `cairn advance`.
 
-**Done when:** the stage is `review`. Then run `cairn next --json`. When its output holds a fresh-start line ("Context is at N%… start fresh with /clear, then /cairn:next."), tell the user that line and stop. Otherwise follow the procedure it names.
+**Done when:** the stage is `review`. Then run `cairn next --json`. Follow the procedure it names.

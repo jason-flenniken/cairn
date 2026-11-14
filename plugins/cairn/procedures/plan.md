@@ -71,4 +71,4 @@ Run `cairn status --json` and check that the plan approval is recorded. If it is
 
 Once the approval is recorded, run `cairn advance`.
 
-**Done when:** the stage is `execute`. Then run `cairn next --json`. When its output holds a fresh-start line ("Context is at N%… start fresh with /clear, then /cairn:next."), tell the user that line and stop. Otherwise follow the procedure it names.
+**Done when:** the stage is `execute`. Then run `cairn next --json`. Follow the procedure it names.

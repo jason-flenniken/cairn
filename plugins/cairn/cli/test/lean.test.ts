@@ -349,46 +349,20 @@ test('status --json leaves out the log unless --full', () => {
   assert.ok(Array.isArray(w.state().log), 'the file on disk keeps its log');
 });
 
-test('the start-fresh line: over the limit and recent only; never from a bad file', () => {
+test('stage and phase ends never tell the session to stop and start fresh, whatever the context', () => {
   const w = world();
-  const file = join(w.repo, '.git/cairn/context/billing.json');
-  const put = (pct: number, ageMs = 0) => write(file, JSON.stringify({ pct, tokens: 1000, at: new Date(Date.now() - ageMs).toISOString() }));
-  const LINE = 'Context is at 62%. Everything is saved: start fresh with /clear, then /cairn:next.';
-
-  assert.doesNotMatch(ok(w.wt, 'next').message, /Context is at/, 'no file');
-  put(62);
-  const hot = ok(w.wt, 'next');
-  assert.ok(hot.message.endsWith(`\n${LINE}`), hot.message);
-  assert.deepEqual(hot.data!.freshStart, { pct: 62 });
-  put(20);
-  const cool = ok(w.wt, 'next');
-  assert.doesNotMatch(cool.message, /Context is at/);
-  assert.equal(cool.data!.freshStart, undefined);
-  put(90, 11 * 60 * 1000);
-  assert.doesNotMatch(ok(w.wt, 'next').message, /Context is at/, 'a stale reading');
-  write(file, 'not json');
-  assert.doesNotMatch(ok(w.wt, 'next').message, /Context is at/, 'unparseable');
-  write(file, JSON.stringify({ pct: 'high', at: 'yesterday' }));
-  assert.doesNotMatch(ok(w.wt, 'next').message, /Context is at/, 'wrong shape');
-
-  // The limit is config freshStartAt (default 40).
-  put(62);
-  write(join(w.wt, '.cairn/config.json'), JSON.stringify({ test: 'true', maxParallel: 3, freshStartAt: 80 }));
-  assert.doesNotMatch(ok(w.wt, 'next').message, /Context is at/);
-  write(join(w.wt, '.cairn/config.json'), JSON.stringify({ test: 'true', maxParallel: 3, freshStartAt: 50 }));
-  assert.match(ok(w.wt, 'next').message, /Context is at 62%/);
-  g(w.wt, 'checkout', '-q', '--', '.cairn/config.json');
-
-  // Phase finish and advance say it too.
-  put(62);
+  // A high reading left by an older mod: nothing reads it any more.
+  write(join(w.repo, '.git/cairn/context/billing.json'), JSON.stringify({ pct: 95, tokens: 1000, at: new Date().toISOString() }));
+  const next = ok(w.wt, 'next');
+  assert.doesNotMatch(next.message, /\/clear|start fresh/);
+  assert.equal(next.data!.freshStart, undefined);
   for (const id of ['charge', 'refund']) {
     const tw = ok(w.wt, 'task', 'start', id).data!.worktree as string;
     commitIn(tw, `src/${id}/index.ts`, `export const ${id} = 1;\n`, id);
     ok(w.wt, 'task', 'merge', id);
   }
   const fin = ok(w.wt, 'phase', 'finish');
-  assert.match(fin.message, /\nContext is at 62%\. Everything is saved: start fresh with \/clear, then \/cairn:next\.$/);
-  assert.deepEqual(fin.data!.freshStart, { pct: 62 });
+  assert.doesNotMatch(fin.message, /\/clear|start fresh/);
 });
 
 test('hooks: edits under .cairn/work are never drift; session start names the work folder', () => {
