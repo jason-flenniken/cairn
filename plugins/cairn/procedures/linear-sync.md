@@ -9,7 +9,7 @@ Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run 
 The Linear tools are named here by their base name (`save_issue`, `save_comment`, `save_status_update`, `create_issue_label`, `list_issue_labels`). The prefix differs between installs: use the Linear tools you have. When no Linear tools are available, say so in one line, put every entry on hold (`cd <plan worktree> && cairn linear hold <id> --note "no Linear tools"`), and go to step 5. A held entry stays queued and is tried again at the next sync, but `cairn next` no longer sends you here for it alone.
 
 ## 1. List what is waiting
-Run `cd <plan worktree> && cairn linear pending --claim --json`: it hands you the entries that need no approval, held ones included, and marks them yours for 10 minutes so no second sender files them twice. Each entry in `pending` has `id`, `kind`, `target`, `tool`, `payload`, `why`, and `needsApproval` when the user has to see it first.
+Run `cd <plan worktree> && cairn linear pending --claim --json`: it hands you the entries that need no approval, held ones included, and marks them yours for 10 minutes so a second sender skips them. Each entry in `pending` has `id`, `kind`, `target`, `tool`, `payload`, `why`, and `needsApproval` when the user has to see it first.
 
 **Done when:** you hold the list of unsent entries.
 
@@ -25,6 +25,8 @@ The `linear-sender` sends the entries that need no approval, one at a time, in t
 - `status` and `relation`: `save_issue`. The payload already holds `id` and `state` (or `blockedBy`, which only adds links).
 - `comment`: `save_comment` with `issueId` and `body`.
 - `createIssue`: `save_issue` with `team`, `title`, `description`, and the `labels`, `parentId`, project and milestone when present. Entries that put a plan in Linear come in order: the epic first, then its tickets (queued once the epic has a key), then the links between them.
+
+An entry with `retry: true` was handed out before and never marked sent, so the earlier send may have reached Linear. Before sending a `createIssue` or `comment` entry with `retry`, look for it: `list_issues` in the team with the payload's title, or `list_comments` on the target issue for the same body. When it is already there, run `cairn linear sent <id>` (with `--ref <its key>` for an issue) instead of sending it again. `status` and `relation` entries are safe to send again.
 
 Put any agent-specific detail you add to a description or comment (file lists, task ids, logs) in a collapsed block at the end: a line `+++ Agent notes`, the detail, then a line `+++`. The text a person reads stays short.
 

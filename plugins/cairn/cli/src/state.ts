@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { renderStatus } from './render.ts';
 import { isLevel, type Level, type Phase, type Stage, type State } from './types.ts';
-import { CliError, now, readText, writeText } from './util.ts';
+import { CliError, now, readText, writeAtomic, writeText } from './util.ts';
 
 export const statePath = (dir: string) => join(dir, 'state.json');
 
@@ -15,21 +15,41 @@ function normalize(s: State): State {
   return s;
 }
 
-export function loadState(dir: string): State {
-  const raw = readText(statePath(dir));
-  if (raw === undefined) throw new CliError(`no state.json in ${dir}`);
-  const s = normalize(JSON.parse(raw) as State);
-  if (s.schema !== 1) throw new CliError(`unsupported state schema ${s.schema}`);
+/**
+ * Parse a state file and check the shape every reader relies on, so a damaged or future file fails here, by name.
+ * `strict` (loading the active plan) requires schema 1; listing plans also accepts a file with no schema field.
+ */
+function parse(raw: string, where: string, strict: boolean): State {
+  let s: State;
+  try {
+    s = JSON.parse(raw) as State;
+  } catch (e) {
+    throw new CliError(`${where} is not valid JSON (${(e as Error).message})`);
+  }
+  if (!s || typeof s !== 'object' || Array.isArray(s)) throw new CliError(`${where} is not a plan state object`);
+  if (s.schema !== 1 && (strict || s.schema !== undefined)) throw new CliError(`${where}: unsupported state schema ${String(s.schema)}; this cairn reads schema 1`);
+  const bad: string[] = (['slug', 'branch', 'stage'] as const).filter((k) => typeof s[k] !== 'string');
+  if (!Array.isArray(s.phases)) bad.push('phases');
+  if (!s.approvals || typeof s.approvals !== 'object') bad.push('approvals');
+  if (bad.length) throw new CliError(`${where} is damaged: missing or wrong ${bad.join(', ')}`);
+  normalize(s);
+  if (s.phases.some((p) => !Array.isArray(p?.tasks))) throw new CliError(`${where} is damaged: a phase has no task list`);
   return s;
 }
 
+export function loadState(dir: string): State {
+  const raw = readText(statePath(dir));
+  if (raw === undefined) throw new CliError(`no state.json in ${dir}`);
+  return parse(raw, statePath(dir), true);
+}
+
 export function parseState(raw: string): State {
-  return normalize(JSON.parse(raw) as State);
+  return parse(raw, 'state.json', false);
 }
 
 export function saveState(dir: string, s: State): void {
   s.updated = now();
-  writeText(statePath(dir), JSON.stringify(s, null, 2) + '\n');
+  writeAtomic(statePath(dir), JSON.stringify(s, null, 2) + '\n');
   writeText(join(dir, 'STATUS.md'), renderStatus(s));
 }
 

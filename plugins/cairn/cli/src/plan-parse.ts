@@ -13,8 +13,13 @@ export interface ParsedPlan {
   problems: string[];
 }
 
-const strList = (v: unknown): string[] | undefined =>
-  Array.isArray(v) && v.every((x) => typeof x === 'string') ? v : undefined;
+/** A YAML list of strings, or a problem naming the field. Absent is fine (empty); any other shape is reported, not read as empty. */
+function strList(v: unknown, field: string, where: string, problems: string[]): string[] {
+  if (v === undefined || v === null) return [];
+  if (Array.isArray(v) && v.every((x) => typeof x === 'string')) return v;
+  problems.push(`${where}: \`${field}\` must be a list of strings, like [a, b]`);
+  return [];
+}
 
 /** Parse and validate plan.md against the PRD's requirement ids. */
 export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
@@ -49,16 +54,22 @@ export function parsePlan(planMd: string, prdMd: string): ParsedPlan {
     if (seenPhase.has(pid)) problems.push(`phase id "${pid}" is used twice`);
     seenPhase.add(pid);
     const tasks: Task[] = [];
-    if (!Array.isArray(rp?.tasks) || rp.tasks.length === 0) problems.push(`phase "${pid}" has no tasks`);
-    for (const rs of rp?.tasks ?? []) {
+    const rawTasks: unknown[] = Array.isArray(rp?.tasks) ? rp.tasks : [];
+    if (rp?.tasks !== undefined && rp?.tasks !== null && !Array.isArray(rp.tasks)) problems.push(`phase "${pid}": \`tasks\` must be a list of tasks`);
+    else if (rawTasks.length === 0) problems.push(`phase "${pid}" has no tasks`);
+    for (const rs of rawTasks as any[]) {
+      if (!rs || typeof rs !== 'object' || Array.isArray(rs)) {
+        problems.push(`phase "${pid}": each task must be a mapping with id, covers, scope and so on`);
+        continue;
+      }
       const sid = String(rs?.id ?? '');
       const where = `task "${sid}"`;
       if (!SLUG.test(sid)) problems.push(`${where}: id must be kebab-case`);
       if (phaseOf.has(sid)) problems.push(`${where}: id is used twice`);
       phaseOf.set(sid, pi);
-      const covers = strList(rs?.covers) ?? [];
-      const blockedBy = strList(rs?.blocked_by ?? []) ?? [];
-      const scope = strList(rs?.scope) ?? [];
+      const covers = strList(rs.covers, 'covers', where, problems);
+      const blockedBy = strList(rs.blocked_by, 'blocked_by', where, problems);
+      const scope = strList(rs.scope, 'scope', where, problems);
       const complexity = (rs?.complexity ?? 'standard') as Complexity;
       const kind = rs?.kind === undefined ? undefined : String(rs.kind);
       if (kind !== undefined && !KINDS.includes(kind)) problems.push(`${where}: kind must be ${KINDS.join(' or ')}, or left out`);

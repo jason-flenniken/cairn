@@ -71,18 +71,33 @@ export interface Chain {
  */
 export function criticalPath(phases: Phase[]): Chain {
   const all = phases.flatMap((p) => p.tasks);
+  const byId = new Map(all.map((t) => [t.id, t]));
+  const phaseOf = new Map(phases.flatMap((p, i) => p.tasks.map((t) => [t.id, i] as const)));
   const best = new Map<string, { weight: number; prev?: string }>();
-  const heaviest = (ids: string[]): string | undefined => ids.reduce<string | undefined>((top, id) => (top === undefined || best.get(id)!.weight > best.get(top)!.weight ? id : top), undefined);
-  for (const [i, p] of phases.entries()) {
-    // A phase that is not `overlap` follows every phase back to and including the last one that is not `overlap`.
+  const visiting = new Set<string>();
+  const heaviest = (ids: string[]): string | undefined => ids.reduce<string | undefined>((top, id) => (top === undefined || weigh(id) > weigh(top) ? id : top), undefined);
+  // The heaviest task a phase must wait for: every task back to and including the last earlier phase not marked `overlap`.
+  const barrierOf = (i: number): string | undefined => {
+    if (i === 0 || phases[i].overlap) return undefined;
     let from = i - 1;
     while (from > 0 && phases[from].overlap) from--;
-    const barrier = i > 0 && !p.overlap ? heaviest(phases.slice(from, i).flatMap((q) => q.tasks.map((t) => t.id))) : undefined;
-    for (const t of p.tasks) {
-      const prev = heaviest([...(barrier ? [barrier] : []), ...t.blockedBy.filter((b) => best.has(b))]);
-      best.set(t.id, { weight: WEIGHT[t.complexity] + (prev ? best.get(prev)!.weight : 0), prev });
-    }
+    return heaviest(phases.slice(from, i).flatMap((q) => q.tasks.map((t) => t.id)));
+  };
+  // Memoized longest chain ending at a task, so a blocker listed after the task it blocks still counts.
+  function weigh(id: string): number {
+    const known = best.get(id);
+    if (known) return known.weight;
+    const t = byId.get(id)!;
+    if (visiting.has(id)) return WEIGHT[t.complexity]; // a cycle; parsePlan refuses these, so only guard against looping
+    visiting.add(id);
+    const barrier = barrierOf(phaseOf.get(id)!);
+    const prev = heaviest([...(barrier ? [barrier] : []), ...t.blockedBy.filter((b) => byId.has(b))]);
+    const entry = { weight: WEIGHT[t.complexity] + (prev ? weigh(prev) : 0), prev };
+    visiting.delete(id);
+    best.set(id, entry);
+    return entry.weight;
   }
+  for (const t of all) weigh(t.id);
   const end = heaviest(all.map((t) => t.id));
   const tasks: string[] = [];
   for (let c = end; c; c = best.get(c)!.prev) tasks.unshift(c);

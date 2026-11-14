@@ -329,12 +329,16 @@ function pending(ctx: Ctx, opts: Opts = {}): Result {
     ? mutate(pc, undefined, (x) => {
         const at = Date.now();
         const mine = unsent(linkOf(x)).filter((w) => !w.needsApproval && !claimedNow(w, at));
-        for (const w of mine) w.claimedAt = new Date(at).toISOString();
+        for (const w of mine) {
+          // An entry claimed or held before may have reached Linear even though it was never marked sent.
+          if (w.claimedAt || w.held) w.retry = true;
+          w.claimedAt = new Date(at).toISOString();
+        }
         return mine;
       })
     : unsent(linkOf(s));
   const lines = list.length
-    ? [`${list.length} Linear update${list.length === 1 ? '' : 's'} to send${opts.claim ? ' (claimed for 10 minutes)' : ''}:`, ...list.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? ' (ask the user first)' : ''}${w.held ? ` (held: ${w.held.note})` : ''}: ${w.why}`)]
+    ? [`${list.length} Linear update${list.length === 1 ? '' : 's'} to send${opts.claim ? ' (claimed for 10 minutes)' : ''}:`, ...list.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? ' (ask the user first)' : ''}${w.held ? ` (held: ${w.held.note})` : ''}${w.retry ? ' (retry: check Linear for it first)' : ''}: ${w.why}`)]
     : ['Nothing to send to Linear.'];
   return { message: lines.join('\n'), data: { pending: list.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
 }

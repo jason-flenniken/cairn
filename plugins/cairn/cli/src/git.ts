@@ -53,9 +53,15 @@ export const commonDir = (cwd: string): string => git(['rev-parse', '--path-form
 export const branchExists = (name: string, cwd: string): boolean =>
   gitOk(['show-ref', '--verify', '--quiet', `refs/heads/${name}`], cwd);
 
+/**
+ * Never stage a plan folder's lock or an atomic write's temp file, even while another command holds one. The excludes
+ * are anchored to the path: with an unanchored exclude, git stages nothing at all from a new untracked folder.
+ */
+const scratch = (path: string): string[] => [`:(exclude)${path}/.lock`, `:(exclude,glob)${path}/*.tmp`];
+
 /** Commit only the given path, if it has changes. */
 export function commitPath(cwd: string, path: string, message: string): boolean {
-  git(['add', '-A', '--', path], cwd);
+  git(['add', '-A', '--', path, ...scratch(path)], cwd);
   if (gitOk(['diff', '--cached', '--quiet', '--', path], cwd)) return false;
   git(['commit', '-q', '-m', message, '--', path], cwd);
   return true;

@@ -10,7 +10,7 @@ import { CliError, now, pluginVersion, readText, Refusal, SLUG, writeText } from
 import { removed } from './memory.ts';
 import { stackBase } from './status.ts';
 import { planBuilt } from '../board.ts';
-import { ensureExcluded, planCtx, planFile, runSetup, template, type Opts, type PlanCtx, type Result } from '../shared.ts';
+import { ensureExcluded, excludeScratch, planCtx, planFile, runSetup, template, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   if (!slug || !SLUG.test(slug)) throw new CliError('usage: cairn new <kebab-case-slug> --title "…"');
@@ -52,6 +52,7 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   }
   // Briefs and reports agents write before the first task starts never show as untracked files.
   ensureExcluded(ctx.mainRoot, `${CAIRN_DIR}/work/`);
+  excludeScratch(ctx.mainRoot);
   const rel = `${PLANS_DIR}/${planDirName(slug, new Date())}`;
   const dir = join(wt, rel);
   writeText(join(dir, 'decisions.md'), `# Decisions: ${title}\n\nAppend-only. Written by \`cairn decide\` as each decision is made.\n`);
