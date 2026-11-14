@@ -344,6 +344,8 @@ export interface Config {
   defaultLevel?: string;
   /** Opt-in Linear link. Without it, nothing Linear-related runs. */
   linear?: LinearConfig;
+  /** Codex only: a model name per cairn tier for `spawn_agent`. Unset tiers use the session's model (references/hosts.md). */
+  codex?: { models?: Partial<Record<'haiku' | 'sonnet' | 'opus', string>> };
 }
 
 export interface LinearConfig {

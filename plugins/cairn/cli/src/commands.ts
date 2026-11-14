@@ -20,7 +20,7 @@ export { cmdSuggest } from './commands/suggest.ts';
 export { cmdEvidence, cmdDriftAck } from './commands/evidence.ts';
 export { cmdPause, cmdResume } from './commands/pause.ts';
 export { cmdStatus, cmdNext, cmdRender, listPlans, procedurePath } from './commands/status.ts';
-export { hookSessionStart, hookPostEdit } from './commands/hooks.ts';
+export { hookSessionStart, hookPostEdit, hookPreTool } from './commands/hooks.ts';
 export { cmdLinear } from './commands/linear.ts';
 
 export { context };

@@ -1015,7 +1015,7 @@ var require_foldFlowLines = __commonJS({
         else
           end = lineWidth - indentAtStart;
       }
-      let split = void 0;
+      let split2 = void 0;
       let prev = void 0;
       let overflow = false;
       let i = -1;
@@ -1048,18 +1048,18 @@ var require_foldFlowLines = __commonJS({
           if (mode === FOLD_BLOCK)
             i = consumeMoreIndentedLines(text, i, indent.length);
           end = i + indent.length + endStep;
-          split = void 0;
+          split2 = void 0;
         } else {
           if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
             const next = text[i + 1];
             if (next && next !== " " && next !== "\n" && next !== "	")
-              split = i;
+              split2 = i;
           }
           if (i >= end) {
-            if (split) {
-              folds.push(split);
-              end = split + endStep;
-              split = void 0;
+            if (split2) {
+              folds.push(split2);
+              end = split2 + endStep;
+              split2 = void 0;
             } else if (mode === FOLD_QUOTED) {
               while (prev === " " || prev === "	") {
                 prev = ch;
@@ -1072,7 +1072,7 @@ var require_foldFlowLines = __commonJS({
               folds.push(j);
               escapedFolds[j] = true;
               end = j + endStep;
-              split = void 0;
+              split2 = void 0;
             } else {
               overflow = true;
             }
@@ -4606,13 +4606,13 @@ var require_resolve_block_scalar = __commonJS({
       return { mode, indent, chomp, comment, length };
     }
     function splitLines(source) {
-      const split = source.split(/\n( *)/);
-      const first = split[0];
+      const split2 = source.split(/\n( *)/);
+      const first = split2[0];
       const m = first.match(/^( *)/);
       const line0 = m?.[1] ? [m[1], first.slice(m[1].length)] : ["", first];
       const lines = [line0];
-      for (let i = 1; i < split.length; i += 2)
-        lines.push([split[i], split[i + 1]]);
+      for (let i = 1; i < split2.length; i += 2)
+        lines.push([split2[i], split2[i + 1]]);
       return lines;
     }
     exports.resolveBlockScalar = resolveBlockScalar;
@@ -7521,8 +7521,8 @@ function commitPaths(cwd, paths, message) {
   git(["commit", "-q", "-m", message, "--", ...paths], cwd);
   return true;
 }
-function directCommits(cwd, base, head) {
-  const out = git(["log", "--first-parent", "--no-merges", "--name-only", "-z", "--format=%x01%H", `${base}..${head}`], cwd);
+function directCommits(cwd, base2, head) {
+  const out = git(["log", "--first-parent", "--no-merges", "--name-only", "-z", "--format=%x01%H", `${base2}..${head}`], cwd);
   return out.split("").filter(Boolean).map((chunk) => {
     const [sha = "", ...paths] = chunk.split("\0");
     return { sha: sha.slice(0, 7), files: paths.map((f, i) => i === 0 ? f.replace(/^\n/, "") : f).filter(Boolean) };
@@ -7533,11 +7533,11 @@ function safeRef(cwd, name) {
   if (!name || name.startsWith("-") || name.includes("@{")) return false;
   return gitOk(["check-ref-format", "--branch", name], cwd);
 }
-function mergeState(cwd, branch, base, planRel2) {
-  if (!safeRef(cwd, branch) || !safeRef(cwd, base) || !branchExists(branch, cwd)) return "unknown";
+function mergeState(cwd, branch, base2, planRel2) {
+  if (!safeRef(cwd, branch) || !safeRef(cwd, base2) || !branchExists(branch, cwd)) return "unknown";
   let ref;
-  if (gitOk(["show-ref", "--verify", "--quiet", `refs/remotes/origin/${base}`], cwd)) ref = `origin/${base}`;
-  else if (branchExists(base, cwd)) ref = base;
+  if (gitOk(["show-ref", "--verify", "--quiet", `refs/remotes/origin/${base2}`], cwd)) ref = `origin/${base2}`;
+  else if (branchExists(base2, cwd)) ref = base2;
   else return "unknown";
   const quiet = [planRel2, ...CLOSE_PUBLISHED].map((p) => `:(exclude,top,literal)${p}`);
   const args = ["rev-list", "-n", "1", "--end-of-options", `${ref}..${branch}`, "--", ":/", ...quiet];
@@ -7563,8 +7563,8 @@ function prMerged(cwd, branch, cacheFile) {
   }
   return merged2;
 }
-function landedState(cwd, branch, base, planRel2, cacheFile) {
-  const local = mergeState(cwd, branch, base, planRel2);
+function landedState(cwd, branch, base2, planRel2, cacheFile) {
+  const local = mergeState(cwd, branch, base2, planRel2);
   return local === "open" && prMerged(cwd, branch, cacheFile) ? "merged" : local;
 }
 
@@ -7596,9 +7596,9 @@ function resolvePlanDir(slug, where) {
   }
   return void 0;
 }
-function pickInRoot(slug, base) {
-  if (!existsSync2(base)) return void 0;
-  return pickPlanDir(slug, readdirSync(base), (n) => existsSync2(join2(base, n, "state.json")));
+function pickInRoot(slug, base2) {
+  if (!existsSync2(base2)) return void 0;
+  return pickPlanDir(slug, readdirSync(base2), (n) => existsSync2(join2(base2, n, "state.json")));
 }
 function pickInRef(slug, plans, ref, cwd) {
   let names;
@@ -8185,7 +8185,7 @@ function stageTimes(s, nowMs = Date.now()) {
   });
   return out;
 }
-function newState(slug, title, track, branch, base, stage = "discover") {
+function newState(slug, title, track, branch, base2, stage = "discover") {
   const t = now();
   return {
     schema: 1,
@@ -8193,7 +8193,7 @@ function newState(slug, title, track, branch, base, stage = "discover") {
     title,
     track,
     branch,
-    base,
+    base: base2,
     created: t,
     updated: t,
     stage,
@@ -9048,8 +9048,8 @@ function mergeBoard(prev, next, present2, partial = false) {
     const o = old.get(k);
     if (!i) return o;
     const has = present2.get(k);
-    const base = partial && o ? { ...o, ...Object.fromEntries(Object.entries(i).filter(([, v]) => v !== void 0)) } : { ...i };
-    const merged2 = { ...base, ...o && !has?.blockedBy ? { blockedBy: o.blockedBy } : {}, ...o && !has?.parent && o.parent ? { parent: o.parent } : {} };
+    const base2 = partial && o ? { ...o, ...Object.fromEntries(Object.entries(i).filter(([, v]) => v !== void 0)) } : { ...i };
+    const merged2 = { ...base2, ...o && !has?.blockedBy ? { blockedBy: o.blockedBy } : {}, ...o && !has?.parent && o.parent ? { parent: o.parent } : {} };
     if (has?.parent && !i.parent) delete merged2.parent;
     if (has?.blockedBy) read.add(k);
     else if (!o || !i.updatedAt || o.updatedAt !== i.updatedAt) read.delete(k);
@@ -9384,12 +9384,12 @@ function buildBoard(input) {
       const w = where(i, b);
       return w ? { key: b, where: w } : { key: b };
     });
-    const base = { key: i.key, title: i.title, ...i.milestone ? { milestone: i.milestone } : {}, ...i.parent ? { parent: i.parent } : {}, blockedBy };
-    if (isDone(i)) return { ...base, status: "done", blockedBy: [] };
-    if (owner) return { ...base, status: "in plan", plan: { slug: owner.slug, stage: owner.stage, progress: progress2.get(owner.slug)?.get(i.key) ?? "not started" } };
-    if (!blockers.length) return { ...base, status: "ready" };
+    const base2 = { key: i.key, title: i.title, ...i.milestone ? { milestone: i.milestone } : {}, ...i.parent ? { parent: i.parent } : {}, blockedBy };
+    if (isDone(i)) return { ...base2, status: "done", blockedBy: [] };
+    if (owner) return { ...base2, status: "in plan", plan: { slug: owner.slug, stage: owner.stage, progress: progress2.get(owner.slug)?.get(i.key) ?? "not started" } };
+    if (!blockers.length) return { ...base2, status: "ready" };
     const after = alongsideOf(blockers);
-    return after ? { ...base, status: "alongside", after } : { ...base, status: "blocked" };
+    return after ? { ...base2, status: "alongside", after } : { ...base2, status: "blocked" };
   };
   const childOf = new Set(snap.issues.map((i) => i.parent).filter((p) => !!p && byKey.has(p)));
   const parents = new Set(snap.issues.filter((i) => childOf.has(i.key)).map((i) => i.key));
@@ -10578,9 +10578,9 @@ function cmdTrace(ctx, spec, opts) {
   if (!m) throw new Refusal("usage: cairn trace <path>:<start>[-<end>] [--base <branch>]");
   const [, path, start, end = start] = m;
   const root = ctx.top;
-  const base = typeof opts.base === "string" ? opts.base : ctx.plan?.dir ? loadState(ctx.plan.dir).base : "main";
-  if (!safeRef(root, base)) throw new Refusal(`"${base}" is not a valid branch name`);
-  const baseRef = branchExists(base, root) ? base : `origin/${base}`;
+  const base2 = typeof opts.base === "string" ? opts.base : ctx.plan?.dir ? loadState(ctx.plan.dir).base : "main";
+  if (!safeRef(root, base2)) throw new Refusal(`"${base2}" is not a valid branch name`);
+  const baseRef = branchExists(base2, root) ? base2 : `origin/${base2}`;
   const at = gitTry(["merge-base", baseRef, "HEAD"], root);
   const blame = gitTry(["blame", "--porcelain", "-L", `${start},${end}`, at.ok ? at.out : baseRef, "--", path], root);
   if (!blame.ok) throw new Refusal(`git blame failed: ${blame.out}`);
@@ -10623,7 +10623,7 @@ function cmdTrace(ctx, spec, opts) {
   if (!traced.length) return { message: `No commit on ${baseRef} brought ${spec} in.`, data: { commits: [] } };
   const lines = traced.flatMap((t) => [
     `${t.sha} ${t.date} ${t.subject}`,
-    t.landed ? `  landed in ${base} with ${t.landed}${t.pr ? ` (PR #${t.pr})` : ""}${t.plan ? `, plan ${t.plan}` : ""}${t.task ? `, task ${t.task}` : ""}` : `  not in ${baseRef} yet`,
+    t.landed ? `  landed in ${base2} with ${t.landed}${t.pr ? ` (PR #${t.pr})` : ""}${t.plan ? `, plan ${t.plan}` : ""}${t.task ? `, task ${t.task}` : ""}` : `  not in ${baseRef} yet`,
     ...t.record ? [`  record: ${t.record}`] : []
   ]);
   return { message: lines.join("\n"), data: { commits: traced, base: baseRef } };
@@ -10650,7 +10650,7 @@ function configGate(s, cfg, event, opts) {
     ["the user re-approves the commands by running, in their own terminal: cairn approve plan --human", "or the user chooses Override in the menu"]
   );
 }
-var changedFiles = (cwd, slug, base, head) => git(["diff", "--name-only", "-z", "-M", base, head, "--", ".", `:!${planRelIn(slug, cwd)}`], cwd).split("\0").filter(Boolean);
+var changedFiles = (cwd, slug, base2, head) => git(["diff", "--name-only", "-z", "-M", base2, head, "--", ".", `:!${planRelIn(slug, cwd)}`], cwd).split("\0").filter(Boolean);
 var GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
 var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
 function runRepro(cmd, cwd, cfg) {
@@ -11184,13 +11184,13 @@ function planEntries(ctx) {
   const found = /* @__PURE__ */ new Map();
   for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
   const bases = plansDirsIn(main2);
-  for (const base of bases)
-    for (const name of readdirSync6(base)) {
-      const raw = readText(join14(base, name, "state.json"));
+  for (const base2 of bases)
+    for (const name of readdirSync6(base2)) {
+      const raw = readText(join14(base2, name, "state.json"));
       if (raw === void 0) continue;
       try {
         const state = parseState(raw);
-        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join14(base, name) });
+        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join14(base2, name) });
       } catch {
       }
     }
@@ -11342,7 +11342,7 @@ function cmdNew(ctx, slug, opts) {
     const tip = gitTry(["rev-parse", "--verify", `refs/heads/${b.branch}`], ctx.top);
     stackedOn = { slug: b.slug, branch: b.branch, ...tip.ok ? { tip: tip.out } : {} };
   }
-  const base = stackedOn ? stackedOn.branch : typeof opts.from === "string" ? opts.from : ctx.plan ? mainBranch : ctx.branch;
+  const base2 = stackedOn ? stackedOn.branch : typeof opts.from === "string" ? opts.from : ctx.plan ? mainBranch : ctx.branch;
   const title = typeof opts.title === "string" ? opts.title : slug;
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
   if (typeof opts.level === "string" && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(", ")}`);
@@ -11350,13 +11350,13 @@ function cmdNew(ctx, slug, opts) {
   const level = typeof opts.level === "string" ? opts.level : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : "standard";
   let wt;
   if (opts["no-worktree"]) {
-    git(["switch", "-q", "-c", branch, base], ctx.top);
+    git(["switch", "-q", "-c", branch, base2], ctx.top);
     wt = ctx.top;
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
     wt = join17(root, worktreeName(branch));
-    git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
+    git(["worktree", "add", "-q", "-b", branch, wt, base2], ctx.top);
   }
   ensureExcluded(ctx.mainRoot, `${CAIRN_DIR}/work/`);
   excludeScratch(ctx.mainRoot);
@@ -11366,7 +11366,7 @@ function cmdNew(ctx, slug, opts) {
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
-  const state = newState(slug, title, track, branch, base, track === "fix" ? "repro" : "discover");
+  const state = newState(slug, title, track, branch, base2, track === "fix" ? "repro" : "discover");
   state.cairnVersion = pluginVersion();
   if (stackedOn) state.stackedOn = stackedOn;
   if (track === "feature") {
@@ -11378,12 +11378,12 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   const setup = opts["no-worktree"] ? "" : runSetup(cfg, wt, ctx.mainRoot);
   return {
     message: [
-      `Started plan "${title}" on ${branch} (from ${base}${stackedOn ? `, stacked on plan ${stackedOn.slug}` : ""}).${setup}`,
+      `Started plan "${title}" on ${branch} (from ${base2}${stackedOn ? `, stacked on plan ${stackedOn.slug}` : ""}).${setup}`,
       ...badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(", ")}; using standard.`] : [],
       `Worktree: ${wt}`,
       `The plan is ready. Continue with /cairn:next from where you are.`
     ].join("\n"),
-    data: { slug, branch, base, worktree: wt, dir, level: track === "feature" ? level : null, ...stackedOn ? { stackedOn } : {} }
+    data: { slug, branch, base: base2, worktree: wt, dir, level: track === "feature" ? level : null, ...stackedOn ? { stackedOn } : {} }
   };
 }
 function cmdProductInit(ctx) {
@@ -11754,13 +11754,13 @@ function taskStart(pc, id, opts) {
     const ready = readySet(s, cfg.maxParallel);
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
-    const base = git(["rev-parse", pb], plan2.worktree);
+    const base2 = git(["rev-parse", pb], plan2.worktree);
     if (!existsSync11(path)) {
       if (branchExists(branch, plan2.worktree)) git(["worktree", "add", "-q", path, branch], plan2.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan2.worktree);
       needsSetup = true;
     }
-    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level });
+    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base2, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level });
     const phase = s.phases.find((p) => p.tasks.includes(sl));
     if (phase.status === "pending") phase.status = "in_progress";
     log(s, "task started", sl.name);
@@ -12267,8 +12267,395 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync13 } from "node:fs";
+import { existsSync as existsSync13, realpathSync } from "node:fs";
 import { dirname as dirname6, isAbsolute, join as join21, relative as relative4, resolve as resolve3 } from "node:path";
+
+// plugins/cairn/hooks/mod/guard-rules.ts
+var WHY = "approvals and plan state come from the user and the CLI, not from tool calls.";
+var REASON = `cairn: ${WHY}`;
+var ASK_REASON = `${REASON} Ask the user: read modActive from cairn status --json. When it is true, ask with AskUserQuestion tagged [cairn:approve <kind> <slug>] (or [cairn:level <slug>]); the mod records the answer. When it is false, give them the full --human command to run in their own terminal.`;
+var PREFIXES = /* @__PURE__ */ new Set(["env", "exec", "command", "nohup", "nice", "time", "sudo", "xargs", "timeout"]);
+var SHELLS = /* @__PURE__ */ new Set(["sh", "bash", "zsh", "dash", "ksh"]);
+var RUNTIMES = /* @__PURE__ */ new Set(["node", "nodejs", "bun", "deno"]);
+var INTERPRETERS = /^(python[\d.]*|node|nodejs|bun|deno|perl|ruby|php|osascript)$/;
+var DECLARERS = /* @__PURE__ */ new Set(["export", "declare", "typeset", "readonly", "local", "read"]);
+var PTY_WRAPPERS = /* @__PURE__ */ new Set(["script", "expect", "unbuffer", "tmux", "screen"]);
+var DATA_READERS = /* @__PURE__ */ new Set(["cat", "tee"]);
+var RECURSIVE_READERS = /* @__PURE__ */ new Set(["rg", "ag", "ack", "find", "tar", "zip", "rsync", "rgrep"]);
+var CAIRN_DIR_WORD = /(^|\/)\.git\/cairn(\/|$)/i;
+var HEARTBEAT_WORD = /(^|\/)\.git\/cairn\/mod-heartbeat$/i;
+function bashVerdict(cmd) {
+  if (!isDenied(cmd)) return {};
+  return { deny: commands(cmd).some((c) => approves(c) || changesLevel(c)) ? ASK_REASON : REASON };
+}
+function isDenied(cmd) {
+  const list3 = commands(cmd);
+  const code = withoutInertProse(cmd, list3);
+  for (const [, dollar, backtick] of code.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) {
+    if (isDenied(dollar ?? backtick ?? "")) return true;
+  }
+  if (/(\$\(|`)[^)`]*--(git-common-dir|git-dir|absolute-git-dir)/.test(code)) return true;
+  const mentionsCairn = /cairn/i.test(cmd);
+  return list3.some(
+    (command, at) => readsDeniedInput(list3, at) || approves(command) || changesLevel(command) || setsApprover(command) || writes(command, isStateFile) || runsCodeNamingStateFile(command) || writes(command, (word) => HEARTBEAT_WORD.test(word)) || reachesCairnFolder(command) || mentionsCairn && wrapsInPty(command)
+  );
+}
+function commands(cmd) {
+  const out = [];
+  let words = [];
+  let spans = [];
+  let redirects = [];
+  let bodies = [];
+  let inert = [];
+  let word = "";
+  let wordAt = 0;
+  let hasWord = false;
+  let isQuoted = false;
+  let quote = "";
+  let role = "word";
+  let isIndented = false;
+  let waiting = [];
+  const endWord = (at) => {
+    if (hasWord) {
+      if (role === "redirect") redirects.push(word);
+      else if (role === "string") bodies.push(word);
+      else if (role === "delimiter") waiting.push({ delimiter: word, isIndented, isQuoted, bodies, inert });
+      else {
+        words.push(word);
+        spans.push([wordAt, at]);
+      }
+      role = "word";
+    }
+    word = "";
+    hasWord = false;
+    isQuoted = false;
+  };
+  const endCommand = (at, pipesOut = false) => {
+    endWord(at);
+    if (words.length > 0 || redirects.length > 0) out.push({ words, spans, redirects, bodies, inert, pipesOut });
+    words = [];
+    spans = [];
+    redirects = [];
+    bodies = [];
+    inert = [];
+    role = "word";
+  };
+  const readBodies = (from) => {
+    let at = from;
+    for (const { delimiter, isIndented: strip, isQuoted: isLiteral, bodies: into, inert: literal } of waiting) {
+      const lines = [];
+      const bodyAt = at;
+      let bodyEnd = at;
+      while (at <= cmd.length) {
+        const end = cmd.indexOf("\n", at);
+        const line = cmd.slice(at, end < 0 ? cmd.length : end);
+        const lineEnd = end < 0 ? cmd.length : end;
+        at = end < 0 ? cmd.length + 1 : end + 1;
+        if ((strip ? line.replace(/^\t+/, "") : line) === delimiter) break;
+        lines.push(line);
+        bodyEnd = lineEnd;
+      }
+      into.push(lines.join("\n"));
+      if (isLiteral) literal.push([bodyAt, bodyEnd]);
+    }
+    waiting = [];
+    return at;
+  };
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i];
+    const next = cmd[i + 1] ?? "";
+    if (quote === "'") {
+      if (c === "'") quote = "";
+      else word += c;
+      continue;
+    }
+    if (c === "\\" && next !== "") {
+      if (role === "delimiter") isQuoted = true;
+      if (!hasWord) wordAt = i;
+      word += next;
+      hasWord = true;
+      i++;
+      continue;
+    }
+    if (quote === '"') {
+      if (c === '"') quote = "";
+      else word += c;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      quote = c;
+      if (role === "delimiter") isQuoted = true;
+      if (!hasWord) wordAt = i;
+      hasWord = true;
+    } else if (c === ">" || c === "&" && next === ">") {
+      word = word.replace(/^\d+$/, "");
+      if (word === "") hasWord = false;
+      endWord(i);
+      while (cmd[i + 1] === ">" || cmd[i + 1] === "|" || cmd[i + 1] === "&" && /\d|-/.test(cmd[i + 2] ?? "")) i++;
+      role = "redirect";
+    } else if (c === "<") {
+      endWord(i);
+      if (next === "<" && cmd[i + 2] === "<") {
+        role = "string";
+        i += 2;
+      } else if (next === "<") {
+        isIndented = cmd[i + 2] === "-";
+        role = "delimiter";
+        i += isIndented ? 2 : 1;
+      }
+    } else if (/\s/.test(c) && c !== "\n") {
+      endWord(i);
+    } else if (c === ";" || c === "\n" || c === "|" || c === "&" || c === "(" || c === ")") {
+      endCommand(i, c === "|" && next !== "|");
+      if ((c === "&" || c === "|") && next === c) i++;
+      if (c === "\n" && waiting.length > 0) i = readBodies(i + 1) - 1;
+    } else {
+      if (!hasWord) wordAt = i;
+      word += c;
+      hasWord = true;
+    }
+  }
+  endCommand(cmd.length);
+  return out;
+}
+function base(word) {
+  return word.slice(word.lastIndexOf("/") + 1);
+}
+function commandAt(words) {
+  let isAfterPrefix = false;
+  for (let at = 0; at < words.length; at++) {
+    const word = words[at];
+    if (PREFIXES.has(base(word))) isAfterPrefix = true;
+    else if (/^\w+\+?=/.test(word)) continue;
+    else if (!(isAfterPrefix && /^-|^\d+[smhd]?$/.test(word))) return at;
+  }
+  return words.length;
+}
+function split({ words }) {
+  const at = commandAt(words);
+  return [base(words[at] ?? ""), words.slice(at + 1)];
+}
+function cairnArgsAt({ words }) {
+  const at = commandAt(words);
+  const name = base(words[at] ?? "");
+  if (name === "cairn" || name === "cairn.mjs") return at + 1;
+  if (!RUNTIMES.has(name)) return -1;
+  const script = words.findIndex((word, i) => i > at && !word.startsWith("-"));
+  return script >= 0 && base(words[script]) === "cairn.mjs" ? script + 1 : -1;
+}
+function proseWords(command) {
+  const prose = /* @__PURE__ */ new Set();
+  const from = cairnArgsAt(command);
+  if (from < 0) return prose;
+  let isDeciding = false;
+  let isFirstPositional = true;
+  for (let at = from; at < command.words.length; at++) {
+    const word = command.words[at];
+    if (isDeciding || /^--(note|why)=/.test(word)) prose.add(at);
+    else if (/^--(note|why)$/.test(word)) prose.add(++at);
+    else if (!word.startsWith("-")) {
+      isDeciding = isFirstPositional && word === "decide";
+      isFirstPositional = false;
+    }
+  }
+  return prose;
+}
+function withoutInertProse(cmd, list3) {
+  const chars = cmd.split("");
+  for (const command of list3) {
+    for (const [from, to] of command.inert) {
+      for (let i = from; i < to; i++) if (chars[i] === "`" || chars[i] === "$") chars[i] = " ";
+    }
+    for (const at of proseWords(command)) {
+      const [from, to] = command.spans[at] ?? [0, 0];
+      let quote = "";
+      for (let i = from; i < to; i++) {
+        const c = chars[i];
+        if (quote === "'") {
+          if (c === "'") quote = "";
+          else if (c === "`" || c === "$") chars[i] = " ";
+        } else if (c === "\\") i++;
+        else if (quote === '"') {
+          if (c === '"') quote = "";
+        } else if (c === "'" || c === '"') quote = c;
+      }
+    }
+  }
+  return chars.join("");
+}
+function approves(command) {
+  const [name, args] = split(command);
+  const from = cairnArgsAt(command);
+  if (from >= 0) {
+    const prose = proseWords(command);
+    return command.words.some((word, at) => at >= from && word === "approve" && !prose.has(at));
+  }
+  if (SHELLS.has(name) || name === "eval") {
+    const flag = args.findIndex((arg) => /^-\w*c\w*$/.test(arg));
+    const script = name === "eval" ? args.join(" ") : args[flag + 1];
+    return (name === "eval" || flag >= 0) && script !== void 0 && isDenied(script);
+  }
+  return false;
+}
+function changesLevel(command) {
+  const from = cairnArgsAt(command);
+  if (from < 0) return false;
+  const prose = proseWords(command);
+  return command.words.some((word, at) => at >= from && word === "level" && !prose.has(at));
+}
+function setsApprover({ words }) {
+  const at = commandAt(words);
+  if (words.slice(0, at + 1).some((word) => /^CAIRN_APPROVER\+?=/.test(word))) return true;
+  const [name, args] = split({ words });
+  if (!DECLARERS.has(name) && !(name === "printf" && args.includes("-v"))) return false;
+  return args.some((arg) => /^CAIRN_APPROVER(\+?=|$)/.test(arg));
+}
+function isStateFile(word) {
+  return base(word).toLowerCase() === "state.json";
+}
+function writes(command, isTarget) {
+  if (command.redirects.some(isTarget)) return true;
+  const [name, args] = split(command);
+  const files = args.filter((arg) => !arg.startsWith("-"));
+  switch (name) {
+    case "sed":
+    case "gsed":
+    case "perl":
+    case "ruby":
+      if (args.some((arg) => /^-[a-zA-Z]*i/.test(arg) || arg.startsWith("--in-place"))) return files.some(isTarget);
+      break;
+    case "tee":
+    case "sponge":
+    case "rm":
+    case "unlink":
+    case "shred":
+    case "truncate":
+    case "touch":
+    case "mv":
+      return files.some(isTarget);
+    case "cp":
+    case "ln":
+    case "install":
+    case "rsync":
+      return isTarget(files.at(-1) ?? "");
+    case "dd":
+      return args.some((arg) => arg.startsWith("of=") && isTarget(arg.slice(3)));
+    case "git": {
+      const sub = args.findIndex((arg, i) => !arg.startsWith("-") && args[i - 1] !== "-C");
+      return ["checkout", "restore", "rm", "mv"].includes(args[sub] ?? "") && args.slice(sub + 1).some(isTarget);
+    }
+  }
+  return false;
+}
+var WRITING_CODE = new RegExp(
+  [
+    "write",
+    "appendFile",
+    "json\\.dump\\b",
+    "\\bdump\\s*\\(",
+    "truncate",
+    "unlink",
+    "rename",
+    "shutil",
+    "os\\.(remove|replace|system|popen)",
+    "subprocess",
+    "Popen",
+    "exec(Sync|File)?\\b",
+    "spawn",
+    `open\\w*\\s*\\([^)]*['"]([wax][bt+]*|r[bt]*\\+[bt]*)['"]`
+  ].join("|"),
+  "i"
+);
+var writesStateFile = (code) => /state\.json/i.test(code) && WRITING_CODE.test(code);
+function runsCodeNamingStateFile(command) {
+  const [name, args] = split(command);
+  return INTERPRETERS.test(name) && args.some((arg) => /^-\w*[ce]$|^--eval$/.test(arg)) && writesStateFile(args.join(" "));
+}
+function readsDeniedInput(list3, at) {
+  const command = list3[at];
+  const reader = command.pipesOut && list3[at + 1] !== void 0 ? list3[at + 1] : command;
+  const [name, args] = split(reader);
+  const isData = reader === command && DATA_READERS.has(name);
+  if (command.bodies.length > 0 && !isData) {
+    const isCode = INTERPRETERS.test(name);
+    if (command.bodies.some((body) => isCode ? writesStateFile(body) : isDenied(body))) return true;
+  }
+  return reader !== command && SHELLS.has(name) && !args.includes("-c") && isDenied(split(command)[1].join(" "));
+}
+function reachesCairnFolder(command) {
+  const all = [...command.words, ...command.redirects];
+  if (all.some((word) => CAIRN_DIR_WORD.test(word) && !(HEARTBEAT_WORD.test(word) && !/[*?[]/.test(word)))) {
+    return true;
+  }
+  if (all.some(globsIntoGit)) return true;
+  const [name, args] = split(command);
+  const isRecursive = RECURSIVE_READERS.has(name) || /^[ef]?grep$/.test(name) && args.some((arg) => /^-\w*[rR]|^--recursive$/.test(arg)) || name === "cp" && args.some((arg) => /^-\w*[rRa]/.test(arg));
+  return isRecursive && args.some((arg) => /(^|\/)\.git\/?$/i.test(arg));
+}
+function globsIntoGit(word) {
+  const parts = word.split("/");
+  const at = parts.findIndex((part) => /^[.[]/.test(part) && globRegex(part).test(".git"));
+  return at >= 0 && at < parts.length - 1 && parts.slice(at).some((part) => /[*?[]/.test(part));
+}
+function globRegex(glob) {
+  const source = glob.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
+  try {
+    return new RegExp(`^${source}$`, "i");
+  } catch {
+    return /^\.git$/i;
+  }
+}
+function wrapsInPty(command) {
+  const [name] = split(command);
+  return PTY_WRAPPERS.has(name) || /^(python[\d.]*|perl)$/.test(name) && command.words.some((word) => /pty/.test(word));
+}
+var PLAN_FILE = /\/docs\/(?:cairn|sdlc)\/plans\/[^/]+\/(state\.json|status\.md)$/i;
+var CAIRN_DIR2 = /\/\.git\/cairn(\/|$)/i;
+function pathProtected(abs) {
+  return PLAN_FILE.test(abs) || CAIRN_DIR2.test(abs);
+}
+
+// plugins/cairn/cli/src/commands/hooks.ts
+var codexRoot = () => process.env.PLUGIN_ROOT || void 0;
+function patchPaths(patch) {
+  const out = /* @__PURE__ */ new Set();
+  for (const m of patch.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+?)\s*$/gm)) out.add(m[1]);
+  return [...out];
+}
+function commandText(input) {
+  const c = input.tool_input?.command ?? input.tool_input?.cmd;
+  if (typeof c === "string") return c;
+  if (Array.isArray(c) && c.every((x) => typeof x === "string")) return c.join(" ");
+  return void 0;
+}
+function landing(path, cwd) {
+  if (path === "" || path.startsWith("~")) return void 0;
+  const abs = isAbsolute(path) ? path : resolve3(cwd, path);
+  const parts = abs.split("/");
+  for (let cut = parts.length; cut >= 1; cut--) {
+    const head = parts.slice(0, cut).join("/") || "/";
+    if (!existsSync13(head)) continue;
+    const rest = parts.slice(cut).filter((x) => x !== "" && x !== ".");
+    if (rest.includes("..")) return void 0;
+    return [realpathSync(head).replace(/\/$/, ""), ...rest].join("/");
+  }
+  return void 0;
+}
+var denyOut = (reason) => JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: reason } });
+function hookPreTool(input) {
+  const cmd = commandText(input);
+  if (input.tool_name === "apply_patch") {
+    for (const path of patchPaths(cmd ?? "")) {
+      const real = landing(path, input.cwd ?? process.cwd());
+      if (real === void 0) return denyOut(`cairn: cannot tell where ${path} lands, so the edit is refused.`);
+      if (pathProtected(real)) return denyOut(`cairn: ${path} is plan state or cairn's own folder; ${WHY}`);
+    }
+    return "";
+  }
+  if (cmd === void 0) return "";
+  const { deny } = bashVerdict(cmd);
+  return deny ? denyOut(deny) : "";
+}
 var hookOut = (event, text) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 function indexFor(ctx) {
   try {
@@ -12278,6 +12665,8 @@ function indexFor(ctx) {
   }
 }
 var startOut = (...parts) => {
+  const root = codexRoot();
+  if (root) parts.push(`cairn CLI here: ${join21(root, "bin", "cairn")}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join21(root, "references", "hosts.md")}.`);
   const text = parts.filter(Boolean).join("\n");
   return text ? hookOut("SessionStart", text) : "";
 };
@@ -12306,9 +12695,14 @@ function hookSessionStart(input) {
   return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), "The user can resume one with /cairn:resume <slug> or start another with /cairn:new."].join("\n"), indexFor(ctx));
 }
 function hookPostEdit(input) {
-  const file = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
-  if (!file) return "";
-  const abs = isAbsolute(file) ? file : resolve3(input.cwd ?? process.cwd(), file);
+  const one = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
+  const files = one ? [one] : input.tool_name === "apply_patch" ? patchPaths(commandText(input) ?? "") : [];
+  const notes = files.map((f) => driftFor(f, input.cwd)).filter(Boolean);
+  if (!notes.length) return "";
+  return hookOut("PostToolUse", notes.map((n) => `cairn: ${n}. Logged as out-of-scope; it is listed in the phase summary. If this was not intended, revert it.`).join("\n"));
+}
+function driftFor(file, cwd) {
+  const abs = isAbsolute(file) ? file : resolve3(cwd ?? process.cwd(), file);
   let dir = dirname6(abs);
   while (!existsSync13(dir) && dirname6(dir) !== dir) dir = dirname6(dir);
   const ctx = context(dir);
@@ -12343,7 +12737,7 @@ function hookPostEdit(input) {
     saveState(pc.plan.dir, s);
     return `${rel} was edited ${where}`;
   });
-  return logged ? hookOut("PostToolUse", `cairn: ${logged}. Logged as out-of-scope; it is listed in the phase summary. If this was not intended, revert it.`) : "";
+  return logged;
 }
 
 // plugins/cairn/cli/src/main.ts
@@ -12505,6 +12899,16 @@ function readStdin() {
   }
 }
 function main(argv) {
+  if (argv[0] === "hook" && argv[1] === "pre-tool") {
+    let out;
+    try {
+      out = hookPreTool(readStdin());
+    } catch {
+      out = JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "cairn: its guard failed, so the call is refused." } });
+    }
+    if (out) process.stdout.write(out + "\n");
+    return 0;
+  }
   if (argv[0] === "hook") {
     try {
       const input = readStdin();

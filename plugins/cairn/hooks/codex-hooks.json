@@ -1,0 +1,23 @@
+{
+  "description": "cairn for Codex: session context, edit drift, and the guard that keeps approvals and plan state with the user and the CLI.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact|fork",
+        "hooks": [{ "type": "command", "command": "\"${PLUGIN_ROOT}/bin/cairn\" hook session-start" }]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|apply_patch)$",
+        "hooks": [{ "type": "command", "command": "\"${PLUGIN_ROOT}/bin/cairn\" hook pre-tool" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [{ "type": "command", "command": "\"${PLUGIN_ROOT}/bin/cairn\" hook post-edit" }]
+      }
+    ]
+  }
+}

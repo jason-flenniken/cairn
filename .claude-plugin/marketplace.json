@@ -4,7 +4,7 @@
     "name": "Jason Flenniken",
     "url": "https://github.com/jason-flenniken"
   },
-  "description": "cairn: an agent-driven software lifecycle for Claude Code, with plan state owned by a CLI.",
+  "description": "cairn: an agent-driven software lifecycle for Claude Code and Codex, with plan state owned by a CLI.",
   "plugins": [
     {
       "name": "cairn",

@@ -32,7 +32,7 @@ cairn fixes this in five ways:
 
 ## Requirements
 
-- Claude Code v2.1.287 or later, for the mod that powers the pane, menu approvals, and pause.
+- Claude Code v2.1.287 or later, for the mod that powers the pane, menu approvals, and pause. Or Codex CLI 0.167 or later; see [In Codex](#in-codex).
 - Node.js **20+**. The CLI is a single bundled file with no dependencies. Working on cairn itself needs Node **22.18+**, since the tests run the TypeScript sources directly.
 - Git. Plans live on branches and worktrees.
 - For the full-height side pane: Claude Code's fullscreen layout, `"tui": "fullscreen"` in `~/.claude/settings.json`, or run `/tui fullscreen` once. In the normal layout the pane sits above the prompt as a compact summary.
@@ -79,6 +79,29 @@ A new release reaches you when its version changes. Auto-update is off for marke
 ```
 
 or `claude plugin update cairn@cairn` from your shell, then `/reload-plugins`. To get releases automatically, open `/plugin`, go to **Marketplaces**, select `cairn`, and choose **Enable auto-update**.
+
+### In Codex
+
+cairn also runs in OpenAI's Codex: the CLI and the desktop app use the same package. From your shell:
+
+```
+codex plugin marketplace add jason-flenniken/cairn
+codex plugin add cairn@cairn
+```
+
+In the desktop app, add the same marketplace and install cairn from the plugin browser. The first time a session starts, Codex asks you to trust cairn's hooks. Trust them: they give each session the plan's context, log edits outside a task's scope, and keep approvals with you. Update with `codex plugin marketplace upgrade cairn`, then `codex plugin add cairn@cairn` again.
+
+The skills are the same: `cairn:new`, `cairn:next`, `cairn:status` and the rest. What differs:
+
+| | Claude Code | Codex |
+|---|---|---|
+| Approvals | a menu in the session | you run `cairn approve <prd\|plan\|ship> --human` in your own terminal; cairn prints the full command |
+| The pane | live, beside the chat | none; `cairn:status` shows the same state as text |
+| Agents | cairn's own agent types | Codex subagents, given each agent's instructions and a reasoning effort per tier ([hosts](plugins/cairn/references/hosts.md)) |
+| Guards | the mod checks shell commands and file tools | a PreToolUse hook checks shell commands and `apply_patch` |
+| Linear | the Linear plugin or MCP server | the Linear MCP server connected in Codex |
+
+To choose models for Codex subagents, set `codex.models` in `.cairn/config.json` (see [Configuration](#configuration)). Without it, subagents use your session's model.
 
 ### Upgrading from 0.5
 
@@ -294,6 +317,8 @@ Approvals have to come from you, not from the model. Only you can provide either
 Behind the scenes, the mod holds a one-time secret in memory and the CLI checks it against a hash on disk, so a used secret can't be replayed. Guards also stop the model from running `cairn approve` or editing plan state directly.
 
 **Your ship approval covers one commit.** cairn records the commit you approved. Right before the PR merges, `cairn merge-check` makes sure nothing changed since then that your approval doesn't cover. The record, the PR link and review rules you ticked are covered. So is a clean merge of main that cairn made itself, when main moved while the PR waited: cairn merges main in, reruns the tests, and the merge goes through with `--match-head-commit`, so GitHub merges exactly what was checked. A code commit after your approval, or a merge conflict someone resolved by hand, is new code: cairn asks you to approve the ship again before it merges. This matters most with several plans in flight, where two branches can each pass on their own and break main together.
+
+**Trust model.** The approval proof and the guards keep an agent from approving its own work by accident or by habit. They are not a security boundary against an agent that sets out to get around them. The guards match command spellings, so they are best effort. Codex never re-checks input sent to a command that is already running. And a process that can write cairn's folder under `.git` can make its own proof. Treat cairn's approvals as a reliable record of what you approved, inside a session you supervise.
 
 ## Pause and resume
 
