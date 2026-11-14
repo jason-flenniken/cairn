@@ -139,7 +139,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   const checkable = merged && !dirty && !planDirty;
   const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan.worktree), id) : undefined;
-  const testedCommit = tests ? git(['rev-parse', 'HEAD'], plan.worktree) : undefined;
+  const testedCommit = tests?.head;
   // The fix track adds: the repro now passes, and the fix stays small (FR-25). Both are checked even when an
   // override waives the checks above: the repro whenever the task is merged, the size whenever there is a base.
   // The size counts the task branch and the plan branch from the task base, so commits made beside the task count.

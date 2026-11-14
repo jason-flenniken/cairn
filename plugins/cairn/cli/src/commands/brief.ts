@@ -8,7 +8,7 @@ import { sections } from '../sections.ts';
 import { levelOf, loadState, log } from '../state.ts';
 import { SUGGESTION_AREAS, type MustFix, type Suggestion, type State, type Task } from '../types.ts';
 import { CliError, now, readText, Refusal } from '../util.ts';
-import { ensureExcluded, mutate, planCtx, planFile, planScope, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
+import { ensureExcluded, excludeScratch, mutate, planCtx, planFile, planScope, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { logFollowUp } from './suggest.ts';
 import { CAIRN_DIR } from '../paths.ts';
 
@@ -22,6 +22,7 @@ export function workDir(pc: PlanCtx): string {
   const root = join(pc.plan.worktree, CAIRN_DIR, 'work');
   const dir = join(root, pc.plan.slug);
   ensureExcluded(pc.ctx.mainRoot, `${CAIRN_DIR}/work/`);
+  excludeScratch(pc.ctx.mainRoot);
   for (const sub of ['briefs', 'reports', 'research']) mkdirSync(join(dir, sub), { recursive: true });
   const ignore = join(root, '.gitignore');
   if (!existsSync(ignore)) writeFileSync(ignore, '*\n');

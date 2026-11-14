@@ -433,6 +433,7 @@ test('linear pending --claim: two senders get disjoint sets, and the queued line
   assert.equal(queued(ok(w.wt, 'ready').message), '2', 'held and needs-approval entries are not counted');
   const first = ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[];
   assert.deepEqual(first.map((x) => x.id), ['l1', 'l2', 'l4'], 'unsent entries (the held one is tried again), not the one that needs approval');
+  assert.deepEqual((first as { id: string; retry?: boolean }[]).filter((x) => x.retry).map((x) => x.id), ['l4'], 'only the held entry may already be in Linear');
   const second = ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[];
   assert.deepEqual(second, [], 'a second sender gets nothing');
   assert.equal(queued(ok(w.wt, 'ready').message), undefined, 'claimed entries leave the queued line');
@@ -446,7 +447,9 @@ test('linear pending --claim: two senders get disjoint sets, and the queued line
     s.linear!.outbox[1].claimedAt = new Date(Date.now() - 11 * 60 * 1000).toISOString();
   });
   assert.equal(queued(ok(w.wt, 'ready').message), '1');
-  assert.deepEqual((ok(w.wt, 'linear', 'pending', '--claim', '--json').data!.pending as { id: string }[]).map((x) => x.id), ['l2']);
+  const again = ok(w.wt, 'linear', 'pending', '--claim', '--json');
+  assert.deepEqual((again.data!.pending as { id: string; retry?: boolean }[]).map((x) => [x.id, x.retry]), [['l2', true]], 'an expired claim comes back as a retry');
+  assert.match(again.message, /l2 .*\(retry: check Linear for it first\)/);
   // A held entry that was claimed and sent is no longer held.
   ok(w.wt, 'linear', 'sent', 'l4');
   assert.equal(w.state().linear!.outbox[3].held, undefined);

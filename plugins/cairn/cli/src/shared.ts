@@ -2,9 +2,9 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from './config.ts';
-import { commitPath, commonDir } from './git.ts';
+import { commitPath, commonDir, gitTry } from './git.ts';
 import { allTasks } from './ready.ts';
-import { planRelOf, requirePlan, type Ctx, type PlanRef } from './locate.ts';
+import { PLANS_DIRS, planRelOf, requirePlan, type Ctx, type PlanRef } from './locate.ts';
 import { humanProof, type ProofIO } from './proof.ts';
 import { emptySections, missingSections, RECORD_SECTIONS, RECORD_WORD_BUDGET, wordCount } from './sections.ts';
 import { levelOf, loadState, log, saveState } from './state.ts';
@@ -41,6 +41,10 @@ export interface TestRun {
   log?: string;
   /** Up to five failing lines of a red run, set by `recordTestRun`. */
   failing?: string[];
+  /** The commit the suite ran on. Set only when HEAD and the tracked files outside cairn's folders held still for the whole run. */
+  head?: string;
+  /** True when the run hit `testTimeoutMinutes` and was stopped. */
+  timedOut?: boolean;
 }
 
 /**
@@ -124,11 +128,29 @@ const COUNTS = /\b(?:pass(?:ed|ing)?|fail(?:ed|ing|ures?)?)\b\s*[:=]?\s*\d|\d+\s
 /** The last line that reports pass or fail counts (FR-36), else the last line. */
 export const testSummary = (lines: string[]): string | undefined => [...lines].reverse().find((l) => COUNTS.test(l)) ?? lines.slice(-1)[0];
 
+export const DEFAULT_TEST_TIMEOUT_MINUTES = 30;
+
+/** HEAD plus the tracked changes outside cairn's own folders: what a test run is a run of. Untracked output (coverage, caches) is not part of it. */
+function testInput(cwd: string): string | undefined {
+  const head = gitTry(['rev-parse', 'HEAD'], cwd);
+  if (!head.ok) return undefined;
+  const status = gitTry(['status', '--porcelain', '--untracked-files=no', '--', '.', ...PLANS_DIRS.map((d) => `:!${d}`)], cwd);
+  return `${head.out}\n${status.ok ? status.out : '?'}`;
+}
+
 export function runTests(cfg: Config, cwd: string): TestRun | undefined {
   if (!cfg.test) return undefined;
-  const r = spawnSync('sh', ['-c', cfg.test], { cwd, encoding: 'utf8', env: childEnv(), maxBuffer: 64 * 1024 * 1024 });
+  const minutes = cfg.testTimeoutMinutes ?? DEFAULT_TEST_TIMEOUT_MINUTES;
+  const before = testInput(cwd);
+  const r = spawnSync('sh', ['-c', cfg.test], { cwd, encoding: 'utf8', env: childEnv(), maxBuffer: 64 * 1024 * 1024, timeout: minutes * 60_000, killSignal: 'SIGKILL' });
   const lines = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.split('\n').map((l) => l.trim()).filter(Boolean);
-  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}`, output: lines.join('\n') };
+  const output = lines.join('\n');
+  if ((r.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT')
+    return { ok: false, ran: true, timedOut: true, cmd: cfg.test, tail: `timed out after ${minutes} min (testTimeoutMinutes); the suite was stopped`, output };
+  const after = testInput(cwd);
+  if (before !== after)
+    return { ok: false, ran: true, cmd: cfg.test, tail: 'the checkout changed while the tests ran (a commit, checkout or edit), so the result belongs to no single commit; run again', output };
+  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}`, output, head: before?.split('\n')[0] };
 }
 
 /** A hardening item is a follow-up an MVP plan leaves behind; its `where` is never empty. */
@@ -212,6 +234,11 @@ export function ensureExcluded(mainRoot: string, pattern: string): void {
     mkdirSync(join(commonDir(mainRoot), 'info'), { recursive: true });
     appendFileSync(file, `${cur.endsWith('\n') || !cur ? '' : '\n'}${pattern}\n`);
   }
+}
+
+/** Keep a plan folder's lock and atomic-write temp files out of `git status`, so a crashed command never leaves the tree looking dirty. */
+export function excludeScratch(mainRoot: string): void {
+  for (const d of PLANS_DIRS) for (const p of [`/${d}/*/.lock/`, `/${d}/*/*.tmp`]) ensureExcluded(mainRoot, p);
 }
 
 export function template(name: string): string | undefined {

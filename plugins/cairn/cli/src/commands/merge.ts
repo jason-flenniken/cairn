@@ -219,9 +219,8 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
     ]);
   }
   if (untested && !tests) notes.push('No test command is configured, so the branch was not tested.');
-  const tested = git(['rev-parse', 'HEAD'], wt);
   mutate(pc, 'merge checked', (s) => {
-    if (tests?.ok) s.mergeChecked = tested;
+    if (tests?.ok && tests.head) s.mergeChecked = tests.head;
     log(s, 'merge checked', `${merged ? `${s0.base} merged` : `up to date with ${s0.base}`}${tests ? ', tests pass' : ''}`);
   });
   const head = git(['rev-parse', 'HEAD'], wt);

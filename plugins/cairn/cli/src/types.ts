@@ -281,6 +281,8 @@ export interface LinearWrite {
   held?: { at: string; note: string };
   /** ISO time `cairn linear pending --claim` handed this to a sender; for 10 minutes no other sender gets it. `sent` and `hold` clear it. */
   claimedAt?: string;
+  /** Handed to a sender before and never marked sent: the earlier send may have reached Linear, so the next sender checks Linear before creating it again. */
+  retry?: boolean;
 }
 
 /** A change seen on refresh that the plan has to decide about before its phase can finish. */
@@ -336,6 +338,8 @@ export interface Config {
   /** Context percentage at which a stage end says to start fresh with /clear. Default 40. */
   freshStartAt?: number;
   reproTimeoutMinutes?: number;
+  /** How long one test run may take before it is stopped and reported as timed out. Default 30. */
+  testTimeoutMinutes?: number;
   /** The level `/cairn:new` pre-selects: mvp, standard or polished. Standard when unset. */
   defaultLevel?: string;
   /** Opt-in Linear link. Without it, nothing Linear-related runs. */

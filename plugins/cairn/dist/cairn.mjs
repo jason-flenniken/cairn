@@ -7261,7 +7261,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse3(src, reviver, options) {
+    function parse4(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7302,7 +7302,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse3;
+    exports.parse = parse4;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
     exports.stringify = stringify;
@@ -7386,8 +7386,8 @@ function isCairnPath(rel) {
 var cairnPathspecExcludes = () => DOCS_DIRS.map((d) => `:!${d}`);
 
 // plugins/cairn/cli/src/util.ts
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmdirSync, statSync, writeFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 var Refusal = class extends Error {
@@ -7405,6 +7405,26 @@ function writeText(p, s) {
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, s);
 }
+function writeAtomic(p, s) {
+  mkdirSync(dirname(p), { recursive: true });
+  const tmp = `${p}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+  try {
+    const fd = openSync(tmp, "w");
+    try {
+      writeSync(fd, s);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    renameSync(tmp, p);
+  } catch (e) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+    }
+    throw e;
+  }
+}
 var hashText = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
 var SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function pluginRoot() {
@@ -7418,16 +7438,29 @@ function pluginRoot() {
 function pluginVersion() {
   return JSON.parse(readFileSync(join(pluginRoot(), ".claude-plugin", "plugin.json"), "utf8")).version;
 }
-function withLock(dir, fn) {
+var LOCK_STALE_MS = 3e4;
+function ownerAlive(lock) {
+  const pid = Number(readText(join(lock, "owner"))?.split(" ")[0]);
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
+}
+function withLock(dir, fn, waitMs = 1e4) {
   const lock = join(dir, ".lock");
-  const deadline = Date.now() + 1e4;
+  const token = randomBytes(8).toString("hex");
+  const deadline = Date.now() + waitMs;
   for (; ; ) {
     try {
       mkdirSync(lock);
+      writeFileSync(join(lock, "owner"), `${process.pid} ${token}`);
       break;
     } catch {
       try {
-        if (Date.now() - statSync(lock).mtimeMs > 3e4) rmdirSync(lock);
+        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS && !ownerAlive(lock)) rmSync(lock, { recursive: true, force: true });
       } catch {
       }
       if (Date.now() > deadline) throw new CliError(`state is locked (${lock}); remove it if no cairn command is running`);
@@ -7438,7 +7471,7 @@ function withLock(dir, fn) {
     return fn();
   } finally {
     try {
-      rmdirSync(lock);
+      if (readText(join(lock, "owner"))?.split(" ")[1] === token) rmSync(lock, { recursive: true, force: true });
     } catch {
     }
   }
@@ -7475,8 +7508,9 @@ var currentBranch = (cwd) => git(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
 var topLevel = (cwd) => git(["rev-parse", "--show-toplevel"], cwd);
 var commonDir = (cwd) => git(["rev-parse", "--path-format=absolute", "--git-common-dir"], cwd);
 var branchExists = (name, cwd) => gitOk(["show-ref", "--verify", "--quiet", `refs/heads/${name}`], cwd);
+var scratch = (path) => [`:(exclude)${path}/.lock`, `:(exclude,glob)${path}/*.tmp`];
 function commitPath(cwd, path, message) {
-  git(["add", "-A", "--", path], cwd);
+  git(["add", "-A", "--", path, ...scratch(path)], cwd);
   if (gitOk(["diff", "--cached", "--quiet", "--", path], cwd)) return false;
   git(["commit", "-q", "-m", message, "--", path], cwd);
   return true;
@@ -7743,17 +7777,31 @@ function readySet(s, maxParallel) {
 var WEIGHT = { simple: 1, standard: 2, complex: 3 };
 function criticalPath(phases) {
   const all = phases.flatMap((p) => p.tasks);
+  const byId = new Map(all.map((t) => [t.id, t]));
+  const phaseOf = new Map(phases.flatMap((p, i) => p.tasks.map((t) => [t.id, i])));
   const best = /* @__PURE__ */ new Map();
-  const heaviest = (ids2) => ids2.reduce((top, id) => top === void 0 || best.get(id).weight > best.get(top).weight ? id : top, void 0);
-  for (const [i, p] of phases.entries()) {
+  const visiting = /* @__PURE__ */ new Set();
+  const heaviest = (ids2) => ids2.reduce((top, id) => top === void 0 || weigh(id) > weigh(top) ? id : top, void 0);
+  const barrierOf = (i) => {
+    if (i === 0 || phases[i].overlap) return void 0;
     let from = i - 1;
     while (from > 0 && phases[from].overlap) from--;
-    const barrier = i > 0 && !p.overlap ? heaviest(phases.slice(from, i).flatMap((q) => q.tasks.map((t) => t.id))) : void 0;
-    for (const t of p.tasks) {
-      const prev = heaviest([...barrier ? [barrier] : [], ...t.blockedBy.filter((b) => best.has(b))]);
-      best.set(t.id, { weight: WEIGHT[t.complexity] + (prev ? best.get(prev).weight : 0), prev });
-    }
+    return heaviest(phases.slice(from, i).flatMap((q) => q.tasks.map((t) => t.id)));
+  };
+  function weigh(id) {
+    const known = best.get(id);
+    if (known) return known.weight;
+    const t = byId.get(id);
+    if (visiting.has(id)) return WEIGHT[t.complexity];
+    visiting.add(id);
+    const barrier = barrierOf(phaseOf.get(id));
+    const prev = heaviest([...barrier ? [barrier] : [], ...t.blockedBy.filter((b) => byId.has(b))]);
+    const entry2 = { weight: WEIGHT[t.complexity] + (prev ? weigh(prev) : 0), prev };
+    visiting.delete(id);
+    best.set(id, entry2);
+    return entry2.weight;
   }
+  for (const t of all) weigh(t.id);
   const end = heaviest(all.map((t) => t.id));
   const tasks = [];
   for (let c = end; c; c = best.get(c).prev) tasks.unshift(c);
@@ -7762,8 +7810,8 @@ function criticalPath(phases) {
 var chainText = (ids2) => (ids2.length <= 4 ? ids2 : [ids2[0], "\u2026", ...ids2.slice(-2)]).join(" \u2192 ");
 
 // plugins/cairn/cli/src/proof.ts
-import { createHash as createHash2, randomBytes, timingSafeEqual } from "node:crypto";
-import { closeSync, constants, fstatSync, linkSync, openSync, readFileSync as readFileSync4, readSync, renameSync, rmSync } from "node:fs";
+import { createHash as createHash2, randomBytes as randomBytes2, timingSafeEqual } from "node:crypto";
+import { closeSync as closeSync2, constants, fstatSync, linkSync, openSync as openSync2, readFileSync as readFileSync4, readSync, renameSync as renameSync2, rmSync as rmSync2 } from "node:fs";
 import { join as join4 } from "node:path";
 var HEARTBEAT_FRESH_MS = 1e4;
 var cairnDir = (common) => join4(common, "cairn");
@@ -7791,22 +7839,22 @@ var terminalIO = {
 function readRegularFile(path) {
   let fd;
   try {
-    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    fd = openSync2(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   } catch {
     return void 0;
   }
   try {
     return fstatSync(fd).isFile() ? readFileSync4(fd, "utf8") : void 0;
   } finally {
-    closeSync(fd);
+    closeSync2(fd);
   }
 }
 function secretMatches(common, given) {
   if (!given) return false;
   const original = hashPath(common);
-  const claimed = `${original}.claimed.${randomBytes(8).toString("hex")}`;
+  const claimed = `${original}.claimed.${randomBytes2(8).toString("hex")}`;
   try {
-    renameSync(original, claimed);
+    renameSync2(original, claimed);
   } catch {
     return false;
   }
@@ -7821,7 +7869,7 @@ function secretMatches(common, given) {
     }
   }
   try {
-    rmSync(claimed, { force: true });
+    rmSync2(claimed, { force: true });
   } catch {
   }
   return match;
@@ -8076,19 +8124,34 @@ function normalize(s) {
   }
   return s;
 }
+function parse(raw, where, strict) {
+  let s;
+  try {
+    s = JSON.parse(raw);
+  } catch (e) {
+    throw new CliError(`${where} is not valid JSON (${e.message})`);
+  }
+  if (!s || typeof s !== "object" || Array.isArray(s)) throw new CliError(`${where} is not a plan state object`);
+  if (s.schema !== 1 && (strict || s.schema !== void 0)) throw new CliError(`${where}: unsupported state schema ${String(s.schema)}; this cairn reads schema 1`);
+  const bad = ["slug", "branch", "stage"].filter((k) => typeof s[k] !== "string");
+  if (!Array.isArray(s.phases)) bad.push("phases");
+  if (!s.approvals || typeof s.approvals !== "object") bad.push("approvals");
+  if (bad.length) throw new CliError(`${where} is damaged: missing or wrong ${bad.join(", ")}`);
+  normalize(s);
+  if (s.phases.some((p) => !Array.isArray(p?.tasks))) throw new CliError(`${where} is damaged: a phase has no task list`);
+  return s;
+}
 function loadState(dir) {
   const raw = readText(statePath(dir));
   if (raw === void 0) throw new CliError(`no state.json in ${dir}`);
-  const s = normalize(JSON.parse(raw));
-  if (s.schema !== 1) throw new CliError(`unsupported state schema ${s.schema}`);
-  return s;
+  return parse(raw, statePath(dir), true);
 }
 function parseState(raw) {
-  return normalize(JSON.parse(raw));
+  return parse(raw, "state.json", false);
 }
 function saveState(dir, s) {
   s.updated = now();
-  writeText(statePath(dir), JSON.stringify(s, null, 2) + "\n");
+  writeAtomic(statePath(dir), JSON.stringify(s, null, 2) + "\n");
   writeText(join5(dir, "STATUS.md"), renderStatus(s));
 }
 function log(s, event, detail, override) {
@@ -8205,12 +8268,28 @@ function childEnv() {
 }
 var COUNTS = /\b(?:pass(?:ed|ing)?|fail(?:ed|ing|ures?)?)\b\s*[:=]?\s*\d|\d+\s+(?:pass(?:ed|ing)?|fail(?:ed|ing|ures?)?)\b/i;
 var testSummary = (lines) => [...lines].reverse().find((l) => COUNTS.test(l)) ?? lines.slice(-1)[0];
+var DEFAULT_TEST_TIMEOUT_MINUTES = 30;
+function testInput(cwd) {
+  const head = gitTry(["rev-parse", "HEAD"], cwd);
+  if (!head.ok) return void 0;
+  const status = gitTry(["status", "--porcelain", "--untracked-files=no", "--", ".", ...PLANS_DIRS.map((d) => `:!${d}`)], cwd);
+  return `${head.out}
+${status.ok ? status.out : "?"}`;
+}
 function runTests(cfg, cwd) {
   if (!cfg.test) return void 0;
-  const r = spawnSync2("sh", ["-c", cfg.test], { cwd, encoding: "utf8", env: childEnv(), maxBuffer: 64 * 1024 * 1024 });
+  const minutes = cfg.testTimeoutMinutes ?? DEFAULT_TEST_TIMEOUT_MINUTES;
+  const before = testInput(cwd);
+  const r = spawnSync2("sh", ["-c", cfg.test], { cwd, encoding: "utf8", env: childEnv(), maxBuffer: 64 * 1024 * 1024, timeout: minutes * 6e4, killSignal: "SIGKILL" });
   const lines = `${r.stdout ?? ""}
 ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
-  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}`, output: lines.join("\n") };
+  const output = lines.join("\n");
+  if (r.error?.code === "ETIMEDOUT")
+    return { ok: false, ran: true, timedOut: true, cmd: cfg.test, tail: `timed out after ${minutes} min (testTimeoutMinutes); the suite was stopped`, output };
+  const after = testInput(cwd);
+  if (before !== after)
+    return { ok: false, ran: true, cmd: cfg.test, tail: "the checkout changed while the tests ran (a commit, checkout or edit), so the result belongs to no single commit; run again", output };
+  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}`, output, head: before?.split("\n")[0] };
 }
 function addHardening(s, item) {
   return pushSuggestion(s, { ...item, from: "mvp", kind: "hardening" });
@@ -8279,6 +8358,9 @@ function ensureExcluded(mainRoot, pattern) {
     appendFileSync(file, `${cur.endsWith("\n") || !cur ? "" : "\n"}${pattern}
 `);
   }
+}
+function excludeScratch(mainRoot) {
+  for (const d of PLANS_DIRS) for (const p of [`/${d}/*/.lock/`, `/${d}/*/*.tmp`]) ensureExcluded(mainRoot, p);
 }
 function template(name) {
   try {
@@ -8481,6 +8563,7 @@ function workDir(pc) {
   const root = join8(pc.plan.worktree, CAIRN_DIR, "work");
   const dir = join8(root, pc.plan.slug);
   ensureExcluded(pc.ctx.mainRoot, `${CAIRN_DIR}/work/`);
+  excludeScratch(pc.ctx.mainRoot);
   for (const sub of ["briefs", "reports", "research"]) mkdirSync3(join8(dir, sub), { recursive: true });
   const ignore = join8(root, ".gitignore");
   if (!existsSync3(ignore)) writeFileSync3(ignore, "*\n");
@@ -9797,10 +9880,13 @@ function pending(ctx, opts = {}) {
   const list3 = opts.claim ? mutate(pc, void 0, (x) => {
     const at = Date.now();
     const mine = unsent(linkOf(x)).filter((w) => !w.needsApproval && !claimedNow(w, at));
-    for (const w of mine) w.claimedAt = new Date(at).toISOString();
+    for (const w of mine) {
+      if (w.claimedAt || w.held) w.retry = true;
+      w.claimedAt = new Date(at).toISOString();
+    }
     return mine;
   }) : unsent(linkOf(s));
-  const lines = list3.length ? [`${list3.length} Linear update${list3.length === 1 ? "" : "s"} to send${opts.claim ? " (claimed for 10 minutes)" : ""}:`, ...list3.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? " (ask the user first)" : ""}${w.held ? ` (held: ${w.held.note})` : ""}: ${w.why}`)] : ["Nothing to send to Linear."];
+  const lines = list3.length ? [`${list3.length} Linear update${list3.length === 1 ? "" : "s"} to send${opts.claim ? " (claimed for 10 minutes)" : ""}:`, ...list3.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? " (ask the user first)" : ""}${w.held ? ` (held: ${w.held.note})` : ""}${w.retry ? " (retry: check Linear for it first)" : ""}: ${w.why}`)] : ["Nothing to send to Linear."];
   return { message: lines.join("\n"), data: { pending: list3.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
 }
 function entry(l, id) {
@@ -10463,9 +10549,8 @@ function cmdMergeCheck(ctx, _opts) {
     ]);
   }
   if (untested && !tests) notes.push("No test command is configured, so the branch was not tested.");
-  const tested = git(["rev-parse", "HEAD"], wt);
   mutate(pc, "merge checked", (s) => {
-    if (tests?.ok) s.mergeChecked = tested;
+    if (tests?.ok && tests.head) s.mergeChecked = tests.head;
     log(s, "merge checked", `${merged2 ? `${s0.base} merged` : `up to date with ${s0.base}`}${tests ? ", tests pass" : ""}`);
   });
   const head = git(["rev-parse", "HEAD"], wt);
@@ -10549,7 +10634,7 @@ import { join as join12 } from "node:path";
 
 // plugins/cairn/cli/src/commands/fix.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
-import { existsSync as existsSync6, mkdtempSync, rmSync as rmSync2 } from "node:fs";
+import { existsSync as existsSync6, mkdtempSync, rmSync as rmSync3 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as join11 } from "node:path";
 var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
@@ -10581,7 +10666,7 @@ function runRepro(cmd, cwd, cfg) {
     } catch {
     }
   }
-  rmSync2(tmp, { recursive: true, force: true });
+  rmSync3(tmp, { recursive: true, force: true });
   const lines = `${r.stdout ?? ""}
 ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter((l) => l && !SETPGID_FAILURE.test(l));
   const last = lines.slice(-1)[0] ?? `exit ${r.status}`;
@@ -11274,6 +11359,7 @@ function cmdNew(ctx, slug, opts) {
     git(["worktree", "add", "-q", "-b", branch, wt, base], ctx.top);
   }
   ensureExcluded(ctx.mainRoot, `${CAIRN_DIR}/work/`);
+  excludeScratch(ctx.mainRoot);
   const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
   const dir = join17(wt, rel);
   writeText(join17(dir, "decisions.md"), `# Decisions: ${title}
@@ -11404,7 +11490,12 @@ var import_yaml = __toESM(require_dist(), 1);
 var BLOCK = /```ya?ml\s+cairn-tasks\s*\n([\s\S]*?)```/;
 var COMPLEXITY = ["simple", "standard", "complex"];
 var KINDS = ["prefactor"];
-var strList = (v) => Array.isArray(v) && v.every((x) => typeof x === "string") ? v : void 0;
+function strList(v, field, where, problems) {
+  if (v === void 0 || v === null) return [];
+  if (Array.isArray(v) && v.every((x) => typeof x === "string")) return v;
+  problems.push(`${where}: \`${field}\` must be a list of strings, like [a, b]`);
+  return [];
+}
 function parsePlan(planMd, prdMd) {
   const problems = [];
   const missing = missingSections(planMd, PLAN_SECTIONS);
@@ -11433,16 +11524,22 @@ function parsePlan(planMd, prdMd) {
     if (seenPhase.has(pid)) problems.push(`phase id "${pid}" is used twice`);
     seenPhase.add(pid);
     const tasks = [];
-    if (!Array.isArray(rp?.tasks) || rp.tasks.length === 0) problems.push(`phase "${pid}" has no tasks`);
-    for (const rs of rp?.tasks ?? []) {
+    const rawTasks = Array.isArray(rp?.tasks) ? rp.tasks : [];
+    if (rp?.tasks !== void 0 && rp?.tasks !== null && !Array.isArray(rp.tasks)) problems.push(`phase "${pid}": \`tasks\` must be a list of tasks`);
+    else if (rawTasks.length === 0) problems.push(`phase "${pid}" has no tasks`);
+    for (const rs of rawTasks) {
+      if (!rs || typeof rs !== "object" || Array.isArray(rs)) {
+        problems.push(`phase "${pid}": each task must be a mapping with id, covers, scope and so on`);
+        continue;
+      }
       const sid = String(rs?.id ?? "");
       const where = `task "${sid}"`;
       if (!SLUG.test(sid)) problems.push(`${where}: id must be kebab-case`);
       if (phaseOf.has(sid)) problems.push(`${where}: id is used twice`);
       phaseOf.set(sid, pi);
-      const covers = strList(rs?.covers) ?? [];
-      const blockedBy = strList(rs?.blocked_by ?? []) ?? [];
-      const scope = strList(rs?.scope) ?? [];
+      const covers = strList(rs.covers, "covers", where, problems);
+      const blockedBy = strList(rs.blocked_by, "blocked_by", where, problems);
+      const scope = strList(rs.scope, "scope", where, problems);
       const complexity = rs?.complexity ?? "standard";
       const kind = rs?.kind === void 0 ? void 0 : String(rs.kind);
       if (kind !== void 0 && !KINDS.includes(kind)) problems.push(`${where}: kind must be ${KINDS.join(" or ")}, or left out`);
@@ -11712,7 +11809,7 @@ function taskDone(pc, id, opts) {
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
   const checkable = merged2 && !dirty && !planDirty;
   const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan2.worktree), id) : void 0;
-  const testedCommit = tests ? git(["rev-parse", "HEAD"], plan2.worktree) : void 0;
+  const testedCommit = tests?.head;
   const fix = fastLane(pre);
   const repro = fix && merged2 && pre.repro ? runRepro(pre.repro.cmd, plan2.worktree, pc.cfg) : void 0;
   const heads = [pb, ...tip ? [sl.branch] : []];
@@ -11941,7 +12038,7 @@ ${buildText.trim()}` : buildText}`, data: { ran: tests.ran, ok: tests.ok, comman
 }
 
 // plugins/cairn/cli/src/commands/migrate.ts
-import { existsSync as existsSync12, lstatSync, mkdirSync as mkdirSync4, readdirSync as readdirSync7, renameSync as renameSync2, rmdirSync as rmdirSync2 } from "node:fs";
+import { existsSync as existsSync12, lstatSync, mkdirSync as mkdirSync4, readdirSync as readdirSync7, renameSync as renameSync3, rmdirSync } from "node:fs";
 import { dirname as dirname5, join as join19 } from "node:path";
 var PAIRS = [
   [LEGACY_CAIRN_DIR, CAIRN_DIR],
@@ -11958,7 +12055,7 @@ var tracked = (root, rel) => git(["ls-files", "--", rel], root) !== "";
 function move(root, from, to) {
   mkdirSync4(dirname5(join19(root, to)), { recursive: true });
   if (tracked(root, from)) git(["mv", from, to], root);
-  else renameSync2(join19(root, from), join19(root, to));
+  else renameSync3(join19(root, from), join19(root, to));
 }
 var present = (root, rel) => {
   try {
@@ -11982,7 +12079,7 @@ function plan(root, old, next, out) {
   for (const n of readdirSync7(join19(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
 }
 var prune = (root, dirs) => {
-  for (const d of [...dirs].reverse()) if (existsSync12(join19(root, d)) && !readdirSync7(join19(root, d)).length) rmdirSync2(join19(root, d));
+  for (const d of [...dirs].reverse()) if (existsSync12(join19(root, d)) && !readdirSync7(join19(root, d)).length) rmdirSync(join19(root, d));
 };
 function cmdMigrate(ctx) {
   if (ctx.plan) throw new Refusal("run cairn migrate on the main branch, outside any plan");
