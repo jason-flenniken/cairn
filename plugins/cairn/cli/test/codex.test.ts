@@ -1,17 +1,34 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { hookPreTool, hookSessionStart, patchPaths } from '../src/commands/hooks.ts';
+import { exportPath, hookPreTool, hookSessionStart, patchPaths } from '../src/commands/hooks.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const json = (p: string) => JSON.parse(readFileSync(join(ROOT, p), 'utf8'));
 const denied = (out: string) => (out ? JSON.parse(out).hookSpecificOutput : undefined);
 
 // ---------- Packaging ----------
+
+test('no top-level bin/: claude.ai and Cowork refuse to install a plugin that has one', () => {
+  assert.equal(existsSync(join(ROOT, 'bin')), false);
+});
+
+test('session start puts cli/bin on PATH through CLAUDE_ENV_FILE, once', () => {
+  const env = join(mkdtempSync(join(tmpdir(), 'cairn-env-')), 'env.sh');
+  writeFileSync(env, 'export FOO=1\n');
+  exportPath(env);
+  exportPath(env);
+  const text = readFileSync(env, 'utf8');
+  assert.equal(text.match(/export PATH=/g)?.length, 1);
+  assert.match(text, /^export FOO=1\n/);
+  const out = spawnSync('sh', ['-c', `. '${env}'; command -v cairn`], { encoding: 'utf8' });
+  assert.equal(realpathSync(out.stdout.trim()), realpathSync(join(ROOT, 'cli', 'bin', 'cairn')));
+  exportPath(undefined);
+});
 
 test('the Codex manifest matches the Claude one, and its hooks file only uses keys Codex accepts', () => {
   const claude = json('.claude-plugin/plugin.json');
@@ -23,14 +40,14 @@ test('the Codex manifest matches the Claude one, and its hooks file only uses ke
   const hooks = json('hooks/codex-hooks.json');
   assert.deepEqual(Object.keys(hooks).sort(), ['description', 'hooks']);
   const commands = Object.values(hooks.hooks as Record<string, { hooks: { command: string }[] }[]>).flatMap((groups) => groups.flatMap((g) => g.hooks.map((h) => h.command)));
-  for (const c of commands) assert.match(c, /^"\$\{PLUGIN_ROOT\}\/bin\/cairn" hook (session-start|pre-tool|post-edit)$/);
+  for (const c of commands) assert.match(c, /^"\$\{PLUGIN_ROOT\}\/cli\/bin\/cairn" hook (session-start|pre-tool|post-edit)$/);
 });
 
 test('every skill tells a host without Claude Code where the plugin root and the CLI are', () => {
   for (const name of readdirSync(join(ROOT, 'skills'))) {
     const body = readFileSync(join(ROOT, 'skills', name, 'SKILL.md'), 'utf8');
     assert.match(body, /^Plugin root: `\$\{CLAUDE_PLUGIN_ROOT\}`\. If that shows a `\$\{…\}` placeholder/m, name);
-    assert.match(body, /<plugin root>\/bin\/cairn/, name);
+    assert.match(body, /<plugin root>\/cli\/bin\/cairn/, name);
     assert.match(body, /references\/hosts\.md/, name);
   }
 });
@@ -70,7 +87,7 @@ test('patchPaths lists added, updated, deleted and moved-to files once each', ()
 });
 
 test('the bundled pre-tool hook refuses through the bin launcher and stays quiet on an allowed call', () => {
-  const bin = join(ROOT, 'bin', 'cairn');
+  const bin = join(ROOT, 'cli', 'bin', 'cairn');
   const run = (input: string) => spawnSync(bin, ['hook', 'pre-tool'], { input, encoding: 'utf8' });
   const allowed = run(JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'ls' } }));
   assert.equal(allowed.status, 0);
@@ -91,7 +108,7 @@ test('in Codex, session start names the CLI by its full path; in Claude Code it 
     assert.equal(hookSessionStart({ cwd: d }), '');
     process.env.PLUGIN_ROOT = '/opt/codex/cairn/0.18.0';
     const text = JSON.parse(hookSessionStart({ cwd: d })).hookSpecificOutput.additionalContext;
-    assert.match(text, /cairn CLI here: \/opt\/codex\/cairn\/0\.18\.0\/bin\/cairn/);
+    assert.match(text, /cairn CLI here: \/opt\/codex\/cairn\/0\.18\.0\/cli\/bin\/cairn/);
     assert.match(text, /references\/hosts\.md/);
   } finally {
     if (prev === undefined) delete process.env.PLUGIN_ROOT;

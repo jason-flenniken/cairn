@@ -18,7 +18,7 @@ const short = (sha: string) => sha.slice(0, 7);
 /** The fixes a refusal names when the ship needs the user's approval again. */
 const reapproveFixes = (slug: string, worktree: string) => [
   `the user approves the ship again in the approval menu tagged [cairn:approve ship ${slug}], or presses Approve in the cairn pane`,
-  `or the user runs, in their own terminal: cd ${worktree} && ${pluginRoot()}/bin/cairn approve ship --human`,
+  `or the user runs, in their own terminal: cd ${worktree} && ${pluginRoot()}/cli/bin/cairn approve ship --human`,
   'then run cairn merge-check again',
 ];
 
