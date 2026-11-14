@@ -303,6 +303,27 @@ test('post-edit ignores both docs roots and the config folders', () => {
   assert.equal(drift(), before);
 });
 
+test('post-edit reads a Codex apply_patch: every added, updated and moved-to file is checked', () => {
+  const swt = join(repo, '.claude/worktrees/feature-spike');
+  const patch = [
+    '*** Begin Patch',
+    '*** Add File: src/patched-new.ts',
+    '+x',
+    '*** Update File: docs/notes.md',
+    '@@',
+    '-a',
+    '+b',
+    '*** Update File: src/old-name.ts',
+    '*** Move to: src/patched-moved.ts',
+    '*** End Patch',
+  ].join('\n');
+  const out = ctxOf(hookPostEdit({ cwd: swt, tool_name: 'apply_patch', tool_input: { command: patch } }));
+  assert.match(out, /src\/patched-new\.ts was edited before the plan was approved/);
+  assert.match(out, /src\/patched-moved\.ts was edited before the plan was approved/);
+  assert.doesNotMatch(out, /docs\/notes\.md/, 'docs stay in scope before the plan');
+  assert.equal(hookPostEdit({ cwd: swt, tool_name: 'Bash', tool_input: { command: 'echo hi > src/z.ts' } }), '', 'a shell command is not an edit');
+});
+
 test('re-plan from verify adds fix tasks, keeps progress, and re-runs verification', () => {
   const r = ok(repo, 'new', 'fixes', '--title', 'Fixes');
   const fwt = r.data!.worktree as string;

@@ -1,0 +1,22 @@
+{
+  "name": "cairn",
+  "version": "0.18.0",
+  "description": "Agent-driven SDLC: discover, PRD, phased parallel plan, build, check, review, ship. Script-owned state per plan and fresh-eyes checks before the PRD.",
+  "author": { "name": "Jason Flenniken", "url": "https://github.com/jason-flenniken" },
+  "homepage": "https://github.com/jason-flenniken/cairn",
+  "repository": "https://github.com/jason-flenniken/cairn",
+  "license": "MIT",
+  "keywords": ["sdlc", "planning", "prd", "code-review", "worktrees"],
+  "skills": "./skills/",
+  "hooks": "./hooks/codex-hooks.json",
+  "interface": {
+    "displayName": "cairn",
+    "shortDescription": "Plan, build, review and ship with plan state owned by a CLI",
+    "longDescription": "cairn runs a feature or a fix through discover, PRD, plan, build, check, review and ship. A CLI owns each plan's state and refuses a step whose proof is missing; agents do the judgment work. In Codex, approvals are typed by you in your own terminal.",
+    "developerName": "Jason Flenniken",
+    "category": "Coding",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://github.com/jason-flenniken/cairn",
+    "defaultPrompt": ["Start a new cairn plan", "Show the status of my cairn plans"]
+  }
+}

@@ -35,6 +35,7 @@ import {
   context,
   hookPostEdit,
   hookSessionStart,
+  hookPreTool,
   type Opts,
   type Result,
 } from './commands.ts';
@@ -210,7 +211,17 @@ function readStdin(): Record<string, unknown> {
 }
 
 function main(argv: string[]): number {
-  // Hooks never block the session: any failure is swallowed.
+  // Hooks never block the session: any failure is swallowed. The guard is the exception: it fails closed, as the mod's does.
+  if (argv[0] === 'hook' && argv[1] === 'pre-tool') {
+    let out: string;
+    try {
+      out = hookPreTool(readStdin());
+    } catch {
+      out = JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'cairn: its guard failed, so the call is refused.' } });
+    }
+    if (out) process.stdout.write(out + '\n');
+    return 0;
+  }
   if (argv[0] === 'hook') {
     try {
       const input = readStdin();

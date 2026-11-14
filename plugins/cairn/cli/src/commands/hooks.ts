@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { DOCS_DIR, DOCS_DIRS, isCairnPath } from '../paths.ts';
 import { matchesAny } from '../glob.ts';
@@ -14,10 +14,71 @@ import { legacyLayout } from './migrate.ts';
 import { listPlans, warnings } from './status.ts';
 import { pendingCount } from './linear.ts';
 import { workDirIfUsed } from './brief.ts';
+import { bashVerdict, pathProtected, WHY } from '../../../hooks/mod/guard-rules.ts';
 
 interface HookInput {
   cwd?: string;
-  tool_input?: { file_path?: string; notebook_path?: string };
+  tool_name?: string;
+  /** Claude Code: `file_path` / `notebook_path`. Codex: `command` holds the shell command, or the apply_patch text. */
+  tool_input?: { file_path?: string; notebook_path?: string; command?: unknown; cmd?: unknown };
+}
+
+/** Codex sets PLUGIN_ROOT for plugin hooks (Claude Code sets only CLAUDE_PLUGIN_ROOT): the host has no cairn mod. */
+const codexRoot = (): string | undefined => process.env.PLUGIN_ROOT || undefined;
+
+/** The files an apply_patch envelope touches: added, updated, deleted, and the targets of moves. */
+export function patchPaths(patch: string): string[] {
+  const out = new Set<string>();
+  for (const m of patch.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+?)\s*$/gm)) out.add(m[1]);
+  return [...out];
+}
+
+/** The shell command text in a hook's tool input, whichever field and shape the host uses. */
+function commandText(input: HookInput): string | undefined {
+  const c = input.tool_input?.command ?? input.tool_input?.cmd;
+  if (typeof c === 'string') return c;
+  if (Array.isArray(c) && c.every((x) => typeof x === 'string')) return c.join(' ');
+  return undefined;
+}
+
+/**
+ * Where a write to `path` lands: the deepest existing ancestor with symlinks resolved, then the missing rest.
+ * Undefined when that can't be told (`~`, `..` past a missing folder); the guard then denies, as the mod does.
+ */
+function landing(path: string, cwd: string): string | undefined {
+  if (path === '' || path.startsWith('~')) return undefined;
+  const abs = isAbsolute(path) ? path : resolve(cwd, path);
+  const parts = abs.split('/');
+  for (let cut = parts.length; cut >= 1; cut--) {
+    const head = parts.slice(0, cut).join('/') || '/';
+    if (!existsSync(head)) continue;
+    const rest = parts.slice(cut).filter((x) => x !== '' && x !== '.');
+    if (rest.includes('..')) return undefined;
+    return [realpathSync(head).replace(/\/$/, ''), ...rest].join('/');
+  }
+  return undefined;
+}
+
+const denyOut = (reason: string) => JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } });
+
+/**
+ * PreToolUse for hosts without the cairn mod (Codex): the same rules the mod's guards apply. A Bash command goes
+ * through the shell deny-list; an apply_patch may not write plan state or cairn's folder under .git. Best effort,
+ * like the mod: input sent later to a running command (write_stdin) never comes back through this hook.
+ */
+export function hookPreTool(input: HookInput): string {
+  const cmd = commandText(input);
+  if (input.tool_name === 'apply_patch') {
+    for (const path of patchPaths(cmd ?? '')) {
+      const real = landing(path, input.cwd ?? process.cwd());
+      if (real === undefined) return denyOut(`cairn: cannot tell where ${path} lands, so the edit is refused.`);
+      if (pathProtected(real)) return denyOut(`cairn: ${path} is plan state or cairn's own folder; ${WHY}`);
+    }
+    return '';
+  }
+  if (cmd === undefined) return '';
+  const { deny } = bashVerdict(cmd);
+  return deny ? denyOut(deny) : '';
 }
 
 const hookOut = (event: string, text: string) => JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
@@ -32,6 +93,9 @@ function indexFor(ctx: ReturnType<typeof context>): string {
 }
 
 const startOut = (...parts: string[]) => {
+  const root = codexRoot();
+  // Codex never puts a plugin's bin/ on PATH, and a `cairn` found there may be another host's older copy.
+  if (root) parts.push(`cairn CLI here: ${join(root, 'bin', 'cairn')}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join(root, 'references', 'hosts.md')}.`);
   const text = parts.filter(Boolean).join('\n');
   return text ? hookOut('SessionStart', text) : '';
 };
@@ -62,11 +126,18 @@ export function hookSessionStart(input: HookInput): string {
 }
 
 export function hookPostEdit(input: HookInput): string {
-  const file = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
-  if (!file) return '';
+  const one = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
+  const files = one ? [one] : input.tool_name === 'apply_patch' ? patchPaths(commandText(input) ?? '') : [];
+  const notes = files.map((f) => driftFor(f, input.cwd)).filter(Boolean);
+  if (!notes.length) return '';
+  return hookOut('PostToolUse', notes.map((n) => `cairn: ${n}. Logged as out-of-scope; it is listed in the phase summary. If this was not intended, revert it.`).join('\n'));
+}
+
+/** Log one edited file as drift when it falls outside what the plan, phase or task may touch; returns the note, or ''. */
+function driftFor(file: string, cwd: string | undefined): string {
   // Subagents keep the session's cwd but edit by absolute path in their task worktree,
   // so the worktree (and therefore the plan and task) comes from the file, not the cwd.
-  const abs = isAbsolute(file) ? file : resolve(input.cwd ?? process.cwd(), file);
+  const abs = isAbsolute(file) ? file : resolve(cwd ?? process.cwd(), file);
   let dir = dirname(abs);
   while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir);
   const ctx = context(dir);
@@ -101,5 +172,5 @@ export function hookPostEdit(input: HookInput): string {
     saveState(pc.plan.dir, s);
     return `${rel} was edited ${where}`;
   });
-  return logged ? hookOut('PostToolUse', `cairn: ${logged}. Logged as out-of-scope; it is listed in the phase summary. If this was not intended, revert it.`) : '';
+  return logged;
 }
