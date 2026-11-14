@@ -43,10 +43,12 @@ export interface ReproRun {
 }
 
 /**
- * Starts the command as a job in its own process group (set -m), writes the group id to $2, and waits for it.
- * A timeout kills only the outer sh, so the group id lets cairn stop everything the command started.
+ * Starts the command in its own process group, writes the group id to $2, and waits for it. A timeout kills only
+ * the outer sh, so the group id lets cairn stop everything the command started. `setsid` (Linux) gives the job its own
+ * session and group without job control; where it is missing (macOS) `set -m` does it. A non-interactive dash, the
+ * Linux sh, refuses `set -m` ("can't access tty") and leaves the job in cairn's group.
  */
-const GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
+const GROUP_WRAPPER = 'if command -v setsid >/dev/null 2>&1; then setsid sh -c "$1" & else set -m; sh -c "$1" & set +m; fi; echo $! > "$2"; wait $!';
 
 const SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
 

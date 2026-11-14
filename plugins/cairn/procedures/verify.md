@@ -30,18 +30,21 @@ Run `cd <plan worktree> && cairn step scanning`. Then read the Secrets section o
      ```sh
      git diff <base>...<plan branch> -U0 --no-color | grep -E '^\+' | grep -cE -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' -e 'AKIA[0-9A-Z]{16}' -e 'gh[pousr]_[A-Za-z0-9]{36}' -e 'xox[abprs]-[A-Za-z0-9-]{10}' -e '[sr]k_(live|test)_[A-Za-z0-9]{16}' -e "(password|secret|api_key) *[=:] *[\"'][^\"' ]{4}"
      ```
-  2. List where they are, as `file:line:kind` only (private key header, AWS, GitHub, Slack and Stripe-style tokens, `password`, `secret` and `api_key` assignments with a literal value):
+  2. List where they are, as `file:line:kind` only (private key header, AWS, GitHub, Slack and Stripe-style tokens, `password`, `secret` and `api_key` assignments with a literal value). Run it as written: the patterns are built in `BEGIN` because mawk, Debian's default awk, matches nothing with `{n}` repeats:
      ```sh
      git diff <base>...<plan branch> -U0 --no-color | awk '
+     function rep(c,k,  r){r="";while(k-->0)r=r c;return r}
+     BEGIN{aws="AKIA" rep("[0-9A-Z]",16);gh="gh[pousr]_" rep("[A-Za-z0-9]",36);sl="xox[abprs]-" rep("[A-Za-z0-9-]",10)
+       st="[sr]k_(live|test)_" rep("[A-Za-z0-9]",16);cr="(password|secret|api_key)[ ]*[=:][ ]*[\"\047]" rep("[^\"\047 ]",4)}
      /^\+\+\+ b\//{f=substr($0,7);next}
      /^@@/{match($0,/\+[0-9]+/);n=substr($0,RSTART+1,RLENGTH-1)+0;next}
      /^\+/{l=substr($0,2);k=""
        if(l~/-----BEGIN [A-Z ]*PRIVATE KEY-----/)k="private key"
-       else if(l~/AKIA[0-9A-Z]{16}/)k="aws key"
-       else if(l~/gh[pousr]_[A-Za-z0-9]{36}/)k="github token"
-       else if(l~/xox[abprs]-[A-Za-z0-9-]{10}/)k="slack token"
-       else if(l~/[sr]k_(live|test)_[A-Za-z0-9]{16}/)k="stripe key"
-       else if(l~/(password|secret|api_key)[ ]*[=:][ ]*["\047][^"\047 ]{4}/)k="literal credential"
+       else if(l~aws)k="aws key"
+       else if(l~gh)k="github token"
+       else if(l~sl)k="slack token"
+       else if(l~st)k="stripe key"
+       else if(l~cr)k="literal credential"
        if(k!="")print f":"n":"k
        n++}'
      ```
