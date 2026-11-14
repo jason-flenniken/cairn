@@ -276,8 +276,9 @@ Along the bottom of every tab:
 
 - **Stage steps:** ✓ done, ● the current stage (with the phase during Build), ○ still to come.
 - **Git:** the branch (🌳 when the session is in a worktree), `✓ clean` or the count of changed files, commits ahead ↑ and behind ↓, and the plan's active time ⏱: time counts only while the session or an agent is working, not while a question waits on you, the plan is paused, or the session sits idle.
-- **Usage:** the model, what the plan has cost so far (or the session's total when no plan is active), how full the context window is, and the session's tokens.
-- **Limits:** your 5-hour and 7-day usage. They change color as they get close, and show when they reset.
+- **Usage:** the model, how full the context window is, and its tokens.
+- **Limits:** your 5-hour and 7-day usage, and how much of the week is left. They change color as they get close, and show when they reset.
+- **Plan:** what the plan has cost across every session and agent, its total tokens, and about how much of your weekly limit it used (≈: other use of your account in the same stretch counts too). With no plan active, the session's cost. `cairn status` shows the same totals; at close they are saved to the plan folder's `usage.json`, and `docs/cairn/USAGE.md` lists every closed plan's usage, newest first.
 
 ### Commands
 

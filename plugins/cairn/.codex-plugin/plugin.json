@@ -1,6 +1,6 @@
 {
   "name": "cairn",
-  "version": "0.18.1",
+  "version": "0.19.0",
   "description": "Agent-driven SDLC: discover, PRD, phased parallel plan, build, check, review, ship. Script-owned state per plan and fresh-eyes checks before the PRD.",
   "author": { "name": "Jason Flenniken", "url": "https://github.com/jason-flenniken" },
   "homepage": "https://github.com/jason-flenniken/cairn",
