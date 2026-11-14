@@ -13,8 +13,8 @@ In Claude Code, nothing here changes anything: follow the procedures as written.
 
 | | Claude Code | Codex |
 |---|---|---|
-| Where it is | `cairn` is on PATH | `<plugin root>/bin/cairn`, the path the session-start line prints. The plugin's `bin/` is not on PATH. A `cairn` found on PATH may be another host's older copy, so don't use it. |
-| How to run it | `cairn <args>` | `"<plugin root>/bin/cairn" <args>`, with `cd <plan worktree> &&` in front, exactly where a procedure shows it |
+| Where it is | `cairn` is on PATH | `<plugin root>/cli/bin/cairn`, the path the session-start line prints. The plugin's `cli/bin/` is not on PATH. A `cairn` found on PATH may be another host's older copy, so don't use it. |
+| How to run it | `cairn <args>` | `"<plugin root>/cli/bin/cairn" <args>`, with `cd <plan worktree> &&` in front, exactly where a procedure shows it |
 | Plugin root | from `${CLAUDE_PLUGIN_ROOT}` | the folder two levels above the skill's `SKILL.md` |
 
 ## Asking the user
@@ -33,8 +33,8 @@ Approvals of the PRD, the plan, a level change and the ship always come from the
 - **Codex, always.** Ignore `modActive` here: it can read true because a Claude Code session on the same repo is running the mod, but that mod never sees your questions. Take the branch the procedures give for `modActive: false`. The same applies in Claude Code when `modActive` is false.
 
   There is no menu approval. Give the user the full command, with real paths, to run in their own terminal:
-  - approval: `cd <plan worktree> && "<plugin root>/bin/cairn" approve <prd|plan|ship> --human`
-  - level change: `cd <plan worktree> && "<plugin root>/bin/cairn" level <mvp|standard|polished> --human`
+  - approval: `cd <plan worktree> && "<plugin root>/cli/bin/cairn" approve <prd|plan|ship> --human`
+  - level change: `cd <plan worktree> && "<plugin root>/cli/bin/cairn" level <mvp|standard|polished> --human`
   - override the user chose: the refused command with `--override "<their reason>" --human` added
 
   Wait for them to say it's done, then run `cairn status` to confirm.
@@ -51,7 +51,7 @@ A procedure says "dispatch the `<role>` agent" with a `model`, sometimes an `eff
 - **Codex:** plugins can't bundle custom agents, so call `spawn_agent` like this:
   - Give it instructions with three parts, in order:
     1. the text of `<plugin root>/agents/<role>.md` after its frontmatter;
-    2. a line naming the plugin root and saying that `cairn` means `<plugin root>/bin/cairn`;
+    2. a line naming the plugin root and saying that `cairn` means `<plugin root>/cli/bin/cairn`;
     3. the procedure's prompt.
   - Pass `reasoning_effort` from the table below.
   - Pass `model` only when `.cairn/config.json` sets `codex.models.<tier>`; otherwise the agent uses the session's model.

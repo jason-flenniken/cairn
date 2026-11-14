@@ -65,7 +65,7 @@ export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO, action
   const p = humanOnce(opts, io);
   if (p) return p.source;
   const slug = current?.ctx.plan?.slug;
-  const cmd = `cd ${current?.ctx.plan?.worktree ?? '<plan worktree>'} && ${pluginRoot()}/bin/cairn ${action} ${kind} --human`;
+  const cmd = `cd ${current?.ctx.plan?.worktree ?? '<plan worktree>'} && ${pluginRoot()}/cli/bin/cairn ${action} ${kind} --human`;
   if (action === 'level')
     throw new Refusal('level changes come from the user, and this command has no proof that one did', [
       `the user answers the level menu tagged [cairn:level ${slug}]`,

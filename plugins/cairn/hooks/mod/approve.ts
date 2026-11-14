@@ -128,7 +128,7 @@ function withSecret<T>($: EngineInterface, use: (secret: string) => Promise<T>):
 
 const quick: ProcessRunInit = { timeoutMs: QUICK_MS }
 
-/** Runs bin/cairn with the secret in its env; the timeout keeps a hung CLI from holding the secret's turn. */
+/** Runs cli/bin/cairn with the secret in its env; the timeout keeps a hung CLI from holding the secret's turn. */
 function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promise<CairnRun> {
   return withSecret($, s => {
     const init: ProcessRunInit = { cwd, env: { CAIRN_APPROVER: s }, timeoutMs: CLI_MS }

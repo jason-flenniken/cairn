@@ -87,7 +87,7 @@ Run `cd <plan worktree> && cairn step approving`. Show the user the record in ab
   - Approve (Recommended): approve the record
   - Revise the record or the entry: run `cd <plan worktree> && cairn step recording`, ask what to change, edit, recheck the word counts, and return to step 8
   - Hold: stop here; the plan stays at ship
-- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve ship --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
+- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/cli/bin/cairn approve ship --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
 **Done when:** the ship approval is already recorded, or the user chose Approve, or said the terminal approval ran.
 

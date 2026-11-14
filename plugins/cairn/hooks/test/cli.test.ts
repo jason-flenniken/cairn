@@ -17,11 +17,11 @@ function fake(stdout: string) {
   return { $, runs }
 }
 
-test('cairn() runs <plugin root>/bin/cairn by argv, with cwd and env, and parses JSON', async () => {
+test('cairn() runs <plugin root>/cli/bin/cairn by argv, with cwd and env, and parses JSON', async () => {
   const { $, runs } = fake('{"stage":"execute"}\n')
   const got = await cairn($, ['status', '--json'], { cwd: '/wt', env: { CAIRN_APPROVER: 's' } })
   expect(runs).toEqual([
-    { argv: ['/plugins/cairn/bin/cairn', 'status', '--json'], init: { cwd: '/wt', env: { CAIRN_APPROVER: 's' } } },
+    { argv: ['/plugins/cairn/cli/bin/cairn', 'status', '--json'], init: { cwd: '/wt', env: { CAIRN_APPROVER: 's' } } },
   ])
   expect(got).toEqual({ exitCode: 0, stdout: '{"stage":"execute"}\n', stderr: '', json: { stage: 'execute' } })
 })

@@ -7362,7 +7362,7 @@ var require_dist = __commonJS({
 });
 
 // plugins/cairn/cli/src/main.ts
-import { readFileSync as readFileSync8 } from "node:fs";
+import { readFileSync as readFileSync9 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
 
 // plugins/cairn/cli/src/locate.ts
@@ -8218,7 +8218,7 @@ function requireHumanProof(kind, opts, io, action = "approve") {
   const p = humanOnce(opts, io);
   if (p) return p.source;
   const slug = current?.ctx.plan?.slug;
-  const cmd = `cd ${current?.ctx.plan?.worktree ?? "<plan worktree>"} && ${pluginRoot()}/bin/cairn ${action} ${kind} --human`;
+  const cmd = `cd ${current?.ctx.plan?.worktree ?? "<plan worktree>"} && ${pluginRoot()}/cli/bin/cairn ${action} ${kind} --human`;
   if (action === "level")
     throw new Refusal("level changes come from the user, and this command has no proof that one did", [
       `the user answers the level menu tagged [cairn:level ${slug}]`,
@@ -10493,7 +10493,7 @@ var pendingCount = (s) => due(s.linear).filter((w) => !claimedNow(w)).length;
 var short = (sha) => sha.slice(0, 7);
 var reapproveFixes = (slug, worktree) => [
   `the user approves the ship again in the approval menu tagged [cairn:approve ship ${slug}], or presses Approve in the cairn pane`,
-  `or the user runs, in their own terminal: cd ${worktree} && ${pluginRoot()}/bin/cairn approve ship --human`,
+  `or the user runs, in their own terminal: cd ${worktree} && ${pluginRoot()}/cli/bin/cairn approve ship --human`,
   "then run cairn merge-check again"
 ];
 var isPublished2 = (f) => CLOSE_PUBLISHED.some((p) => f === p || f.startsWith(`${p}/`));
@@ -12389,7 +12389,7 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync14, realpathSync } from "node:fs";
+import { appendFileSync as appendFileSync2, existsSync as existsSync14, readFileSync as readFileSync8, realpathSync } from "node:fs";
 import { dirname as dirname6, isAbsolute, join as join22, relative as relative4, resolve as resolve3 } from "node:path";
 
 // plugins/cairn/hooks/mod/guard-rules.ts
@@ -12788,11 +12788,22 @@ function indexFor(ctx) {
 }
 var startOut = (...parts) => {
   const root = codexRoot();
-  if (root) parts.push(`cairn CLI here: ${join22(root, "bin", "cairn")}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join22(root, "references", "hosts.md")}.`);
+  if (root) parts.push(`cairn CLI here: ${join22(root, "cli", "bin", "cairn")}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join22(root, "references", "hosts.md")}.`);
   const text = parts.filter(Boolean).join("\n");
   return text ? hookOut("SessionStart", text) : "";
 };
+function exportPath(envFile = process.env.CLAUDE_ENV_FILE) {
+  if (!envFile || codexRoot()) return;
+  try {
+    const line = `export PATH='${join22(pluginRoot(), "cli", "bin").replaceAll("'", "'\\''")}':"$PATH"
+`;
+    if (existsSync14(envFile) && readFileSync8(envFile, "utf8").includes(line)) return;
+    appendFileSync2(envFile, line);
+  } catch {
+  }
+}
 function hookSessionStart(input) {
+  exportPath();
   const ctx = context(input.cwd ?? process.cwd());
   if (ctx.plan?.dir && existsSync14(join22(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
@@ -12887,7 +12898,7 @@ ${v}` : v;
   const noteFile = opts["note-file"];
   if (typeof noteFile === "string") {
     try {
-      opts.note = readFileSync8(resolve4(cwd, noteFile), "utf8");
+      opts.note = readFileSync9(resolve4(cwd, noteFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --note-file ${noteFile}: ${e.message}`);
     }
@@ -12895,7 +12906,7 @@ ${v}` : v;
   const textFile = opts["text-file"];
   if (typeof textFile === "string") {
     try {
-      opts.text = readFileSync8(resolve4(cwd, textFile), "utf8");
+      opts.text = readFileSync9(resolve4(cwd, textFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --text-file ${textFile}: ${e.message}`);
     }
@@ -13015,7 +13026,7 @@ ${USAGE4}`);
 }
 function readStdin() {
   try {
-    return JSON.parse(readFileSync8(0, "utf8") || "{}");
+    return JSON.parse(readFileSync9(0, "utf8") || "{}");
   } catch {
     return {};
   }
@@ -13043,7 +13054,7 @@ function main(argv) {
   const json = argv.includes("--json");
   try {
     const piped = argv[0] === "linear" && argv[1] === "import" && !argv.some((x) => x === "--file" || x.startsWith("--file=")) && !process.stdin.isTTY;
-    const r = run(argv, process.cwd(), piped ? readFileSync8(0, "utf8") : void 0);
+    const r = run(argv, process.cwd(), piped ? readFileSync9(0, "utf8") : void 0);
     if (json || r.message !== "") process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + "\n");
     return 0;
   } catch (e) {

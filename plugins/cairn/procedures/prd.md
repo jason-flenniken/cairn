@@ -42,7 +42,7 @@ Run `cairn status --json`. If `state.approvals.prd` is already recorded (approve
   - Approve (Recommended)
   - Revise: run `cd <plan worktree> && cairn step drafting`, ask what to change, send it to the writer with SendMessage (or a fresh `prd-writer` when it has ended), and return to step 3
   - Pause: go to the pause procedure
-- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/bin/cairn approve prd --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
+- False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/cli/bin/cairn approve prd --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed), then wait for them to say it's done.
 
 Do not approve on the user's behalf.
 

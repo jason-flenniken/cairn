@@ -1,0 +1,5 @@
+#!/bin/sh
+# cairn CLI: single writer of plan state. Rename-safe: only this file name carries the brand.
+# Lives in cli/bin, not a top-level bin/: claude.ai and Cowork refuse a plugin with a top-level bin/.
+# Session start puts this folder on PATH in Claude Code (see `cairn hook session-start`).
+exec node "$(dirname "$0")/../../dist/cairn.mjs" "$@"

@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { DOCS_DIR, DOCS_DIRS, isCairnPath } from '../paths.ts';
 import { matchesAny } from '../glob.ts';
@@ -6,7 +6,7 @@ import { context, planRelOf } from '../locate.ts';
 import { allTasks, currentPhase, findTask } from '../ready.ts';
 import { nextFor, summary } from '../render.ts';
 import { loadState, log, saveState } from '../state.ts';
-import { now, withLock } from '../util.ts';
+import { now, pluginRoot, withLock } from '../util.ts';
 import { planCtx } from '../shared.ts';
 import { memoryIndex } from '../memory.ts';
 import { planEntries } from './records.ts';
@@ -95,12 +95,29 @@ function indexFor(ctx: ReturnType<typeof context>): string {
 const startOut = (...parts: string[]) => {
   const root = codexRoot();
   // Codex never puts a plugin's bin/ on PATH, and a `cairn` found there may be another host's older copy.
-  if (root) parts.push(`cairn CLI here: ${join(root, 'bin', 'cairn')}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join(root, 'references', 'hosts.md')}.`);
+  if (root) parts.push(`cairn CLI here: ${join(root, 'cli', 'bin', 'cairn')}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join(root, 'references', 'hosts.md')}.`);
   const text = parts.filter(Boolean).join('\n');
   return text ? hookOut('SessionStart', text) : '';
 };
 
+/**
+ * Puts cli/bin on PATH for the session's Bash commands, so skills can run plain `cairn`. Claude Code puts only a
+ * plugin's top-level bin/ on PATH, and claude.ai and Cowork refuse to install a plugin that has one. Claude Code
+ * hands SessionStart hooks CLAUDE_ENV_FILE for this; the line is written once per file and never blocks a session.
+ */
+export function exportPath(envFile = process.env.CLAUDE_ENV_FILE): void {
+  if (!envFile || codexRoot()) return;
+  try {
+    const line = `export PATH='${join(pluginRoot(), 'cli', 'bin').replaceAll("'", "'\\''")}':"$PATH"\n`;
+    if (existsSync(envFile) && readFileSync(envFile, 'utf8').includes(line)) return;
+    appendFileSync(envFile, line);
+  } catch {
+    // An unwritable env file leaves the skills' `node dist/cairn.mjs` fallback.
+  }
+}
+
 export function hookSessionStart(input: HookInput): string {
+  exportPath();
   const ctx = context(input.cwd ?? process.cwd());
   if (ctx.plan?.dir && existsSync(join(ctx.plan.dir, 'state.json'))) {
     const pc = planCtx(ctx);

@@ -322,7 +322,7 @@ test('the terminal approval hint is a runnable command: cd to the plan worktree,
   const wt = ok(repo, 'new', 'hint2', '--title', 'Hint2').data!.worktree as string;
   assert.throws(
     () => run(['approve', 'prd'], wt),
-    (e: unknown) => e instanceof Refusal && e.fixes.some(f => f.includes(`cd ${wt} && ${pluginRoot()}/bin/cairn approve prd --human`)),
+    (e: unknown) => e instanceof Refusal && e.fixes.some(f => f.includes(`cd ${wt} && ${pluginRoot()}/cli/bin/cairn approve prd --human`)),
   );
 });
 

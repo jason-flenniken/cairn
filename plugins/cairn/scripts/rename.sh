@@ -1,5 +1,5 @@
 #!/bin/sh
-# Rename the plugin. The brand lives only in plugin.json, marketplace.json, the bin/ wrapper's
+# Rename the plugin. The brand lives only in plugin.json, marketplace.json, the cli/bin/ wrapper's
 # file name, and the `/<name>:` prefix in user-facing text. Data paths (docs/cairn, .cairn, and the legacy docs/sdlc, .sdlc) are neutral.
 set -eu
 new="${1:?usage: scripts/rename.sh <new-name>}"
@@ -9,7 +9,7 @@ old="$(sed -n 's/.*"name": *"\([^"]*\)".*/\1/p' "$here/.claude-plugin/plugin.jso
 repo="$(cd "$here/../.." && pwd)"
 sed -i.bak "s/\"name\": *\"$old\"/\"name\": \"$new\"/" "$here/.claude-plugin/plugin.json"
 sed -i.bak "s/\"name\": *\"$old\"/\"name\": \"$new\"/; s#plugins/$old#plugins/$new#" "$repo/.claude-plugin/marketplace.json"
-git -C "$repo" mv "plugins/$old/bin/$old" "plugins/$old/bin/$new" 2>/dev/null || mv "$here/bin/$old" "$here/bin/$new"
+git -C "$repo" mv "plugins/$old/cli/bin/$old" "plugins/$old/cli/bin/$new" 2>/dev/null || mv "$here/cli/bin/$old" "$here/cli/bin/$new"
 sed -i.bak "s#/bin/$old\\\\\"#/bin/$new\\\\\"#g" "$here/hooks/hooks.json"
 # User-facing text: slash-command prefix and CLI name.
 grep -rlE "/$old:|\\b$old (next|status|new|decide|approve|advance|plan|ready|task|evidence|drift|pause|resume|close|render|product|hook)\\b" \
