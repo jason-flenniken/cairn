@@ -12,7 +12,6 @@ import type { Phase, State } from '../types.ts';
 import { hashText, pluginRoot, readText, Refusal, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
 import { formatUsage, planUsage } from '../usage.ts';
-import { withFreshStart } from './brief.ts';
 import { restack } from './merge.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
@@ -242,10 +241,10 @@ export function cmdNext(ctx: Ctx): Result {
   const queued = pendingCount(s);
   const stageNext = nextFor(s);
   const n = queued ? { procedure: 'linear-sync', text: `Send ${queued} queued Linear update${queued === 1 ? '' : 's'} first. Then: ${stageNext.text}` } : stageNext;
-  return withFreshStart(pc, {
+  return {
     message: `${restacked ? `${restacked}\n` : ''}${summary(s)}\nNext: ${n.text}\nFollow: ${procedurePath(n.procedure)}`,
     data: { plan: s.slug, stage: s.stage, level: levelOf(s), levelLabel: levelLabel(s), substep: n.substep ?? null, procedure: procedurePath(n.procedure), summary: summary(s), text: n.text, warnings: warnings(pc, s), planWorktree: pc.plan.worktree, modActive: modIsActive(ctx), ...(restacked ? { restacked } : {}) },
-  });
+  };
 }
 
 export function cmdRender(ctx: Ctx): Result {

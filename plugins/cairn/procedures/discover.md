@@ -127,4 +127,4 @@ Stop interviewing when you can predict the user's next three answers. If you can
 ## 8. Advance
 Run `cairn advance`. It needs at least one decision recorded. If refused, follow its message.
 
-**Done when:** the stage is `prd`. Then run `cairn next --json`. When its output holds a fresh-start line ("Context is at N%… start fresh with /clear, then /cairn:next."), tell the user that line and stop. Otherwise follow the procedure it names.
+**Done when:** the stage is `prd`. Then run `cairn next --json`. Follow the procedure it names.

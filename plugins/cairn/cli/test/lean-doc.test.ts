@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { pluginRoot } from '../src/util.ts';
@@ -56,7 +56,6 @@ test('execute.md runs the brief, report and record loop and sends rare cases to 
   assert.doesNotMatch(src, /cairn suggest add --area/);
   assert.match(src, /Read `procedures\/execute-cases\.md` only when one of these happens/);
   assert.match(src, /linear-sender/);
-  assert.match(src, /start fresh with \/clear, then \/cairn:next/);
   const cases = read('procedures/execute-cases.md');
   for (const h of ['NEEDS_CONTEXT', 'BLOCKED', 'Fix · merge', 'Tests are red after the merge', 'The plan is paused']) assert.ok(cases.includes(h), h);
 });
@@ -67,7 +66,6 @@ test('prd and plan procedures brief a writer and never edit the document', () =>
     assert.match(src, new RegExp('`' + writer + '` agent'), f);
     assert.match(src, new RegExp(`You never edit \`${f}\\.md\` yourself`), f);
     assert.match(src, /SendMessage/, f);
-    assert.match(src, /start fresh with \/clear, then \/cairn:next/, f);
   }
 });
 
@@ -109,5 +107,11 @@ test('review fixes: claimed Linear queue, re-review briefs, direction reports, f
   assert.match(read('procedures/direction.md'), /reports\/direction-<n>\.md/);
   for (const a of ['task-reviewer', 'security-reviewer', 'branch-reviewer']) {
     assert.match(read(`agents/${a}.md`), /Prior: <path:line> \| addressed\|open \| <note>/);
+  }
+});
+
+test('no procedure stops a run to ask for /clear', () => {
+  for (const f of readdirSync(join(root, 'procedures'))) {
+    assert.doesNotMatch(read(`procedures/${f}`), /start fresh with \/clear|fresh-start line/, f);
   }
 });

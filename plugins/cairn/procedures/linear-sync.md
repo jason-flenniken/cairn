@@ -45,6 +45,6 @@ The main thread does this step: `cd <plan worktree> && cairn linear pending --js
 **Done when:** each such entry was sent, dropped with a note, or held (`cairn linear hold <id> --note "the user wants to wait"`) when the user said to wait.
 
 ## 5. Report and continue
-Say what the sender returned in one line ("Sent 4 updates to Linear"), plus any that failed or are held; say nothing when all went out and the stage is moving on. Then, when you came here from `cairn next`, run `cd <plan worktree> && cairn next --json`; when its output holds a fresh-start line ("Context is at N%… start fresh with /clear, then /cairn:next."), tell the user that line and stop. Otherwise follow the procedure it names.
+Say what the sender returned in one line ("Sent 4 updates to Linear"), plus any that failed or are held; say nothing when all went out and the stage is moving on. Then, when you came here from `cairn next`, run `cd <plan worktree> && cairn next --json` and follow the procedure it names.
 
-**Done when:** the sender returned and the next procedure started, or you relayed the fresh-start line.
+**Done when:** the sender returned and the next procedure started.

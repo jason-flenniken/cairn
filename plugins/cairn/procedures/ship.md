@@ -66,7 +66,7 @@ Run `cd <plan worktree> && cairn step opening-pr`. Then, from the plan worktree:
 ## 7. Advance
 Run `cairn advance` (on a plan with Linear issues, `cairn advance --pr <PR URL>`, so the pull request link goes in the comment on each issue). Report the PR URL in one line. When the output says Linear updates are queued, dispatch the `linear-sender` agent in the background and carry on, unless a `linear-sender` is already running.
 
-**Done when:** the stage is `learn`. When the `advance` output holds a fresh-start line ("Context is at N%… start fresh with /clear, then /cairn:next."), relay that line as the outcome and stop. Otherwise run `cairn next --json` and follow the procedure it names. The merge is the last step of the whole plan: `learn.md` (and `fix.md` for a fix) sends you back to the Merge section below once the plan is closed.
+**Done when:** the stage is `learn`. Run `cairn next --json` and follow the procedure it names. The merge is the last step of the whole plan: `learn.md` (and `fix.md` for a fix) sends you back to the Merge section below once the plan is closed.
 
 ## Merge (the last step, after close)
 Closing records everything first so every record lands on main with the merge; `cairn status` and the pane show "PR open" until the branch is in main. Run this once the plan is closed. A plan started on another plan's branch (`cairn status` says "Stacked on <slug>") ships only after that plan has merged: the ship approval refuses until then, so merge the other plan first. `cairn merge-check` then moves this plan onto main first (it merges main in and clears the stacking; a conflict there is handled like a base conflict below), and `cairn next` does the same whenever the plan is stacked.

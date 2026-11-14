@@ -42,4 +42,4 @@ Pre-existing findings never count here: they were logged in step 3. The classes 
   - Only after the user picks "Override": run `cairn advance --override "blocking findings accepted by the user, with the reason in plain words"` on its own: no `cd`, no `&&`, because the mod refuses compound commands and resolves the plan itself. Write the reason as plain words and digits. It must hold none of ``; | & $ ` > <``, a backslash, or `# * ? ~ ( ) { } [ ]`, or the mod won't run it.
   - Note each accepted finding for the record.
 
-**Done when:** the stage is `ship`. Then run `cd <plan worktree> && cairn next --json`. When its output holds a fresh-start line ("Context is at N%… start fresh with /clear, then /cairn:next."), tell the user that line and stop. Otherwise follow the procedure it names.
+**Done when:** the stage is `ship`. Then run `cd <plan worktree> && cairn next --json`. Follow the procedure it names.

@@ -173,7 +173,6 @@ A long plan used to grow the session you talk to by hundreds of thousands of tok
 
 - **Briefs and reports live on disk.** `cairn task start` and `cairn task brief` write each agent's brief to `.cairn/work/<plan>/briefs/`, and agents write their full reports to `reports/` next to it. The session passes a path and reads only the last few lines an agent returns. `cairn task report` and `cairn review record` read the files, log the follow-ups and print one line. The folder is ignored by git.
 - **Writers and stewards hold the documents.** A `prd-writer` and a `plan-writer` write `prd.md` and `plan.md` and apply the fresh reader's notes, so the session never carries or edits them; you read the documents in the pane. A `researcher` writes its findings to a file, and a `linear-sender` carries Linear updates in the background.
-- **A fresh start is offered at stage ends.** When the session is past 40% of its context (`freshStartAt` in `.cairn/config.json`) at the end of a stage or phase, cairn says so: everything is saved, so `/clear` then `/cairn:next` picks up where it stopped.
 
 ## Depth levels
 

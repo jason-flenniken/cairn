@@ -12,7 +12,7 @@ Keep your own context small. Agents get a path, not text: `cairn task brief` wri
 
 **Running cairn.** Every `cairn` command below runs from the plan worktree: `cd <plan worktree> && cairn <command>`. The one exception is an override command (a `cairn` command the user chose to override). It runs alone, with no `cd` and no `&&`, because the mod refuses compound commands and resolves the plan itself. Keep its reason plain text, as `procedures/review.md` describes.
 
-**When a stage ends.** After `cairn advance`, `cairn phase finish` or `cairn next`, when the output holds a line like "Context is at 62%. Everything is saved: start fresh with /clear, then /cairn:next.", tell the user that line as the outcome and stop. Do not start the next step.
+**When a stage or phase ends.** Carry on into the next step. Never stop to suggest `/clear` or a new session: long sessions are compacted automatically, and the user decides when to clear.
 
 ## At this level
 Read `level` from `cairn status --json` (once, at the start); `references/levels.md` has the full table.
@@ -89,9 +89,9 @@ Anything else (a refusal, a conflict outside `docs/cairn/`, red tests after the 
 ## 8. Loop
 After every completion, return to step 3. Make the pause check between rounds.
 
-When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks. Run `cd <plan worktree> && cairn next --json`, follow the procedure it names (phase-end for a feature plan, review for a fix plan), and relay a fresh-start line if its output holds one.
+When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks. Run `cd <plan worktree> && cairn next --json`, follow the procedure it names (phase-end for a feature plan, review for a fix plan).
 
 ## Rare cases
 Read `procedures/execute-cases.md` only when one of these happens: an implementer returns `NEEDS_CONTEXT` or `BLOCKED`, `cairn task merge` refuses or conflicts, tests are red after the merge, a task is blocked, or the plan is paused.
 
-**Done when:** the phase has no remaining tasks and the next procedure started, or you relayed the fresh-start line and stopped.
+**Done when:** the phase has no remaining tasks and the next procedure started.

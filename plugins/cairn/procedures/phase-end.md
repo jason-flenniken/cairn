@@ -24,7 +24,7 @@ It succeeds only when every task in the phase is done, nothing is blocked or pau
 **Done when:** `cairn phase finish` exited 0.
 
 ## 2. Continue
-Relay the summary line in one or two lines. When the output holds a fresh-start line ("Context is at N%… start fresh with /clear, then /cairn:next."), relay that line as the outcome and stop. When it says Linear updates are queued, dispatch the `linear-sender` agent in the background (`model: haiku`, `description` "Record · Linear updates") and carry on, unless a `linear-sender` is already running. Then run `cd <plan worktree> && cairn next --json`; when its output holds a fresh-start line, relay it and stop. Otherwise follow the procedure it names (normally `procedures/execute.md` for the next phase) without stopping to ask.
+Relay the summary line in one or two lines. When it says Linear updates are queued, dispatch the `linear-sender` agent in the background (`model: haiku`, `description` "Record · Linear updates") and carry on, unless a `linear-sender` is already running. Then run `cd <plan worktree> && cairn next --json` and follow the procedure it names (normally `procedures/execute.md` for the next phase) without stopping to ask.
 
 ## 3. Stop only when something is wrong
 If `cairn phase finish` refuses, stop and tell the user what it names, in plain words:

@@ -60,7 +60,7 @@ test('planUsage sums sessions, skips a corrupt file, and ignores week.json', () 
   const u = planUsage(common(), 'sum')!;
   assert.equal(u.sessions, 2);
   assert.equal(u.usd, 12.5);
-  assert.equal(u.tokens.total, 2 * 343000);
+  assert.equal(u.tokens.total, 2 * 43000);
   assert.equal(u.tokens.cacheRead, 600000);
   assert.equal(u.tokensByModel['claude-opus-5-5'], 400000);
   assert.ok(Math.abs(u.weekPct - 8.4) < 1e-9);
@@ -73,8 +73,8 @@ test('formatting', () => {
   assert.equal(formatTokens(45000), '45k');
   assert.equal(formatTokens(1_200_000), '1.2M');
   const t = (total: number) => ({ total });
-  assert.equal(formatUsage({ usd: 42.1, tokens: t(18_200_000), weekPct: 18.2 }), '$42.10 · 18M tokens · ≈18% of weekly limit');
-  assert.equal(formatUsage({ usd: 1, tokens: t(850), weekPct: 4.24 }), '$1.00 · 850 tokens · ≈4.2% of weekly limit');
+  assert.equal(formatUsage({ usd: 42.1, tokens: t(18_200_000), weekPct: 18.2 }), '$42.10 · 18M new tokens · ≈18% of weekly limit');
+  assert.equal(formatUsage({ usd: 1, tokens: t(850), weekPct: 4.24 }), '$1.00 · 850 new tokens · ≈4.2% of weekly limit');
 });
 
 test('status shows the usage line and --json carries usage; close writes usage.json and USAGE.md and commits them', () => {
@@ -85,11 +85,11 @@ test('status shows the usage line and --json carries usage; close writes usage.j
   ledger(slug, 'a', session(10, 'execute'));
   ledger(slug, 'b', session(2.5, 'review'));
   ledger(slug, 'bad', 'oops');
-  assert.match(run(['status'], wt).message, /Usage: \$12\.50 · 686k tokens · ≈8\.4% of weekly limit/);
+  assert.match(run(['status'], wt).message, /Usage: \$12\.50 · 86k new tokens · ≈8\.4% of weekly limit/);
   const u = run(['status', '--json'], wt).data!.usage as Record<string, any>;
   assert.equal(u.usd, 12.5);
   assert.equal(u.sessions, 2);
-  assert.equal(u.tokens.total, 686000);
+  assert.equal(u.tokens.total, 86000);
 
   assert.match(run(['close'], wt).message, /Closed/);
   const saved = JSON.parse(readFileSync(join(pd(wt, slug), 'usage.json'), 'utf8'));
@@ -98,7 +98,7 @@ test('status shows the usage line and --json carries usage; close writes usage.j
   assert.ok(Date.parse(saved.closedAt));
   const md = readFileSync(join(wt, 'docs/cairn/USAGE.md'), 'utf8');
   assert.match(md, /^# Usage/);
-  assert.match(md, /\| \d{4}-\d\d-\d\d \| \[costly\]\(plans\/[^)]*costly\/RECORD\.md\) \| \$12\.50 \| 686k \| 8\.4% \| execute \$10 · review \$2\.50 \|/);
+  assert.match(md, /\| \d{4}-\d\d-\d\d \| \[costly\]\(plans\/[^)]*costly\/RECORD\.md\) \| \$12\.50 \| 86k \| 8\.4% \| execute \$10 · review \$2\.50 \|/);
   assert.ok(existsSync(join(wt, 'docs/cairn', md.match(/\]\(([^)]+)\)/)![1]!)));
   assert.equal(g(wt, 'status', '--porcelain'), '');
   const files = g(wt, 'show', '--name-only', '--format=', 'HEAD');

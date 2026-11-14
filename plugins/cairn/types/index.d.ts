@@ -166,7 +166,7 @@ export type CairnLedgerEntry = {
   usd: number
   /** Tokens by kind, main thread and agents together. */
   tokens: { input: number; output: number; cacheRead: number; cacheWrite: number }
-  /** All tokens by the model that answered. */
+  /** New tokens (input, output, cache writes; not cache reads) by the model that answered. */
   tokensByModel: Record<string, number>
   /** Points of the 7-day limit that rose while the plan was worked on (approximate: other use of the account counts too). */
   weekPct: number

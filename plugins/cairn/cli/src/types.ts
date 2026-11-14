@@ -335,8 +335,6 @@ export interface Config {
   worktreeRoot?: string;
   resumeFreshAfterMinutes?: number;
   fixMaxFiles?: number;
-  /** Context percentage at which a stage end says to start fresh with /clear. Default 40. */
-  freshStartAt?: number;
   reproTimeoutMinutes?: number;
   /** How long one test run may take before it is stopped and reported as timed out. Default 30. */
   testTimeoutMinutes?: number;

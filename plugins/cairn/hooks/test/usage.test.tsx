@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { resetLedger } from '../mod/ledger.ts'
-import { resetContextThrottle } from '../mod/usage.ts'
 import { MAIN, mount, mountAs, plan, row, start, world, WT } from './world.tsx'
 
 type El = { type: string; props: Record<string, unknown>; children: (El | string)[] }
@@ -143,7 +142,7 @@ describe('plan usage ledger', () => {
     await ui.unmount()
   })
 
-  test('tokens from the main thread and agents add up, all four kinds, by model', async ($, on) => {
+  test('tokens from the main thread and agents add up, all four kinds; the headline and by-model leave out cache reads', async ($, on) => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10))
     stepUsage(on, 'claude-sonnet-5-5', { input: 100, output: 200, cacheRead: 1_000_000, cacheWrite: 50_000 })
@@ -154,12 +153,12 @@ describe('plan usage ledger', () => {
     await $.session.measure(measure(11) as never)
     const f = ledgerFile(w)
     expect(f.tokens).toEqual({ input: 200, output: 400, cacheRead: 2_000_000, cacheWrite: 100_000 })
-    expect(f.tokensByModel).toEqual({ 'claude-sonnet-5-5': 2_100_600 })
-    expect(await planRow(ui)).toContain('Σ 2.1M tok')
+    expect(f.tokensByModel).toEqual({ 'claude-sonnet-5-5': 100_600 })
+    expect(await planRow(ui)).toContain('Σ 101k new tok')
     await ui.unmount()
   })
 
-  test('the 7-day rise while the plan spends is its share of the week; a drop is a new window counted from zero', async ($, on) => {
+  test('the 7-day rise while the plan spends is its share of the week; a moved reset time is a new window counted from zero', async ($, on) => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10, { rateLimits: week(40) }))
     await start($, WT)
@@ -170,9 +169,35 @@ describe('plan usage ledger', () => {
     // Idle here: the percent rose with no spend in this session, so it is not this plan's.
     await $.session.measure(measure(11, { rateLimits: week(45) }) as never)
     expect(ledgerFile(w).weekPct).toBe(2.5)
-    // A new window: 45 falls to 3.
+    // A new window: the reset time moved, 45 falls to 3.
     await $.session.measure(measure(12, { rateLimits: week(3, '2026-03-12T09:00:00.000Z') }) as never)
     expect(ledgerFile(w).weekPct).toBe(5.5)
+    await ui.unmount()
+  })
+
+  test('a lower 7-day reading in the same window is stale: it adds nothing and the high mark stays', async ($, on) => {
+    const { w } = world(on, { rows: [row(BUILD, WT)] })
+    session(on, measure(10, { rateLimits: week(18) }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    // Two sources disagreeing, while the session spends: 18, 15, 18, 15, then a real rise to 19.
+    let cost = 10
+    for (const pct of [15, 18, 15, 18, 15, 19]) await $.session.measure(measure((cost += 1), { rateLimits: week(pct) }) as never)
+    expect(ledgerFile(w).weekPct).toBe(1)
+    expect(w.written.filter(x => x.path === '/repo/.git/cairn/usage/week.json').map(x => JSON.parse(x.text).pct)).toEqual([19])
+    await ui.unmount()
+  })
+
+  test('without reset times, only a large drop is a new window', async ($, on) => {
+    const { w } = world(on, { rows: [row(BUILD, WT)] })
+    const bare = (pct: number): Limit[] => [{ kind: 'seven_day', percentUsed: pct }]
+    session(on, measure(10, { rateLimits: bare(80) }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.session.measure(measure(11, { rateLimits: bare(70) }) as never)
+    expect(ledgerFile(w).weekPct).toBe(0)
+    await $.session.measure(measure(12, { rateLimits: bare(2) }) as never)
+    expect(ledgerFile(w).weekPct).toBe(2)
     await ui.unmount()
   })
 
@@ -288,107 +313,6 @@ describe('inline (FR-06)', () => {
     expect(rows).toEqual(['● Build  $4.10  5h 5%  7d 61% left'])
     const rowsOf = (n: El): number => n.type === 'Box' && n.props.flexDirection === 'column' ? n.children.reduce((k: number, c) => k + (typeof c === 'string' ? 1 : rowsOf(c)), 0) : 1
     expect(rowsOf((await ui.findAll({ type: 'Box' }))[0] as El)).toBeLessThanOrEqual(7)
-    await ui.unmount()
-  })
-})
-
-describe('context file for the fresh start', () => {
-  const CONTEXT = '/repo/.git/cairn/context/shop.json'
-  const ctxWrites = (w: { written: { path: string; text: string }[] }) => w.written.filter(x => x.path.includes('/cairn/context/'))
-  const first = ($: any) => $.session.measure(measure(1, { percent: 40, tokens: 80_000 }) as never)
-
-  test('a measure writes pct, tokens and a time for the shown plan', async ($, on) => {
-    resetContextThrottle()
-    const { w, clock } = world(on, { rows: [row(BUILD, WT)] })
-    session(on, measure(10))
-    await start($, WT)
-    const ui = await mount($, 'terminal')
-    await first($)
-    const writes = ctxWrites(w)
-    expect(writes.map(x => x.path)).toEqual([CONTEXT])
-    expect(JSON.parse(writes[0]!.text)).toEqual({ pct: 40, tokens: 80_000, at: '2026-03-01T12:00:00.000Z' })
-    await ui.unmount()
-  })
-
-  test('a second measure within 30 s does not write; after 30 s with new figures it does; unchanged figures never do', async ($, on) => {
-    resetContextThrottle()
-    const { w, clock } = world(on, { rows: [row(BUILD, WT)] })
-    session(on, measure(10))
-    await start($, WT)
-    const ui = await mount($, 'terminal')
-    await first($)
-    await $.session.measure(measure(1, { percent: 45, tokens: 90_000 }) as never)
-    expect(ctxWrites(w)).toHaveLength(1)
-    await clock.advance(31_000)
-    await $.session.measure(measure(1, { percent: 45, tokens: 90_000 }) as never)
-    expect(ctxWrites(w)).toHaveLength(2)
-    await clock.advance(31_000)
-    await $.session.measure(measure(1, { percent: 45, tokens: 90_000 }) as never)
-    expect(ctxWrites(w)).toHaveLength(2)
-    await ui.unmount()
-  })
-
-  test('a drop in pct writes at once, inside the 30 s; a rise inside it does not', async ($, on) => {
-    resetContextThrottle()
-    const { w } = world(on, { rows: [row(BUILD, WT)] })
-    session(on, measure(10))
-    await start($, WT)
-    const ui = await mount($, 'terminal')
-    await first($)
-    // After /clear or a compaction the context falls: the CLI must see it now, not 30 s later.
-    await $.session.measure(measure(1, { percent: 5, tokens: 10_000 }) as never)
-    expect(ctxWrites(w)).toHaveLength(2)
-    expect(JSON.parse(ctxWrites(w)[1]!.text)).toMatchObject({ pct: 5, tokens: 10_000 })
-    await $.session.measure(measure(1, { percent: 9, tokens: 18_000 }) as never)
-    expect(ctxWrites(w)).toHaveLength(2)
-    await ui.unmount()
-  })
-
-  test('the context folder is made once with mkdir -p, before the first write', async ($, on) => {
-    resetContextThrottle()
-    const { w, clock } = world(on, { rows: [row(BUILD, WT)] })
-    session(on, measure(10))
-    await start($, WT)
-    const ui = await mount($, 'terminal')
-    await first($)
-    expect(w.mkdirs.filter(d => d.includes('/context'))).toEqual(['/repo/.git/cairn/context'])
-    await clock.advance(31_000)
-    await $.session.measure(measure(1, { percent: 50, tokens: 100_000 }) as never)
-    expect(ctxWrites(w)).toHaveLength(2)
-    expect(w.mkdirs.filter(d => d.includes('/context'))).toHaveLength(1)
-    await ui.unmount()
-  })
-
-  test('with no plan nothing is written', async ($, on) => {
-    resetContextThrottle()
-    const { w, clock } = world(on, { rows: [] })
-    session(on, measure(10))
-    await start($, MAIN)
-    const ui = await mount($, 'terminal')
-    await first($)
-    expect(ctxWrites(w)).toEqual([])
-    await ui.unmount()
-  })
-
-  test('a session at the repo root writes for the one active plan', async ($, on) => {
-    resetContextThrottle()
-    const one = world(on, { cwd: MAIN, rows: [row(BUILD, WT)] })
-    session(on, measure(10))
-    await start($, MAIN)
-    const ui = await mount($, 'terminal')
-    await first($)
-    expect(ctxWrites(one.w).map(x => x.path)).toEqual([CONTEXT])
-    await ui.unmount()
-  })
-
-  test('at the repo root with two active plans nothing is written', async ($, on) => {
-    resetContextThrottle()
-    const { w } = world(on, { cwd: MAIN, rows: [row(BUILD, WT), row(plan({ slug: 'cart', stage: 'plan' }), '/repo/.worktrees/cart')] })
-    session(on, measure(10))
-    await start($, MAIN)
-    const ui = await mount($, 'terminal')
-    await first($)
-    expect(ctxWrites(w)).toEqual([])
     await ui.unmount()
   })
 })

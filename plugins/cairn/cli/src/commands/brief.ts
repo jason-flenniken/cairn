@@ -401,36 +401,3 @@ export function cmdReview(ctx: Ctx, action: string | undefined, target: string |
     return { message, data: { verdict, mustFix: mine.map(({ report: _r, ...rest }) => rest), logged } };
   });
 }
-
-// ---------- Fresh start ----------
-
-const DEFAULT_FRESH_START_AT = 40;
-const FRESH_MAX_AGE_MS = 10 * 60 * 1000;
-
-/**
- * The context percentage the mod last wrote for this plan's session, when it is recent and over the limit.
- * A missing, old or unreadable file is nothing: this never fails a command.
- */
-export function freshStart(pc: PlanCtx, at: number = Date.now()): { pct: number; line: string } | undefined {
-  try {
-    const raw = readText(join(commonDir(pc.ctx.mainRoot), 'cairn', 'context', `${pc.plan.slug}.json`));
-    if (raw === undefined) return undefined;
-    const c = JSON.parse(raw) as { pct?: unknown; at?: unknown };
-    if (typeof c.pct !== 'number' || !Number.isFinite(c.pct) || typeof c.at !== 'string') return undefined;
-    const t = Date.parse(c.at);
-    if (!Number.isFinite(t) || at - t > FRESH_MAX_AGE_MS || t - at > FRESH_MAX_AGE_MS) return undefined;
-    const limit = typeof pc.cfg.freshStartAt === 'number' ? pc.cfg.freshStartAt : DEFAULT_FRESH_START_AT;
-    if (c.pct < limit) return undefined;
-    const pct = Math.round(c.pct);
-    return { pct, line: `Context is at ${pct}%. Everything is saved: start fresh with /clear, then /cairn:next.` };
-  } catch {
-    return undefined;
-  }
-}
-
-/** Adds the start-fresh line (and `data.freshStart`) to a stage-end result when the context is high. */
-export function withFreshStart(pc: PlanCtx, r: Result): Result {
-  const f = freshStart(pc);
-  if (!f) return r;
-  return { message: r.message ? `${r.message}\n${f.line}` : f.line, data: { ...r.data, freshStart: { pct: f.pct } } };
-}
