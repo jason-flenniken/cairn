@@ -10651,7 +10651,7 @@ function configGate(s, cfg, event, opts) {
   );
 }
 var changedFiles = (cwd, slug, base2, head) => git(["diff", "--name-only", "-z", "-M", base2, head, "--", ".", `:!${planRelIn(slug, cwd)}`], cwd).split("\0").filter(Boolean);
-var GROUP_WRAPPER = 'set -m; sh -c "$1" & set +m; echo $! > "$2"; wait $!';
+var GROUP_WRAPPER = 'if command -v setsid >/dev/null 2>&1; then setsid sh -c "$1" & else set -m; sh -c "$1" & set +m; fi; echo $! > "$2"; wait $!';
 var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
 function runRepro(cmd, cwd, cfg) {
   const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
