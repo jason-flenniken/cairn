@@ -202,6 +202,23 @@ test('a conflict only in OVERVIEW.md is settled by regenerating it, and needs no
   assert.match(run(['merge-check'], wt).message, /Up to date/);
 });
 
+test('a conflict only in USAGE.md is settled by regenerating it, and needs no new approval', () => {
+  const wt = shipped('usagemd');
+  mkdirSync(join(wt, 'docs/cairn'), { recursive: true });
+  writeFileSync(join(wt, 'docs/cairn/USAGE.md'), '# Usage\n\nplan side\n');
+  commitAll(wt, 'close writes the usage table');
+  mkdirSync(join(repo, 'docs/cairn'), { recursive: true });
+  moveMain('docs/cairn/USAGE.md', '# Usage\n\nmain side\n');
+  const r = run(['merge-check'], wt);
+  assert.equal(r.data!.merged, true);
+  assert.equal(g(wt, 'status', '--porcelain'), '');
+  const md = readFileSync(join(wt, 'docs/cairn/USAGE.md'), 'utf8');
+  assert.doesNotMatch(md, /<<<<<<<|>>>>>>>/);
+  assert.match(md, /^# Usage/);
+  assert.ok(stateOf(wt, 'usagemd').approvals.ship);
+  assert.match(run(['merge-check'], wt).message, /Up to date/);
+});
+
 test('a branch already in main refuses: the pull request was merged', () => {
   const wt = shipped('landed');
   g(repo, 'merge', '-q', '--no-ff', '-m', 'merge landed', stateOf(wt, 'landed').branch);

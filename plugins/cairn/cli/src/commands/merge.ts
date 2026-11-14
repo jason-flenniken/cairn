@@ -5,7 +5,8 @@ import { planRelIn, planRelOf, plansDirsIn, type Ctx } from '../locate.ts';
 import { loadState, log } from '../state.ts';
 import { mutate, planCtx, runTests, type Opts, type Result } from '../shared.ts';
 import { now, pluginRoot, readText, Refusal } from '../util.ts';
-import { refreshMemory } from './memory.ts';
+import { USAGE_REL } from '../usage.ts';
+import { refreshMemory, refreshUsage } from './memory.ts';
 import { stackLanded } from './linear.ts';
 import { allTasks } from '../ready.ts';
 import { stackBase } from './status.ts';
@@ -49,8 +50,8 @@ export function changesSince(cwd: string, sha: string, planRel: string, vouched:
 }
 
 /**
- * Merges `baseRef` into the plan branch. A conflict only in files a close writes (OVERVIEW.md) is settled here: the
- * base's side, then the changelog regenerated from the checkout, as a close would. Any other conflict aborts the
+ * Merges `baseRef` into the plan branch. A conflict only in files a close writes (OVERVIEW.md, USAGE.md) is settled here: the
+ * base's side, then the changelog and usage table regenerated from the checkout, as a close would. Any other conflict aborts the
  * merge and returns the conflicted files.
  */
 function mergeBase(pc: ReturnType<typeof planCtx>, baseRef: string, message: string): { ok: true } | { ok: false; conflicted: string[]; out: string } {
@@ -61,7 +62,7 @@ function mergeBase(pc: ReturnType<typeof planCtx>, baseRef: string, message: str
   if (conflicted.length && conflicted.every(isPublished)) {
     const settled =
       conflicted.every((f) => gitTry(['checkout', '--theirs', '--', f], wt).ok) &&
-      (refreshMemory(wt, pc.ctx), gitTry(['add', '--', ...conflicted], wt).ok) &&
+      (conflicted.some((f) => f !== USAGE_REL) && refreshMemory(wt, pc.ctx), conflicted.includes(USAGE_REL) && refreshUsage(wt), gitTry(['add', '--', ...conflicted], wt).ok) &&
       gitTry(['commit', '-q', '--no-edit'], wt).ok;
     if (settled) return { ok: true };
   }
