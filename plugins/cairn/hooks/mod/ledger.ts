@@ -14,6 +14,8 @@ export const READ_EVERY_MS = 10_000
 export const SAMPLE_EVERY_MS = 10_000
 /** A 7-day reset time that moved by more than this means a new window. */
 const NEW_WINDOW_MS = 60 * 60_000
+/** Without reset times, a 7-day percent that falls by more than this means a new window. */
+const RESET_DROP = 50
 
 type Ledger = {
   sessionId: string
@@ -70,8 +72,12 @@ async function credited($: EngineInterface): Promise<{ slug: string; stage: stri
 
 export const emptyEntry = (): CairnLedgerEntry => ({ usd: 0, tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, tokensByModel: {}, weekPct: 0, byStage: {} })
 
-/** All four token counts together. */
-export const tokenTotal = (e: CairnLedgerEntry) => e.tokens.input + e.tokens.output + e.tokens.cacheRead + e.tokens.cacheWrite
+/**
+ * New tokens: input, output and cache writes. Cache reads stay out: every step re-reads the whole cached context, so
+ * they swamp the figure (a long session reads hundreds of millions) without saying what the plan produced.
+ */
+export const newTokens = (t: CairnLedgerEntry['tokens']) => t.input + t.output + t.cacheWrite
+export const tokenTotal = (e: CairnLedgerEntry) => newTokens(e.tokens)
 
 const round = (n: number, places: number) => Math.round(n * 10 ** places) / 10 ** places
 
@@ -141,23 +147,31 @@ async function credit($: EngineInterface, slug: string, add: CairnLedgerEntry): 
 
 /** One entry holding only these figures, under `stage`. */
 function entryOf(stage: string, usd: number, tokens: CairnLedgerEntry['tokens'], model: string | undefined, weekPct: number): CairnLedgerEntry {
-  const n = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite
+  const n = newTokens(tokens)
   return { usd, tokens, tokensByModel: model === undefined || n === 0 ? {} : { [model]: n }, weekPct, byStage: { [stage]: { usd, tokens: n, weekPct } } }
 }
 
-/** What the 7-day window rose by since the repo's last reading (any session's): a drop or a moved reset is a new window, counted from zero. */
-async function weekRise($: EngineInterface, l: Ledger, pct: number, resetsAt: string | undefined): Promise<number> {
+/**
+ * What the 7-day window rose by since the repo's highest reading in this window (any session's). A new window is a
+ * reset time that moved, counted from zero. A lower reading in the same window is a stale one (readings from
+ * different sources lag each other), so it adds nothing and the high mark stays. Without reset times, only a drop
+ * of more than RESET_DROP points is taken as a new window.
+ */
+async function weekRise($: EngineInterface, l: Ledger, pct: number, resetsAt: string | undefined): Promise<{ rise: number; mark: { pct: number; resetsAt?: string } }> {
   const dir = await commonDir($)
   const file = `${dir}/cairn/usage/week.json`
   const shared = await $.fs.read(file).then(t => JSON.parse(t) as { pct: number; resetsAt?: string }, () => undefined)
   const prev = shared !== undefined && typeof shared.pct === 'number' ? shared : l.lastWeek
-  const moved = prev?.resetsAt !== undefined && resetsAt !== undefined && Math.abs(Date.parse(resetsAt) - Date.parse(prev.resetsAt)) > NEW_WINDOW_MS
-  const rise = prev === undefined ? 0 : moved || pct < prev.pct ? pct : pct - prev.pct
-  if (prev?.pct !== pct || moved) {
+  const timed = prev?.resetsAt !== undefined && resetsAt !== undefined
+  const moved = timed && Math.abs(Date.parse(resetsAt) - Date.parse(prev.resetsAt!)) > NEW_WINDOW_MS
+  const fresh = moved || (!timed && prev !== undefined && pct < prev.pct - RESET_DROP)
+  const rise = prev === undefined ? 0 : fresh ? pct : Math.max(0, pct - prev.pct)
+  if (prev === undefined || fresh || pct > prev.pct) {
     await mkdir($, `${dir}/cairn/usage`)
     await $.fs.write(file, `${JSON.stringify({ pct, resetsAt })}\n`)
+    return { rise, mark: { pct, resetsAt } }
   }
-  return rise
+  return { rise, mark: prev }
 }
 
 async function mkdir($: EngineInterface, path: string): Promise<void> {
@@ -179,10 +193,11 @@ async function measured($: EngineInterface, cost: number | undefined, week: { pc
   const usd = cost === undefined || l.lastUsd === undefined || cost < l.lastUsd ? 0 : cost - l.lastUsd
   const to = await credited($)
   // The weekly rise counts only while this session spent, so idle time and other use while away stay out.
-  const rise = week === undefined ? 0 : await weekRise($, l, week.pct, week.resetsAt)
+  const seen = week === undefined ? undefined : await weekRise($, l, week.pct, week.resetsAt)
+  const rise = seen?.rise ?? 0
   const pct = usd > 0 || hasStepped ? rise : 0
   hasStepped = false
-  await update($, ledger, x => (x === null ? x : { ...x, lastUsd: cost ?? x.lastUsd, lastWeek: week ?? x.lastWeek }))
+  await update($, ledger, x => (x === null ? x : { ...x, lastUsd: cost ?? x.lastUsd, lastWeek: seen?.mark ?? x.lastWeek }))
   if (to !== undefined && (usd > 0 || pct > 0)) await credit($, to.slug, entryOf(to.stage, usd, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, undefined, round(pct, 2)))
   await flush($, true)
 }

@@ -143,7 +143,7 @@ describe('plan usage ledger', () => {
     await ui.unmount()
   })
 
-  test('tokens from the main thread and agents add up, all four kinds, by model', async ($, on) => {
+  test('tokens from the main thread and agents add up, all four kinds; the headline and by-model leave out cache reads', async ($, on) => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10))
     stepUsage(on, 'claude-sonnet-5-5', { input: 100, output: 200, cacheRead: 1_000_000, cacheWrite: 50_000 })
@@ -154,12 +154,12 @@ describe('plan usage ledger', () => {
     await $.session.measure(measure(11) as never)
     const f = ledgerFile(w)
     expect(f.tokens).toEqual({ input: 200, output: 400, cacheRead: 2_000_000, cacheWrite: 100_000 })
-    expect(f.tokensByModel).toEqual({ 'claude-sonnet-5-5': 2_100_600 })
-    expect(await planRow(ui)).toContain('Σ 2.1M tok')
+    expect(f.tokensByModel).toEqual({ 'claude-sonnet-5-5': 100_600 })
+    expect(await planRow(ui)).toContain('Σ 101k new tok')
     await ui.unmount()
   })
 
-  test('the 7-day rise while the plan spends is its share of the week; a drop is a new window counted from zero', async ($, on) => {
+  test('the 7-day rise while the plan spends is its share of the week; a moved reset time is a new window counted from zero', async ($, on) => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10, { rateLimits: week(40) }))
     await start($, WT)
@@ -170,9 +170,35 @@ describe('plan usage ledger', () => {
     // Idle here: the percent rose with no spend in this session, so it is not this plan's.
     await $.session.measure(measure(11, { rateLimits: week(45) }) as never)
     expect(ledgerFile(w).weekPct).toBe(2.5)
-    // A new window: 45 falls to 3.
+    // A new window: the reset time moved, 45 falls to 3.
     await $.session.measure(measure(12, { rateLimits: week(3, '2026-03-12T09:00:00.000Z') }) as never)
     expect(ledgerFile(w).weekPct).toBe(5.5)
+    await ui.unmount()
+  })
+
+  test('a lower 7-day reading in the same window is stale: it adds nothing and the high mark stays', async ($, on) => {
+    const { w } = world(on, { rows: [row(BUILD, WT)] })
+    session(on, measure(10, { rateLimits: week(18) }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    // Two sources disagreeing, while the session spends: 18, 15, 18, 15, then a real rise to 19.
+    let cost = 10
+    for (const pct of [15, 18, 15, 18, 15, 19]) await $.session.measure(measure((cost += 1), { rateLimits: week(pct) }) as never)
+    expect(ledgerFile(w).weekPct).toBe(1)
+    expect(w.written.filter(x => x.path === '/repo/.git/cairn/usage/week.json').map(x => JSON.parse(x.text).pct)).toEqual([19])
+    await ui.unmount()
+  })
+
+  test('without reset times, only a large drop is a new window', async ($, on) => {
+    const { w } = world(on, { rows: [row(BUILD, WT)] })
+    const bare = (pct: number): Limit[] => [{ kind: 'seven_day', percentUsed: pct }]
+    session(on, measure(10, { rateLimits: bare(80) }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.session.measure(measure(11, { rateLimits: bare(70) }) as never)
+    expect(ledgerFile(w).weekPct).toBe(0)
+    await $.session.measure(measure(12, { rateLimits: bare(2) }) as never)
+    expect(ledgerFile(w).weekPct).toBe(2)
     await ui.unmount()
   })
 

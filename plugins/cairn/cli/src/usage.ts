@@ -68,7 +68,8 @@ export function planUsage(commonDir: string, slug: string): PlanUsage | undefine
       }
   }
   if (!t.sessions) return undefined;
-  t.tokens.total = t.tokens.input + t.tokens.output + t.tokens.cacheRead + t.tokens.cacheWrite;
+  // New tokens only: cache reads re-read the whole context every step and would swamp the figure.
+  t.tokens.total = t.tokens.input + t.tokens.output + t.tokens.cacheWrite;
   return t;
 }
 
@@ -86,7 +87,7 @@ export const formatWeekPct = (p: number): string => (p < 10 ? String(round1(p)) 
 
 /** `$42.10 · 18.2M tokens · ≈18% of weekly limit`. The weekly part is left out when it is zero. */
 export function formatUsage(u: { usd: number; weekPct: number; tokens: { total: number } }): string {
-  return [usd(u.usd), `${formatTokens(u.tokens.total)} tokens`, ...(u.weekPct > 0 ? [`≈${formatWeekPct(u.weekPct)}% of weekly limit`] : [])].join(' · ');
+  return [usd(u.usd), `${formatTokens(u.tokens.total)} new tokens`, ...(u.weekPct > 0 ? [`≈${formatWeekPct(u.weekPct)}% of weekly limit`] : [])].join(' · ');
 }
 
 /** The 2-3 costliest stages: `execute $10 · review $2.50`. */
@@ -130,7 +131,7 @@ export function renderUsage(root: string): string {
   const out = ['# Usage', '', USAGE_MARK, '', "What each closed plan cost. The weekly share is approximate: it adds up the rises in the account's 7-day limit while the plan was active.", ''];
   if (!rows.length) out.push('None yet.');
   else {
-    out.push('| Closed | Plan | Cost | Tokens | ≈ Week % | Top stages |', '| --- | --- | --- | --- | --- | --- |');
+    out.push('| Closed | Plan | Cost | New tokens | ≈ Week % | Top stages |', '| --- | --- | --- | --- | --- | --- |');
     for (const r of rows) {
       const u = r.usage;
       const tk = isObj(u.tokens) ? u.tokens : {};
@@ -138,7 +139,7 @@ export function renderUsage(root: string): string {
       const plan = existsSync(join(root, r.rel, 'RECORD.md')) ? `[${name}](${posix.relative(DOCS_DIR, `${r.rel}/RECORD.md`)})` : name;
       const week = num(u.weekPct) > 0 ? `${formatWeekPct(num(u.weekPct))}%` : '';
       const stages = isObj(u.byStage) ? (u.byStage as Record<string, StageUsage>) : {};
-      out.push(`| ${r.closedAt.slice(0, 10)} | ${plan} | ${usd(num(u.usd))} | ${formatTokens(num(tk.total))} | ${week} | ${topStages(stages)} |`);
+      out.push(`| ${r.closedAt.slice(0, 10)} | ${plan} | ${usd(num(u.usd))} | ${formatTokens(num(tk.input) + num(tk.output) + num(tk.cacheWrite) || num(tk.total))} | ${week} | ${topStages(stages)} |`);
     }
   }
   return `${out.join('\n')}\n`;

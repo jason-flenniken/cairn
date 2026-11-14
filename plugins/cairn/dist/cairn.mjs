@@ -8436,7 +8436,7 @@ function planUsage(commonDir2, slug) {
       }
   }
   if (!t.sessions) return void 0;
-  t.tokens.total = t.tokens.input + t.tokens.output + t.tokens.cacheRead + t.tokens.cacheWrite;
+  t.tokens.total = t.tokens.input + t.tokens.output + t.tokens.cacheWrite;
   return t;
 }
 var round1 = (n) => Math.round(n * 10) / 10;
@@ -8448,7 +8448,7 @@ function formatTokens(n) {
 var usd = (n) => `$${n.toFixed(2)}`;
 var formatWeekPct = (p) => p < 10 ? String(round1(p)) : String(Math.round(p));
 function formatUsage(u) {
-  return [usd(u.usd), `${formatTokens(u.tokens.total)} tokens`, ...u.weekPct > 0 ? [`\u2248${formatWeekPct(u.weekPct)}% of weekly limit`] : []].join(" \xB7 ");
+  return [usd(u.usd), `${formatTokens(u.tokens.total)} new tokens`, ...u.weekPct > 0 ? [`\u2248${formatWeekPct(u.weekPct)}% of weekly limit`] : []].join(" \xB7 ");
 }
 function topStages(byStage, n = 3) {
   return Object.entries(byStage).filter(([, v]) => v.usd > 0).sort((a, b) => b[1].usd - a[1].usd).slice(0, n).map(([k, v]) => `${stripControl(k)} $${Number.isInteger(v.usd) ? v.usd : v.usd.toFixed(2)}`).join(" \xB7 ");
@@ -8475,7 +8475,7 @@ function renderUsage(root) {
   const out = ["# Usage", "", USAGE_MARK, "", "What each closed plan cost. The weekly share is approximate: it adds up the rises in the account's 7-day limit while the plan was active.", ""];
   if (!rows.length) out.push("None yet.");
   else {
-    out.push("| Closed | Plan | Cost | Tokens | \u2248 Week % | Top stages |", "| --- | --- | --- | --- | --- | --- |");
+    out.push("| Closed | Plan | Cost | New tokens | \u2248 Week % | Top stages |", "| --- | --- | --- | --- | --- | --- |");
     for (const r of rows) {
       const u = r.usage;
       const tk = isObj(u.tokens) ? u.tokens : {};
@@ -8483,7 +8483,7 @@ function renderUsage(root) {
       const plan2 = existsSync3(join7(root, r.rel, "RECORD.md")) ? `[${name}](${posix.relative(DOCS_DIR, `${r.rel}/RECORD.md`)})` : name;
       const week = num(u.weekPct) > 0 ? `${formatWeekPct(num(u.weekPct))}%` : "";
       const stages = isObj(u.byStage) ? u.byStage : {};
-      out.push(`| ${r.closedAt.slice(0, 10)} | ${plan2} | ${usd(num(u.usd))} | ${formatTokens(num(tk.total))} | ${week} | ${topStages(stages)} |`);
+      out.push(`| ${r.closedAt.slice(0, 10)} | ${plan2} | ${usd(num(u.usd))} | ${formatTokens(num(tk.input) + num(tk.output) + num(tk.cacheWrite) || num(tk.total))} | ${week} | ${topStages(stages)} |`);
     }
   }
   return `${out.join("\n")}

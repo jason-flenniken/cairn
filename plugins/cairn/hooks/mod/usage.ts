@@ -137,7 +137,7 @@ export function planLine(usage: CairnUsage | null, total: CairnLedgerEntry | und
   const build = (withLabel: boolean, long: boolean): BarSeg[] => {
     const parts: BarSeg[][] = [
       ...(withCost ? [[{ text: `💰 ${money(total.usd)}` }, ...(withLabel ? [{ text: ' plan', dim: true }] : [])]] : []),
-      ...(tok > 0 ? [[{ text: `Σ ${tokensText(tok)} tok` }]] : []),
+      ...(tok > 0 ? [[{ text: `Σ ${tokensText(tok)} new tok` }]] : []),
       ...(total.weekPct > 0 ? [[{ text: `≈${weekText(total.weekPct)}${long ? ' of week' : ' wk'}` }]] : []),
     ]
     return parts.flatMap((p, i) => (i === 0 ? p : [{ text: GAP }, ...p]))
