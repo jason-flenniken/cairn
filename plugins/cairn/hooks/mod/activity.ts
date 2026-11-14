@@ -4,6 +4,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, SessionStartInput, Timer } from 'claude-code'
 import type { AgentCard } from '../../types/index.d.ts'
 import { estimateUsd } from './prices.ts'
+import { ledgerStep } from './ledger.ts'
 import { clean, fmtDuration, tokenCount } from './util.ts'
 
 // What the pane draws lives in $.state, so a hot reload keeps the cards.
@@ -305,6 +306,7 @@ export function install(on: On): void {
   on('turn.step', async function* ($, e, next) {
     const r = yield* next(e)
     await step($, e, r.usage)
+    await ledgerStep($, r.usage)
     return r
   })
   on('agent.spawn', async ($, e, next) => {

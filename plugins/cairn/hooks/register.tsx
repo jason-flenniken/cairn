@@ -4,6 +4,7 @@ import { install as installActivity, onSessionStart as activityStart } from './m
 import { install as installApprove } from './mod/approve.ts'
 import { install as installGuards } from './mod/guards.ts'
 import { onSessionStart as heartbeatStart } from './mod/heartbeat.ts'
+import { ledgerEnd } from './mod/ledger.ts'
 import { install as installPane, onSessionStart as paneStart } from './mod/pane.tsx'
 import { install as installPause, onSessionStart as pauseStart } from './mod/pause.ts'
 
@@ -32,6 +33,11 @@ export const register: Register = on => {
     } catch {
       // Without the pane the commands and the session go on (NFR-07).
     }
+    return next(e)
+  })
+  // The plan's usage not written yet goes to its file before the session ends.
+  on('session.end', async ($, e, next) => {
+    await ledgerEnd($)
     return next(e)
   })
   installApprove(on)

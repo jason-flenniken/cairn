@@ -127,10 +127,10 @@ describe('active time', () => {
     await start($, WT)
     await polls(clock, 1)
     const wide = await mountAs($, { placement: 'inline' })
-    expect(await barRows(wide)).toEqual(['● Build  $0.00  ⏱ 12m'])
+    expect(await barRows(wide)).toEqual(['● Build  $1.00  ⏱ 12m'])
     await wide.unmount()
     const narrow = await mountAs($, { placement: 'inline', bodyColumns: 18 })
-    expect(await barRows(narrow)).toEqual(['● Build  $0.00'])
+    expect(await barRows(narrow)).toEqual(['● Build  $1.00'])
     await narrow.unmount()
   })
 
