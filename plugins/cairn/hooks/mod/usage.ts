@@ -132,12 +132,16 @@ export function planLine(usage: CairnUsage | null, total: CairnLedgerEntry | und
     return usd === undefined ? [] : [{ text: `💰 ${money(usd)}` }, { text: ' session', dim: true }]
   }
   const tok = tokenTotal(total)
-  const build = (withLabel: boolean, long: boolean): BarSeg[] => [
-    { text: `💰 ${money(total.usd)}` },
-    ...(withLabel ? [{ text: ' plan', dim: true }] : []),
-    ...(tok > 0 ? [{ text: GAP }, { text: `Σ ${tokensText(tok)} tok` }] : []),
-    ...(total.weekPct > 0 ? [{ text: GAP }, { text: `≈${weekText(total.weekPct)}${long ? ' of week' : ' wk'}` }] : []),
-  ]
+  // Where the host keeps no cost, a plan that has none shows no dollar figure.
+  const withCost = usage?.cost !== undefined || total.usd > 0
+  const build = (withLabel: boolean, long: boolean): BarSeg[] => {
+    const parts: BarSeg[][] = [
+      ...(withCost ? [[{ text: `💰 ${money(total.usd)}` }, ...(withLabel ? [{ text: ' plan', dim: true }] : [])]] : []),
+      ...(tok > 0 ? [[{ text: `Σ ${tokensText(tok)} tok` }]] : []),
+      ...(total.weekPct > 0 ? [[{ text: `≈${weekText(total.weekPct)}${long ? ' of week' : ' wk'}` }]] : []),
+    ]
+    return parts.flatMap((p, i) => (i === 0 ? p : [{ text: GAP }, ...p]))
+  }
   return firstFit([build(true, true), build(false, true), build(false, false)], columns)
 }
 
@@ -179,7 +183,7 @@ export function limitsLine(usage: CairnUsage | null, nowMs: number, columns = BA
 
 /** The inline pane's one usage run: the plan cost, the active time, the 5h percent, the 7d left and the plan's share of the week, to follow the active step. */
 export function inlineUsage(usage: CairnUsage | null, total: CairnLedgerEntry | undefined, activeMs: number | undefined, room: number): BarSeg[] {
-  const usd = total?.usd ?? usage?.cost?.usd
+  const usd = total !== undefined && (usage?.cost !== undefined || total.usd > 0) ? total.usd : usage?.cost?.usd
   const timer = activeMs !== undefined && activeMs > 0 ? [{ text: `⏱ ${fmtDuration(activeMs, true)}`, dim: true }] : []
   const limits = (usage?.rateLimits ?? []).flatMap(l => {
     const w = WINDOWS[l.kind]

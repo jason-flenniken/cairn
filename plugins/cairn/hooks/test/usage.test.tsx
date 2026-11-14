@@ -16,7 +16,7 @@ async function allRows(ui: any): Promise<string[]> {
 }
 
 /** The bar's usage rows (model, then limits), apart from the git line and the stage steps around them. */
-const barRows = async (ui: any): Promise<string[]> => (await allRows(ui)).filter(r => /^(🧠|⏳|📅|💰)/.test(r))
+const barRows = async (ui: any): Promise<string[]> => (await allRows(ui)).filter(r => /^(🧠|⏳|📅|💰|Σ|≈)/.test(r))
 /** The plan line (💰). */
 const planRow = async (ui: any): Promise<string | undefined> => (await barRows(ui)).find(r => r.startsWith('💰'))
 /** The model line (🧠). */
@@ -111,29 +111,35 @@ describe('plan usage ledger', () => {
 
   test('spend while the plan is paused is left out; after the resume it counts again', async ($, on) => {
     const { w, clock } = world(on, { rows: [row(plan({ stage: 'execute', paused: { at: 'x' } }), WT)] })
-    session(on, measure(10))
+    const s = session(on, measure(10))
     await start($, WT)
     const ui = await mount($, 'terminal')
+    s.usage = measure(12)
     await $.session.measure(measure(12) as never)
     expect(ledgerFile(w)).toBeUndefined()
     w.rows = [row(BUILD, WT)]
     touchPlan(w, 2)
     await clock.advance(2_000)
+    s.usage = measure(13)
     await $.session.measure(measure(13) as never)
     expect(await planRow(ui)).toMatch(/^💰 \$1\.00 plan/)
     await ui.unmount()
   })
 
-  test('a cost that falls (after /clear) counts from zero, under the new session id', async ($, on) => {
+  test('a cost that falls (after /clear) starts the count again from it, under the new session id', async ($, on) => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     const s = session(on, measure(10))
     await start($, WT)
     const ui = await mount($, 'terminal')
+    s.usage = measure(12)
     await $.session.measure(measure(12) as never)
     s.id = 's2'
+    s.usage = measure(0.5)
     await $.session.measure(measure(0.5) as never)
+    s.usage = measure(1.5)
+    await $.session.measure(measure(1.5) as never)
     expect(ledgerFile(w, 's1')).toMatchObject({ usd: 2 })
-    expect(ledgerFile(w, 's2')).toMatchObject({ usd: 0.5 })
+    expect(ledgerFile(w, 's2')).toMatchObject({ usd: 1 })
     await ui.unmount()
   })
 
@@ -193,6 +199,27 @@ describe('plan usage ledger', () => {
     const line = (await planRow(ui))!
     expect(line).toMatch(/^💰 \$22\.00 plan/)
     expect(line).toContain('≈6% of week')
+    await ui.unmount()
+  })
+
+  test("the poll takes its own reading, so the cost moves during a long turn with no measurement", async ($, on) => {
+    const { w, clock } = world(on, { rows: [row(BUILD, WT)] })
+    const s = session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    s.usage = measure(13)
+    await clock.advance(12_000)
+    expect(ledgerFile(w)).toMatchObject({ usd: 3 })
+    expect(await planRow(ui)).toMatch(/^💰 \$3\.00 plan/)
+    await ui.unmount()
+  })
+
+  test('an active plan with nothing spent yet shows $0.00 plan', async ($, on) => {
+    world(on, { rows: [row(BUILD, WT)] })
+    session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect(await planRow(ui)).toMatch(/^💰 \$0\.00 plan/)
     await ui.unmount()
   })
 

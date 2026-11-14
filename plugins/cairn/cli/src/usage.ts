@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { PLANS_DIRS } from './locate.ts';
 import { DOCS_DIR } from './paths.ts';
@@ -24,6 +24,15 @@ export interface PlanUsage {
 
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** At close, after the totals are copied to the plan folder: moves the plan's ledger to `usage/.closed/<slug>-<time>`, so a later plan with the same slug starts at zero. */
+export function archiveLedger(commonDir: string, slug: string, now = Date.now()): void {
+  const dir = join(commonDir, 'cairn', 'usage', slug);
+  if (!existsSync(dir)) return;
+  const closed = join(commonDir, 'cairn', 'usage', '.closed');
+  mkdirSync(closed, { recursive: true });
+  renameSync(dir, join(closed, `${slug}-${now}`));
+}
 
 /** Totals over every session file the mod wrote for this plan; undefined when there is none. Unreadable files are skipped. */
 export function planUsage(commonDir: string, slug: string): PlanUsage | undefined {

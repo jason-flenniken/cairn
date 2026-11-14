@@ -5,7 +5,7 @@ import { memoryIndex, OVERVIEW_REL, renderChangelog } from '../memory.ts';
 import { loadState } from '../state.ts';
 import type { State } from '../types.ts';
 import { readText, Refusal, writeText } from '../util.ts';
-import { planUsage, renderUsage, USAGE_REL } from '../usage.ts';
+import { archiveLedger, planUsage, renderUsage, USAGE_REL } from '../usage.ts';
 import { planRelOf } from '../locate.ts';
 import type { PlanCtx, Result } from '../shared.ts';
 import { planEntries } from './records.ts';
@@ -41,6 +41,7 @@ export function writeMemory(pc: PlanCtx, s: State): string[] {
       const rel = `${planRelOf(pc.plan)}/usage.json`;
       writeText(join(root, rel), `${JSON.stringify({ ...u, slug: s.slug, closedAt: new Date().toISOString() }, null, 2)}\n`);
       changed.push(rel);
+      archiveLedger(commonDir(pc.ctx.mainRoot), s.slug);
     }
   } catch {
     // Usage is extra: a failure here never stops the changelog.

@@ -10,6 +10,8 @@ import { commonDir } from './heartbeat.ts'
 export const FLUSH_EVERY_MS = 30_000
 /** Other sessions' files are read again at most this often. */
 export const READ_EVERY_MS = 10_000
+/** The poll takes its own cost reading at most this often, so a long turn of agents moves the cost before the turn ends. */
+export const SAMPLE_EVERY_MS = 10_000
 /** A 7-day reset time that moved by more than this means a new window. */
 const NEW_WINDOW_MS = 60 * 60_000
 
@@ -33,6 +35,7 @@ const dirty = new Set<string>()
 const madeDirs = new Set<string>()
 let flushedAt = 0
 let readAt: { slug: string; at: number } | undefined
+let sampledAt = 0
 // A model step ran since the last measurement: the session was working, even where the host reports no cost.
 let hasStepped = false
 
@@ -42,6 +45,7 @@ export function resetLedger(): void {
   madeDirs.clear()
   flushedAt = 0
   readAt = undefined
+  sampledAt = 0
   hasStepped = false
 }
 
@@ -171,7 +175,8 @@ async function measured($: EngineInterface, cost: number | undefined, week: { pc
     await flush($, true)
     await update($, ledger, x => (x === null ? x : { ...x, sessionId: id, plans: {} }))
   }
-  const usd = cost === undefined || l.lastUsd === undefined ? 0 : cost >= l.lastUsd ? cost - l.lastUsd : cost
+  // A lower cost than the last reading (a fresh session after /clear) starts the count again from it: counting less beats counting twice.
+  const usd = cost === undefined || l.lastUsd === undefined || cost < l.lastUsd ? 0 : cost - l.lastUsd
   const to = await credited($)
   // The weekly rise counts only while this session spent, so idle time and other use while away stay out.
   const rise = week === undefined ? 0 : await weekRise($, l, week.pct, week.resetsAt)
@@ -201,10 +206,20 @@ export async function flush($: EngineInterface, now = false): Promise<void> {
   const l = await read($, ledger)
   if (l === null) return
   const dir = await commonDir($)
+  const rows = (await read($, view))?.plans ?? []
   for (const slug of [...dirty]) {
     const e = l.plans[slug]
     dirty.delete(slug)
     if (e === undefined) continue
+    // A closed plan's ledger was copied to its folder and moved aside by `cairn close`: writing would start it again.
+    if (rows.find(r => r.state.slug === slug)?.state.stage === 'closed') {
+      await update($, ledger, x => {
+        if (x === null) return x
+        const { [slug]: _closed, ...rest } = x.plans
+        return { ...x, plans: rest }
+      })
+      continue
+    }
     await mkdir($, folder(dir, slug))
     await $.fs.write(`${folder(dir, slug)}/${l.sessionId}.json`, `${JSON.stringify({ sessionId: l.sessionId, ...e, updatedAt: new Date(t).toISOString() })}\n`)
   }
@@ -231,8 +246,19 @@ async function readOthers($: EngineInterface): Promise<void> {
   await update($, planUsage, () => (others === undefined ? null : { slug, others }))
 }
 
-/** From the pane's poll: writes what changed (throttled) and reads the other sessions' files (throttled). */
+/** A cost and 7-day reading of the poll's own, at most once per SAMPLE_EVERY_MS, through the same path as a measurement. */
+async function sample($: EngineInterface): Promise<void> {
+  const t = await $.clock.now()
+  if (t - sampledAt < SAMPLE_EVERY_MS) return
+  sampledAt = t
+  const u = await $.session.usage()
+  const week = u.rateLimits.find(l => l.kind === 'seven_day')
+  await measured($, u.cost?.usd, week === undefined ? undefined : { pct: week.percentUsed, resetsAt: week.resetsAt })
+}
+
+/** From the pane's poll: a reading of its own, writes what changed, and reads the other sessions' files (each throttled). */
 export async function trackLedger($: EngineInterface): Promise<void> {
+  await sample($).catch(() => undefined)
   await flush($)
   await readOthers($)
 }
@@ -244,7 +270,8 @@ export async function readPlanUsage($: EngineInterface): Promise<{ slug: string;
   const own = (await read($, ledger))?.plans[slug]
   const held = await read($, planUsage)
   const others = held?.slug === slug ? held.others : undefined
-  if (own === undefined && others === undefined) return undefined
+  // A plan being worked on with nothing spent yet shows $0.00, not the session's figure.
+  if (own === undefined && others === undefined) return (await credited($)) === undefined ? undefined : { slug, total: emptyEntry() }
   return { slug, total: addEntries(own ?? emptyEntry(), others ?? emptyEntry()) }
 }
 

@@ -1,7 +1,7 @@
 import './no-auto-gc.ts';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -104,6 +104,10 @@ test('status shows the usage line and --json carries usage; close writes usage.j
   const files = g(wt, 'show', '--name-only', '--format=', 'HEAD');
   assert.match(files, /usage\.json/);
   assert.match(files, /docs\/cairn\/USAGE\.md/);
+  // The ledger is moved aside, so a later plan with the same slug starts at zero.
+  assert.ok(!existsSync(join(common(), 'cairn', 'usage', slug)));
+  assert.equal(planUsage(common(), slug), undefined);
+  assert.ok(readdirSync(join(common(), 'cairn', 'usage', '.closed')).some(n => n.startsWith(`${slug}-`)));
 });
 
 test('a plan with no ledger closes without usage.json and is left out of USAGE.md', () => {
