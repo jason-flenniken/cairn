@@ -17,7 +17,8 @@ import { isActive, list, waitingOn, phaseAt, phasesOf, planHeader, STAGE_COLOR, 
 import { commonDir } from './heartbeat.ts'
 import { act, cells, clean, message } from './util.ts'
 import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
-import { inlineUsage, install as installUsage, limitsLine, modelLine, modelName, readBaseline, readUsage, syncBaseline } from './usage.ts'
+import { inlineUsage, install as installUsage, limitsLine, modelLine, modelName, planLine, readUsage } from './usage.ts'
+import { primeLedger, readPlanUsage, trackLedger } from './ledger.ts'
 
 type Drift = { path?: string; acked?: unknown }
 
@@ -180,19 +181,12 @@ async function refresh($: EngineInterface): Promise<boolean> {
     : { plans, here: pickCurrent(plans)?.state.slug, isFallback: true }
   await update($, view, () => next)
   await showStatus($, next)
-  await trackCost($, next)
   const isSetUp = await hasLinear($, plans.find(p => p.state.slug === next.here)?.worktree)
   if (isSetUp !== (await read($, linearSetup))) await update($, linearSetup, () => isSetUp)
   const shown = await read($, tab)
   if (shown === 'records' || shown === 'changelog') await fetchRecords($)
   if (shown === 'linear' && isSetUp) await fetchLinear($)
   return true
-}
-
-/** Starts the plan cost over when the shown plan is first seen active, changes, or is resumed. */
-async function trackCost($: EngineInterface, v: CairnView): Promise<void> {
-  const row = v.plans.find(r => r.state.slug === v.here)
-  await syncBaseline($, row !== undefined && isActive(row) ? row.state.slug : undefined, !!row?.state.paused)
 }
 
 /** One poll: stats only, and one read when something changed. A failed read is retried once, next poll. */
@@ -212,8 +206,9 @@ async function poll($: EngineInterface): Promise<void> {
     // Working agents and the clock change the status line without any file changing.
     if (current !== null) {
       await showStatus($, current)
-      await trackCost($, current)
     }
+    // The plan's usage: this session's figures written, the other sessions' read (both throttled).
+    await trackLedger($).catch(() => undefined)
     // The active time and the git line move with the clock and the work, not with any file the poll watches.
     const shown = current?.plans.find(r => r.state.slug === current.here)
     const slug = shown !== undefined && isActive(shown) ? shown.state.slug : undefined
@@ -270,6 +265,8 @@ function linearDueLine(ui: Ui, row: CairnPlanRow) {
 export async function onSessionStart($: EngineInterface, _e: SessionStartInput): Promise<void> {
   for (const spec of COMMANDS) await $.command.register(spec).catch(() => undefined)
   common = undefined
+  // The plan's usage counts from here: what the session spent before is not this plan's.
+  await primeLedger($)
   await startActive($)
   startGit()
   // Outside a git repo there are no plans, but the agent cards still apply: the pane opens anyway.
@@ -407,7 +404,7 @@ export function install(on: On): void {
     const main = await readMain($)
     const idleSince = await readMainIdleSince($)
     const used = await readUsage($)
-    const baseline = await readBaseline($)
+    const planTotal = (await readPlanUsage($))?.total
     const gitState = await readGit($)
     const cx: CardContext = {
       ui, nowMs: t, columns: e.props.bodyColumns - 2, isGrid,
@@ -428,10 +425,10 @@ export function install(on: On): void {
     const barLines: BarLine[] = isInline
       ? step.length === 0
         ? []
-        : [[...step, ...inlineUsage(used, baseline, planSlug, activeMs, e.props.bodyColumns - 2 - step.reduce((n, seg) => n + cells(seg.text), 0))]]
+        : [[...step, ...inlineUsage(used, planTotal, activeMs, e.props.bodyColumns - 2 - step.reduce((n, seg) => n + cells(seg.text), 0))]]
       : docked(
           gitLine(gitState, activeMs, e.props.bodyColumns - 2),
-          [modelLine(used, baseline, planSlug, e.props.bodyColumns - 2), limitsLine(used, t, e.props.bodyColumns - 2)],
+          [modelLine(used, e.props.bodyColumns - 2), limitsLine(used, t, e.props.bodyColumns - 2), planLine(used, planTotal, e.props.bodyColumns - 2)],
           here === undefined ? [] : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2),
           e.props.bodyColumns - 2,
           isGrid,

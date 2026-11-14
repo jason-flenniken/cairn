@@ -94,9 +94,10 @@ describe('git in the pane', () => {
     expect(rows[0]).toContain('●4 +1 !1 ↑2 ↓1')
     expect(rows[1]).toBe(rule)
     expect(rows[2]).toMatch(/^🧠/)
-    expect(rows[3]).toBe(rule)
-    expect(rows.slice(4).join(' ')).toContain('● Build')
-    expect(rows.slice(4)).not.toContain(rule)
+    expect(rows[3]).toMatch(/^💰 \$0\.00 plan/)
+    expect(rows[4]).toBe(rule)
+    expect(rows.slice(5).join(' ')).toContain('● Build')
+    expect(rows.slice(5)).not.toContain(rule)
     await ui.unmount()
   })
 

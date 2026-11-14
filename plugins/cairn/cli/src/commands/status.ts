@@ -11,6 +11,7 @@ import { scopesOverlap } from '../glob.ts';
 import type { Phase, State } from '../types.ts';
 import { hashText, pluginRoot, readText, Refusal, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
+import { formatUsage, planUsage } from '../usage.ts';
 import { withFreshStart } from './brief.ts';
 import { restack } from './merge.ts';
 import { prdEditedSinceApproval, readyFor } from './stages.ts';
@@ -188,13 +189,15 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   const hardeningByArea: Record<string, number> = {};
   for (const x of listed) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
   const timing = stageTimes(s);
+  const usage = planUsage(commonDir(ctx.mainRoot), s.slug);
   return {
     message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
       ...(s.level ? [`Level: ${levelLabel(s)}`] : []),
       ...(s.stackedOn ? [`Stacked on ${s.stackedOn.slug}: it started on that plan's branch and moves onto main once that plan has merged.`] : []),
       ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
+      ...(usage ? [`Usage: ${formatUsage(usage)}`] : []),
       ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: opts.full ? s : slimState(s), suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
+    data: { state: opts.full ? s : slimState(s), ...(usage ? { usage } : {}), suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
   };
 }
 

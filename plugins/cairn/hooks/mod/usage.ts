@@ -1,10 +1,12 @@
-// The bar's usage lines (FR-03..FR-06): model, plan cost, context and tokens; then the 5-hour and weekly limits.
+// The bar's usage lines (FR-03..FR-06): model, context and tokens; the 5-hour and weekly limits; then the plan's
+// cost, tokens and share of the week from the ledger (ledger.ts).
 // `session.measure` pushes the figures into $.state; the pane only reads them (NFR-02: no timer of its own).
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, PluginState } from 'claude-code'
 import { BAR_COLUMNS, type BarLine, type BarSeg } from './bar.tsx'
-import type { CairnView } from '../../types/index.d.ts'
+import type { CairnLedgerEntry, CairnView } from '../../types/index.d.ts'
 import { commonDir } from './heartbeat.ts'
+import { ledgerMeasure, sessionPlan, tokenTotal } from './ledger.ts'
 import { firstFit, fmtDuration, lineCells } from './util.ts'
 
 /** The session's usage as `session.measure` last reported it, and the model in use. */
@@ -12,7 +14,6 @@ export type CairnUsage = NonNullable<PluginState['cairn']['usage']>
 
 // What the bar draws lives in $.state, so a hot reload keeps it. A restart starts both over.
 const usage = atom({ plugin: 'cairn', key: 'usage' } as const, null as CairnUsage | null)
-const planBaseline = atom({ plugin: 'cairn', key: 'planBaseline' } as const, null as { slug: string; usd: number } | null)
 
 // The pane's view atom (same key as pane.tsx's; importing pane here would be circular), read for the shown plan's slug.
 const view = atom({ plugin: 'cairn', key: 'view' } as const, null as CairnView | null)
@@ -35,10 +36,8 @@ export function resetContextThrottle(): void {
  * can tell how full this session's context is. A rise is throttled to one write per 30 s; a drop in pct (after /clear or compaction) writes at once; unchanged figures are skipped.
  */
 async function writeContext($: EngineInterface, context: { percent?: number; tokens?: number }): Promise<void> {
-  const v = await read($, view)
   // A session at the repo root (where execute runs) has no plan by location; it is still unambiguous with one active plan.
-  const sole = v?.isFallback && v.plans.filter(r => r.state.stage !== 'closed').length === 1
-  const slug = v === null || (v.isFallback && !sole) ? undefined : v.here
+  const slug = sessionPlan(await read($, view))
   if (slug === undefined || context.percent === undefined || context.tokens === undefined) return
   const now = await $.clock.now()
   const pct = Math.round(context.percent * 10) / 10
@@ -64,9 +63,6 @@ const BAR_FULL = 6
 const BAR_SHORT = 3
 const MODEL_CELLS = 12
 
-// Set when the plan was seen paused, so its resume starts the cost over. Bookkeeping, not drawn.
-let wasPaused = false
-
 /** The session's model as /model names it, in words: claude-opus-5-5 becomes "Opus 5.5". */
 export function modelName(id: string | undefined): string | undefined {
   if (id === undefined || id === '') return undefined
@@ -88,29 +84,6 @@ export async function readUsage($: EngineInterface): Promise<CairnUsage | null> 
   }
 }
 
-/** The plan's starting cost, or null when none is recorded. */
-export function readBaseline($: EngineInterface): Promise<{ slug: string; usd: number } | null> {
-  return read($, planBaseline)
-}
-
-/**
- * Records the cost the session had when the plan was first seen active, and again when it is resumed
- * after a pause or the shown plan changes. `slug` is undefined when no plan is active.
- */
-export async function syncBaseline($: EngineInterface, slug: string | undefined, isPaused: boolean): Promise<void> {
-  if (slug === undefined) return
-  if (isPaused) {
-    wasPaused = true
-    return
-  }
-  const held = await read($, planBaseline)
-  if (held?.slug === slug && !wasPaused) return
-  const usd = (await readUsage($))?.cost?.usd
-  if (usd === undefined) return
-  wasPaused = false
-  await update($, planBaseline, () => ({ slug, usd }))
-}
-
 const money = (usd: number) => `$${usd.toFixed(2)}`
 
 /** 850 tokens, 45k, 1.2M. */
@@ -125,36 +98,17 @@ const meter = (percent: number, width: number) => {
   return '█'.repeat(filled) + '░'.repeat(width - filled)
 }
 
-/** The cost the bar shows and its label: the plan's since its baseline, else the session's total; undefined when there is none. */
-export function costShown(
-  usage: CairnUsage | null,
-  baseline: { slug: string; usd: number } | null,
-  slug: string | undefined,
-): { usd: number; label: 'plan' | 'session' } | undefined {
-  const usd = usage?.cost?.usd
-  if (usd === undefined) return undefined
-  if (slug !== undefined && baseline?.slug === slug) return { usd: Math.max(0, usd - baseline.usd), label: 'plan' }
-  return { usd, label: 'session' }
-}
-
-/** Line 2: 🧠 model, 💰 cost, ⛁ context bar and percent, tokens. Parts drop from the right, then the bar shrinks, to fit. */
-export function modelLine(
-  usage: CairnUsage | null,
-  baseline: { slug: string; usd: number } | null,
-  slug: string | undefined,
-  columns = BAR_COLUMNS,
-): BarLine {
+/** Line 2: 🧠 model, ⛁ context bar and percent, tokens. Parts drop from the right, then the bar shrinks, to fit. */
+export function modelLine(usage: CairnUsage | null, columns = BAR_COLUMNS): BarLine {
   if (usage === null) return []
   const name = modelName(usage.model)
-  const cost = costShown(usage, baseline, slug)
   const { percent, tokens } = usage.context
-  const build = (barWidth: number, withTokens: boolean, withLabel: boolean, nameCells: number): BarSeg[] => {
+  const build = (barWidth: number, withTokens: boolean, nameCells: number): BarSeg[] => {
     const parts: BarSeg[][] = []
     if (name !== undefined) {
       const shown = [...name].length > nameCells ? `${[...name].slice(0, nameCells - 1).join('')}…` : name
       parts.push([{ text: `🧠 ${shown}`, bold: true }])
     }
-    if (cost !== undefined) parts.push([{ text: `💰 ${money(cost.usd)}` }, ...(withLabel ? [{ text: ` ${cost.label}`, dim: true }] : [])])
     if (percent !== undefined) {
       const color = percent >= ERROR_AT ? 'error' : percent >= WARN_AT ? 'warning' : undefined
       parts.push([{ text: `⛁ ${barWidth > 0 ? `${meter(percent, barWidth)} ` : ''}${Math.round(percent)}%`, color }])
@@ -162,13 +116,33 @@ export function modelLine(
     if (withTokens && tokens !== undefined) parts.push([{ text: `${tokensText(tokens)} tok`, dim: true }])
     return parts.flatMap((p, i) => (i === 0 ? p : [{ text: GAP }, ...p]))
   }
-  return firstFit([
-    build(BAR_FULL, true, true, MODEL_CELLS),
-    build(BAR_SHORT, true, true, MODEL_CELLS),
-    build(BAR_SHORT, true, false, MODEL_CELLS),
-    build(BAR_SHORT, false, false, MODEL_CELLS),
-    build(0, false, false, 8),
-  ], columns)
+  return firstFit([build(BAR_FULL, true, MODEL_CELLS), build(BAR_SHORT, true, MODEL_CELLS), build(BAR_SHORT, false, MODEL_CELLS), build(0, false, 8)], columns)
+}
+
+/** A share of the week: 4.2%, 18%. */
+export const weekText = (pct: number) => `${pct < 10 ? pct.toFixed(1).replace(/\.0$/, '') : Math.round(pct)}%`
+
+/**
+ * Line 4: the plan's totals across every session, 💰 cost, Σ tokens and ≈ its share of the weekly limit; with no plan,
+ * the session's cost. Labels drop first to fit.
+ */
+export function planLine(usage: CairnUsage | null, total: CairnLedgerEntry | undefined, columns = BAR_COLUMNS): BarLine {
+  if (total === undefined) {
+    const usd = usage?.cost?.usd
+    return usd === undefined ? [] : [{ text: `💰 ${money(usd)}` }, { text: ' session', dim: true }]
+  }
+  const tok = tokenTotal(total)
+  // Where the host keeps no cost, a plan that has none shows no dollar figure.
+  const withCost = usage?.cost !== undefined || total.usd > 0
+  const build = (withLabel: boolean, long: boolean): BarSeg[] => {
+    const parts: BarSeg[][] = [
+      ...(withCost ? [[{ text: `💰 ${money(total.usd)}` }, ...(withLabel ? [{ text: ' plan', dim: true }] : [])]] : []),
+      ...(tok > 0 ? [[{ text: `Σ ${tokensText(tok)} tok` }]] : []),
+      ...(total.weekPct > 0 ? [[{ text: `≈${weekText(total.weekPct)}${long ? ' of week' : ' wk'}` }]] : []),
+    ]
+    return parts.flatMap((p, i) => (i === 0 ? p : [{ text: GAP }, ...p]))
+  }
+  return firstFit([build(true, true), build(false, true), build(false, false)], columns)
 }
 
 const WINDOWS: Record<string, { icon: string; label: string }> = {
@@ -185,35 +159,40 @@ const clock = (iso: string, nowMs: number): string | undefined => {
   return at.toDateString() === new Date(nowMs).toDateString() ? hm : `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][at.getDay()]} ${hm}`
 }
 
-/** Line 3: each limit window with a small bar and percent; past 80% warning with its reset time, past 95% error. Empty with no rate limits. */
+/**
+ * Line 3: each limit window with a small bar and percent; past 80% warning with its reset time, past 95% error. The 7-day
+ * window also says how much is left and when it resets; the reset time drops first, then the bars shrink. Empty with no rate limits.
+ */
 export function limitsLine(usage: CairnUsage | null, nowMs: number, columns = BAR_COLUMNS): BarLine {
   const limits = usage?.rateLimits ?? []
   if (limits.length === 0) return []
-  const build = (barWidth: number, withReset: boolean): BarSeg[] =>
+  const build = (barWidth: number, withReset: boolean, withLeft: boolean): BarSeg[] =>
     limits.flatMap((l, i) => {
       const w = WINDOWS[l.kind] ?? { icon: '◔', label: l.kind.replace(/_.*$/, '') }
-      const at = withReset && l.percentUsed >= WARN_AT && l.resetsAt !== undefined ? clock(l.resetsAt, nowMs) : undefined
-      const text = `${w.icon} ${w.label} ${barWidth > 0 ? `${meter(l.percentUsed, barWidth)} ` : ''}${Math.round(l.percentUsed)}%${at === undefined ? '' : ` ↻${at}`}`
+      const isWeek = l.kind === 'seven_day'
+      const at = withReset && (isWeek || l.percentUsed >= WARN_AT) && l.resetsAt !== undefined ? clock(l.resetsAt, nowMs) : undefined
+      const left = withLeft && isWeek ? ` · ${Math.max(0, Math.round(100 - l.percentUsed))}% left` : ''
+      const text = `${w.icon} ${w.label} ${barWidth > 0 ? `${meter(l.percentUsed, barWidth)} ` : ''}${Math.round(l.percentUsed)}%${left}${at === undefined ? '' : ` ↻${at}`}`
       return [...(i === 0 ? [] : [{ text: GAP }]), { text, color: colorOf(l.percentUsed) }]
     })
-  return firstFit([build(BAR_SHORT + 2, true), build(BAR_SHORT, true), build(BAR_SHORT, false), build(0, false)], columns)
+  return firstFit([
+    build(BAR_SHORT + 2, true, true), build(BAR_SHORT, true, true), build(BAR_SHORT, false, true),
+    build(0, false, true), build(0, false, false),
+  ], columns)
 }
 
-/** The inline pane's one usage run: the plan cost, the active time and the limit percents, to follow the active step. */
-export function inlineUsage(
-  usage: CairnUsage | null,
-  baseline: { slug: string; usd: number } | null,
-  slug: string | undefined,
-  activeMs: number | undefined,
-  room: number,
-): BarSeg[] {
-  const cost = costShown(usage, baseline, slug)
+/** The inline pane's one usage run: the plan cost, the active time, the 5h percent, the 7d left and the plan's share of the week, to follow the active step. */
+export function inlineUsage(usage: CairnUsage | null, total: CairnLedgerEntry | undefined, activeMs: number | undefined, room: number): BarSeg[] {
+  const usd = total !== undefined && (usage?.cost !== undefined || total.usd > 0) ? total.usd : usage?.cost?.usd
   const timer = activeMs !== undefined && activeMs > 0 ? [{ text: `⏱ ${fmtDuration(activeMs, true)}`, dim: true }] : []
   const limits = (usage?.rateLimits ?? []).flatMap(l => {
     const w = WINDOWS[l.kind]
-    return w === undefined ? [] : [{ text: `${w.label} ${Math.round(l.percentUsed)}%`, color: colorOf(l.percentUsed) }]
+    if (w === undefined) return []
+    const text = l.kind === 'seven_day' ? `${w.label} ${Math.max(0, Math.round(100 - l.percentUsed))}% left` : `${w.label} ${Math.round(l.percentUsed)}%`
+    return [{ text, color: colorOf(l.percentUsed) }]
   })
-  const all = [...(cost === undefined ? [] : [{ text: money(cost.usd) }]), ...timer, ...limits]
+  const share = total !== undefined && total.weekPct > 0 ? [{ text: `≈${weekText(total.weekPct)} wk` }] : []
+  const all = [...(usd === undefined ? [] : [{ text: money(usd) }]), ...timer, ...limits, ...share]
   // Drop from the right until the run fits the room left after the step.
   while (all.length > 0 && lineCells(all.flatMap(s => [{ text: GAP }, s])) > room) all.pop()
   return all.flatMap(s => [{ text: GAP }, s])
@@ -226,6 +205,7 @@ export function install(on: On): void {
       const model = await $.session.model().catch(() => undefined)
       await update($, usage, () => ({ cost: e.cost, context: e.context, rateLimits: e.rateLimits, model }))
       await writeContext($, e.context)
+      await ledgerMeasure($, e)
     } catch {
       // Bookkeeping must never reach the session (NFR-07).
     }

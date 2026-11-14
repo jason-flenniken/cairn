@@ -171,6 +171,12 @@ export function world(on: On, init: WorldInit = {}) {
       ? { deny: `ENOENT: no such file or directory, stat '${e.path}'` }
       : { value: { kind: 'file', size: 1, mtimeMs: m, isLink: false } as never }
   })
+  // A folder's files are the w.files under it.
+  on('fs.list', (_$, e) => {
+    const dir = `${e.path ?? ''}/`
+    const names = [...w.files.keys()].filter(k => k.startsWith(dir) && !k.slice(dir.length).includes('/')).map(k => k.slice(dir.length))
+    return names.length === 0 ? { deny: 'ENOENT: no such directory' } : { value: names.map(name => ({ name, kind: 'file', size: 1, mtimeMs: 1, isLink: false })) as never }
+  })
   on('fs.read', (_$, e) => {
     const text = w.files.get(e.path)
     return text === undefined ? { deny: 'ENOENT: no such file' } : { value: text as never }

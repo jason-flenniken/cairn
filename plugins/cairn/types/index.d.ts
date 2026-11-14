@@ -160,6 +160,20 @@ export type CairnBoard = {
 }
 
 /** The pane's last good read: every plan, and the slug of the one the session works on (isFallback: chosen from the repo root, not by location). */
+/** A plan's usage in one session's ledger file, or summed over all of them. */
+export type CairnLedgerEntry = {
+  /** US dollars, from the session's cost. */
+  usd: number
+  /** Tokens by kind, main thread and agents together. */
+  tokens: { input: number; output: number; cacheRead: number; cacheWrite: number }
+  /** All tokens by the model that answered. */
+  tokensByModel: Record<string, number>
+  /** Points of the 7-day limit that rose while the plan was worked on (approximate: other use of the account counts too). */
+  weekPct: number
+  /** The same figures by the plan's stage at the time. */
+  byStage: Record<string, { usd: number; tokens: number; weekPct: number }>
+}
+
 export type CairnView = { plans: CairnPlanRow[]; here?: string; isFallback?: boolean }
 
 /** One subagent's card in the pane's NOW section (hooks/mod/activity.ts). */
@@ -226,8 +240,10 @@ declare module 'claude-code' {
       tab: 'now' | 'history' | 'records' | 'changelog' | 'linear'
       /** The session's usage as `session.measure` last reported it, and the model in use; null before the first measurement. */
       usage: { cost?: SessionCost; context: SessionContextUsage; rateLimits: SessionRateLimit[]; model?: string } | null
-      /** The session cost recorded as a plan's starting point; null until one is. */
-      planBaseline: { slug: string; usd: number } | null
+      /** This session's usage ledger: its id, the last cost and 7-day readings, and its totals per plan; null before the session starts it. */
+      ledger: { sessionId: string; lastUsd?: number; lastWeek?: { pct: number; resetsAt?: string }; plans: Record<string, CairnLedgerEntry> } | null
+      /** The other sessions' summed totals for the plan this session works on; null until first read. */
+      planUsage: { slug: string; others: CairnLedgerEntry } | null
       /** The document the pane's viewer shows; null while closed. */
       docOpen: { file: string; title: string; kind?: string } | null
       /** The shown plan's active time so far; null until a plan is shown. */

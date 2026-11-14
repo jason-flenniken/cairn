@@ -2376,9 +2376,9 @@ var require_stringifyNumber = __commonJS({
     function stringifyNumber({ format, minFractionDigits, tag, value }) {
       if (typeof value === "bigint")
         return String(value);
-      const num = typeof value === "number" ? value : Number(value);
-      if (!isFinite(num))
-        return isNaN(num) ? ".nan" : num < 0 ? "-.inf" : ".inf";
+      const num2 = typeof value === "number" ? value : Number(value);
+      if (!isFinite(num2))
+        return isNaN(num2) ? ".nan" : num2 < 0 ? "-.inf" : ".inf";
       let n = Object.is(value, -0) ? "-0" : JSON.stringify(value);
       if (!format && minFractionDigits && (!tag || tag === "tag:yaml.org,2002:float") && /^-?\d/.test(n) && !n.includes("e")) {
         let i = n.indexOf(".");
@@ -2418,8 +2418,8 @@ var require_float = __commonJS({
       test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
       resolve: (str2) => parseFloat(str2),
       stringify(node) {
-        const num = Number(node.value);
-        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
+        const num2 = Number(node.value);
+        return isFinite(num2) ? num2.toExponential() : stringifyNumber.stringifyNumber(node);
       }
     };
     var float = {
@@ -2858,8 +2858,8 @@ var require_float2 = __commonJS({
       test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
       resolve: (str2) => parseFloat(str2.replace(/_/g, "")),
       stringify(node) {
-        const num = Number(node.value);
-        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
+        const num2 = Number(node.value);
+        return isFinite(num2) ? num2.toExponential() : stringifyNumber.stringifyNumber(node);
       }
     };
     var float = {
@@ -3061,23 +3061,23 @@ var require_timestamp = __commonJS({
     function parseSexagesimal(str2, asBigInt) {
       const sign = str2[0];
       const parts = sign === "-" || sign === "+" ? str2.substring(1) : str2;
-      const num = (n) => asBigInt ? BigInt(n) : Number(n);
-      const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
-      return sign === "-" ? num(-1) * res : res;
+      const num2 = (n) => asBigInt ? BigInt(n) : Number(n);
+      const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num2(60) + num2(p), num2(0));
+      return sign === "-" ? num2(-1) * res : res;
     }
     function stringifySexagesimal(node) {
       let { value } = node;
-      let num = (n) => n;
+      let num2 = (n) => n;
       if (typeof value === "bigint")
-        num = (n) => BigInt(n);
+        num2 = (n) => BigInt(n);
       else if (isNaN(value) || !isFinite(value))
         return stringifyNumber.stringifyNumber(node);
       let sign = "";
       if (value < 0) {
         sign = "-";
-        value *= num(-1);
+        value *= num2(-1);
       }
-      const _60 = num(60);
+      const _60 = num2(60);
       const parts = [value % _60];
       if (value < 60) {
         parts.unshift(0);
@@ -7362,7 +7362,7 @@ var require_dist = __commonJS({
 });
 
 // plugins/cairn/cli/src/main.ts
-import { readFileSync as readFileSync7 } from "node:fs";
+import { readFileSync as readFileSync8 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
 
 // plugins/cairn/cli/src/locate.ts
@@ -7528,7 +7528,7 @@ function directCommits(cwd, base2, head) {
     return { sha: sha.slice(0, 7), files: paths.map((f, i) => i === 0 ? f.replace(/^\n/, "") : f).filter(Boolean) };
   });
 }
-var CLOSE_PUBLISHED = [`${DOCS_DIR}/decisions`, `${DOCS_DIR}/system`, `${DOCS_DIR}/OVERVIEW.md`];
+var CLOSE_PUBLISHED = [`${DOCS_DIR}/decisions`, `${DOCS_DIR}/system`, `${DOCS_DIR}/OVERVIEW.md`, `${DOCS_DIR}/USAGE.md`];
 function safeRef(cwd, name) {
   if (!name || name.startsWith("-") || name.includes("@{")) return false;
   return gitOk(["check-ref-format", "--branch", name], cwd);
@@ -8371,27 +8371,128 @@ function template(name) {
 }
 
 // plugins/cairn/cli/src/commands/plans.ts
-import { existsSync as existsSync10, readFileSync as readFileSync6 } from "node:fs";
-import { join as join17, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync11, readFileSync as readFileSync7 } from "node:fs";
+import { join as join18, resolve as resolve2 } from "node:path";
 
 // plugins/cairn/cli/src/commands/memory.ts
-import { join as join16 } from "node:path";
+import { join as join17 } from "node:path";
 
 // plugins/cairn/cli/src/memory.ts
-import { existsSync as existsSync9 } from "node:fs";
-import { basename as basename4, join as join15, posix } from "node:path";
+import { existsSync as existsSync10 } from "node:fs";
+import { basename as basename4, join as join16, posix as posix2 } from "node:path";
 
 // plugins/cairn/cli/src/commands/records.ts
-import { existsSync as existsSync8, readdirSync as readdirSync6 } from "node:fs";
-import { basename as basename3, dirname as dirname4, join as join14 } from "node:path";
+import { existsSync as existsSync9, readdirSync as readdirSync7 } from "node:fs";
+import { basename as basename3, dirname as dirname4, join as join15 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync7, readFileSync as readFileSync5 } from "node:fs";
-import { join as join13, relative as relative3 } from "node:path";
+import { existsSync as existsSync8, readFileSync as readFileSync6 } from "node:fs";
+import { join as join14, relative as relative3 } from "node:path";
+
+// plugins/cairn/cli/src/usage.ts
+import { existsSync as existsSync3, mkdirSync as mkdirSync3, readdirSync as readdirSync2, readFileSync as readFileSync5, renameSync as renameSync3 } from "node:fs";
+import { join as join7, posix } from "node:path";
+var USAGE_REL = `${DOCS_DIR}/USAGE.md`;
+var USAGE_MARK = "<!-- Generated by cairn from each plan's usage.json. Edits here are overwritten. -->";
+var num = (v) => typeof v === "number" && Number.isFinite(v) ? v : 0;
+var isObj = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+function archiveLedger(commonDir2, slug, now2 = Date.now()) {
+  const dir = join7(commonDir2, "cairn", "usage", slug);
+  if (!existsSync3(dir)) return;
+  const closed = join7(commonDir2, "cairn", "usage", ".closed");
+  mkdirSync3(closed, { recursive: true });
+  renameSync3(dir, join7(closed, `${slug}-${now2}`));
+}
+function planUsage(commonDir2, slug) {
+  const dir = join7(commonDir2, "cairn", "usage", slug);
+  let names;
+  try {
+    names = readdirSync2(dir).filter((n) => n.endsWith(".json"));
+  } catch {
+    return void 0;
+  }
+  const t = { usd: 0, tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }, tokensByModel: {}, weekPct: 0, byStage: {}, sessions: 0 };
+  for (const n of names) {
+    let j;
+    try {
+      j = JSON.parse(readFileSync5(join7(dir, n), "utf8"));
+    } catch {
+      continue;
+    }
+    if (!isObj(j)) continue;
+    t.sessions++;
+    t.usd += num(j.usd);
+    t.weekPct += num(j.weekPct);
+    const tk = isObj(j.tokens) ? j.tokens : {};
+    for (const k of ["input", "output", "cacheRead", "cacheWrite"]) t.tokens[k] += num(tk[k]);
+    if (isObj(j.tokensByModel)) for (const [m, v] of Object.entries(j.tokensByModel)) t.tokensByModel[m] = (t.tokensByModel[m] ?? 0) + num(v);
+    if (isObj(j.byStage))
+      for (const [st, v] of Object.entries(j.byStage)) {
+        if (!isObj(v)) continue;
+        const b = t.byStage[st] ??= { usd: 0, tokens: 0, weekPct: 0 };
+        b.usd += num(v.usd);
+        b.tokens += num(v.tokens);
+        b.weekPct += num(v.weekPct);
+      }
+  }
+  if (!t.sessions) return void 0;
+  t.tokens.total = t.tokens.input + t.tokens.output + t.tokens.cacheRead + t.tokens.cacheWrite;
+  return t;
+}
+var round1 = (n) => Math.round(n * 10) / 10;
+function formatTokens(n) {
+  if (n < 1e3) return String(Math.round(n));
+  if (n < 1e6) return `${n < 1e4 ? round1(n / 1e3) : Math.round(n / 1e3)}k`;
+  return `${n < 1e7 ? round1(n / 1e6) : Math.round(n / 1e6)}M`;
+}
+var usd = (n) => `$${n.toFixed(2)}`;
+var formatWeekPct = (p) => p < 10 ? String(round1(p)) : String(Math.round(p));
+function formatUsage(u) {
+  return [usd(u.usd), `${formatTokens(u.tokens.total)} tokens`, ...u.weekPct > 0 ? [`\u2248${formatWeekPct(u.weekPct)}% of weekly limit`] : []].join(" \xB7 ");
+}
+function topStages(byStage, n = 3) {
+  return Object.entries(byStage).filter(([, v]) => v.usd > 0).sort((a, b) => b[1].usd - a[1].usd).slice(0, n).map(([k, v]) => `${stripControl(k)} $${Number.isInteger(v.usd) ? v.usd : v.usd.toFixed(2)}`).join(" \xB7 ");
+}
+function renderUsage(root) {
+  const rows = [];
+  for (const d of PLANS_DIRS) {
+    let names = [];
+    try {
+      names = readdirSync2(join7(root, d));
+    } catch {
+      continue;
+    }
+    for (const n of names) {
+      try {
+        const j = JSON.parse(readFileSync5(join7(root, d, n, "usage.json"), "utf8"));
+        if (!isObj(j) || !isObj(j.tokens)) continue;
+        rows.push({ rel: `${d}/${n}`, closedAt: typeof j.closedAt === "string" ? j.closedAt : "", slug: typeof j.slug === "string" ? j.slug : n, usage: j });
+      } catch {
+      }
+    }
+  }
+  rows.sort((a, b) => b.closedAt.localeCompare(a.closedAt) || a.slug.localeCompare(b.slug));
+  const out = ["# Usage", "", USAGE_MARK, "", "What each closed plan cost. The weekly share is approximate: it adds up the rises in the account's 7-day limit while the plan was active.", ""];
+  if (!rows.length) out.push("None yet.");
+  else {
+    out.push("| Closed | Plan | Cost | Tokens | \u2248 Week % | Top stages |", "| --- | --- | --- | --- | --- | --- |");
+    for (const r of rows) {
+      const u = r.usage;
+      const tk = isObj(u.tokens) ? u.tokens : {};
+      const name = stripControl(r.slug);
+      const plan2 = existsSync3(join7(root, r.rel, "RECORD.md")) ? `[${name}](${posix.relative(DOCS_DIR, `${r.rel}/RECORD.md`)})` : name;
+      const week = num(u.weekPct) > 0 ? `${formatWeekPct(num(u.weekPct))}%` : "";
+      const stages = isObj(u.byStage) ? u.byStage : {};
+      out.push(`| ${r.closedAt.slice(0, 10)} | ${plan2} | ${usd(num(u.usd))} | ${formatTokens(num(tk.total))} | ${week} | ${topStages(stages)} |`);
+    }
+  }
+  return `${out.join("\n")}
+`;
+}
 
 // plugins/cairn/cli/src/commands/brief.ts
-import { existsSync as existsSync3, mkdirSync as mkdirSync3, readdirSync as readdirSync3, writeFileSync as writeFileSync3 } from "node:fs";
-import { basename as basename2, dirname as dirname3, join as join8, resolve } from "node:path";
+import { existsSync as existsSync4, mkdirSync as mkdirSync4, readdirSync as readdirSync4, writeFileSync as writeFileSync3 } from "node:fs";
+import { basename as basename2, dirname as dirname3, join as join9, resolve } from "node:path";
 
 // plugins/cairn/cli/src/builder.ts
 var MAX_FIX_ROUNDS = 2;
@@ -8414,8 +8515,8 @@ function builderOf(s, t, fixAttempt = 0) {
 var builderLine = (b) => `Builder: ${b.model}${b.effort ? `, effort ${b.effort}` : ""}${b.reason ? ` \u2014 ${b.reason}` : ""}`;
 
 // plugins/cairn/cli/src/commands/suggest.ts
-import { readdirSync as readdirSync2 } from "node:fs";
-import { join as join7 } from "node:path";
+import { readdirSync as readdirSync3 } from "node:fs";
+import { join as join8 } from "node:path";
 var list = (v) => typeof v === "string" ? v.split("\n").filter(Boolean) : [];
 var MAX_DECLINES = 2;
 var MAX_AGE_DAYS = 60;
@@ -8425,8 +8526,8 @@ function allStates(ctx) {
   const out = /* @__PURE__ */ new Map();
   for (const r of listPlans(ctx)) out.set(r.state.slug, r.state);
   for (const dir of plansDirsIn(ctx.top))
-    for (const name of readdirSync2(dir)) {
-      const raw = readText(join7(dir, name, "state.json"));
+    for (const name of readdirSync3(dir)) {
+      const raw = readText(join8(dir, name, "state.json"));
       if (raw === void 0) continue;
       try {
         const s = parseState(raw);
@@ -8560,25 +8661,25 @@ function suggestDecline(ctx, keys) {
 // plugins/cairn/cli/src/commands/brief.ts
 var ROLES = ["build", "review", "security", "fix"];
 function workDir(pc) {
-  const root = join8(pc.plan.worktree, CAIRN_DIR, "work");
-  const dir = join8(root, pc.plan.slug);
+  const root = join9(pc.plan.worktree, CAIRN_DIR, "work");
+  const dir = join9(root, pc.plan.slug);
   ensureExcluded(pc.ctx.mainRoot, `${CAIRN_DIR}/work/`);
   excludeScratch(pc.ctx.mainRoot);
-  for (const sub of ["briefs", "reports", "research"]) mkdirSync3(join8(dir, sub), { recursive: true });
-  const ignore = join8(root, ".gitignore");
-  if (!existsSync3(ignore)) writeFileSync3(ignore, "*\n");
+  for (const sub of ["briefs", "reports", "research"]) mkdirSync4(join9(dir, sub), { recursive: true });
+  const ignore = join9(root, ".gitignore");
+  if (!existsSync4(ignore)) writeFileSync3(ignore, "*\n");
   return dir;
 }
 function workDirIfUsed(worktree, slug) {
-  const dir = join8(worktree, CAIRN_DIR, "work", slug);
+  const dir = join9(worktree, CAIRN_DIR, "work", slug);
   try {
-    const used = ["briefs", "reports", "research"].some((sub) => readdirSync3(join8(dir, sub)).length > 0);
+    const used = ["briefs", "reports", "research"].some((sub) => readdirSync4(join9(dir, sub)).length > 0);
     return used ? dir : void 0;
   } catch {
     return void 0;
   }
 }
-var reportPath = (pc, task, role) => join8(workDir(pc), "reports", `${task}-${role}.md`);
+var reportPath = (pc, task, role) => join9(workDir(pc), "reports", `${task}-${role}.md`);
 function taskSection(planMd, id) {
   const lines = planMd.split("\n");
   let start = -1;
@@ -8687,7 +8788,7 @@ function writeBrief(pc, id, role, again = false) {
   const sl = findTask(s, id);
   if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
   const { text, report } = buildBrief(pc, s, sl, role, again);
-  const path = join8(workDir(pc), "briefs", `${id}-${role}${again ? "-again" : ""}.md`);
+  const path = join9(workDir(pc), "briefs", `${id}-${role}${again ? "-again" : ""}.md`);
   writeFileSync3(path, text);
   return { path, report, name: sl.name, builder: builderOf(s, sl, role === "fix" ? sl.fixRound : 0) };
 }
@@ -8707,8 +8808,8 @@ ${builderLine(r.builder)}` : ""}`,
 var FAILING = /\b(?:fail(?:ed|ing|ure)?|error)\b|✗|✖|^not ok\b/i;
 var failingLines = (output) => output.split("\n").filter((l) => FAILING.test(l)).slice(0, 5).map((l) => l.length > 200 ? `${l.slice(0, 199)}\u2026` : l);
 function testLog(pc, output) {
-  const path = join8(workDir(pc), "reports", "tests.log");
-  mkdirSync3(dirname3(path), { recursive: true });
+  const path = join9(workDir(pc), "reports", "tests.log");
+  mkdirSync4(dirname3(path), { recursive: true });
   writeFileSync3(path, `${output}
 `);
   return path;
@@ -8866,7 +8967,7 @@ var DEFAULT_FRESH_START_AT = 40;
 var FRESH_MAX_AGE_MS = 10 * 60 * 1e3;
 function freshStart(pc, at = Date.now()) {
   try {
-    const raw = readText(join8(commonDir(pc.ctx.mainRoot), "cairn", "context", `${pc.plan.slug}.json`));
+    const raw = readText(join9(commonDir(pc.ctx.mainRoot), "cairn", "context", `${pc.plan.slug}.json`));
     if (raw === void 0) return void 0;
     const c = JSON.parse(raw);
     if (typeof c.pct !== "number" || !Number.isFinite(c.pct) || typeof c.at !== "string") return void 0;
@@ -8888,12 +8989,12 @@ ${f.line}` : f.line, data: { ...r.data, freshStart: { pct: f.pct } } };
 }
 
 // plugins/cairn/cli/src/commands/merge.ts
-import { existsSync as existsSync5, readdirSync as readdirSync5 } from "node:fs";
-import { join as join10, relative as relative2 } from "node:path";
+import { existsSync as existsSync6, readdirSync as readdirSync6 } from "node:fs";
+import { join as join11, relative as relative2 } from "node:path";
 
 // plugins/cairn/cli/src/commands/linear.ts
-import { existsSync as existsSync4, readdirSync as readdirSync4 } from "node:fs";
-import { join as join9 } from "node:path";
+import { existsSync as existsSync5, readdirSync as readdirSync5 } from "node:fs";
+import { join as join10 } from "node:path";
 
 // plugins/cairn/cli/src/linear.ts
 var ISSUE_KEY = /^[A-Z][A-Z0-9]*-\d+$/;
@@ -9658,7 +9759,7 @@ var USAGE2 = `usage: cairn linear [status] | import (--file <path> | stdin) [--r
 var NO_CONFIG = (where) => new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
 function inputText(ctx, opts) {
   if (typeof opts.file === "string") {
-    const t = readText(join9(ctx.cwd, opts.file)) ?? readText(opts.file);
+    const t = readText(join10(ctx.cwd, opts.file)) ?? readText(opts.file);
     if (t === void 0) throw new CliError(`cannot read --file ${opts.file}`);
     return t;
   }
@@ -9817,7 +9918,7 @@ function writeIssueTexts(pc, s, descriptions) {
     const h = hashText(d);
     if (s.approvals.prd && i.descriptionHash && i.descriptionHash !== h) changed.push(i.key);
     i.descriptionHash = h;
-    writeText(join9(pc.plan.dir, "issues", `${i.key}.md`), issueFile(i, d, at));
+    writeText(join10(pc.plan.dir, "issues", `${i.key}.md`), issueFile(i, d, at));
   }
   return changed;
 }
@@ -9827,8 +9928,8 @@ function importBoard(ctx, opts) {
   if (!cfg) throw NO_CONFIG(".cairn/config.json");
   const { snap: next, present: present2 } = readBoardImport(parseJson(inputText(ctx, opts), "the board import"));
   const file = snapshotFile(ctx, next.project);
-  if (opts.links && !existsSync4(file)) throw new Refusal(`no snapshot of "${next.project}" to add links to`, ["import the listing first: cairn linear import --board --merge"]);
-  const prev = (opts.merge || opts.links) && existsSync4(file) ? JSON.parse(readText(file) ?? "{}") : void 0;
+  if (opts.links && !existsSync5(file)) throw new Refusal(`no snapshot of "${next.project}" to add links to`, ["import the listing first: cairn linear import --board --merge"]);
+  const prev = (opts.merge || opts.links) && existsSync5(file) ? JSON.parse(readText(file) ?? "{}") : void 0;
   const { snap, needRelations } = mergeBoard(prev, next, present2, !!opts.links);
   if (!prev) snap.fullPending = true;
   if (snap.fullPending && !needRelations.length) {
@@ -9845,7 +9946,7 @@ function mergedAwaitingDone(pc, s) {
   if (!s.linear || s.stage !== "learn" && s.stage !== "closed" || doneQueued(s.linear)) return false;
   let merged2 = false;
   try {
-    merged2 = landedState(pc.plan.worktree, s.branch, s.base, planRelOf(pc.plan), join9(commonDir(pc.ctx.mainRoot), PR_CACHE)) === "merged";
+    merged2 = landedState(pc.plan.worktree, s.branch, s.base, planRelOf(pc.plan), join10(commonDir(pc.ctx.mainRoot), PR_CACHE)) === "merged";
   } catch {
     return false;
   }
@@ -10029,7 +10130,7 @@ function take(ctx, keyArg, opts) {
   if (typeof opts.reason !== "string" || !opts.reason.trim()) throw new CliError('cairn linear take needs --reason "\u2026"');
   const reason = opts.reason.trim();
   const pc = planCtx(ctx);
-  const prdMd = readText(join9(pc.plan.dir, "prd.md"));
+  const prdMd = readText(join10(pc.plan.dir, "prd.md"));
   return mutate(pc, `Linear: took back ${k}`, (s) => {
     const l = linkOf(s);
     const i = l.issues.find((x) => x.key === k);
@@ -10225,12 +10326,12 @@ function stackLanded(ctx, st, row, cwd) {
     const heads = [st.branch, `origin/${st.branch}`].map((r) => gitTry(["rev-parse", "--verify", "--quiet", `${r}^{commit}`], cwd)).filter((r) => r.ok).map((r) => r.out.trim());
     if (inTarget(st.tip) && heads.every(inTarget)) return true;
   }
-  return prMerged(cwd, st.branch, join9(commonDir(ctx.mainRoot), PR_CACHE));
+  return prMerged(cwd, st.branch, join10(commonDir(ctx.mainRoot), PR_CACHE));
 }
 function merged(ctx, s) {
   try {
     const rel = resolvePlanDir(s.slug, { ref: s.branch, cwd: ctx.top }) ?? "";
-    return landedState(ctx.top, s.branch, s.base, rel, join9(commonDir(ctx.mainRoot), PR_CACHE)) === "merged";
+    return landedState(ctx.top, s.branch, s.base, rel, join10(commonDir(ctx.mainRoot), PR_CACHE)) === "merged";
   } catch {
     return false;
   }
@@ -10242,7 +10343,7 @@ function linearStatus(ctx) {
   const progress2 = issueProgress(s);
   const open = l.changes.filter((c) => !c.handled);
   const foundational = isFoundational(l, linearConfig(pc.cfg));
-  const texts = Object.fromEntries(l.issues.filter((i) => existsSync4(join9(pc.plan.dir, "issues", `${i.key}.md`))).map((i) => [i.key, issueTextPath(pc, i.key)]));
+  const texts = Object.fromEntries(l.issues.filter((i) => existsSync5(join10(pc.plan.dir, "issues", `${i.key}.md`))).map((i) => [i.key, issueTextPath(pc, i.key)]));
   const lines = [
     `Linear: ${[l.project, l.milestone, l.epic ? `epic ${l.epic}` : void 0].filter(Boolean).join(" \xB7 ") || l.team}`,
     ...foundational ? [`Foundational: the plan names its approach and the ones it rejected (## Approaches considered), and the user approves it with the plan.`] : [],
@@ -10253,12 +10354,12 @@ function linearStatus(ctx) {
   return { message: lines.join("\n"), data: { linear: l, progress: Object.fromEntries(progress2), openChanges: open, pending: unsent(l).length, foundational, texts } };
 }
 var projectSlug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project";
-var snapshotDir = (ctx) => join9(commonDir(ctx.mainRoot), "cairn", "linear");
-var snapshotFile = (ctx, project) => join9(snapshotDir(ctx), `${projectSlug(project)}.json`);
+var snapshotDir = (ctx) => join10(commonDir(ctx.mainRoot), "cairn", "linear");
+var snapshotFile = (ctx, project) => join10(snapshotDir(ctx), `${projectSlug(project)}.json`);
 function loadSnapshot(ctx, project) {
   const dir = snapshotDir(ctx);
-  const files = existsSync4(dir) ? readdirSync4(dir).filter((f) => f.endsWith(".json")) : [];
-  const read = (f) => JSON.parse(readText(join9(dir, f)) ?? "{}");
+  const files = existsSync5(dir) ? readdirSync5(dir).filter((f) => f.endsWith(".json")) : [];
+  const read = (f) => JSON.parse(readText(join10(dir, f)) ?? "{}");
   if (project) {
     const f = `${projectSlug(project)}.json`;
     if (!files.includes(f)) throw new Refusal(`no snapshot of "${project}" yet`, [`read it from Linear first: /cairn:board ${project}`]);
@@ -10353,7 +10454,7 @@ function relink(ctx, arg, opts) {
     dirs = listPlans(ctx).map((r) => r.dir);
   } catch {
   }
-  const textOf = (k) => dirs.map((d) => join9(d, "issues", `${k}.md`)).find((f) => existsSync4(f));
+  const textOf = (k) => dirs.map((d) => join10(d, "issues", `${k}.md`)).find((f) => existsSync5(f));
   const row = (i) => {
     const text = textOf(i.key);
     return { key: i.key, title: i.title, state: i.stateName ?? i.stateType ?? "unknown", ...text ? { text } : {} };
@@ -10420,7 +10521,7 @@ function mergeBase(pc, baseRef, message) {
   if (m.ok) return { ok: true };
   const conflicted = gitTry(["diff", "--name-only", "--diff-filter=U"], wt).out.split("\n").filter(Boolean);
   if (conflicted.length && conflicted.every(isPublished2)) {
-    const settled2 = conflicted.every((f) => gitTry(["checkout", "--theirs", "--", f], wt).ok) && (refreshMemory(wt, pc.ctx), gitTry(["add", "--", ...conflicted], wt).ok) && gitTry(["commit", "-q", "--no-edit"], wt).ok;
+    const settled2 = conflicted.every((f) => gitTry(["checkout", "--theirs", "--", f], wt).ok) && (conflicted.some((f) => f !== USAGE_REL) && refreshMemory(wt, pc.ctx), conflicted.includes(USAGE_REL) && refreshUsage(wt), gitTry(["add", "--", ...conflicted], wt).ok) && gitTry(["commit", "-q", "--no-edit"], wt).ok;
     if (settled2) return { ok: true };
   }
   gitTry(["merge", "--abort"], wt);
@@ -10569,8 +10670,8 @@ var SQUASH = /\(#(\d+)\)$/;
 var TASK_MERGE = /^merge task (\S+)/;
 function planByPr(root, pr) {
   for (const dir of plansDirsIn(root))
-    for (const name of readdirSync5(dir))
-      if (new RegExp(`^- PR: \\S*/pull/${pr}(?!\\d)`, "m").test(readText(join10(dir, name, "RECORD.md")) ?? "")) return relative2(root, join10(dir, name));
+    for (const name of readdirSync6(dir))
+      if (new RegExp(`^- PR: \\S*/pull/${pr}(?!\\d)`, "m").test(readText(join11(dir, name, "RECORD.md")) ?? "")) return relative2(root, join11(dir, name));
   return void 0;
 }
 function cmdTrace(ctx, spec, opts) {
@@ -10602,7 +10703,7 @@ function cmdTrace(ctx, spec, opts) {
     if (slug) {
       t.plan = slug;
       const rel = planRelIn(slug, root);
-      if (existsSync5(join10(root, rel))) t.record = `${rel}/RECORD.md`;
+      if (existsSync6(join11(root, rel))) t.record = `${rel}/RECORD.md`;
     } else if (t.pr) {
       const rel = planByPr(root, t.pr);
       if (rel) {
@@ -10630,13 +10731,13 @@ function cmdTrace(ctx, spec, opts) {
 }
 
 // plugins/cairn/cli/src/commands/stages.ts
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 
 // plugins/cairn/cli/src/commands/fix.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
-import { existsSync as existsSync6, mkdtempSync, rmSync as rmSync3 } from "node:fs";
+import { existsSync as existsSync7, mkdtempSync, rmSync as rmSync3 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join as join11 } from "node:path";
+import { join as join12 } from "node:path";
 var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
 var fastLane = (s) => s.track === "fix" && (s.stage === "repro" || !!s.repro);
 var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build }));
@@ -10655,8 +10756,8 @@ var GROUP_WRAPPER = 'if command -v setsid >/dev/null 2>&1; then setsid sh -c "$1
 var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
 function runRepro(cmd, cwd, cfg) {
   const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
-  const tmp = mkdtempSync(join11(tmpdir(), "cairn-repro-"));
-  const pidFile = join11(tmp, "pgid");
+  const tmp = mkdtempSync(join12(tmpdir(), "cairn-repro-"));
+  const pidFile = join12(tmp, "pgid");
   const r = spawnSync3("sh", ["-c", GROUP_WRAPPER, "sh", cmd, pidFile], { cwd, encoding: "utf8", env: childEnv(), timeout: minutes * 6e4, maxBuffer: 64 * 1024 * 1024 });
   const timedOut = r.error?.code === "ETIMEDOUT";
   const pgid = Number(readText(pidFile));
@@ -10706,7 +10807,7 @@ function cmdEscalate(ctx, opts) {
     const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
     if (!sl.base || !head) continue;
     const files = changedFiles(pc.plan.worktree, pre.slug, sl.base, head);
-    if (sl.status === "in_progress" && sl.worktree && existsSync6(sl.worktree))
+    if (sl.status === "in_progress" && sl.worktree && existsSync7(sl.worktree))
       for (const args of [["diff", "--name-only", "-z", "HEAD"], ["ls-files", "--others", "--exclude-standard", "-z"]])
         files.push(...git(args, sl.worktree).split("\0").filter((f) => f && !f.startsWith(own)));
     changed.set(sl.id, [...new Set(files.map((f) => f.replace(/[*?]/g, "?")))].sort());
@@ -10794,7 +10895,7 @@ var WRITING_STEPS = ["drafting", "checking", "recording", "asking"];
 function readyFor(pc) {
   try {
     const s = loadState(pc.plan.dir);
-    const file = (name) => join12(pc.plan.dir, name);
+    const file = (name) => join13(pc.plan.dir, name);
     const pcLike = pc;
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return void 0;
     if (s.stage === "prd" && !s.approvals.prd) {
@@ -10940,7 +11041,7 @@ function cmdAdvance(ctx, opts) {
       if (p && p.status === "pending") p.status = "in_progress";
     }
     log(s, "advanced", to);
-    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join12(pc.plan.dir, "RECORD.md")}.` };
+    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join13(pc.plan.dir, "RECORD.md")}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
@@ -10959,7 +11060,7 @@ function cmdClose(ctx, opts) {
     setStage(s, "closed");
     onAdvance(pc, s, "learn", "closed", opts, followups);
     log(s, "closed");
-    return { message: `Closed "${s.title}". The record is ${join12(pc.plan.dir, "RECORD.md")}.` };
+    return { message: `Closed "${s.title}". The record is ${join13(pc.plan.dir, "RECORD.md")}.` };
   });
   return closeMemory(pc, r);
 }
@@ -10974,10 +11075,10 @@ function listPlans(ctx) {
     const ref = planRef(slug, ctx.worktrees, b);
     try {
       const rel = resolvePlanDir(slug, { ref: b, cwd: ctx.top });
-      const raw = ref.dir && existsSync7(join13(ref.dir, "state.json")) ? readFileSync5(join13(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
+      const raw = ref.dir && existsSync8(join14(ref.dir, "state.json")) ? readFileSync6(join14(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
       const state = parseState(raw);
       if (state.branch !== b) continue;
-      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join13(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join14(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
     } catch {
     }
   }
@@ -11028,7 +11129,7 @@ function warnings(pc, s) {
 }
 function waitingOnMerge(ctx, s, cwd, planRel2) {
   if (s.stage !== "learn" && s.stage !== "closed") return false;
-  return landedState(cwd, s.branch, s.base, planRel2, join13(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
+  return landedState(cwd, s.branch, s.base, planRel2, join14(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
 }
 function taskIssuesOf(s) {
   const l = s.linear;
@@ -11092,6 +11193,7 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full 
   const hardeningByArea = {};
   for (const x of listed2) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
   const timing = stageTimes(s);
+  const usage = planUsage(commonDir(ctx.mainRoot), s.slug);
   return {
     message: [
       summary(s, prOpen),
@@ -11099,14 +11201,15 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full 
       ...s.level ? [`Level: ${levelLabel(s)}`] : [],
       ...s.stackedOn ? [`Stacked on ${s.stackedOn.slug}: it started on that plan's branch and moves onto main once that plan has merged.`] : [],
       ...hardeningItems ? [`Hardening items: ${hardeningItems}`] : [],
+      ...usage ? [`Usage: ${formatUsage(usage)}`] : [],
       ...s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : [],
       ...w.map((x) => `! ${x}`),
       ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []
     ].join("\n"),
-    data: { state: opts.full ? s : slimState(s), suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...s.linear ? { foundational: foundationalSafe(s, pc) } : {}, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
+    data: { state: opts.full ? s : slimState(s), ...usage ? { usage } : {}, suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...s.linear ? { foundational: foundationalSafe(s, pc) } : {}, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
   };
 }
-var procedurePath = (name) => join13(pluginRoot(), "procedures", `${name}.md`);
+var procedurePath = (name) => join14(pluginRoot(), "procedures", `${name}.md`);
 function cmdNext(ctx) {
   if (!ctx.plan) {
     const owed = mergedPlansAwaitingDone(ctx)[0];
@@ -11158,10 +11261,10 @@ function cmdRender(ctx) {
   if (ctx.plan) {
     const pc = planCtx(ctx);
     withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
-    return { message: `Rendered ${join13(pc.plan.dir, "STATUS.md")}.` };
+    return { message: `Rendered ${join14(pc.plan.dir, "STATUS.md")}.` };
   }
   refreshMemory(ctx.top, ctx);
-  return { message: `Rendered ${join13(ctx.top, OVERVIEW_REL)} (the changelog).` };
+  return { message: `Rendered ${join14(ctx.top, OVERVIEW_REL)} (the changelog).` };
 }
 
 // plugins/cairn/cli/src/commands/records.ts
@@ -11171,7 +11274,7 @@ function whyLine(md) {
   const para = body.split(/\n\s*\n/)[0]?.replace(/\s+/g, " ").trim() ?? "";
   return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
 }
-var changelogIn = (root, e) => PLANS_DIRS.map((d) => join14(root, d, basename3(e.dir), "changelog.md")).find((p) => existsSync8(p));
+var changelogIn = (root, e) => PLANS_DIRS.map((d) => join15(root, d, basename3(e.dir), "changelog.md")).find((p) => existsSync9(p));
 function changelogEntry(e, root) {
   const path = (root === void 0 ? void 0 : changelogIn(root, e)) ?? e.changelog;
   return path ? stripControl(readText(path) ?? "").trim() : "";
@@ -11185,26 +11288,26 @@ function planEntries(ctx) {
   for (const r of listPlans(ctx)) found.set(r.state.slug, { state: r.state, dir: r.dir });
   const bases = plansDirsIn(main2);
   for (const base2 of bases)
-    for (const name of readdirSync6(base2)) {
-      const raw = readText(join14(base2, name, "state.json"));
+    for (const name of readdirSync7(base2)) {
+      const raw = readText(join15(base2, name, "state.json"));
       if (raw === void 0) continue;
       try {
         const state = parseState(raw);
-        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join14(base2, name) });
+        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join15(base2, name) });
       } catch {
       }
     }
   return [...found.values()].map(({ state, dir }) => {
-    let recordPath = join14(dir, "RECORD.md");
-    if (!existsSync8(recordPath)) recordPath = bases.map((b) => join14(b, basename3(dir), "RECORD.md")).find((p) => existsSync8(p)) ?? recordPath;
-    let changelogPath = PLANS_DIRS.map((d) => join14(ctx.top, d, basename3(dir), "changelog.md")).find((p) => existsSync8(p)) ?? join14(dir, "changelog.md");
-    if (!existsSync8(changelogPath)) changelogPath = bases.map((b) => join14(b, basename3(dir), "changelog.md")).find((p) => existsSync8(p)) ?? changelogPath;
+    let recordPath = join15(dir, "RECORD.md");
+    if (!existsSync9(recordPath)) recordPath = bases.map((b) => join15(b, basename3(dir), "RECORD.md")).find((p) => existsSync9(p)) ?? recordPath;
+    let changelogPath = PLANS_DIRS.map((d) => join15(ctx.top, d, basename3(dir), "changelog.md")).find((p) => existsSync9(p)) ?? join15(dir, "changelog.md");
+    if (!existsSync9(changelogPath)) changelogPath = bases.map((b) => join15(b, basename3(dir), "changelog.md")).find((p) => existsSync9(p)) ?? changelogPath;
     return {
       state,
       dir,
       date: basename3(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
-      ...existsSync8(recordPath) ? { record: recordPath } : {},
-      ...existsSync8(changelogPath) ? { changelog: changelogPath } : {}
+      ...existsSync9(recordPath) ? { record: recordPath } : {},
+      ...existsSync9(changelogPath) ? { changelog: changelogPath } : {}
     };
   });
 }
@@ -11251,7 +11354,7 @@ function cmdRecords(ctx) {
 var OVERVIEW_REL = `${DOCS_DIR}/OVERVIEW.md`;
 var CHANGELOG_MARK = "<!-- Generated by cairn from each plan's changelog entry and record. Edits here are overwritten. -->";
 var NONE = "None yet.";
-var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename4(e.dir)}/RECORD.md`).find((rel) => existsSync9(join15(root, rel)));
+var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename4(e.dir)}/RECORD.md`).find((rel) => existsSync10(join16(root, rel)));
 var byNewest = (a, b) => b.date.localeCompare(a.date) || a.state.slug.localeCompare(b.state.slug);
 function renderChangelog(root, plans) {
   const out = ["# Changelog", "", CHANGELOG_MARK, ""];
@@ -11266,7 +11369,7 @@ function renderChangelog(root, plans) {
     const r = recordRel(root, p);
     out.push(`## ${p.date} \xB7 ${stripControl(p.state.title)}`, "");
     if (text) out.push(text, "");
-    if (r) out.push(`[Record](${posix.relative(DOCS_DIR, r)})`, "");
+    if (r) out.push(`[Record](${posix2.relative(DOCS_DIR, r)})`, "");
   }
   return `${out.join("\n").replace(/\n+$/, "")}
 `;
@@ -11295,15 +11398,34 @@ function memoryIndex(root, plansOf) {
 // plugins/cairn/cli/src/commands/memory.ts
 var removed = (what) => new Refusal(`${what} was removed; the changelog in ${OVERVIEW_REL} replaces it.`);
 function refreshMemory(root, ctx) {
-  const before = readText(join16(root, OVERVIEW_REL));
+  const before = readText(join17(root, OVERVIEW_REL));
   const after = renderChangelog(root, planEntries(ctx));
   if (before === after) return [];
-  writeText(join16(root, OVERVIEW_REL), after);
+  writeText(join17(root, OVERVIEW_REL), after);
   return [OVERVIEW_REL];
+}
+function refreshUsage(root) {
+  const before = readText(join17(root, USAGE_REL));
+  const after = renderUsage(root);
+  if (before === after) return [];
+  writeText(join17(root, USAGE_REL), after);
+  return [USAGE_REL];
 }
 function writeMemory(pc, s) {
   const root = pc.plan.worktree;
-  const changed = refreshMemory(root, pc.ctx);
+  const changed = [];
+  try {
+    const u = planUsage(commonDir(pc.ctx.mainRoot), s.slug);
+    if (u) {
+      const rel = `${planRelOf(pc.plan)}/usage.json`;
+      writeText(join17(root, rel), `${JSON.stringify({ ...u, slug: s.slug, closedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, 2)}
+`);
+      changed.push(rel);
+      archiveLedger(commonDir(pc.ctx.mainRoot), s.slug);
+    }
+  } catch {
+  }
+  changed.push(...refreshMemory(root, pc.ctx), ...refreshUsage(root));
   if (pc.cfg.autoCommit && changed.length) commitPaths(root, changed, `cairn(${s.slug}): update changelog`);
   return changed;
 }
@@ -11355,14 +11477,14 @@ function cmdNew(ctx, slug, opts) {
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-    wt = join17(root, worktreeName(branch));
+    wt = join18(root, worktreeName(branch));
     git(["worktree", "add", "-q", "-b", branch, wt, base2], ctx.top);
   }
   ensureExcluded(ctx.mainRoot, `${CAIRN_DIR}/work/`);
   excludeScratch(ctx.mainRoot);
   const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
-  const dir = join17(wt, rel);
-  writeText(join17(dir, "decisions.md"), `# Decisions: ${title}
+  const dir = join18(wt, rel);
+  writeText(join18(dir, "decisions.md"), `# Decisions: ${title}
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
@@ -11387,11 +11509,11 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   };
 }
 function cmdProductInit(ctx) {
-  const dir = join17(ctx.top, `${DOCS_DIR}/product`);
-  const prd = join17(dir, "PRD.md");
-  if (existsSync10(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
+  const dir = join18(ctx.top, `${DOCS_DIR}/product`);
+  const prd = join18(dir, "PRD.md");
+  if (existsSync11(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
   writeText(prd, template("product-prd.md") ?? "# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n");
-  writeText(join17(dir, "decisions", ".gitkeep"), "");
+  writeText(join18(dir, "decisions", ".gitkeep"), "");
   return { message: `Created ${DOCS_DIR}/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
 }
 var REMOVED_DECIDE_OPTS = ["lasting", "promote", "replaces", "areas", "paths", "plan", "date"];
@@ -11407,7 +11529,7 @@ function cmdDecide(ctx, question, answer, opts) {
 function readDecisionFile(cwd, file) {
   let data;
   try {
-    data = JSON.parse(readFileSync6(resolve2(cwd, file), "utf8"));
+    data = JSON.parse(readFileSync7(resolve2(cwd, file), "utf8"));
   } catch (e) {
     throw new CliError(`cannot read decision file ${file}: ${e.message}`);
   }
@@ -11693,8 +11815,8 @@ Next: approve the plan with the user.`,
 }
 
 // plugins/cairn/cli/src/commands/tasks.ts
-import { existsSync as existsSync11 } from "node:fs";
-import { basename as basename5, join as join18 } from "node:path";
+import { existsSync as existsSync12 } from "node:fs";
+import { basename as basename5, join as join19 } from "node:path";
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
   const pc = planCtx(ctx);
@@ -11736,7 +11858,7 @@ function taskStart(pc, id, opts) {
   let needsSetup = false;
   const r = mutate(pc, void 0, (s) => {
     const branch = taskBranch(plan2.slug, id);
-    const path = join18(worktreeRoot(cfg, ctx.mainRoot), `${basename5(plan2.worktree)}--${id}`);
+    const path = join19(worktreeRoot(cfg, ctx.mainRoot), `${basename5(plan2.worktree)}--${id}`);
     const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
@@ -11755,7 +11877,7 @@ function taskStart(pc, id, opts) {
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base2 = git(["rev-parse", pb], plan2.worktree);
-    if (!existsSync11(path)) {
+    if (!existsSync12(path)) {
       if (branchExists(branch, plan2.worktree)) git(["worktree", "add", "-q", path, branch], plan2.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan2.worktree);
       needsSetup = true;
@@ -11803,7 +11925,7 @@ function taskDone(pc, id, opts) {
   const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
   const merged2 = branchExists(sl.branch, plan2.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree);
-  const dirty = sl.worktree && existsSync11(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync12(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan2.worktree) ? git(["rev-parse", "--short", sl.branch], plan2.worktree) : void 0;
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
@@ -11847,7 +11969,7 @@ function taskDone(pc, id, opts) {
       data: { phaseComplete: !left }
     };
   });
-  if (merged2 && sl.worktree && existsSync11(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
+  if (merged2 && sl.worktree && existsSync12(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
   if (merged2) gitOk(["branch", "-d", sl.branch], plan2.worktree);
   return r;
 }
@@ -11863,7 +11985,7 @@ function preMergeChecks(pc, pre, sl, opts) {
     const other = owner.name;
     throw new Refusal(`the plan branch is red from task ${other}'s merge: fix that first`, [`finish "${other}" (its fix brief carries the failing run), then merge this task`, `Full output: ${pre.lastRed.log}`]);
   }
-  const dirty = sl.worktree && existsSync11(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync12(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   if (dirty) throw new Refusal("the task worktree has uncommitted changes", [`commit or discard them in ${sl.worktree}`]);
   const commits = sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   if (commits <= 0) throw new Refusal(`${sl.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
@@ -12038,34 +12160,34 @@ ${buildText.trim()}` : buildText}`, data: { ran: tests.ran, ok: tests.ok, comman
 }
 
 // plugins/cairn/cli/src/commands/migrate.ts
-import { existsSync as existsSync12, lstatSync, mkdirSync as mkdirSync4, readdirSync as readdirSync7, renameSync as renameSync3, rmdirSync } from "node:fs";
-import { dirname as dirname5, join as join19 } from "node:path";
+import { existsSync as existsSync13, lstatSync, mkdirSync as mkdirSync5, readdirSync as readdirSync8, renameSync as renameSync4, rmdirSync } from "node:fs";
+import { dirname as dirname5, join as join20 } from "node:path";
 var PAIRS = [
   [LEGACY_CAIRN_DIR, CAIRN_DIR],
   [LEGACY_DOCS_DIR, DOCS_DIR]
 ];
 function isCairns(root, old) {
-  if (old === LEGACY_CAIRN_DIR) return existsSync12(join19(root, old, "config.json"));
-  if (existsSync12(join19(root, old, "product"))) return true;
-  const plans = join19(root, old, "plans");
-  return existsSync12(plans) && readdirSync7(plans).some((n) => existsSync12(join19(plans, n, "state.json")));
+  if (old === LEGACY_CAIRN_DIR) return existsSync13(join20(root, old, "config.json"));
+  if (existsSync13(join20(root, old, "product"))) return true;
+  const plans = join20(root, old, "plans");
+  return existsSync13(plans) && readdirSync8(plans).some((n) => existsSync13(join20(plans, n, "state.json")));
 }
 var legacyLayout = (root) => PAIRS.map(([old]) => old).filter((p) => isCairns(root, p));
 var tracked = (root, rel) => git(["ls-files", "--", rel], root) !== "";
 function move(root, from, to) {
-  mkdirSync4(dirname5(join19(root, to)), { recursive: true });
+  mkdirSync5(dirname5(join20(root, to)), { recursive: true });
   if (tracked(root, from)) git(["mv", from, to], root);
-  else renameSync3(join19(root, from), join19(root, to));
+  else renameSync4(join20(root, from), join20(root, to));
 }
 var present = (root, rel) => {
   try {
-    lstatSync(join19(root, rel));
+    lstatSync(join20(root, rel));
     return true;
   } catch {
     return false;
   }
 };
-var isDir = (root, rel) => lstatSync(join19(root, rel)).isDirectory();
+var isDir = (root, rel) => lstatSync(join20(root, rel)).isDirectory();
 function plan(root, old, next, out) {
   if (!present(root, next)) {
     out.moves.push([old, next]);
@@ -12076,10 +12198,10 @@ function plan(root, old, next, out) {
     return;
   }
   out.dirs.push(old);
-  for (const n of readdirSync7(join19(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
+  for (const n of readdirSync8(join20(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
 }
 var prune = (root, dirs) => {
-  for (const d of [...dirs].reverse()) if (existsSync12(join19(root, d)) && !readdirSync7(join19(root, d)).length) rmdirSync(join19(root, d));
+  for (const d of [...dirs].reverse()) if (existsSync13(join20(root, d)) && !readdirSync8(join20(root, d)).length) rmdirSync(join20(root, d));
 };
 function cmdMigrate(ctx) {
   if (ctx.plan) throw new Refusal("run cairn migrate on the main branch, outside any plan");
@@ -12210,7 +12332,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join20 } from "node:path";
+import { join as join21 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -12234,7 +12356,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join20(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join21(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -12267,8 +12389,8 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { existsSync as existsSync13, realpathSync } from "node:fs";
-import { dirname as dirname6, isAbsolute, join as join21, relative as relative4, resolve as resolve3 } from "node:path";
+import { existsSync as existsSync14, realpathSync } from "node:fs";
+import { dirname as dirname6, isAbsolute, join as join22, relative as relative4, resolve as resolve3 } from "node:path";
 
 // plugins/cairn/hooks/mod/guard-rules.ts
 var WHY = "approvals and plan state come from the user and the CLI, not from tool calls.";
@@ -12634,7 +12756,7 @@ function landing(path, cwd) {
   const parts = abs.split("/");
   for (let cut = parts.length; cut >= 1; cut--) {
     const head = parts.slice(0, cut).join("/") || "/";
-    if (!existsSync13(head)) continue;
+    if (!existsSync14(head)) continue;
     const rest = parts.slice(cut).filter((x) => x !== "" && x !== ".");
     if (rest.includes("..")) return void 0;
     return [realpathSync(head).replace(/\/$/, ""), ...rest].join("/");
@@ -12666,13 +12788,13 @@ function indexFor(ctx) {
 }
 var startOut = (...parts) => {
   const root = codexRoot();
-  if (root) parts.push(`cairn CLI here: ${join21(root, "bin", "cairn")}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join21(root, "references", "hosts.md")}.`);
+  if (root) parts.push(`cairn CLI here: ${join22(root, "bin", "cairn")}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join22(root, "references", "hosts.md")}.`);
   const text = parts.filter(Boolean).join("\n");
   return text ? hookOut("SessionStart", text) : "";
 };
 function hookSessionStart(input) {
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync13(join21(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync14(join22(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", indexFor(ctx));
@@ -12704,9 +12826,9 @@ function hookPostEdit(input) {
 function driftFor(file, cwd) {
   const abs = isAbsolute(file) ? file : resolve3(cwd ?? process.cwd(), file);
   let dir = dirname6(abs);
-  while (!existsSync13(dir) && dirname6(dir) !== dir) dir = dirname6(dir);
+  while (!existsSync14(dir) && dirname6(dir) !== dir) dir = dirname6(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync13(join21(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync14(join22(ctx.plan.dir, "state.json"))) return "";
   const rel = relative4(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute(rel)) return "";
   if (isCairnPath(rel) || rel === ".cairn/work" || rel.startsWith(".cairn/work/")) return "";
@@ -12765,7 +12887,7 @@ ${v}` : v;
   const noteFile = opts["note-file"];
   if (typeof noteFile === "string") {
     try {
-      opts.note = readFileSync7(resolve4(cwd, noteFile), "utf8");
+      opts.note = readFileSync8(resolve4(cwd, noteFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --note-file ${noteFile}: ${e.message}`);
     }
@@ -12773,7 +12895,7 @@ ${v}` : v;
   const textFile = opts["text-file"];
   if (typeof textFile === "string") {
     try {
-      opts.text = readFileSync7(resolve4(cwd, textFile), "utf8");
+      opts.text = readFileSync8(resolve4(cwd, textFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --text-file ${textFile}: ${e.message}`);
     }
@@ -12893,7 +13015,7 @@ ${USAGE4}`);
 }
 function readStdin() {
   try {
-    return JSON.parse(readFileSync7(0, "utf8") || "{}");
+    return JSON.parse(readFileSync8(0, "utf8") || "{}");
   } catch {
     return {};
   }
@@ -12921,7 +13043,7 @@ function main(argv) {
   const json = argv.includes("--json");
   try {
     const piped = argv[0] === "linear" && argv[1] === "import" && !argv.some((x) => x === "--file" || x.startsWith("--file=")) && !process.stdin.isTTY;
-    const r = run(argv, process.cwd(), piped ? readFileSync7(0, "utf8") : void 0);
+    const r = run(argv, process.cwd(), piped ? readFileSync8(0, "utf8") : void 0);
     if (json || r.message !== "") process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + "\n");
     return 0;
   } catch (e) {
