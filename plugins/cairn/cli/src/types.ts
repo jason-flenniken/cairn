@@ -325,6 +325,11 @@ export interface LinearLink {
   pr?: string;
   /** When cairn first saw the plan's branch merged and queued the Done statuses. */
   mergedAt?: string;
+  /**
+   * Set when the issues carry the cairn-spec label (specced with /cairn:spec): `ok` when every in-plan issue has the
+   * label and its sections, so the PRD can be built from them with `cairn linear prd`.
+   */
+  spec?: { ok: boolean; problems: string[] };
 }
 
 export interface Config {

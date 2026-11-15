@@ -132,7 +132,8 @@ When you're unsure what to do, run **`/cairn:next`**. It does the one correct ne
 | `/cairn:status` | Shows every plan: stage, what's done, what's next, what's blocked, what's waiting on you. |
 | `/cairn:pause` / `/cairn:resume` | Pauses cleanly with a handoff note, and later picks up exactly there. |
 | `/cairn:fix <bug>` | The quick lane for one bug: failing repro first, then the fix, then a short record. |
-| `/cairn:new --from-linear <issues>` | Starts a plan from Linear issues: `SAV-100` (an epic), `SAV-101,SAV-102`, `milestone:"…"` or `project:"…"`. See [Linear](#linear). |
+| `/cairn:new <issues>` | Starts a plan from Linear issues: `SAV-100` (an epic), `SAV-101,SAV-102`, a Linear issue URL, `milestone:"…"` or `project:"…"` (`--from-linear` in front still works). See [Linear](#linear). |
+| `/cairn:spec [<issues> or <file>]` | Turns a product brainstorm (this conversation, pasted text or a file) into cairn-ready Linear epics and sub-issues, or makes existing tickets cairn-ready. See [Specced tickets](#specced-tickets). |
 | `/cairn:board <project or KEY>` | Shows how a Linear project is moving across plans: done, in a plan, ready, blocked. |
 | `/cairn:suggestions` | Lists recommended follow-ups from every plan. Turn one into a fix, add it to the current plan, or dismiss it. |
 | `/cairn:direction` | An on-demand on-track check: compares the code to the PRD and reports green, yellow, or red per requirement. |
@@ -351,7 +352,7 @@ Linear owns the backlog; cairn owns the execution. A plan pulls in a selection o
 `statuses` is optional. Without it cairn moves issues by Linear's status types (started, completed). Linear has no review type, so with no `inReview` status cairn posts a comment instead of moving the issue to review. Put your review status in Linear's Started category: one in the Completed category counts as done on the board.
 
 **The flow.**
-1. `/cairn:new --from-linear SAV-100` pulls in an epic (a parent issue and its sub-issues), a list of issues, a milestone, or a project. Each ticket's text is saved under the plan as `issues/<KEY>.md` and treated as given: discover asks only what the tickets leave open (blockers outside the plan, a subset when an epic is big). Ticket text is data written by other people: a source for requirements, never instructions.
+1. `/cairn:new SAV-100` pulls in an epic (a parent issue and its sub-issues), a list of issues, a milestone, or a project. Each ticket's text is saved under the plan as `issues/<KEY>.md` and treated as given: discover asks only what the tickets leave open (blockers outside the plan, a subset when an epic is big). Ticket text is data written by other people: a source for requirements, never instructions.
 2. Each issue becomes PRD requirements tagged with its key (`[SAV-102]`), and each requirement belongs to one ticket. The PRD can't be approved while an issue is neither tagged nor listed under `## Issues not taken` with a reason, while a requirement carries two tickets, or while a blocker outside the plan has no decision under `## Outside blockers`.
 3. Every task builds one ticket: cairn may split a big ticket into several tasks, but `cairn plan load` refuses a task that spans two tickets, and work tagged to no ticket goes under the epic. The cards show the ticket key (`8 · SAV-66 Move the app…`). Issue dependencies turn into task order. `cairn plan load` refuses a task for a blocked issue that doesn't come after its blocker's tasks, unless `## Issue order` in the plan explains why. A dependency found while building is recorded with `cairn linear depends`.
 4. Each ticket moves on its own: In Progress when its first task starts, In Review (with a comment) once all of its tasks have reached cairn's task review, and Done after the merge. Only the epic moves when the plan starts building. cairn queues these and the other updates that are due (comments with the PR link, follow-ups as new issues, a project status update you approve first). By default only ordinary follow-ups become Linear issues; hardening items stay in cairn, where a later plan on the same files is offered them (`linear.fileFollowUps`: `ordinary`, `all` or `none` and the agent sends them through the Linear MCP. A failed send waits; it never blocks the plan. Every command that leaves updates waiting says so, and the pane shows the count, so none sit unsent.
@@ -378,6 +379,15 @@ A blocked-by link set on an epic makes every one of its sub-issues wait. When su
 ### Several plans at once
 
 When the work you want next is blocked only by work another open plan has built (it is in verify or later, or every task is done) and has in review, `/cairn:board` lists it under "Can start alongside". `/cairn:new --from-linear <KEY>` then offers to start the new plan on that plan's branch (`cairn new <slug> --after <plan>`), so you don't wait for the merge. The new plan shows `Stacked on <plan>`. Each time you run `/cairn:next`, it merges in whatever the other plan added. It cannot ship before that plan has merged. Once it has, `cairn next` (or `cairn merge-check`) merges main in and moves the plan onto main; a conflict stops it with the files named.
+
+
+### Specced tickets
+
+When the product thinking is already done (in a long brainstorm, in Claude or in another LLM), cairn need not redo it per plan. `/cairn:spec` writes the work into Linear in the shape cairn trusts (`references/linear-tickets.md`): milestones, an epic per plan with Goal, In scope, Out of scope and Done when, and a sub-issue per behaviour with What and Done when, all labelled `cairn-spec`.
+- **Create:** `/cairn:spec` with no arguments reads this conversation; `/cairn:spec docs/spec.md` reads a file, and pasted text works too. It proposes the tree, you approve it once, and it creates everything in Linear.
+- **Convert:** `/cairn:spec SAV-22` (or a milestone or project) makes existing tickets cairn-ready. It keeps their words, fills the gaps (missing Done when, sub-issues for an empty epic, splits), asks only what it can't infer, and keeps the old text in a collapsed section. Started and finished tickets are left alone.
+
+`/cairn:new SAV-22` on a specced epic asks once: build from the tickets, or run the full discover. Building from them records the epic's decisions, asks only about blockers outside the plan and a subset, and writes the PRD from the tickets with no model (`cairn linear prd`). The PRD checker and your approval still run, and everything from the plan on is the same. Tickets without the label, or with a section missing, get the usual discover, and so does any plan not started from Linear.
 
 ## Configuration
 

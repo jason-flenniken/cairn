@@ -14,6 +14,8 @@ Run `cairn status --json`.
 ## 2. Title and slug
 When the arguments hold `--from-linear <selection>`, do step 2a first and take the title and slug from it.
 
+Arguments that are only a Linear selection mean the same thing with no flag: an issue key with the team key from `.cairn/config.json` `linear.team` (`SAV-100`, any case), a comma list of keys, a Linear issue URL (`https://linear.app/<workspace>/issue/SAV-100/…`, use its key), `milestone:"<name>"` or `project:"<name>"`. Treat them as `--from-linear <selection>`: every step below that says `--from-linear` applies. When the repo has no `linear` block yet, a lone `<LETTERS>-<number>` may be a Linear issue or just words (`UTF-8`): ask the user whether it is a Linear issue before treating it as one; step 3 then adds the block. Anything else is a description of the work.
+
 Otherwise ask with AskUserQuestion: "What are we building?" Offer 2-3 short title options derived from the user's request (the first marked "(Recommended)"), each with a kebab-case slug in its description. The user can type their own through "Other".
 
 **Done when:** you have a title and a kebab-case slug of at most 40 characters.
@@ -85,7 +87,13 @@ Run `cairn new <slug> --title "<title>" --level <mvp|standard|polished>`, adding
 ## 5a. Pull the issues in (only with `--from-linear`)
 Pipe the JSON from step 2a into the new plan: `cd <plan worktree> && cairn linear import` (or save it to a file and pass `--file <path>`). Report its message in your own words, in a few lines: how many issues came in, the epic and its sub-issue count, blockers outside the plan, issues already in another active plan, and a loop in the blocked-by links when there is one. When there are more than about 8 leaf issues, say that discover will offer a subset. A refusal names the fix (a bad key, an unknown field): correct the JSON and run it again.
 
-**Done when:** `cairn linear import` exited 0.
+When the import says the issues are **specced** (`data.spec.ok` is true: every issue carries the `cairn-spec` label and its sections), ask once with AskUserQuestion, a plain choice:
+- Build from the tickets (Recommended): the tickets were specced with /cairn:spec, so discover only settles what they can't (outside blockers, a subset) and the PRD is built from them.
+- Run the full discover: the interview and PRD writing as for any plan.
+
+Record the answer: `cd <plan worktree> && cairn decide "Spec from tickets" "<Build from the tickets | Run the full discover>" --why "<the user's reason, or: the tickets were specced with /cairn:spec>"`. When the import says the issues are specced but not all of it, report the gaps in a line and carry on: discover runs as usual.
+
+**Done when:** `cairn linear import` exited 0, and for specced issues the user's choice is recorded.
 
 ## 6. Tell the user where the plan lives
 Tell the user the plan worktree path and the level in one line. Never move the session into the worktree with a worktree-entering tool: a session locked to a worktree blocks its subagents from editing and committing in task worktrees. You stay at the repo root, and every later `cairn` command runs as `cd <plan worktree> && cairn <command>`.

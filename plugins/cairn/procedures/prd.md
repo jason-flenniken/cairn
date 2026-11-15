@@ -18,6 +18,11 @@ Run `cairn status --json`. The stage must be `prd`. Any other stage: say which a
 
 **Done when:** the stage is `prd`. If `prd.md` already exists, step 2 is a revision: brief a writer to revise it from the new decisions.
 
+## 1a. From the tickets (only when discover built from them)
+When `state.linear.spec.ok` and `decisions.md` records "Spec from tickets" as "Build from the tickets": run `cd <plan worktree> && cairn step drafting`, then `cd <plan worktree> && cairn linear prd`. It writes `prd.md` from the tickets with no model: the epic's Goal, In scope and Out of scope become the Problem, Solution and Non-goals, each sub-issue one requirement tagged with its key, and the recorded "Not taken" and "Outside blocker" decisions their sections. Skip step 2. Step 2b runs as written, except that the writer it reports to is a fresh `prd-writer` with `model: sonnet`, told the PRD was built from the tickets in `issues/` and to keep every requirement's `[KEY]` tag; the tickets stand in for the read-back card. At MVP, skip 2b as usual. A refusal from `cairn linear prd` names why; when the tickets turn out not to be specced, carry on from step 2.
+
+**Done when:** `prd.md` exists, built from the tickets. Go to step 2b, or to step 3 at MVP.
+
 ## 2. Brief the writer
 Run `cd <plan worktree> && cairn step drafting`, so the pane does not offer the PRD for approval while it is written. Then dispatch the `prd-writer` agent (`model: opus`, `description` "Build · PRD") with a brief of paths, no pasted content: the plan folder (`docs/cairn/plans/<date>-<slug>/` in the plan worktree), `decisions.md`, the research files in the work folder (`research/*.md`), `issues/` when `state.linear` is set, `docs/cairn/product/PRD.md` when it exists, the level, and the template `${CLAUDE_PLUGIN_ROOT}/templates/prd.md`. The writer reads them, writes `prd.md`, and returns at most 10 lines: a summary, any questions for the user, and the path.
 

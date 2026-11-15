@@ -42,14 +42,15 @@ import { planRelOf, resolvePlanDir, type Ctx } from '../locate.ts';
 import { loadState, log } from '../state.ts';
 import type { LinearChange, LinearConfig, LinearIssue, LinearLink, State } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal, writeText } from '../util.ts';
-import { gate, mutate, planCtx, type Opts, type PlanCtx, type Result } from '../shared.ts';
+import { gate, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { collectSuggestions } from './suggest.ts';
 import { listPlans, stackBase } from './status.ts';
 import { onPublishSent, publish } from './publish.ts';
+import { issueDescription, renderSpecPrd, specCheck } from '../spec.ts';
 
 const USAGE = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "…" | hold <id> --note "…" | depends <KEY> --on <KEY> --reason "…" | ack <change> --as taken|later|noted [--note "…"]
-  | release <KEY> --reason "…" | take <KEY> --reason "…" | board [--project "<name>"] [--json] | relink <EPIC> [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
+  | release <KEY> --reason "…" | take <KEY> --reason "…" | prd [--force] | board [--project "<name>"] [--json] | relink <EPIC> [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
 
 const NO_CONFIG = (where: string) =>
   new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
@@ -88,6 +89,8 @@ export function cmdLinear(ctx: Ctx, sub: string | undefined, arg: string | undef
       return release(ctx, arg, opts);
     case 'take':
       return take(ctx, arg, opts);
+    case 'prd':
+      return prdFromTickets(ctx, opts);
     case 'board':
       return board(ctx, opts);
     case 'relink':
@@ -141,10 +144,13 @@ function importPlan(ctx: Ctx, opts: Opts): Result {
     const l: LinearLink = { ...emptyLink(doc.team ?? cfg.team), ...(doc.project ? { project: doc.project } : {}), ...(doc.milestone ? { milestone: doc.milestone } : {}), ...(doc.epic ? { epic: doc.epic } : {}), ...(doc.selection ? { selection: doc.selection } : {}), issues: doc.issues, known: doc.known };
     s.linear = l;
     writeIssueTexts(pc, s, doc.descriptions);
+    const spec = updateSpec(pc, s);
     log(s, 'Linear issues imported', `${doc.issues.length}: ${keysText(doc.issues)}`);
     const lines = [`Pulled in ${doc.issues.length} Linear issue${doc.issues.length === 1 ? '' : 's'}: ${keysText(doc.issues)}.`];
     const texts = doc.issues.filter((i) => doc.descriptions.has(i.key)).length;
     lines.push(texts ? `Saved the text of ${texts} issue${texts === 1 ? '' : 's'} under ${planRelOf(pc.plan)}/issues/.` : 'No issue text was read: fetch the issues with "description" in the fields list and refresh, or discover works from titles only.');
+    if (spec?.ok) lines.push('Specced: every issue carries the cairn-spec label and its sections, so the PRD can be built from the tickets (cairn linear prd) instead of the full discover. Ask the user which.');
+    else if (spec) lines.push(`Specced, but not all of it: ${spec.problems.join('; ')}. Discover runs as usual; fix the tickets with /cairn:spec and refresh to build from them.`);
     if (isFoundational(l, cfg)) lines.push(`Foundational: an issue carries the "${cfg.foundationalLabel ?? 'foundational'}" label, so the plan must name its approach and the ones it rejected (## Approaches considered).`);
     const parents = parentKeys(doc.issues);
     if (parents.size) {
@@ -162,7 +168,7 @@ function importPlan(ctx: Ctx, opts: Opts): Result {
     if (claimed.length) lines.push(`Warning: already in another active plan: ${claimed.map((x) => `${x.i.key} (${x.o!.slug}, ${x.o!.stage})`).join(', ')}.`);
     const cycle = findIssueCycle(doc.issues);
     if (cycle) lines.push(`Warning: these issues block each other in a loop: ${cycle.join(' → ')}. The plan can't load until one link is removed in Linear.`);
-    return { message: lines.join('\n'), data: { issues: doc.issues.map((i) => i.key), parents: [...parents], outsideBlockers: ob, cycle: cycle ?? null } };
+    return { message: lines.join('\n'), data: { issues: doc.issues.map((i) => i.key), parents: [...parents], outsideBlockers: ob, cycle: cycle ?? null, spec: spec ?? null } };
   });
 }
 
@@ -205,6 +211,7 @@ function refreshPlan(ctx: Ctx, opts: Opts): Result {
     }
     // Issue text read again: rewrite the files; text that changed after the PRD approval is noted, not a blocking change.
     for (const k of writeIssueTexts(pc, s, doc.descriptions)) noted.push(`${k}'s text changed after the PRD was approved: check the PRD against ${issueTextPath(pc, k)}`);
+    updateSpec(pc, s);
     // A sub-issue is new when the plan had never seen it; one already done in Linear needs no decision.
     const seen = new Set([...l.issues, ...l.known].map((i) => i.key));
     for (const f of [...doc.issues, ...doc.known])
@@ -240,6 +247,46 @@ function writeIssueTexts(pc: PlanCtx, s: State, descriptions: Map<string, string
     writeText(join(pc.plan.dir, 'issues', `${i.key}.md`), issueFile(i, d, at));
   }
   return changed;
+}
+
+/** Each in-plan issue's saved description, read back from `issues/<KEY>.md`, by key. */
+function savedTexts(pc: PlanCtx, l: LinearLink): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const i of l.issues) {
+    const f = readText(join(pc.plan.dir, 'issues', `${i.key}.md`));
+    if (f !== undefined) out.set(i.key, issueDescription(f));
+  }
+  return out;
+}
+
+/** Re-check whether the issues are cairn-specced, from the saved texts. */
+function updateSpec(pc: PlanCtx, s: State): LinearLink['spec'] {
+  const l = s.linear!;
+  const spec = specCheck(l, savedTexts(pc, l));
+  if (spec) l.spec = spec;
+  else delete l.spec;
+  return spec;
+}
+
+/** Write prd.md from the specced tickets, with no model (see spec.ts). */
+function prdFromTickets(ctx: Ctx, opts: Opts): Result {
+  const pc = planCtx(ctx);
+  return mutate(pc, 'PRD built from the tickets', (s) => {
+    const l = linkOf(s);
+    if (!l.spec?.ok)
+      throw new Refusal(l.spec ? `the tickets are not fully specced: ${l.spec.problems.join('; ')}` : 'the plan\'s Linear issues are not specced with /cairn:spec', ['write the PRD as usual (procedures/prd.md), or fix the tickets with /cairn:spec and run cairn linear import --refresh']);
+    if (s.stage !== 'prd') throw new Refusal(`the PRD is built in the prd stage; this plan is in ${s.stage}`, ['record the discover decisions, then cairn advance']);
+    if (s.approvals.prd) throw new Refusal('the PRD is already approved', ['edit prd.md by hand; a rebuild would drop the approval\'s basis']);
+    const file = planFile(pc, 'prd.md');
+    const cur = readText(file);
+    if (cur && /^- \*\*FR-\d+\*\*/m.test(cur) && !cur.includes('by `cairn linear prd`') && !opts.force)
+      throw new Refusal('prd.md already has requirements that were not built from the tickets', ['pass --force to replace it']);
+    const md = renderSpecPrd(s.title, l, savedTexts(pc, l), readText(planFile(pc, 'decisions.md')) ?? '');
+    writeText(file, md);
+    const n = (md.match(/^- \*\*FR-\d+\*\*/gm) ?? []).length;
+    log(s, 'PRD built from the tickets', `${n} requirements`);
+    return { message: `Wrote ${planRelOf(pc.plan)}/prd.md from the tickets: ${n} requirement${n === 1 ? '' : 's'}.`, data: { file: `${planRelOf(pc.plan)}/prd.md`, requirements: n } };
+  });
 }
 
 const changeText = (c: LinearChange) => (c.kind === 'link' ? `${c.key} is now blocked by ${c.on}` : `${c.issue?.key} "${c.issue?.title}" was added under ${c.key}`);
