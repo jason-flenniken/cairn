@@ -6,7 +6,7 @@ export const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: fa
 export const MAIN = '/repo'
 export const WT = '/repo/.claude/worktrees/sdlc-shop'
 export const STATE = `${WT}/docs/cairn/plans/shop/state.json`
-export const HASH_FILE = '/repo/.git/cairn/mod-secret.sha256'
+export const TOKEN_PREFIX = '/repo/.git/cairn/approver-'
 export const NOW = Date.parse('2026-03-01T12:00:00.000Z')
 export const SURFACES = ['terminal', 'desktop'] as const
 
@@ -101,7 +101,8 @@ export function world(on: On, init: WorldInit = {}) {
     viewDeny: undefined as string | undefined,
     scrolls: [] as { offset: number; by: number }[],
   }
-  let onDisk: string | undefined
+  // The approver files on disk, by the hash that names each.
+  const live = new Set<string>()
   const clock = mock.clock(on, { now: NOW })
   on('process.run', async (_$, e) => {
     const [bin, ...args] = e.argv
@@ -116,6 +117,10 @@ export function world(on: On, init: WorldInit = {}) {
       return answer(0, '/repo/.git\n')
     }
     if (bin === 'chmod') return answer(0, '')
+    if (bin === 'rm') {
+      live.delete(e.argv[2]?.slice(TOKEN_PREFIX.length) ?? '')
+      return answer(0, '')
+    }
     if (bin === 'mkdir') {
       w.mkdirs.push(args.at(-1) ?? '')
       return answer(0, '')
@@ -141,8 +146,7 @@ export function world(on: On, init: WorldInit = {}) {
       w.approveCwds.push(e.init?.cwd)
       const given = e.init?.env?.CAIRN_APPROVER
       if (given !== undefined) w.secrets.push(given)
-      if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
-        onDisk = undefined
+      if (given !== undefined && live.delete(await sha256(given))) {
         return answer(0, `${args[1]} approved.\n`)
       }
       return answer(2, '✗ Refused: no human proof\n')
@@ -150,8 +154,7 @@ export function world(on: On, init: WorldInit = {}) {
     if (args[0] === 'level') {
       const given = e.init?.env?.CAIRN_APPROVER
       if (given !== undefined) w.secrets.push(given)
-      if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
-        onDisk = undefined
+      if (given !== undefined && live.delete(await sha256(given))) {
         return answer(0, `Level raised to ${args[1]}.\n`)
       }
       return answer(2, '✗ Refused: no human proof\n')
@@ -187,7 +190,7 @@ export function world(on: On, init: WorldInit = {}) {
   })
   on('fs.write', (_$, e) => {
     w.written.push({ path: e.path, text: e.text })
-    if (e.path === HASH_FILE) onDisk = e.text
+    if (e.path.startsWith(TOKEN_PREFIX)) live.add(e.path.slice(TOKEN_PREFIX.length))
     return { value: undefined }
   })
   on('session.cwd', () => ({ value: w.cwd }))

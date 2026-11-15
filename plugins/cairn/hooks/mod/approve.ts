@@ -91,46 +91,34 @@ export function isApproval(answer: unknown, asked: Asked | undefined): boolean {
   return (asked?.options ?? []).some(o => o.label === answer) ? answer.startsWith('Approve') : isApproveLabel(answer)
 }
 
-// The live secret, and the chain that serializes its uses: each use reads the secret
-// current when its turn comes, then rotates it, so back-to-back uses never share one.
-let secret: string | undefined
-let uses: Promise<unknown> = Promise.resolve()
-
 function hex(bytes: Uint8Array): string {
   return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-/** A fresh secret in memory, its hash at <git common dir>/cairn/mod-secret.sha256 (0600). */
-async function rotate($: EngineInterface): Promise<string> {
-  const next = hex(crypto.getRandomValues(new Uint8Array(32)))
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(next))
-  const file = `${await commonDir($)}/cairn/mod-secret.sha256`
-  await $.fs.write(file, hex(new Uint8Array(digest)))
-  await $.process.run(['chmod', '600', file], { timeoutMs: QUICK_MS })
-  secret = next
-  return next
-}
-
-/** Runs `use` with the current secret, then rotates it whatever `use` did. */
-function withSecret<T>($: EngineInterface, use: (secret: string) => Promise<T>): Promise<T> {
-  const turn = uses.then(async () => {
-    try {
-      return await use(secret ?? (await rotate($)))
-    } finally {
-      // The used secret is gone either way; a failed write leaves the next use to make one.
-      secret = undefined
-      await rotate($).catch(() => undefined)
-    }
-  })
-  uses = turn.catch(() => undefined)
-  return turn
+/**
+ * Runs `use` with a fresh one-time secret. Its SHA-256 names its own file, <git common dir>/cairn/approver-<hash>
+ * (0600), so every use and every session has its own: worktrees share the common dir, and one shared file let
+ * one session's approval invalidate another's secret. The CLI deletes the file when it spends it; this removes
+ * one the CLI never reached.
+ */
+async function withSecret<T>($: EngineInterface, cwd: string, use: (secret: string) => Promise<T>): Promise<T> {
+  const secret = hex(crypto.getRandomValues(new Uint8Array(32)))
+  const digest = hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret))))
+  const file = `${await commonDir($, cwd)}/cairn/approver-${digest}`
+  await $.fs.write(file, digest)
+  try {
+    await $.process.run(['chmod', '600', file], { timeoutMs: QUICK_MS })
+    return await use(secret)
+  } finally {
+    await $.process.run(['rm', '-f', file], { timeoutMs: QUICK_MS }).catch(() => undefined)
+  }
 }
 
 const quick: ProcessRunInit = { timeoutMs: QUICK_MS }
 
-/** Runs cli/bin/cairn with the secret in its env; the timeout keeps a hung CLI from holding the secret's turn. */
+/** Runs cli/bin/cairn in `cwd` with a one-time secret in its env; the timeout bounds how long the secret lives. */
 function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promise<CairnRun> {
-  return withSecret($, s => {
+  return withSecret($, cwd, s => {
     const init: ProcessRunInit = { cwd, env: { CAIRN_APPROVER: s }, timeoutMs: CLI_MS }
     return cairn($, args, init)
   })
@@ -169,7 +157,7 @@ function fireApproved(kind: Kind, slug: string): void {
 
 /**
  * Approves `kind` on plan `slug` with the secret, or says why not: the one approval path, shared by
- * the menu answer, the pane's Approve button and /cairn-approve, so every use takes its turn with one secret.
+ * the menu answer, the pane's Approve button and /cairn-approve. Each attempt gets its own one-time secret.
  * Only a stop the CLI reports ready is approved. A stop already approved says nothing (undefined), so a second pass is silent.
  */
 export async function approveAs($: EngineInterface, slug: string, kind: Kind): Promise<string | undefined> {
@@ -187,13 +175,21 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind): P
   const ran = await cairnWithSecret($, ['approve', kind], row.worktree).catch((err: unknown) => message(err))
   if (typeof ran === 'string') return `cairn: ${slug} ${kind} approval failed: ${ran}`
   const said = `${ran.stdout}${ran.stderr}`.trim()
-  if (ran.exitCode !== 0) return `cairn: ${slug} ${kind} approval refused: ${said}`
+  if (ran.exitCode !== 0) {
+    // A menu answer and a pane press on one stop both pass the ready check; the one that lands second is refused
+    // although the stop is approved. That is not a refusal to report.
+    if (isApproved(await planRows($).catch(() => []), slug, kind)) {
+      fireApproved(kind, slug)
+      return undefined
+    }
+    return `cairn: ${slug} ${kind} approval refused: ${said}`
+  }
   fireApproved(kind, slug)
   return `cairn: ${slug}: ${said}`
 }
 
 /**
- * Sets plan `slug` to `level` with the secret, through the same one-at-a-time secret path as approvals.
+ * Sets plan `slug` to `level` with a one-time secret, through the same secret path as approvals.
  * The CLI decides what is allowed (no lower once a task started, not while paused, not at ship); its refusal is the answer.
  */
 export async function levelAs($: EngineInterface, slug: string, level: Level): Promise<string> {

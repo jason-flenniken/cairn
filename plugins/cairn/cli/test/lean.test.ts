@@ -107,7 +107,7 @@ function world(config: Record<string, unknown> = {}): World {
   const user = <T>(fn: () => T): T => {
     const secret = randomBytes(16).toString('hex');
     mkdirSync(join(repo, '.git/cairn'), { recursive: true });
-    writeFileSync(join(repo, '.git/cairn/mod-secret.sha256'), createHash('sha256').update(secret).digest('hex'), { mode: 0o600 });
+    writeFileSync(join(repo, '.git/cairn', `approver-${createHash('sha256').update(secret).digest('hex')}`), '1', { mode: 0o600 });
     process.env.CAIRN_APPROVER = secret;
     try {
       return fn();

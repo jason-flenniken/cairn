@@ -157,6 +157,47 @@ test('CAIRN_APPROVER set to the hash file contents is refused', () => {
   assert.ok(existsSync(secretFile()), 'a refused match keeps the hash file');
 });
 
+const tokenFile = (v: string) => join(cairnDir(), `approver-${sha256(v)}`);
+/** Write a secret's own file, as the mod does before each use. */
+const writeToken = (v: string) => {
+  mkdirSync(cairnDir(), { recursive: true });
+  writeFileSync(tokenFile(v), '1', { mode: 0o600 });
+};
+
+test('a secret whose hash names a file is proof once, and the file is gone after', () => {
+  writeToken('abc123');
+  assert.deepEqual([secretMatches(common, 'abc123'), secretMatches(common, 'abc123')], [true, false]);
+  assert.deepEqual(readdirSync(cairnDir()), []);
+});
+
+test('two sessions\' secrets live side by side: spending one leaves the other good', () => {
+  // Worktrees share one git common dir, so every session's mod writes here.
+  writeToken('session-a');
+  writeToken('session-b');
+  assert.equal(secretMatches(common, 'session-b'), true);
+  assert.equal(secretMatches(common, 'session-a'), true);
+  assert.deepEqual(readdirSync(cairnDir()), []);
+});
+
+test('a wrong secret leaves every secret file in place', () => {
+  writeToken('abc123');
+  writeSecret('abc123');
+  assert.equal(secretMatches(common, 'nope'), false);
+  assert.deepEqual(readdirSync(cairnDir()).sort(), [`approver-${sha256('abc123')}`, 'mod-secret.sha256']);
+});
+
+test('a symlink or folder named for the secret is no proof', () => {
+  mkdirSync(cairnDir(), { recursive: true });
+  const outside = join(repo, 'elsewhere');
+  writeFileSync(outside, '1');
+  symlinkSync(outside, tokenFile('linked'));
+  mkdirSync(tokenFile('folder'));
+  assert.equal(secretMatches(common, 'linked'), false);
+  assert.equal(secretMatches(common, 'folder'), false);
+  assert.ok(existsSync(outside), 'the link target is untouched');
+  rmSync(outside);
+});
+
 // Command-level behavior: a real plan created with `cairn new`.
 let main: string;
 let wt: string;

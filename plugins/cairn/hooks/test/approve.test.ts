@@ -3,7 +3,7 @@ import type { On } from 'claude-code'
 import { ALREADY_APPROVED, isApproveLabel, parseTags } from '../mod/approve.ts'
 
 const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
-const HASH_FILE = '/repo/.git/cairn/mod-secret.sha256'
+const TOKEN_PREFIX = '/repo/.git/cairn/approver-'
 
 type Run = { argv: readonly string[]; init?: { cwd?: string; env?: Record<string, string>; timeoutMs?: number } }
 type Plan = { slug: string; stage: string; approvals?: Record<string, unknown>; phases?: unknown[]; worktree?: string; ready?: { kind: string } }
@@ -18,20 +18,26 @@ async function sha256(text: string): Promise<string> {
  * `plans`, and `cairn approve`/`--override` act as the CLI's proof does: the env's
  * CAIRN_APPROVER must hash to the last hash written, and a match spends it.
  */
-type WorldOptions = { refuse?: string; cwd?: string; writable?: number; hangIn?: string }
+/** `elsewhere`: with `refuse`, the stop is approved by another path just before the refused run. */
+type WorldOptions = { refuse?: string; cwd?: string; writable?: number; hangIn?: string; elsewhere?: true }
 
-function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infinity, hangIn }: WorldOptions = {}) {
+function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infinity, hangIn, elsewhere }: WorldOptions = {}) {
   const where = { cwd }
   const runs: Run[] = []
   const hashes: string[] = []
   const toasts: string[] = []
-  let onDisk: string | undefined
+  // The approver files on disk, by the hash that names each.
+  const live = new Set<string>()
   on('process.run', async (_$, e) => {
     runs.push({ argv: e.argv, init: e.init })
     const [bin, ...args] = e.argv
     const answer = (exitCode: number, stdout: string) => ({ value: { ...RAN, exitCode, stdout } })
     if (bin === 'git') return answer(0, '/repo/.git\n')
     if (bin === 'chmod') return answer(0, '')
+    if (bin === 'rm') {
+      live.delete(e.argv[2]?.slice(TOKEN_PREFIX.length) ?? '')
+      return answer(0, '')
+    }
     if (args.join(' ') === 'status --all --json') {
       // A plan at an unapproved stop is ready unless the fixture says `ready: undefined`.
       const rows = plans.map(p => {
@@ -49,26 +55,28 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
     }
     const given = e.init?.env?.CAIRN_APPROVER
     if (hangIn !== undefined && e.init?.cwd === hangIn) return { deny: `timed out after ${e.init?.timeoutMs} ms` }
-    if (refuse !== undefined) return answer(2, `✗ Refused: ${refuse}\n`)
+    if (refuse !== undefined) {
+      const at = plans.find(p => p.worktree === e.init?.cwd)
+      if (elsewhere && at !== undefined && args[0] === 'approve') at.approvals = { ...at.approvals, [args[1] as string]: { via: 'human' } }
+      return answer(2, `✗ Refused: ${refuse}\n`)
+    }
     if (args[0] === 'level') {
-      if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
-        onDisk = undefined
+      if (given !== undefined && live.delete(await sha256(given))) {
         return answer(0, `Level raised to ${args[1]}.\n`)
       }
       return answer(2, '✗ Refused: no human proof\n')
     }
-    if (given !== undefined && onDisk !== undefined && (await sha256(given)) === onDisk) {
-      onDisk = undefined
+    if (given !== undefined && live.delete(await sha256(given))) {
       return answer(0, args[0] === 'approve' ? `${args[1]} approved.\n` : 'Advanced (override recorded).\n')
     }
     return answer(2, '✗ Refused: no human proof\n')
   })
   on('fs.write', (_$, e) => {
-    if (e.path === HASH_FILE && hashes.length >= writable) return { deny: 'EACCES: permission denied' }
-    if (e.path === HASH_FILE) {
-      hashes.push(e.text)
-      onDisk = e.text
-    }
+    if (!e.path.startsWith(TOKEN_PREFIX)) return { value: undefined }
+    if (hashes.length >= writable) return { deny: 'EACCES: permission denied' }
+    const hash = e.path.slice(TOKEN_PREFIX.length)
+    hashes.push(hash)
+    live.add(hash)
     return { value: undefined }
   })
   on('session.cwd', () => ({ value: where.cwd }))
@@ -79,7 +87,7 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
   const approveRuns = () => runs.filter(r => r.argv[1] === 'approve')
   const levelRuns = () => runs.filter(r => r.argv[1] === 'level')
   const cliRuns = () => runs.filter(r => /\/bin\/cairn$/.test(r.argv[0] ?? '') && r.argv[1] !== 'status')
-  return { runs, hashes, toasts, approveRuns, levelRuns, cliRuns, where }
+  return { runs, hashes, toasts, approveRuns, levelRuns, cliRuns, where, live }
 }
 
 /** The dialog beneath the mod: the user's `answers`, plus any `extra` fields of the result. */
@@ -216,14 +224,14 @@ describe('menu approval (FR-02)', () => {
     expect(toasts.join('\n')).toMatch(/not waiting for prd approval/)
   })
 
-  test('an approval that landed is reported even when the next secret cannot be written', async ($, on) => {
-    const { approveRuns, toasts } = world(on, [{ slug: 'unwritable', stage: 'prd', worktree: '/wt/unwritable' }], { writable: 1 })
+  test('a secret file that cannot be written runs nothing and says the approval failed', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'unwritable', stage: 'prd', worktree: '/wt/unwritable' }], { writable: 0 })
     const q = 'Approve? [cairn:approve prd unwritable]'
     dialog(on, { [q]: 'Approve' })
     const got = await $.tool.call(ask(q))
-    expect(approveRuns()).toHaveLength(1)
-    expect(got.context?.join()).toMatch(/prd approved/)
-    expect(toasts.join()).toMatch(/prd approved/)
+    expect(approveRuns()).toEqual([])
+    expect(got.context?.join()).toMatch(/unwritable prd approval failed: .*EACCES/)
+    expect(toasts.join()).toMatch(/approval failed/)
   })
 
   test('a phase tag is not a tag any more: nothing is approved', async ($, on) => {
@@ -434,7 +442,8 @@ describe('menu approval (FR-02)', () => {
     const timeout = (pred: (r: Run) => boolean) => runs.filter(pred).map(r => r.init?.timeoutMs)
     // One read for the already-approved check before the dialog, one when the approval is judged.
     expect(timeout(r => r.argv[1] === 'status')).toEqual([60_000, 60_000])
-    expect(timeout(r => r.argv[0] === 'chmod')).toEqual([60_000, 60_000])
+    expect(timeout(r => r.argv[0] === 'chmod')).toEqual([60_000])
+    expect(timeout(r => r.argv[0] === 'rm')).toEqual([60_000])
     expect(timeout(r => r.argv[1] === 'approve')).toEqual([600_000])
   })
 
@@ -635,18 +644,48 @@ describe('already approved from the pane (FR-13, FR-15)', () => {
 })
 
 describe('the secret (FR-01, Review focus 1 and 2)', () => {
-  test('the hash is written with mode 0600 before the secret is used, and again after', async ($, on) => {
-    const { hashes, runs, approveRuns } = world(on, [{ slug: 'mode', stage: 'prd', worktree: '/wt/mode' }])
+  test('each use writes its own hash-named file with mode 0600 just before it, and removes it after', async ($, on) => {
+    const { hashes, runs, approveRuns, live } = world(on, [{ slug: 'mode', stage: 'prd', worktree: '/wt/mode' }])
     const q = 'Approve? [cairn:approve prd mode]'
     dialog(on, { [q]: 'Approve' })
     await $.tool.call(ask(q))
     const order = runs.map(r => (r.argv[1] === 'approve' ? 'approve' : r.argv.join(' ')))
-    const chmod = `chmod 600 ${HASH_FILE}`
-    expect(order.slice(order.indexOf('approve') - 1, order.indexOf('approve') + 1)).toEqual([chmod, 'approve'])
-    expect(order.slice(order.indexOf('approve') + 1).filter(c => c === chmod)).toHaveLength(1)
-    expect(hashes).toHaveLength(2)
-    expect(hashes[1]).not.toBe(hashes[0])
-    expect(approveRuns()).toHaveLength(1)
+    const file = `${TOKEN_PREFIX}${hashes[0]}`
+    const at = order.indexOf('approve')
+    expect(order.slice(at - 1, at + 2)).toEqual([`chmod 600 ${file}`, 'approve', `rm -f ${file}`])
+    expect(hashes).toEqual([await sha256(approveRuns()[0]?.init?.env?.CAIRN_APPROVER ?? '')])
+    // The common dir is read where the CLI runs, so the file lands where the CLI looks.
+    expect(runs.find(r => r.argv[0] === 'git')?.init?.cwd).toBe('/wt/mode')
+    expect(live.size).toBe(0)
+  })
+
+  test('another session approving in between leaves this session\'s next approval working', async ($, on) => {
+    // The incident: worktrees share one git common dir, so every session's mod writes there. A secret kept
+    // ready after a use went stale as soon as another session's mod wrote its own.
+    const { approveRuns, live } = world(on, [
+      { slug: 'mine', stage: 'prd', worktree: '/wt/mine' },
+      { slug: 'next', stage: 'plan', worktree: '/wt/next' },
+    ])
+    const first = 'Approve? [cairn:approve prd mine]'
+    const second = 'Approve? [cairn:approve plan next]'
+    dialog(on, { [first]: 'Approve', [second]: 'Approve' })
+    await $.tool.call(ask(first))
+    expect(live.size).toBe(0)
+    live.add(await sha256('another session\'s secret'))
+    const got = await $.tool.call(ask(second))
+    expect(got.context?.join()).toMatch(/plan approved/)
+    expect(approveRuns()).toHaveLength(2)
+    expect(live).toEqual(new Set([await sha256('another session\'s secret')]))
+  })
+
+  test('a refusal for a stop that another path approved meanwhile says nothing', async ($, on) => {
+    // A menu answer and a pane press on one stop both pass the ready check; the second CLI run is refused.
+    const { toasts } = world(on, [{ slug: 'race', stage: 'prd', worktree: '/wt/race' }], { refuse: 'not waiting for prd approval', elsewhere: true })
+    const q = 'Approve? [cairn:approve prd race]'
+    dialog(on, { [q]: 'Approve' })
+    const got = await $.tool.call(ask(q))
+    expect(got.context ?? []).toEqual([])
+    expect(toasts).toEqual([])
   })
 
   test('with two plans waiting, the tag\'s slug picks the plan that is approved', async ($, on) => {
@@ -660,7 +699,7 @@ describe('the secret (FR-01, Review focus 1 and 2)', () => {
     expect(approveRuns().map(r => r.init?.cwd)).toEqual(['/wt/second'])
   })
 
-  test('back-to-back approvals each use the rotated secret, and both land', async ($, on) => {
+  test('back-to-back approvals each use their own secret, and both land', async ($, on) => {
     const { approveRuns, hashes } = world(on, [
       { slug: 'one', stage: 'prd', worktree: '/wt/one' },
       { slug: 'two', stage: 'plan', worktree: '/wt/two' },
@@ -678,7 +717,7 @@ describe('the secret (FR-01, Review focus 1 and 2)', () => {
     expect(second.context?.join()).toMatch(/plan approved/)
   })
 
-  test('approvals that land at once take turns with the secret, and both land', async ($, on) => {
+  test('approvals that land at once each use their own secret, and both land', async ($, on) => {
     world(on, [
       { slug: 'c1', stage: 'prd', worktree: '/wt/c1' },
       { slug: 'c2', stage: 'ship', worktree: '/wt/c2' },

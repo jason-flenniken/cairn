@@ -23,14 +23,14 @@ let main: string;
 let wt: string;
 let inputs: string;
 const mainCairn = () => join(main, '.git', 'cairn');
-const hashFile = () => join(mainCairn(), 'mod-secret.sha256');
+const hashFile = (v: string) => join(mainCairn(), `approver-${sha256(v)}`);
 const planState = () => JSON.parse(readFileSync(join(pd(wt, 'billing'), 'state.json'), 'utf8'));
 const decisions = () => readFileSync(join(pd(wt, 'billing'), 'decisions.md'), 'utf8');
 
 /** Store the hash of a known secret, as the mod does, and expose the secret to this process. */
 const setSecret = (v: string) => {
   mkdirSync(mainCairn(), { recursive: true });
-  writeFileSync(hashFile(), sha256(v), { mode: 0o600 });
+  writeFileSync(hashFile(v), '1', { mode: 0o600 });
   process.env.CAIRN_APPROVER = v;
 };
 

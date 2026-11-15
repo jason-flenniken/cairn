@@ -34,9 +34,9 @@ test('review.md gives the override reason as plain text without shell metacharac
   assert.doesNotMatch(reason, /[;|&$`><\\#*?~(){}[\]]/);
 });
 
-test('cli.md documents the secret hash and never mentions grants or rotation', () => {
+test('cli.md documents the per-use secret file and never mentions grants or rotation', () => {
   const src = read('references/cli.md');
-  assert.match(src, /mod-secret\.sha256/);
+  assert.match(src, /approver-<sha256>/);
   assert.doesNotMatch(src, /grant/i);
   assert.doesNotMatch(src, /rotat/i);
 });

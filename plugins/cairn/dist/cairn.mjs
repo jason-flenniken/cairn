@@ -7815,7 +7815,9 @@ import { closeSync as closeSync2, constants, fstatSync, linkSync, openSync as op
 import { join as join4 } from "node:path";
 var HEARTBEAT_FRESH_MS = 1e4;
 var cairnDir = (common) => join4(common, "cairn");
+var sha256 = (text) => createHash2("sha256").update(text).digest("hex");
 var hashPath = (common) => join4(cairnDir(common), "mod-secret.sha256");
+var tokenPath = (common, secret) => join4(cairnDir(common), `approver-${sha256(secret)}`);
 function readLineFromStdin(prompt) {
   process.stderr.write(prompt);
   const buf = Buffer.alloc(1);
@@ -7851,16 +7853,37 @@ function readRegularFile(path) {
 }
 function secretMatches(common, given) {
   if (!given) return false;
-  const original = hashPath(common);
-  const claimed = `${original}.claimed.${randomBytes2(8).toString("hex")}`;
+  return spendToken(common, given) || spendLegacyHash(common, given);
+}
+function claim(path) {
+  const claimed = `${path}.claimed.${randomBytes2(8).toString("hex")}`;
   try {
-    renameSync2(original, claimed);
+    renameSync2(path, claimed);
+    return claimed;
   } catch {
-    return false;
+    return void 0;
   }
+}
+function removeClaimed(claimed) {
+  try {
+    rmSync2(claimed, { force: true });
+  } catch {
+  }
+}
+function spendToken(common, given) {
+  const claimed = claim(tokenPath(common, given));
+  if (claimed === void 0) return false;
+  const isFile = readRegularFile(claimed) !== void 0;
+  removeClaimed(claimed);
+  return isFile;
+}
+function spendLegacyHash(common, given) {
+  const original = hashPath(common);
+  const claimed = claim(original);
+  if (claimed === void 0) return false;
   const stored = readRegularFile(claimed)?.trim() ?? "";
   const a = Buffer.from(stored);
-  const b = Buffer.from(createHash2("sha256").update(given).digest("hex"));
+  const b = Buffer.from(sha256(given));
   const match = a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
   if (!match) {
     try {
@@ -7868,10 +7891,7 @@ function secretMatches(common, given) {
     } catch {
     }
   }
-  try {
-    rmSync2(claimed, { force: true });
-  } catch {
-  }
+  removeClaimed(claimed);
   return match;
 }
 function humanProof(ctx, opts, io = terminalIO) {
