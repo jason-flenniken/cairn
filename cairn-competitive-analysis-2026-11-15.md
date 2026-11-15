@@ -2,6 +2,7 @@
 title: "cairn: Competitive Analysis and Best-Practice Review"
 subtitle: "How cairn compares with Superpowers, Compound Engineering, Matt Pocock's skills, Spec Kit and OpenSpec, and how it holds up against current practice for unattended agents"
 date: "2026-11-15"
+revised: "2026-11-15, after review"
 ---
 
 # cairn: Competitive Analysis and Best-Practice Review
@@ -19,6 +20,7 @@ date: "2026-11-15"
 7. Recommendations, ranked
 8. Sources
 9. Method and caveats
+10. Decisions and roadmap
 
 ---
 
@@ -61,6 +63,8 @@ Its weak spots are what lets an unattended run be trusted *without you there*:
 - no eval suite showing that each piece of ceremony earns its cost on today's models.
 
 Anthropic's own recent writing (Mar–Nov 2026) puts the most weight on that last point.
+
+**Decisions taken.** After review, cairn will build plan budgets first, then an eval suite that measures each piece of ceremony, then an on-demand system overview generated from plan history and a quick scan for gaps. The README competitor claims and a guide to unattended setup are direct edits. Section 10 has the roadmap and the reasons.
 
 ---
 
@@ -286,6 +290,11 @@ Ordered by likely value to cairn. Each item names where it lives, so it can be s
 - *Superpowers:* behavioral evals live in a separate repo (prime-radiant-inc/superpowers-evals) driving real tmux sessions. Skills are written TDD-style against pressure scenarios (`skills/writing-skills/`).
 - *cairn:* about 540 CLI tests and tests that assert procedure wording. Nothing checks that an agent *following* a procedure behaves correctly, or that a piece of ceremony beats leaving it out.
 - *Worth adopting?* **Yes. This is the top recommendation.** Anthropic shipped `claude plugin eval` (Sep 2026) for this: cases with graders, three runs each, a comparison against no plugin, and gating in CI with a cost cap.
+- *What the tool can and can't do (checked against its docs on 2026-11-15):*
+  - **It has no command or test graders.** Graders are `regex`, `file_exists`, `tool_used`, `tool_order` and an LLM judge. cairn can work around this because the CLI writes `state.json` itself, so regex graders on it can check the stage, whether proofs are green, fix rounds used and set-aside tasks.
+  - **Ablation turns the whole plugin on or off.** No flag turns off one skill, agent or hook. Only `EVAL_*` environment variables reach the run, so cairn needs an `EVAL_CAIRN_SKIP` switch for each piece of ceremony and a script that runs the suite once per variant and compares the results.
+  - **Runs are non-interactive.** There are no menus and no simulated approval. Cases therefore start from plan state that a scaffold has already approved, using the same helper as the CLI tests, and stop at the next approval. No approval bypass exists while the agent runs.
+  - **`--max-cost-usd` caps the eval suite, not a plan.** It does not replace plan budgets (row 8).
 
 **2. A store of lessons that gets used.**
 
@@ -293,6 +302,7 @@ Ordered by likely value to cairn. Each item names where it lives, so it can be s
 - *Matt Pocock's skills:* `/retro` turns session lessons into environment changes: mechanical misses become checks, judgment calls become standards.
 - *cairn:* keeps records and a changelog, and learns review rules into `REVIEW.md`. Discover reads the changelog, but the lessons ("we tried X, it failed because Y") are buried in records, and no planning step looks them up.
 - *Worth adopting?* **Yes, in a form that fits cairn's no-stale-docs rule.** Lessons tied to a plan record and a commit, retrieved by file overlap the way follow-ups already are, and preferring a test or lint rule.
+- *Caveat:* lessons taken only from records miss work built outside a plan, which in this repo is most of it. Deferred until the eval suite can show that it pays off.
 
 **3. Portability beyond Claude Code and Codex.**
 
@@ -324,7 +334,14 @@ Ordered by likely value to cairn. Each item names where it lives, so it can be s
 
 - *OpenSpec:* current-truth specs and delta merging.
 - *Spec Kit:* documents flow-back, flow-forward and living-spec options.
-- *Worth adopting?* **Revisit, don't copy.** cairn deliberately rejected living docs. A narrow version could fit, though: a requirement register on main that the CLI checks at ship. Each shipped requirement plus the proof that covers it would make proofs double as living regression guards. That gets OpenSpec's benefit without prose that can go stale, because each entry is backed by a check that runs.
+- *Worth adopting?* **Revisit, don't copy.** cairn deliberately rejected living docs about how the code works.
+- *Chosen instead (2026-11-15):* an on-demand `/cairn:system` overview.
+  - It writes a generated `docs/cairn/SYSTEM.md`, stamped with the commit it was built from.
+  - It is organized by capability and flow, not by folder, with diagrams where a real flow exists and paths into the code for drilling deeper.
+  - Its backbone is the plan changelogs, RECORDs and decisions, which explain why things were built. They are checked against a quick scan of the README, the CLI command list and the top-level modules for anything big they miss.
+  - Code is opened only for a gap the scan finds, and later runs read only what changed since the stamp.
+- *Why records alone fall short:* only 2 of the roughly 20 versions shipped since 0.7 went through a cairn plan. The rest were built directly, so a roll-up of records would leave out proofs, the lean Standard level, usage tracking, Codex and `/cairn:spec`.
+- *Replaced:* the requirement register proposed earlier.
 
 **7. Shared vocabulary and decision records.**
 
@@ -453,34 +470,33 @@ Rows 1–3, 5, 7, 15 and 17–19 are where the industry has converged, and cairn
 
 ## 7. Recommendations, ranked
 
-Ranked by value for effort. Each is phrased as something a cairn plan could take on.
+Ranked by value for effort, and revised after review on 2026-11-15. Each is phrased as something a cairn plan could take on. Section 10 gives the order of the work and the reasons.
 
-1. **Add an eval suite with `claude plugin eval`.**
-   - Start with about 20 realistic cases: a small feature, a risky migration, a UI change, a bug fix and a stuck task.
-   - Grade the end state: proofs green, no edits outside scope, the right stops taken, cost.
-   - Compare against no plugin and across levels.
-   - Gate releases in CI with a cost cap.
-   - Then use it to test folding the writer and checker pairs (row 14) and to ablate procedure text when a new model ships.
-2. **Add plan budgets.** Add `budget.usd` and `budget.hours` per plan or per phase in `.cairn/config.json`. When one is exceeded, the build sets aside what's running and asks once, like a stuck task. The pane already has the numbers.
-3. **Document and default a safe unattended setup.**
+1. **Add plan budgets.** *(First plan.)*
+   - Add `budget.usd` and `budget.hours` per plan, optionally per phase, in `.cairn/config.json`.
+   - When a budget is exceeded, the build sets aside what's running and asks once, like a stuck task. The CLI enforces it, and the pane already has the numbers.
+   - This comes first because it is small and every eval run needs a stop of its own.
+2. **Add an eval suite with `claude plugin eval`.** *(Second plan.)*
+   - Start with about 8 stage-level cases: plan from an approved PRD, a risky task, a planted bug, a stuck task, a UI proof, the fix lane, a budget hit, and a temptation to edit out of scope.
+   - Scaffolds start each case past the approvals.
+   - Grade on cairn's own signals through regex on `state.json`: proofs green, no edits outside scope, the right stops, cost.
+   - Remove ceremony one piece at a time with an `EVAL_CAIRN_SKIP` switch and a script that compares results, so each piece's effect on outcome and cost is measured, starting with the writer and checker pairs (row 14).
+   - Gate CI on the score with the plugin on, with a cost cap.
+3. **Add an on-demand system overview.** *(Third plan.)*
+   - `/cairn:system` writes a generated, commit-stamped `docs/cairn/SYSTEM.md`: high level, organized by capability, with diagrams where they help.
+   - Its backbone is the plan history, checked against a quick scan for gaps rather than a deep reading of the code.
+   - It replaces the earlier requirement-register idea (section 5, item 6).
+4. **Correct the README.** *(Direct edit.)* Superpowers and Compound Engineering now have independent reviewers, so lead with the differences that hold up: enforced state, approvals that can't be forged, and locked proofs.
+5. **Document a safe unattended setup.** *(Direct edit.)*
    - A short "Running a build without you" section: sandbox on, an egress allowlist, auto mode with deny rules for push, force-push and deploy, and no production credentials in the worktree.
-   - Optionally, `/cairn:new` checks the permission mode and warns.
    - Map Anthropic's five questions onto cairn's own stops.
-4. **Hold back some checks.** Let the proof-writer mark one or two proofs per plan as hidden from builders, run only at Check. Or generate extra property and edge-case checks at Check from the PRD alone.
-5. **Add a cloud or headless path for the build.** After the plan is approved, offer "build in the cloud". A Claude Code cloud session or routine runs the build, the plan's state and PR come back, and the ship approval stays local. Approvals already can't be forged, which makes this safer than it is for peers.
-6. **Verify review findings before acting on them.** A cheap validator pass between review and fix: re-check each blocking finding against the code and drop the ones it can't reproduce. This cuts wasted fix rounds during autonomous builds.
-7. **Make lessons retrievable.**
-   - At ship, the recorder writes zero to three *lessons* that pass a "would this be repeated?" test.
-   - They're keyed by file paths, like follow-ups, and offered during planning when a plan touches those paths.
-   - Prefer turning a lesson into a check, which `REVIEW.md` rules already do for reviews.
-8. **Handle the PR after it opens.** Watch CI for up to two rounds, answer review comments as fixes, then merge the approved commit. `cairn merge-check` already gives the safe ending.
-9. **Correct the README's competitor claims** (section 4). Superpowers and Compound Engineering now have independent reviewers. Lead with the differences that hold up: enforced state, approvals that can't be forged, and locked proofs.
-10. **Use the app at Check.** Boot the app per worktree using the unused `start` and `seed` config keys. Add a diff-scoped browser pass beyond the agreed proofs, and give agents access to the app's logs.
-11. **Optional, later:**
-    - a project glossary and ADR file read by Discover;
-    - GitHub Issues as a second tracker;
-    - more hosts, where hook support allows guards;
-    - a requirement register on main that the CLI checks at ship, as a cairn-shaped answer to living specs.
+6. **Hold back some checks.** Let the proof-writer mark one or two proofs per plan as hidden from builders, run only at Check. *(Later; measured by the eval suite.)*
+7. **Verify review findings before acting on them.** A cheap validator pass between review and fix. *(Later; measured by the eval suite.)*
+8. **Handle the PR after it opens.** Watch CI for up to two rounds, answer review comments as fixes, then merge the approved commit. *(Later.)*
+9. **Add a cloud or headless path for the build** between plan approval and ship approval. *(Later. Budgets and evals come first, since a run in the cloud needs both.)*
+10. **Make lessons retrievable,** keyed by file paths like follow-ups. *(Later. See the caveat in section 5, item 2.)*
+11. **Use the app at Check.** Boot the app per worktree with the `start` and `seed` keys, and add a browser pass scoped to the diff. *(Later.)*
+12. **Skipped for now:** more hosts, a pluggable workflow, a glossary and ADR file, and GitHub Issues as a second tracker.
 
 ---
 
@@ -583,3 +599,36 @@ METR's incident report was read only in part, without its recommendations sectio
 - Superpowers' evals live in a separate repo that wasn't read.
 - OpenSpec's docs lag its 2.0 code.
 - Some competitor features named in section 5 may behave differently from what their docs say.
+
+---
+
+## 10. Decisions and roadmap
+
+Decided on 2026-11-15, after reviewing this analysis.
+
+### Order
+
+| # | Work | How | Why this place |
+|---|---|---|---|
+| 1 | Plan budgets | cairn plan, Standard | Small. It closes the "what stops it" gap (rows 8 and 10), and evals need it. |
+| 2 | Eval suite | cairn plan, Polished | The top gap (rows 12–14). Every later change to ceremony is judged by it. |
+| 3 | `/cairn:system` overview | cairn plan | A high-level view of the system for engineers. It doesn't depend on 1 or 2. |
+| — | README correction and unattended-setup guide | Direct edits | Documentation only, with no design questions. |
+
+### Settled design points
+
+- **Evals never bypass approvals.** Cases start past them and stop at the next one. The trust layer stays as it is, at the cost of having no single idea-to-PR case.
+- **Measure ceremony by removing it.** An `EVAL_CAIRN_SKIP` switch plus a comparison script, because the eval tool turns only the whole plugin on or off. Open question: the switch should do nothing outside an eval run.
+- **The system overview is refreshed only when asked.** It doesn't refresh at ship. Session start says how many commits behind it is.
+- **The overview stays cheap.** It reads history first and runs a quick scan for gaps, opening code only where the scan finds a gap. It is regenerated rather than kept by hand, which keeps the 0.7.0 rule against stale "how it works" docs.
+
+### Deferred
+
+These wait until the eval suite can show their value: held-back proofs, verifying review findings, handling the PR after it opens, a cloud build path, retrievable lessons, and booting the app at Check.
+
+### Skipped
+
+- **More hosts:** the trust layer needs hooks.
+- **A pluggable workflow:** a fixed lifecycle is part of cairn's reliability story.
+- **A glossary:** low value for one maintainer.
+- **GitHub Issues:** Linear covers current use.
