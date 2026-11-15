@@ -3,6 +3,7 @@ import type { EngineInterface, On, ProcessRunInit, SessionStartInput } from 'cla
 import { turnComplete, turnStart } from './activity.ts'
 import type { CairnReady as Ready } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
+import { ownPlan } from './own.ts'
 import { markGitStale } from './git.ts'
 
 type Task = { id: string; status?: string; substep?: string; worktree?: string }
@@ -95,24 +96,22 @@ const said = (r: { stdout: string; stderr: string }): string => (r.stderr.trim()
 
 type Plan = { state: PlanState; worktree: string; ready?: Ready; dir?: string }
 
-/** The plan a session at the repo root works on: the one active plan, else the most recently updated. */
-export function pickCurrent<R extends { state: { stage?: string; updated?: string }; worktree?: string }>(rows: R[]): R | undefined {
-  const active = rows.filter(r => r.worktree !== undefined && r.state.stage !== 'closed')
-  const stamp = (r: R) => Date.parse(r.state.updated ?? '') || 0
-  return active.sort((a, b) => stamp(b) - stamp(a))[0]
-}
 
-/** The session's plan from `cairn status --json`; from the repo root, the active plan from `status --all`. */
+/** The session's plan from `cairn status --json`; elsewhere, the session's own plan from `status --all` (never a guess among several). */
 export async function plan($: EngineInterface): Promise<Plan | string> {
   const r = await cairn($, ['status', '--json'], quick)
   const json = r.json as { state?: PlanState; planWorktree?: string; planDir?: string; ready?: Ready } | undefined
-  if (r.exitCode === 0 && json?.state !== undefined && json.planWorktree !== undefined) {
-    return { state: json.state, worktree: json.planWorktree, ready: json.ready, dir: json.planDir }
-  }
   const all = await cairn($, ['status', '--all', '--json'], quick)
   const rows = Array.isArray(all.json?.plans) ? (all.json.plans as { state: PlanState; worktree?: string; ready?: Ready; dir?: string }[]) : []
-  const picked = all.exitCode === 0 ? pickCurrent(rows.filter(p => typeof p.state?.slug === 'string')) : undefined
-  if (picked?.worktree === undefined) return `no active plan here: ${said(r) || 'open Claude Code in a plan worktree'}`
+  const listed = all.exitCode === 0 ? rows.filter(p => typeof p.state?.slug === 'string') : []
+  const own = listed.length === 0 ? undefined : await ownPlan($, listed)
+  if (r.exitCode === 0 && json?.state !== undefined && json.planWorktree !== undefined) {
+    // The folder's plan, unless the session already works on another: then it is that session's to act on.
+    if (own !== undefined && own !== json.state.slug) return `this session works on ${own}, not ${json.state.slug}`
+    return { state: json.state, worktree: json.planWorktree, ready: json.ready, dir: json.planDir }
+  }
+  const picked = listed.find(p => p.state.slug === own)
+  if (picked?.worktree === undefined) return `no plan of this session's own here: ${said(r) || 'open Claude Code in a plan worktree'}`
   return { state: picked.state, worktree: picked.worktree, ready: picked.ready, dir: picked.dir }
 }
 

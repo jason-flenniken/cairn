@@ -29,48 +29,64 @@ async function spawnAgents($: any, n: number) {
 }
 
 describe('inline view fits seven rows', () => {
-  test('worst case: repo-root fallback, paused, approval waiting, another plan, main and five agents: within 7 rows, merged line', async ($, on) => {
+  test('worst case: in the plan worktree, paused, approval waiting, another plan, main and five agents: within 7 rows, merged line', async ($, on) => {
     spawnIds(on)
     world(on, {
-      cwd: MAIN,
+      cwd: WT,
       rows: [
         row(plan({ stage: 'prd', paused: { at: '2026-03-01T11:00:00.000Z', mode: 'drain' } }), WT, undefined, ready('prd')),
         row(plan({ slug: 'other', title: 'Other' }), OTHER),
       ],
     })
-    await start($, MAIN)
+    await start($, WT)
     await spawnAgents($, 5)
     const ui = await mountAs($, { placement: 'inline' })
     expect(await paneRows(ui)).toBeLessThanOrEqual(7)
     const lines = await texts(ui)
     expect(lines).toContain('● +5 agents · +1 other plan')
-    expect(lines.some(t => t.startsWith('Showing '))).toBe(false)
     expect(lines.some(t => /more agent/.test(t))).toBe(false)
     await ui.unmount()
   })
 
-  test('with room, the Showing line stays and agent lines are drawn one each, no fold', async ($, on) => {
+  test('with room, agent lines are drawn one each, no fold', async ($, on) => {
     spawnIds(on)
-    world(on, { cwd: MAIN, rows: [row(plan({ stage: 'execute' }), WT)] })
-    await start($, MAIN)
+    world(on, { cwd: WT, rows: [row(plan({ stage: 'execute' }), WT)] })
+    await start($, WT)
     await spawnAgents($, 1)
     const ui = await mountAs($, { placement: 'inline' })
     const lines = await texts(ui)
-    expect(lines.some(t => t.startsWith('Showing '))).toBe(true)
     expect(lines.some(t => t.startsWith('● Main session'))).toBe(true)
     expect(lines.some(t => /more agent|other plan/.test(t))).toBe(false)
     expect(await paneRows(ui)).toBeLessThanOrEqual(7)
     await ui.unmount()
   })
 
-  test('the Showing line goes first: with agents that would fold, it is dropped and every agent line is kept', async ($, on) => {
-    spawnIds(on)
-    world(on, { cwd: MAIN, rows: [row(plan({ stage: 'execute' }), WT)] })
+  test('from the repo root with two active plans, neither is shown as the session\'s own: no Approve, each waiting plan is a line that says its session approves', async ($, on) => {
+    world(on, {
+      cwd: MAIN,
+      rows: [
+        row(plan({ stage: 'prd' }), WT, undefined, ready('prd')),
+        row(plan({ slug: 'other', title: 'Other', stage: 'plan' }), OTHER, undefined, { kind: 'plan', file: `${OTHER}/docs/cairn/plans/other/plan.md`, summary: 'other plan summary' }),
+      ],
+    })
     await start($, MAIN)
+    const ui = await mountAs($, { placement: 'inline' })
+    const lines = await texts(ui)
+    expect(lines).toContain('Acme Storefront · PRD approval, in its session')
+    expect(lines).toContain('Other · plan approval, in its session')
+    const keys = (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key)
+    expect(keys.some((k: string) => k.startsWith('approve'))).toBe(false)
+    expect(await paneRows(ui)).toBeLessThanOrEqual(7)
+    await ui.unmount()
+  })
+
+  test('with two agents, every agent line is kept', async ($, on) => {
+    spawnIds(on)
+    world(on, { cwd: WT, rows: [row(plan({ stage: 'execute' }), WT)] })
+    await start($, WT)
     await spawnAgents($, 2)
     const ui = await mountAs($, { placement: 'inline' })
     const lines = await texts(ui)
-    expect(lines.some(t => t.startsWith('Showing '))).toBe(false)
     expect(lines.filter(t => /^● (Main session|Task \d)/.test(t)).length).toBe(3)
     expect(lines.some(t => /more agent/.test(t))).toBe(false)
     expect(await paneRows(ui)).toBeLessThanOrEqual(7)
@@ -79,8 +95,8 @@ describe('inline view fits seven rows', () => {
 
   test('with room for the other-plans line and one agent, both keep their own rows and nothing merges', async ($, on) => {
     spawnIds(on)
-    world(on, { cwd: MAIN, rows: [row(plan({ stage: 'execute' }), WT), row(plan({ slug: 'other', title: 'Other' }), OTHER)] })
-    await start($, MAIN)
+    world(on, { cwd: WT, rows: [row(plan({ stage: 'execute' }), WT), row(plan({ slug: 'other', title: 'Other' }), OTHER)] })
+    await start($, WT)
     await spawnAgents($, 1)
     const ui = await mountAs($, { placement: 'inline' })
     const lines = await texts(ui)
@@ -120,8 +136,8 @@ describe('inline count line position (FR-20)', () => {
 
   test('the merged line and the lone other-plans line are both drawn after the buttons', async ($, on) => {
     spawnIds(on)
-    world(on, { cwd: MAIN, rows: [row(plan({ stage: 'prd', paused: { at: '2026-03-01T11:00:00.000Z', mode: 'drain' } }), WT, undefined, ready('prd')), row(plan({ slug: 'other', title: 'Other' }), OTHER)] })
-    await start($, MAIN)
+    world(on, { cwd: WT, rows: [row(plan({ stage: 'prd', paused: { at: '2026-03-01T11:00:00.000Z', mode: 'drain' } }), WT, undefined, ready('prd')), row(plan({ slug: 'other', title: 'Other' }), OTHER)] })
+    await start($, WT)
     await spawnAgents($, 5)
     const merged = await mountAs($, { placement: 'inline' })
     const mergedAt = await belowButtons(merged, /^● \+5 agents · \+1 other plan/)
@@ -131,8 +147,8 @@ describe('inline count line position (FR-20)', () => {
 
   test('the lone other-plans line is drawn after the buttons too', async ($, on) => {
     spawnIds(on)
-    world(on, { cwd: MAIN, rows: [row(plan({ stage: 'execute' }), WT), row(plan({ slug: 'other', title: 'Other' }), OTHER)] })
-    await start($, MAIN)
+    world(on, { cwd: WT, rows: [row(plan({ stage: 'execute' }), WT), row(plan({ slug: 'other', title: 'Other' }), OTHER)] })
+    await start($, WT)
     await spawnAgents($, 1)
     const ui = await mountAs($, { placement: 'inline' })
     expect(await belowButtons(ui, /^\+1 other active plan/)).toBeGreaterThan(0)

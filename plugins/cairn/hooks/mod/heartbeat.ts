@@ -7,8 +7,8 @@ const EVERY_MS = 2_000
 let ticking: Timer | undefined
 
 /** The repository's git common dir, absolute; rejects outside a git repo. */
-export async function commonDir($: EngineInterface): Promise<string> {
-  const git = await $.process.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'])
+export async function commonDir($: EngineInterface, cwd?: string): Promise<string> {
+  const git = await $.process.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], cwd === undefined ? undefined : { cwd })
   if (git.exitCode !== 0) throw new Error(`git rev-parse failed: ${git.stderr.trim()}`)
   return git.stdout.trim()
 }

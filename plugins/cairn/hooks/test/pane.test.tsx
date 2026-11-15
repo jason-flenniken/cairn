@@ -172,15 +172,15 @@ const askingRow = () => row(plan({ slug: 'gamma', title: 'Gamma Pay', stage: 'ex
 
 describe('Waiting on you for other plans', () => {
   for (const surface of SURFACES) {
-    test(`another plan's approval: its title, what waits, Open and Approve (${surface})`, async ($, on) => {
+    test(`another plan's approval: its title and what waits, in its session, with Open and no Approve (${surface})`, async ($, on) => {
       world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('plan')] })
       await start($, WT)
       const ui = await mount($, surface)
       const text = await drawn(ui)
       expect(text).toContain('Waiting on you')
-      expect(text).toMatch(/Beta Search · plan/)
-      expect(await buttonKeys(ui)).toContain('approve:beta')
+      expect(text).toContain('Beta Search · plan approval, in its session')
       expect(await buttonKeys(ui)).toContain('open:beta')
+      expect(await buttonKeys(ui)).not.toContain('approve:beta')
       await ui.unmount()
     })
 
@@ -206,33 +206,35 @@ describe('Waiting on you for other plans', () => {
     })
   }
 
-  test('inline: a waiting plan gets a row with Approve, and leaves the other-plans count', async ($, on) => {
+  test('inline: a waiting plan gets a line that says its session approves, with no button, and leaves the other-plans count', async ($, on) => {
     world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow(), askingRow(), row(plan({ slug: 'alpha', title: 'Alpha Billing', stage: 'prd' }), undefined)] })
     await start($, WT)
     const ui = await mountAs($, { placement: 'inline' })
     const text = await drawn(ui)
-    expect(text).toMatch(/Beta Search · plan/)
+    expect(text).toContain('Beta Search · plan approval, in its session')
     expect(text).toContain('Gamma Pay: waiting for you in its session')
     expect(text).toMatch(/\+1 other (active )?plan/)
-    expect(await buttonKeys(ui)).toContain('approve:beta')
+    expect(await buttonKeys(ui)).toEqual(['pause', 'status'])
     await ui.unmount()
   })
 
-  test("Approve on another plan confirms with that plan's slug and runs approve in that plan's worktree", async ($, on) => {
-    const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('plan')] })
+  test("there is no way to approve another plan from the pane: no Approve button, and Open's viewer shows none either", async ($, on) => {
+    const { w, ran } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('plan')] })
+    w.files.set(betaReady('plan').file, '# Beta plan\n\nbody')
     await start($, WT)
     const ui = await mount($, 'terminal')
-    await ui.press({ key: 'approve:beta' })
-    await until(clock, () => ran('approve').length > 0 && w.toasts.length > 0)
-    expect(w.asked).toEqual([{ question: 'Approve the plan stop of plan beta?', options: ['Cancel', 'Approve'] }])
-    expect(ran('approve')).toEqual([['approve', 'plan']])
-    expect(w.approveCwds).toEqual([BETA_WT])
-    expect(w.toasts.join('\n')).toMatch(/beta: plan approved/)
+    expect(await buttonKeys(ui)).not.toContain('approve:beta')
+    expect(await buttonKeys(ui)).not.toContain('approve')
+    await ui.press({ key: 'open:beta' })
+    expect(await buttonKeys(ui)).not.toContain('approve')
+    expect(await buttonKeys(ui).then(k => k.some(x => x.startsWith('approve')))).toBe(false)
+    expect(w.asked).toEqual([])
+    expect(ran('approve')).toEqual([])
     await ui.unmount()
   })
 
-  test("Open shows that plan's document in the viewer, with Approve for that plan", async ($, on) => {
-    const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('prd')] })
+  test("Open shows that plan's document in the viewer, read-only: no Approve for that plan", async ($, on) => {
+    const { w, ran } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('prd')] })
     w.files.set(betaReady('prd').file, '# Beta PRD\n\nbody')
     await start($, WT)
     const ui = await mount($, 'terminal')
@@ -240,9 +242,9 @@ describe('Waiting on you for other plans', () => {
     const text = await drawn(ui)
     expect(text).toContain('PRD: beta')
     expect((await ui.findAll({ type: 'Markdown' })).map((m: { text: string }) => m.text)).toEqual(['# Beta PRD\n\nbody'])
-    await ui.press({ key: 'approve' })
-    await until(clock, () => ran('approve').length > 0)
-    expect(w.approveCwds).toEqual([BETA_WT])
+    expect((await buttonKeys(ui)).some(k => k.startsWith('approve'))).toBe(false)
+    expect(ran('approve')).toEqual([])
+    expect(w.approveCwds).toEqual([])
     await ui.unmount()
   })
 
@@ -327,10 +329,10 @@ describe('status line (FR-11)', () => {
     expect(w.statuses.at(-1)).toMatch(/^cairn · Build/)
   })
 
-  test('on main with two active plans it shows "2 active plans"', async ($, on) => {
+  test('on main with two active plans, neither bound to the session, it shows "2 active plans"', async ($, on) => {
     const { w } = world(on, {
       cwd: MAIN,
-      rows: [row(plan(), WT), row(plan({ slug: 'beta', title: 'Beta' }), undefined), row(plan({ slug: 'old', stage: 'closed' }), undefined)],
+      rows: [row(plan(), WT), row(plan({ slug: 'beta', title: 'Beta' }), '/repo/.claude/worktrees/sdlc-beta'), row(plan({ slug: 'old', stage: 'closed' }), undefined)],
     })
     await start($, MAIN)
     expect(w.statuses.at(-1)).toBe('2 active plans')
@@ -563,19 +565,21 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
     await ui.unmount()
   })
 
-  test('a menu approval and a button approval back to back each use their own secret, and both land (Review focus 2)', async ($, on) => {
-    const { w, ran, clock } = world(on, {
-      rows: [shipRow(), row(plan({ slug: 'beta', title: 'Beta', stage: 'prd' }), '/repo/.claude/worktrees/sdlc-beta', undefined, ready('prd'))],
-    })
+  test('a menu approval and a button approval back to back, on the session\'s one plan, each use their own secret, and both land (Review focus 2)', async ($, on) => {
+    const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
     await start($, WT)
     const ui = await mount($, 'terminal')
-    const q = 'Approve the PRD? [cairn:approve prd beta]'
+    const q = 'Approve the PRD? [cairn:approve prd shop]'
     const menu = await $.tool.call({
       tool: 'AskUserQuestion',
       questions: [{ question: q, header: 'cairn', multiSelect: false, options: [{ label: 'Approve', description: 'ok' }, { label: 'Revise', description: 'no' }] }],
     } as never)
+    // The plan moves on to its ship stop; the pane reads it on its next poll.
+    w.rows = [shipRow()]
+    w.mtimes.set(STATE, 2)
+    await clock.advance(2_000)
     await ui.press({ key: 'approve' })
-    await until(clock, () => ran('approve').length > 1 && w.toasts.length > 0)
+    await until(clock, () => ran('approve').length > 1 && w.toasts.some(t => /ship approved/.test(t)))
     expect(ran('approve')).toEqual([['approve', 'prd'], ['approve', 'ship']])
     expect(new Set(w.secrets).size).toBe(2)
     expect(menu.context?.join()).toMatch(/prd approved/)
@@ -1240,14 +1244,14 @@ describe('roomier layout (side padding, blank lines between sections)', () => {
     await ui.unmount()
   })
 
-  test('FR-20: at a narrow width the inline fallback and tip lines truncate instead of wrapping', async ($, on) => {
-    world(on, { cwd: MAIN, rows: [row(EXECUTE, WT)] })
-    await start($, MAIN)
+  test('FR-20: at a narrow width the inline other-plans and tip lines truncate instead of wrapping', async ($, on) => {
+    world(on, { cwd: WT, rows: [row(EXECUTE, WT), row(plan({ slug: 'other', title: 'Other' }), '/repo/.claude/worktrees/sdlc-other')] })
+    await start($, WT)
     const ui = await mountAs($, { placement: 'inline', bodyColumns: 30 })
     const texts = await ui.findAll({ type: 'Text' })
-    const fallback = texts.find((t: { text: string }) => t.text.startsWith('Showing '))
+    const others = texts.find((t: { text: string }) => /^\+1 other active plan/.test(t.text))
     const tip = texts.find((t: { text: string }) => t.text.startsWith('Full-height side pane'))
-    expect(fallback.props.wrap).toBe('truncate-end')
+    expect(others.props.wrap).toBe('truncate-end')
     expect(tip.props.wrap).toBe('truncate-end')
     await ui.unmount()
   })

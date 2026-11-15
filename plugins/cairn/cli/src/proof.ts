@@ -10,7 +10,11 @@ import { readText, Refusal } from './util.ts';
 const HEARTBEAT_FRESH_MS = 10_000;
 
 const cairnDir = (common: string) => join(common, 'cairn');
+const sha256 = (text: string) => createHash('sha256').update(text).digest('hex');
+/** The shared hash file older mods write; kept so a session still running one can approve. */
 const hashPath = (common: string) => join(cairnDir(common), 'mod-secret.sha256');
+/** The mod's one-time file for one secret, named by its hash: each use and each session has its own. */
+const tokenPath = (common: string, secret: string) => join(cairnDir(common), `approver-${sha256(secret)}`);
 
 export interface ProofIO {
   isTTY(): boolean;
@@ -56,21 +60,51 @@ function readRegularFile(path: string): string | undefined {
 }
 
 /**
- * True when the given secret hashes to the one-time hash the mod stored. The file is claimed by an atomic
- * rename first, so of any concurrent callers only one can see it. A match spends it; a mismatch puts it back.
+ * True when the given secret is the mod's: its hash names a regular file the mod wrote for it, or matches the
+ * shared hash an older mod wrote. Each file is claimed by an atomic rename first, so of any concurrent callers
+ * only one can see it, and a match spends it.
  */
 export function secretMatches(common: string, given: string | undefined): boolean {
   if (!given) return false;
-  const original = hashPath(common);
-  const claimed = `${original}.claimed.${randomBytes(8).toString('hex')}`;
+  return spendToken(common, given) || spendLegacyHash(common, given);
+}
+
+/** Claims `path` by renaming it aside; the claimed name, or undefined when another caller got it or it is absent. */
+function claim(path: string): string | undefined {
+  const claimed = `${path}.claimed.${randomBytes(8).toString('hex')}`;
   try {
-    renameSync(original, claimed);
+    renameSync(path, claimed);
+    return claimed;
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+function removeClaimed(claimed: string): void {
+  try {
+    rmSync(claimed, { force: true });
+  } catch {
+    // a non-file planted here stays; it is not proof
+  }
+}
+
+/** The secret's own file: present and a regular file is proof, and it is spent whatever it was. */
+function spendToken(common: string, given: string): boolean {
+  const claimed = claim(tokenPath(common, given));
+  if (claimed === undefined) return false;
+  const isFile = readRegularFile(claimed) !== undefined;
+  removeClaimed(claimed);
+  return isFile;
+}
+
+/** The shared hash file: a match spends it, a mismatch puts it back. */
+function spendLegacyHash(common: string, given: string): boolean {
+  const original = hashPath(common);
+  const claimed = claim(original);
+  if (claimed === undefined) return false;
   const stored = readRegularFile(claimed)?.trim() ?? '';
   const a = Buffer.from(stored);
-  const b = Buffer.from(createHash('sha256').update(given).digest('hex'));
+  const b = Buffer.from(sha256(given));
   const match = a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
   if (!match) {
     try {
@@ -79,17 +113,13 @@ export function secretMatches(common: string, given: string | undefined): boolea
       // EEXIST or an unrestorable file: nothing more to do
     }
   }
-  try {
-    rmSync(claimed, { force: true });
-  } catch {
-    // a non-file planted here stays; it is not proof
-  }
+  removeClaimed(claimed);
   return match;
 }
 
 /**
  * Proof that the user, not the model, is behind this command: the mod's one-time secret in
- * CAIRN_APPROVER (its SHA-256 is on disk and is deleted on use), or `--human` at a real terminal with the plan slug typed.
+ * CAIRN_APPROVER (its SHA-256 names a file on disk, deleted on use), or `--human` at a real terminal with the plan slug typed.
  */
 export function humanProof(ctx: Ctx, opts: Opts, io: ProofIO = terminalIO): { source: 'mod' | 'terminal' } | undefined {
   const common = commonDir(ctx.mainRoot);

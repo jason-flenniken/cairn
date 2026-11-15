@@ -13,9 +13,9 @@ Refusable commands accept `--override "reason"`. The override is logged in state
 `cairn approve prd|plan|ship` and any command run with `--override` succeed only with human proof. Each recorded approval or override notes its source.
 `cairn level mvp|standard|polished` needs the same human proof as an approval, through the same routes (the same level again needs none).
 - **Mod menu (`source: mod`).** The session's mod asks through AskUserQuestion and runs the approval when the user picks "Approve (Recommended)". The pane's Approve button and `/cairn-approve` run it the same way.
-  - The mod keeps the secret in memory only. On disk, `<git common dir>/cairn/mod-secret.sha256` (mode 0600) holds the secret's SHA-256 as lowercase hex.
-  - The mod passes the secret to the CLI in `CAIRN_APPROVER`. The CLI hashes it and compares. On a match the CLI claims and deletes the hash file, so a used secret can't be replayed. The mod then writes a fresh secret and hash.
-  - The hash file doesn't exist until the first approval or override.
+  - The mod makes a fresh secret for each approval, level change or override and keeps it in memory only. Just before the run it writes `<git common dir>/cairn/approver-<sha256>` (mode 0600), named by the secret's SHA-256 as lowercase hex, and removes it after.
+  - The mod passes the secret to the CLI in `CAIRN_APPROVER`. The CLI hashes it and claims and deletes the file of that name, so a used secret can't be replayed. Each use has its own file, so sessions in different worktrees of one repo (which share the common dir) never spend each other's secrets.
+  - The CLI still accepts the shared `<git common dir>/cairn/mod-secret.sha256` an older mod writes, so a session that has not reloaded the plugin can approve.
 - **Terminal (`source: terminal`).** Run `cairn approve <kind> --human` in your own terminal. It needs a TTY on stdin and stdout, and you type the plan slug at the prompt. Without a TTY it exits 2 and says to run it in your terminal. Agents can't supply this proof.
 - **Mod-run override (`--override` only).** When the user picks "Override" on an Override menu (question tagged `[cairn:override <slug>]`), the mod holds a pending override for that plan in memory for 10 minutes. Nothing is written to disk.
   - The model then runs `cairn <command> --override "<reason>"` as a plain command, alone: no `cd`, no `&&`. The mod runs it itself with the secret and returns the CLI's output as the tool result.

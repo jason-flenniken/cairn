@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { handoffFromState, pauseAge, pickCurrent } from '../mod/pause.ts'
+import { handoffFromState, pauseAge } from '../mod/pause.ts'
 
 const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const WT = '/repo/.claude/worktrees/sdlc-shop'
@@ -31,6 +31,8 @@ type World = {
   failRegister?: boolean
   failTimer?: boolean
   answer?: string
+  /** Outside a plan worktree: `status --json` finds no plan, and `status --all --json` lists these. */
+  outside?: { slug: string; stage: string; worktree: string }[]
 }
 
 /** The world beneath the mod: the CLI, the plan's files, the clock, the dialog, and the turn. */
@@ -57,6 +59,10 @@ function world(on: On, w: World = {}) {
     if (bin === 'git') return answer(0, '/repo/.git\n')
     cli.push(args)
     order.push(`cairn ${args.join(' ')}`)
+    if (w.outside !== undefined && args.join(' ') === 'status --json') return answer(1, JSON.stringify({ ok: false, error: 'not in a plan' }))
+    if (w.outside !== undefined && args.join(' ') === 'status --all --json') {
+      return answer(0, JSON.stringify({ ok: true, plans: w.outside.map(p => ({ state: { slug: p.slug, stage: p.stage, phases: [] }, worktree: p.worktree })) }))
+    }
     if (args.join(' ') === 'status --json') {
       return answer(0, JSON.stringify({ ok: true, state: planState(w.paused, w.tasks), planWorktree: WT, planDir: w.planDir }))
     }
@@ -427,9 +433,10 @@ test('a module whose start throws does not stop the other module or the session'
   expect(w.registered.filter(n => PAUSE_COMMANDS.includes(n))).toEqual(PAUSE_COMMANDS)
 })
 
-test('from the repo root the current plan is the most recently updated active one; closed plans are skipped', () => {
-  const row = (slug: string, stage: string, updated: string) => ({ state: { slug, stage, updated }, worktree: `/wt/${slug}` })
-  const rows = [row('old', 'plan', '2026-03-01T00:00:00Z'), row('new', 'execute', '2026-03-02T00:00:00Z'), row('shipped', 'closed', '2026-03-03T00:00:00Z')]
-  expect(pickCurrent(rows)?.state.slug).toBe('new')
-  expect(pickCurrent([row('shipped', 'closed', '2026-03-03T00:00:00Z')])).toBeUndefined()
+test('outside a plan worktree with two active plans and none of its own, pause picks neither', async ($, on) => {
+  const w = world(on, { outside: [{ slug: 'a', stage: 'execute', worktree: '/wt/a' }, { slug: 'b', stage: 'plan', worktree: '/wt/b' }] })
+  await start($)
+  await $.command.run({ command: 'cairn-pause-mod' })
+  expect(w.ran('pause')).toEqual([])
+  expect(w.toasts.join('\n')).toMatch(/no plan of this session's own/)
 })

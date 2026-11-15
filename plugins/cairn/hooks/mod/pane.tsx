@@ -16,7 +16,8 @@ import { linearRows, stripControl } from './linear.tsx'
 import { isActive, list, waitingOn, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task, type Ui } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
 import { act, cells, clean, message } from './util.ts'
-import { pause, pickCurrent, plan, resume, stopNow, turnRunning } from './pause.ts'
+import { pause, plan, resume, stopNow, turnRunning } from './pause.ts'
+import { ownPlan } from './own.ts'
 import { inlineUsage, install as installUsage, limitsLine, modelLine, modelName, planLine, readUsage } from './usage.ts'
 import { primeLedger, readPlanUsage, trackLedger } from './ledger.ts'
 
@@ -58,22 +59,6 @@ const COMMANDS = [
 ] as const
 
 const openDrift = (s: CairnPlanState) => list<Drift>(s.drift).filter(d => !d.acked)
-
-const isUnder = (cwd: string, dir: string | undefined) => !!dir && (cwd === dir || cwd.startsWith(`${dir}/`))
-
-/**
- * The plan whose worktree, or one of whose task worktrees, holds the session: the deepest match, since a
- * plan kept in the main checkout holds every other plan's worktree under it.
- */
-function hereSlug(plans: CairnPlanRow[], cwd: string): string | undefined {
-  let best: { slug: string; depth: number } | undefined
-  for (const r of plans) {
-    for (const dir of [r.worktree, ...tasksOf(r.state).map(x => x.worktree)]) {
-      if (isUnder(cwd, dir) && (best === undefined || dir!.length > best.depth)) best = { slug: r.state.slug, depth: dir!.length }
-    }
-  }
-  return best?.slug
-}
 
 const planDir = (r: CairnPlanRow) => r.dir ?? `${r.worktree}/docs/cairn/plans/${r.state.slug}`
 /**
@@ -175,10 +160,8 @@ async function refresh($: EngineInterface): Promise<boolean> {
     if (!old.worktree || plans.some(p => p.state.slug === old.state.slug)) continue
     if (await $.fs.stat(stateFile(old)).then(() => true, () => false)) return false
   }
-  const located = hereSlug(plans, await $.session.cwd())
-  const next: CairnView = located !== undefined
-    ? { plans, here: located }
-    : { plans, here: pickCurrent(plans)?.state.slug, isFallback: true }
+  // The session's own plan only: with several plans running, a guess would show (and approve) another session's.
+  const next: CairnView = { plans, here: await ownPlan($, plans) }
   await update($, view, () => next)
   await showStatus($, next)
   const isSetUp = await hasLinear($, plans.find(p => p.state.slug === next.here)?.worktree)
@@ -479,7 +462,6 @@ export function install(on: On): void {
         </Box>
       )
       const working = cards.filter(c => c.status === 'working').length
-      const fallback = v?.isFallback ? v.plans.filter(isActive).length : undefined
       // The stop waiting on the person: a document to approve, or the read-back question open in the chat.
       const rb = await readReadBack($)
       const approve = ready !== undefined
@@ -488,21 +470,20 @@ export function install(on: On): void {
 
       if (isInline) {
         // One budget over the seven inline rows. Title and progress, paused note, approval, buttons and bar are
-        // fixed. The "Showing" line goes first, then the agents take what is left; with no room for even one
-        // agent line, the other-plans line merges into the agents' fold line.
+        // fixed. The agents take what is left; with no room for even one agent line, the other-plans line merges
+        // into the agents' fold line.
         const fixedRows = 2 + (isPaused ? 1 : 0) + (approve ? 1 : 0) + 1 + barLines.length + waitingRows
-        const showFallback = fallback !== undefined && fixedRows + 1 + othersRows + 1 + working <= INLINE_ROWS
-        const room = INLINE_ROWS - fixedRows - (showFallback ? 1 : 0) - othersRows
+        const room = INLINE_ROWS - fixedRows - othersRows
         othersFolded = room < 1
         const folded = othersFolded ? foldedLine(cx, cards, othersCount) : undefined
         const lines = folded === undefined ? agentLines(cx, main, cards, room) : []
-        const rows = fixedRows + (showFallback ? 1 : 0) + (othersFolded ? 0 : othersRows) + lines.length + (folded === undefined ? 0 : 1)
+        const rows = fixedRows + (othersFolded ? 0 : othersRows) + lines.length + (folded === undefined ? 0 : 1)
         const tip = rows < INLINE_ROWS && <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>
-        const header = planHeader(ui, row, accent, e.props.bodyColumns, t, showFallback ? fallback : undefined, working)
+        const header = planHeader(ui, row, accent, e.props.bodyColumns, t, working)
         // The merged count line sits below the buttons, where the lone other-plans line is drawn.
         return [header, approve, ...lines, tip, buttons, folded]
       }
-      const header = planHeader(ui, row, accent, e.props.bodyColumns, t, fallback, working)
+      const header = planHeader(ui, row, accent, e.props.bodyColumns, t, working)
 
       return [
         header,
@@ -537,8 +518,8 @@ export function install(on: On): void {
     // The viewer takes the tab's place; Approve is in it only while this very document waits on approval.
     const doc = isInline ? null : await readDoc($)
     if (doc !== null) {
-      // Any plan's document: Approve in the viewer goes to the plan whose document it is.
-      const owner = v?.plans.find(r => r.ready?.file === doc.file)
+      // Approve shows only on the session's own plan's document; another plan's is read here and approved in its session.
+      const owner = v?.plans.find(r => r.ready?.file === doc.file && r.state.slug === v.here)
       const waiting = owner?.ready
       const followUps = doc.kind === 'record' ? (await read($, records))?.find(x => x.record === doc.file)?.followUps.filter(f => f.status === 'open') ?? [] : []
       return frame(e, await docViewer(

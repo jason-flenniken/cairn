@@ -43,6 +43,10 @@ describe('bashVerdict', () => {
     'cat /repo/.git/cairn/mod-secret',
     'cat /repo/.git/cairn/mod-secret.sha256',
     'cd /repo/.git/cairn && cat mod-secret.sha256',
+    // A per-use proof file planted with the hash of a value the model knows.
+    'touch /repo/.git/cairn/approver-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'echo 1 > "$(git rev-parse --git-common-dir)/cairn/approver-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+    'ls .git/cairn/approver-*',
     'echo {} > /repo/.git/cairn/grants/x.json',
     'echo 99999999999999 > /repo/.git/cairn/mod-heartbeat',
     'touch "$(git rev-parse --git-common-dir)/cairn/mod-heartbeat"',
@@ -275,6 +279,7 @@ describe('path guard (FR-04)', () => {
     ['Read', { file_path: '/repo/.git/cairn/mod-secret' }],
     ['Read', { file_path: '/repo/.git/cairn/mod-secret.sha256' }],
     ['Write', { file_path: '/repo/.git/cairn/mod-secret.sha256', content: 'x' }],
+    ['Write', { file_path: '/repo/.git/cairn/approver-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', content: '1' }],
     ['Grep', { pattern: '.', path: '/repo/.git' }],
     ['Glob', { pattern: '**/*', path: '/repo/.git/cairn' }],
   ]
