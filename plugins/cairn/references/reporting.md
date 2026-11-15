@@ -36,6 +36,8 @@ Restate every subagent result in this contract's terms. Subagents run on a bound
 ## Stops
 The human stops are the PRD, the plan, and ship, plus anything red, blocked, or paused. Present a short summary (about 5 lines) and a menu through AskUserQuestion, then wait for the answer. A finished phase is not a stop: when the tests are green, say one line (what finished, the new-suggestions count) and keep going.
 
+A reply with no tool call ends your turn, so it is a stop. Put every progress line in the same reply as the next tool call. Never end a reply with "Next: …" and no call to do it.
+
 ## Refusals
 When the CLI refuses a command (exit code 2), read what it says is missing, do that, and rerun. An approval refusal is fixed and approved again, never overridden from a procedure.
 

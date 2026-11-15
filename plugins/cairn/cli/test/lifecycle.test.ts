@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileS
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
-import { hookPostEdit, hookSessionStart } from '../src/commands.ts';
+import { hookPostEdit, hookSessionStart, hookStop } from '../src/commands.ts';
 import { run } from '../src/main.ts';
 import { Refusal } from '../src/util.ts';
 import { pd } from './plandir.ts';
@@ -228,6 +228,7 @@ test('full lifecycle with every checkpoint', () => {
   write(join(planDir(), 'handoff.md'), '## In flight\nnothing\n## Open questions\nnone\n## Next action\nstart receipt\n');
   ok(wt, 'pause');
   assert.ok(state().paused);
+  assert.equal(hookStop({ cwd: wt, last_assistant_message: 'Paused. Next: I\'ll pick it up on resume.' }), '', 'a paused plan may stop');
   assert.match(ok(wt, 'next').data!.procedure as string, /procedures\/resume\.md$/);
   assert.equal((ok(wt, 'ready').data!.ready as unknown[]).length, 0);
   refused(wt, /paused/, 'task', 'start', 'receipt');
@@ -239,6 +240,15 @@ test('full lifecycle with every checkpoint', () => {
   // session start hook sees the plan from the plan worktree, and the index from main
   assert.match(ctxOf(hookSessionStart({ cwd: wt })), /Billing \(billing\): Build · phase 2\/2/);
   assert.match(ctxOf(hookSessionStart({ cwd: repo })), /1 active plan/);
+
+  // stop hook: a mid-plan reply that announces the next step is sent on, once; answers and questions are not
+  const said = (m: string, extra = {}) => hookStop({ cwd: wt, last_assistant_message: m, ...extra });
+  assert.equal(JSON.parse(said('Plan set up.\n\nNext: I\'m reading the discovery steps and will begin the interview.')).decision, 'block');
+  assert.equal(JSON.parse(said('Nothing is blocking. Starting it now.')).decision, 'block');
+  assert.equal(said('Next: I\'m reading the discovery steps.', { stop_hook_active: true }), '');
+  assert.equal(said('Which option do you want? Next: I\'ll start once you pick?'), '');
+  assert.equal(said('The refund path retries twice, see src/refund.ts:40.'), '');
+  assert.equal(hookStop({ cwd: repo, last_assistant_message: 'Next: I\'ll start.' }), '', 'main is not a plan worktree');
   const all = ok(repo, 'status', '--all');
   assert.match(all.message, /Billing/);
   assert.match(ok(repo, 'next').data!.procedure as string, /status\.md$/);

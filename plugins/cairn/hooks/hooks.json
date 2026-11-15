@@ -7,6 +7,11 @@
         "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/cli/bin/cairn\" hook session-start" }]
       }
     ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/cli/bin/cairn\" hook stop" }]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit",

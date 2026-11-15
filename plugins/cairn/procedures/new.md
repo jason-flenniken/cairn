@@ -95,6 +95,6 @@ Confirm with `cd <plan worktree> && cairn status --json` that the stage is `disc
 **Done when:** the user has the worktree path and the stage is `discover`.
 
 ## 7. Continue
-Tell the user in one line that the plan exists and discovery starts. Run `cd <plan worktree> && cairn next --json` and follow the procedure it names (discover).
+Tell the user in one line that the plan exists and discovery starts. Run `cd <plan worktree> && cairn next --json` and follow the procedure it names (discover). The setup report is not a stop: send it in the same reply as your next tool call.
 
 **Done when:** the discover procedure is running.

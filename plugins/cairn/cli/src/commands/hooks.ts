@@ -21,6 +21,10 @@ interface HookInput {
   tool_name?: string;
   /** Claude Code: `file_path` / `notebook_path`. Codex: `command` holds the shell command, or the apply_patch text. */
   tool_input?: { file_path?: string; notebook_path?: string; command?: unknown; cmd?: unknown };
+  /** Stop: true when this turn already continued because of a Stop hook. */
+  stop_hook_active?: boolean;
+  last_assistant_message?: string;
+  transcript_path?: string;
 }
 
 /** Codex sets PLUGIN_ROOT for plugin hooks (Claude Code sets only CLAUDE_PLUGIN_ROOT): the host has no cairn mod. */
@@ -140,6 +144,48 @@ export function hookSessionStart(input: HookInput): string {
     return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(' and ')}; run \`cairn migrate\` on main to move them.` : '', indexFor(ctx));
   }
   return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), 'The user can resume one with /cairn:resume <slug> or start another with /cairn:new.'].join('\n'), indexFor(ctx));
+}
+
+/** A reply that says it is about to do the next step: "Next: I'm reading…", "Starting it now", "I'll begin the interview". */
+const ANNOUNCES = [
+  /(^|\n)\s*(\*\*)?Next(:\*\*|\*\*:|:)\s*(I|I'm|I'll|I am|I will|we'll|we will|starting|running|reading|dispatching|moving|continuing|beginning|opening)\b/i,
+  /\b(I'll|I will|I'm going to|Let me)\s+(now\s+)?(start|begin|continue|move|run|read|dispatch|kick off|open)\b/i,
+  /\b(Starting|Continuing|Moving on|Kicking off|Beginning)\b[^.\n]*\bnow\b/i,
+];
+
+/** The last assistant text of the turn: from the Stop input when the host sends it, else the tail of the transcript. */
+function lastAssistantText(input: HookInput): string {
+  if (typeof input.last_assistant_message === 'string') return input.last_assistant_message;
+  if (!input.transcript_path || !existsSync(input.transcript_path)) return '';
+  const lines = readFileSync(input.transcript_path, 'utf8').trimEnd().split('\n');
+  for (let i = lines.length - 1; i >= 0 && i >= lines.length - 50; i--) {
+    try {
+      const row = JSON.parse(lines[i]);
+      if (row.type !== 'assistant') continue;
+      const content = row.message?.content;
+      const text = Array.isArray(content) ? content.filter((b: { type?: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('\n') : '';
+      if (text) return text;
+    } catch {}
+  }
+  return '';
+}
+
+/**
+ * Stop: a turn that ends on a reply announcing the next step ("Next: I'm reading the discover steps…") while a plan is
+ * mid-flight is the model stopping by accident, since a reply with no tool call ends the turn. Send it on, once.
+ */
+export function hookStop(input: HookInput): string {
+  if (input.stop_hook_active) return '';
+  const ctx = context(input.cwd ?? process.cwd());
+  if (!ctx.plan?.dir || !existsSync(join(ctx.plan.dir, 'state.json'))) return '';
+  const s = loadState(ctx.plan.dir);
+  if (s.stage === 'closed' || s.paused) return '';
+  const text = lastAssistantText(input).trim();
+  if (!text || text.endsWith('?') || !ANNOUNCES.some((re) => re.test(text))) return '';
+  return JSON.stringify({
+    decision: 'block',
+    reason: 'cairn: your reply said what comes next but ended the turn, and a reply with no tool call is a stop. Do that step now: run `cairn next --json` and follow the procedure it names. If you are waiting on the user, ask with AskUserQuestion instead.',
+  });
 }
 
 export function hookPostEdit(input: HookInput): string {
