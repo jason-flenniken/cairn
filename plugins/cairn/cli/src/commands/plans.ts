@@ -39,6 +39,8 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   if (typeof opts.level === 'string' && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(', ')}`);
   const badDefault = cfg.defaultLevel !== undefined && !isLevel(cfg.defaultLevel);
   const level: Level = typeof opts.level === 'string' ? (opts.level as Level) : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : 'standard';
+  if (opts.proofs && opts['no-proofs']) throw new CliError('use --proofs or --no-proofs, not both');
+  const proofs = opts.proofs ? true : opts['no-proofs'] ? false : cfg.proofs === 'on';
 
   let wt: string;
   if (opts['no-worktree']) {
@@ -60,7 +62,9 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   state.cairnVersion = pluginVersion();
   if (stackedOn) state.stackedOn = stackedOn;
   if (track === 'feature') {
-    if (cfg.proofs === 'required') state.endProofs = { required: true, list: [], notProvable: [] };
+    // Proofs are chosen per plan at the start: --proofs or --no-proofs, else the repo's default.
+    if (proofs) state.endProofs = { required: true, list: [], notProvable: [] };
+    log(state, 'proofs', proofs ? 'on' : 'off');
     state.level = level;
     log(state, 'level', level);
   }
@@ -72,9 +76,10 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
       `Started plan "${title}" on ${branch} (from ${base}${stackedOn ? `, stacked on plan ${stackedOn.slug}` : ''}).${setup}`,
       ...(badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(', ')}; using standard.`] : []),
       `Worktree: ${wt}`,
+      ...(track === 'feature' ? [proofs ? 'Proofs: on. The plan approval needs runnable proofs of the end state, seen failing.' : 'Proofs: off.'] : []),
       `The plan is ready. Continue with /cairn:next from where you are.`,
     ].join('\n'),
-    data: { slug, branch, base, worktree: wt, dir, level: track === 'feature' ? level : null, ...(stackedOn ? { stackedOn } : {}) },
+    data: { slug, branch, base, worktree: wt, dir, level: track === 'feature' ? level : null, proofs: track === 'feature' ? proofs : null, ...(stackedOn ? { stackedOn } : {}) },
   };
 }
 

@@ -10422,7 +10422,7 @@ function filesHash(worktree, files) {
   }
   return h.digest("hex").slice(0, 16);
 }
-var proofsRequired = (s) => !!s.endProofs?.required && s.track === "feature" && levelOf(s) !== "mvp";
+var proofsRequired = (s) => !!s.endProofs?.required && s.track === "feature";
 var proofsActive = (s) => proofsRequired(s) || !!s.endProofs?.list.length;
 var lockedFiles = (ep) => [...new Set((ep?.list ?? []).filter((p) => p.lock).flatMap((p) => p.files))];
 var tasksFor = (p, tasks) => tasks.filter((t) => t.covers.some((c) => p.covers.includes(c)));
@@ -11975,6 +11975,8 @@ function cmdNew(ctx, slug, opts) {
   if (typeof opts.level === "string" && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(", ")}`);
   const badDefault = cfg.defaultLevel !== void 0 && !isLevel(cfg.defaultLevel);
   const level = typeof opts.level === "string" ? opts.level : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : "standard";
+  if (opts.proofs && opts["no-proofs"]) throw new CliError("use --proofs or --no-proofs, not both");
+  const proofs = opts.proofs ? true : opts["no-proofs"] ? false : cfg.proofs === "on";
   let wt;
   if (opts["no-worktree"]) {
     git(["switch", "-q", "-c", branch, base2], ctx.top);
@@ -11997,7 +11999,8 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   state.cairnVersion = pluginVersion();
   if (stackedOn) state.stackedOn = stackedOn;
   if (track === "feature") {
-    if (cfg.proofs === "required") state.endProofs = { required: true, list: [], notProvable: [] };
+    if (proofs) state.endProofs = { required: true, list: [], notProvable: [] };
+    log(state, "proofs", proofs ? "on" : "off");
     state.level = level;
     log(state, "level", level);
   }
@@ -12009,9 +12012,10 @@ Append-only. Written by \`cairn decide\` as each decision is made.
       `Started plan "${title}" on ${branch} (from ${base2}${stackedOn ? `, stacked on plan ${stackedOn.slug}` : ""}).${setup}`,
       ...badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(", ")}; using standard.`] : [],
       `Worktree: ${wt}`,
+      ...track === "feature" ? [proofs ? "Proofs: on. The plan approval needs runnable proofs of the end state, seen failing." : "Proofs: off."] : [],
       `The plan is ready. Continue with /cairn:next from where you are.`
     ].join("\n"),
-    data: { slug, branch, base: base2, worktree: wt, dir, level: track === "feature" ? level : null, ...stackedOn ? { stackedOn } : {} }
+    data: { slug, branch, base: base2, worktree: wt, dir, level: track === "feature" ? level : null, proofs: track === "feature" ? proofs : null, ...stackedOn ? { stackedOn } : {} }
   };
 }
 function cmdProductInit(ctx) {
@@ -13438,7 +13442,7 @@ function driftFor(file, cwd) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links", "claim", "again", "force", "here"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links", "claim", "again", "force", "here", "proofs", "no-proofs"]);
 var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];
@@ -13478,7 +13482,7 @@ ${v}` : v;
   return { pos, opts };
 }
 var USAGE5 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
-  next | status [--all] [--json [--full]] | new <slug> --title "\u2026" [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
+  next | status [--all] [--json [--full]] | new <slug> --title "\u2026" [--level \u2026] [--proofs | --no-proofs] [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers \u2026 --run "\u2026" --files \u2026
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all

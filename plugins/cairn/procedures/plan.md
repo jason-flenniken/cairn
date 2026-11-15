@@ -8,7 +8,7 @@ Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run 
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
-- Proofs: run step 2a whenever `cairn status --json` shows `state.endProofs.required` (the repo's config sets `"proofs": "required"`; MVP never requires them). Otherwise skip it unless the user asks for proofs.
+- Proofs: run step 2a whenever `cairn status --json` shows `state.endProofs.required` (the user chose proofs when the plan started). Otherwise skip it unless the user asks for proofs now; a plan that loads `proofs.md` enforces them from then on.
 - MVP: few, large vertical tasks, usually one phase, no Test cases lists; risky tasks still get `risky: true`, and the writer files the areas it leaves untested with `cairn suggest add --kind hardening --area tests --from plan --where <glob> --text "<what to cover and why>"`. Tell the writer the level in the brief; it holds the rules.
 - Standard: as written below.
 - Polished: every task lists Test cases, each naming the failure mode it pins, and step 4 runs the `plan-reviewer` fresh read.

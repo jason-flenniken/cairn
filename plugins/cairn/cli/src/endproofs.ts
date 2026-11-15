@@ -3,7 +3,6 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
 import { parse } from 'yaml';
 import { ids, sections } from './sections.ts';
-import { levelOf } from './state.ts';
 import type { EndProof, EndProofs, State, Task } from './types.ts';
 
 /**
@@ -104,8 +103,8 @@ export function filesHash(worktree: string, files: string[]): string {
   return h.digest('hex').slice(0, 16);
 }
 
-/** Proofs are enforced on plans created with them required (Standard and Polished), or on any plan that loaded some. */
-export const proofsRequired = (s: State): boolean => !!s.endProofs?.required && s.track === 'feature' && levelOf(s) !== 'mvp';
+/** Proofs are enforced on plans started with proofs on (chosen at `cairn new`), or on any plan that loaded some. */
+export const proofsRequired = (s: State): boolean => !!s.endProofs?.required && s.track === 'feature';
 export const proofsActive = (s: State): boolean => proofsRequired(s) || !!s.endProofs?.list.length;
 
 /** Every file a locked proof owns. */

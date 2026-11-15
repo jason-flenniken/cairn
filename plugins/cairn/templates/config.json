@@ -10,5 +10,5 @@
   "autoCommit": true,
   "audit": "",
   "defaultLevel": "standard",
-  "proofs": "required"
+  "proofs": "on"
 }

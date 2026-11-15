@@ -404,10 +404,11 @@ export interface Config {
   /** How long one test run may take before it is stopped and reported as timed out. Default 30. */
   testTimeoutMinutes?: number;
   /**
-   * "required": new feature plans at Standard and Polished need end-state proofs (proofs.md) before the plan approval.
-   * Unset or "optional": proofs are enforced only on a plan that loads some.
+   * Whether new feature plans prove their end state when `cairn new` gets neither --proofs nor --no-proofs, and the
+   * answer /cairn:new recommends: "on" or "off". A plan with proofs on needs proofs.md, seen failing, before the plan
+   * approval. A plan with proofs off still enforces any proofs it loads.
    */
-  proofs?: 'required' | 'optional';
+  proofs?: 'on' | 'off';
   /** The level `/cairn:new` pre-selects: mvp, standard or polished. Standard when unset. */
   defaultLevel?: string;
   /** Opt-in Linear link. Without it, nothing Linear-related runs. */

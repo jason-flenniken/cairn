@@ -88,13 +88,13 @@ before(() => {
   repo = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-proofs-')));
   g(repo, 'init', '-q', '-b', 'main');
   write(join(repo, 'README.md'), 'hi\n');
-  write(join(repo, '.cairn/config.json'), JSON.stringify({ test: 'true', maxParallel: 3, proofs: 'required' }));
+  write(join(repo, '.cairn/config.json'), JSON.stringify({ test: 'true', maxParallel: 3 }));
   commit(repo, 'init');
 });
 after(() => rmSync(repo, { recursive: true, force: true }));
 
 test('proofs: required before the plan approval, seen red, locked, add-only, and green before check and ship', () => {
-  const wt = ok(repo, 'new', 'shop', '--title', 'Shop').data!.worktree as string;
+  const wt = ok(repo, 'new', 'shop', '--title', 'Shop', '--proofs').data!.worktree as string;
   const dir = pd(wt, 'shop');
   const state = () => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
   assert.equal(state().endProofs.required, true);
@@ -190,4 +190,22 @@ test('parseProofs: not provable needs a reason, deferred requirements need no pr
   assert.match(parseProofs(md('    shots: [cart]\n'), prd, plan, repo).problems.join(), /needs `look`/);
   assert.match(parseProofs(md('    expect: fail\n'), prd, plan, repo).problems.join(), /`expect` can only be "pass"/);
   assert.match(parseProofs(md('').replace('README.md', '../etc/passwd'), prd, plan, repo).problems.join(), /must be a path inside the repo/);
+});
+
+test('proofs are chosen per plan at the start: --proofs, --no-proofs, else the repo default; any level may opt in', () => {
+  const st = (wt: string, slug: string) => JSON.parse(readFileSync(join(pd(wt, slug), 'state.json'), 'utf8'));
+  const mvp = ok(repo, 'new', 'tiny', '--level', 'mvp', '--proofs');
+  assert.match(mvp.message, /Proofs: on/);
+  assert.equal(mvp.data!.proofs, true);
+  assert.equal(st(mvp.data!.worktree as string, 'tiny').endProofs.required, true, 'an MVP plan can opt in');
+  const off = ok(repo, 'new', 'plain');
+  assert.equal(off.data!.proofs, false);
+  assert.equal(st(off.data!.worktree as string, 'plain').endProofs, undefined);
+  assert.throws(() => ok(repo, 'new', 'both', '--proofs', '--no-proofs'), /not both/);
+  assert.equal(ok(repo, 'new', 'fixit', '--track', 'fix', '--proofs').data!.proofs, null, 'a fix plan has no proofs: its repro is the proof');
+
+  write(join(repo, '.cairn/config.json'), JSON.stringify({ test: 'true', maxParallel: 3, proofs: 'on' }));
+  commit(repo, 'proofs on by default');
+  assert.equal(ok(repo, 'new', 'dflt').data!.proofs, true);
+  assert.equal(ok(repo, 'new', 'optout', '--no-proofs').data!.proofs, false);
 });
