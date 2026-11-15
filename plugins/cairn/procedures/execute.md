@@ -2,7 +2,7 @@
 
 Orchestrate the current phase: start every ready task, build it, review it, merge it, repeat until the phase has no remaining tasks.
 
-Talk to the user per `references/reporting.md`; model choices follow `references/model-tiers.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
+Talk to the user per `references/reporting.md`; model choices follow `references/model-tiers.md`. The build runs without asking: read `references/autonomy.md` once. It says what you decide alone, when a task is set aside, and the one stop. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
 **Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, run `cd <plan worktree> && cairn step clear`; Build has no other step.
 
@@ -75,19 +75,23 @@ An implementer's final message is five lines: `Status`, `Commits`, `Tests`, `Con
 Only Critical and Required findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing --note "fixing classes: <class>, <class>"` (the classes come from the `FIX` line), so the plan log keeps which kinds of mistake needed fixing. Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
 - Run `cd <plan worktree> && cairn task brief <id> --role fix`. Its `Builder:` line names the model for the fix (the last attempt is one tier up). It writes the must-fix findings, grouped by class, with their proposed fixes (and the last red test run, when there is one). Send the brief path to the same implementer with SendMessage, or dispatch a fresh implementer on the same worktree when the old one has ended or the `Builder:` line names a different model than the original build (a running agent cannot change model), `description` "Fix · <task name>". Tell it in one line to fix each class everywhere in the task's scope, not only at the lines cited, and to list the other places it fixed.
 - When it ends, run `cd <plan worktree> && cairn task report <id> <report path>`, then re-review once with the reviewer that raised the findings (both when both did): `cd <plan worktree> && cairn task brief <id> --role review --again` (or `security`). It lists the earlier must-fix findings and writes to the same report path as the first review. Dispatch the reviewer with the brief path (when the brief output has a `Reviewer:` line, pass its `effort` on the Agent call), then `cd <plan worktree> && cairn review record <id> <report path>`; recording replaces the old must-fix findings.
-- When a Critical or Required finding is still open after that attempt (or the CLI refuses another), stop work on the task and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Re-plan this task / Pause.
+- When a Critical or Required finding is still open after that attempt (or the CLI refuses another), set the task aside (`references/autonomy.md`): `cd <plan worktree> && cairn task step <id> blocked --note "set aside: <finding>; tried: <fixes>; question: <recommended next step>"`. Keep building the other tasks. The question waits for the one stop in step 8.
 
-**Done when:** the task passed, or the user chose how to proceed.
+**Done when:** the task passed, or it is set aside.
 
 ## 7. Merge
 When the task is ready to merge: run `cd <plan worktree> && cairn task step <id> merging`, then `cd <plan worktree> && cairn task merge <id>`. It merges the task branch into the plan branch, runs the repo's checks and tests, and cleans up. Docs-only conflicts are settled by the CLI.
 
 Anything else (a refusal, a conflict outside `docs/cairn/`, red tests after the merge): read `procedures/execute-cases.md`.
 
+**Proposed proofs.** When the implementer's report proposes a proof (its Concerns line names one: an id, the requirements, the command, the files), and the merge brought the files onto the plan branch, add it: `cd <plan worktree> && cairn prove add <id> --covers <FR ids> --run "<command>" --files <paths> --note "<the case it checks>"`. It is locked at once and listed at ship. Never use this to replace a proof.
+
 **Done when:** `cairn task merge <id>` exits 0. Report in 1-3 lines: the task, the test count, what starts next.
 
 ## 8. Loop
 After every completion, return to step 3. Make the pause check between rounds.
+
+When `cairn ready` is empty, no agent is running, and a task is set aside (`blocked`), this is the one stop: ask about every set-aside task and held question together, as `references/autonomy.md` describes, then act on the answers and return to step 3.
 
 When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks. Run `cd <plan worktree> && cairn next --json`, follow the procedure it names (phase-end for a feature plan, review for a fix plan).
 

@@ -97,9 +97,18 @@ function planSummary(s: State, planMd?: string, cfg?: Config): string {
     // A bad Linear setting shows as a status warning; the card still shows.
   }
   const approach = foundational ? chosenApproach(planMd) : undefined;
-  return (approach ? `**Approach:** ${approach}\n\n` : '') + s.phases
+  return (approach ? `**Approach:** ${approach}\n\n` : '') + doneWhen(s) + s.phases
     .flatMap((ph, i) => [`${i + 1}. **${ph.name}**`, ...ph.tasks.map((t) => `   - ${t.name} (${t.complexity})${t.risky ? ' risky' : ''}`)])
     .join('\n');
+}
+
+/** The plan card's end state: the proofs that lock with this approval. */
+function doneWhen(s: State): string {
+  const ep = s.endProofs;
+  if (!ep?.list.length) return '';
+  const lines = ep.list.map((p) => `- ${p.id} (${p.covers.join(', ')}): \`${p.run}\`${p.shots?.length ? `; screenshots judged: ${p.look}` : ''}${p.expect === 'pass' ? ' (guard, already green)' : ''}`);
+  const np = ep.notProvable.map((n) => `- ${n.id}: not provable by a run (${n.reason})`);
+  return ['**Done when these pass** (locked at this approval; the build runs until they do):', ...lines, ...np, '', ''].join('\n');
 }
 
 /** True when prd.md no longer matches the text the user approved. */

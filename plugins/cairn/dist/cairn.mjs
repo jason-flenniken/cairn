@@ -7261,7 +7261,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse4(src, reviver, options) {
+    function parse5(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7302,7 +7302,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse4;
+    exports.parse = parse5;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
     exports.stringify = stringify;
@@ -7362,7 +7362,7 @@ var require_dist = __commonJS({
 });
 
 // plugins/cairn/cli/src/main.ts
-import { readFileSync as readFileSync9 } from "node:fs";
+import { readFileSync as readFileSync11 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
 
 // plugins/cairn/cli/src/locate.ts
@@ -8397,23 +8397,23 @@ function template(name) {
 }
 
 // plugins/cairn/cli/src/commands/plans.ts
-import { existsSync as existsSync11, readFileSync as readFileSync7 } from "node:fs";
-import { join as join18, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync13, readFileSync as readFileSync9 } from "node:fs";
+import { join as join20, resolve as resolve2 } from "node:path";
 
 // plugins/cairn/cli/src/commands/memory.ts
-import { join as join17 } from "node:path";
+import { join as join19 } from "node:path";
 
 // plugins/cairn/cli/src/memory.ts
-import { existsSync as existsSync10 } from "node:fs";
-import { basename as basename4, join as join16, posix as posix2 } from "node:path";
+import { existsSync as existsSync12 } from "node:fs";
+import { basename as basename4, join as join18, posix as posix2 } from "node:path";
 
 // plugins/cairn/cli/src/commands/records.ts
-import { existsSync as existsSync9, readdirSync as readdirSync7 } from "node:fs";
-import { basename as basename3, dirname as dirname4, join as join15 } from "node:path";
+import { existsSync as existsSync11, readdirSync as readdirSync7 } from "node:fs";
+import { basename as basename3, dirname as dirname4, join as join17 } from "node:path";
 
 // plugins/cairn/cli/src/commands/status.ts
-import { existsSync as existsSync8, readFileSync as readFileSync6 } from "node:fs";
-import { join as join14, relative as relative3 } from "node:path";
+import { existsSync as existsSync10, readFileSync as readFileSync8 } from "node:fs";
+import { join as join16, relative as relative3 } from "node:path";
 
 // plugins/cairn/cli/src/usage.ts
 import { existsSync as existsSync3, mkdirSync as mkdirSync3, readdirSync as readdirSync2, readFileSync as readFileSync5, renameSync as renameSync3 } from "node:fs";
@@ -8517,8 +8517,8 @@ function renderUsage(root) {
 }
 
 // plugins/cairn/cli/src/commands/merge.ts
-import { existsSync as existsSync6, readdirSync as readdirSync6 } from "node:fs";
-import { join as join11, relative as relative2 } from "node:path";
+import { existsSync as existsSync7, readdirSync as readdirSync6 } from "node:fs";
+import { join as join12, relative as relative2 } from "node:path";
 
 // plugins/cairn/cli/src/commands/linear.ts
 import { existsSync as existsSync4, readdirSync as readdirSync4 } from "node:fs";
@@ -10300,8 +10300,8 @@ function mergedPlansAwaitingDone(ctx) {
 var pendingCount = (s) => due(s.linear).filter((w) => !claimedNow(w)).length;
 
 // plugins/cairn/cli/src/commands/brief.ts
-import { existsSync as existsSync5, mkdirSync as mkdirSync4, readdirSync as readdirSync5, writeFileSync as writeFileSync3 } from "node:fs";
-import { basename as basename2, dirname as dirname3, join as join10, resolve } from "node:path";
+import { existsSync as existsSync6, mkdirSync as mkdirSync4, readdirSync as readdirSync5, writeFileSync as writeFileSync3 } from "node:fs";
+import { basename as basename2, dirname as dirname3, join as join11, resolve } from "node:path";
 
 // plugins/cairn/cli/src/builder.ts
 var MAX_FIX_ROUNDS = 2;
@@ -10340,28 +10340,119 @@ function branchReviewerOf(s, tasks) {
   return { model: "sonnet", effort: "high", reason: "a small plan with no complex task" };
 }
 
+// plugins/cairn/cli/src/endproofs.ts
+var import_yaml = __toESM(require_dist(), 1);
+import { createHash as createHash3 } from "node:crypto";
+import { existsSync as existsSync5, readFileSync as readFileSync6, statSync as statSync2 } from "node:fs";
+import { isAbsolute, join as join10, normalize as normalize2 } from "node:path";
+var BLOCK = /```ya?ml\s+cairn-proofs\s*\n([\s\S]*?)```/;
+var ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var strList = (v) => Array.isArray(v) && v.every((x) => typeof x === "string") ? v : void 0;
+var safePath = (p) => !!p && !isAbsolute(p) && !normalize2(p).split(/[\\/]/).includes("..");
+var prdIds = (prdMd) => {
+  const sec = sections(prdMd);
+  return ids(sec.get("requirements") ?? sec.get("functional requirements"));
+};
+function parseProofs(md, prdMd, planMd, worktree) {
+  const problems = [];
+  const block = md.match(BLOCK)?.[1];
+  if (!block) return { list: [], notProvable: [], problems: ["proofs.md has no ```yaml cairn-proofs block"] };
+  let doc;
+  try {
+    doc = (0, import_yaml.parse)(block);
+  } catch (e) {
+    return { list: [], notProvable: [], problems: [`cairn-proofs YAML does not parse: ${e.message}`] };
+  }
+  const raw = doc?.proofs;
+  if (!Array.isArray(raw)) return { list: [], notProvable: [], problems: ["cairn-proofs needs a `proofs:` list"] };
+  const reqs = new Set(prdIds(prdMd));
+  const seen = /* @__PURE__ */ new Set();
+  const list3 = [];
+  raw.forEach((r, i) => {
+    const id = String(r?.id ?? "");
+    const where = `proof "${id || `#${i + 1}`}"`;
+    if (!ID.test(id)) problems.push(`${where}: id must be kebab-case`);
+    if (seen.has(id)) problems.push(`proof id "${id}" is used twice`);
+    seen.add(id);
+    const covers = strList(r?.covers);
+    if (!covers?.length) problems.push(`${where}: \`covers\` must list the requirement ids it proves, like [FR-01]`);
+    for (const c of covers ?? []) if (!reqs.has(c)) problems.push(`${where}: covers ${c}, which is not a requirement in prd.md`);
+    const run2 = typeof r?.run === "string" ? r.run.trim() : "";
+    if (!run2) problems.push(`${where}: \`run\` must be the command that runs it`);
+    const files = strList(r?.files);
+    if (!files?.length) problems.push(`${where}: \`files\` must list the proof's code, like [proofs/checkout.spec.ts]`);
+    for (const f of files ?? []) {
+      if (!safePath(f)) problems.push(`${where}: file "${f}" must be a path inside the repo`);
+      else if (!existsSync5(join10(worktree, f))) problems.push(`${where}: file ${f} does not exist in the plan worktree (write and commit it first)`);
+    }
+    const shots = r?.shots === void 0 ? void 0 : strList(r.shots);
+    if (r?.shots !== void 0 && (!shots || shots.some((x) => !ID.test(x)))) problems.push(`${where}: \`shots\` must be a list of kebab-case screenshot names, like [cart, confirm]`);
+    const look = typeof r?.look === "string" ? r.look.trim() : "";
+    if (shots?.length && !look) problems.push(`${where}: a proof with shots needs \`look\`: what the screenshots must show, or the path of the approved mockup`);
+    if (r?.expect !== void 0 && r.expect !== "pass") problems.push(`${where}: \`expect\` can only be "pass" (a guard proof, green from the start)`);
+    list3.push({
+      id,
+      covers: covers ?? [],
+      run: run2,
+      files: files ?? [],
+      ...shots?.length ? { shots, look } : {},
+      ...r?.expect === "pass" ? { expect: "pass" } : {}
+    });
+  });
+  const notProvable = [];
+  for (const line of (sections(md).get("not provable") ?? "").split("\n")) {
+    const m = line.match(/^\s*[-*]\s+(FR-\d+)\s*[:—-]\s*(.*)$/);
+    if (!m) continue;
+    if (!m[2].trim() || /^<.*>$/.test(m[2].trim())) problems.push(`${m[1]} is listed as not provable with no reason`);
+    else notProvable.push({ id: m[1], reason: m[2].trim() });
+  }
+  const covered = /* @__PURE__ */ new Set([...list3.flatMap((p) => p.covers), ...notProvable.map((n) => n.id)]);
+  const deferred = new Set(ids(sections(planMd).get("deferred requirements")));
+  const open = [...reqs].filter((r) => !covered.has(r) && !deferred.has(r));
+  if (open.length) problems.push(`no proof covers ${open.join(", ")}: add a proof, or list it under ## Not provable with a reason`);
+  return { list: list3, notProvable, problems };
+}
+function filesHash(worktree, files) {
+  const h = createHash3("sha256");
+  for (const f of [...files].sort()) {
+    const p = join10(worktree, f);
+    h.update(`${f}\0`);
+    h.update(existsSync5(p) && statSync2(p).isFile() ? readFileSync6(p) : "<missing>");
+    h.update("\0");
+  }
+  return h.digest("hex").slice(0, 16);
+}
+var proofsRequired = (s) => !!s.endProofs?.required && s.track === "feature" && levelOf(s) !== "mvp";
+var proofsActive = (s) => proofsRequired(s) || !!s.endProofs?.list.length;
+var lockedFiles = (ep) => [...new Set((ep?.list ?? []).filter((p) => p.lock).flatMap((p) => p.files))];
+var tasksFor = (p, tasks) => tasks.filter((t) => t.covers.some((c) => p.covers.includes(c)));
+var isDue = (p, tasks) => tasksFor(p, tasks).every((t) => t.status === "done");
+function proofsOfTask(ep, t, tasks) {
+  return (ep?.list ?? []).filter((p) => t.covers.some((c) => p.covers.includes(c))).map((proof) => ({ proof, waitsOn: tasksFor(proof, tasks).filter((x) => x.id !== t.id && x.status !== "done") }));
+}
+
 // plugins/cairn/cli/src/commands/brief.ts
 var ROLES = ["build", "review", "security", "fix"];
 function workDir(pc) {
-  const root = join10(pc.plan.worktree, CAIRN_DIR, "work");
-  const dir = join10(root, pc.plan.slug);
+  const root = join11(pc.plan.worktree, CAIRN_DIR, "work");
+  const dir = join11(root, pc.plan.slug);
   ensureExcluded(pc.ctx.mainRoot, `${CAIRN_DIR}/work/`);
   excludeScratch(pc.ctx.mainRoot);
-  for (const sub of ["briefs", "reports", "research"]) mkdirSync4(join10(dir, sub), { recursive: true });
-  const ignore = join10(root, ".gitignore");
-  if (!existsSync5(ignore)) writeFileSync3(ignore, "*\n");
+  for (const sub of ["briefs", "reports", "research"]) mkdirSync4(join11(dir, sub), { recursive: true });
+  const ignore = join11(root, ".gitignore");
+  if (!existsSync6(ignore)) writeFileSync3(ignore, "*\n");
   return dir;
 }
 function workDirIfUsed(worktree, slug) {
-  const dir = join10(worktree, CAIRN_DIR, "work", slug);
+  const dir = join11(worktree, CAIRN_DIR, "work", slug);
   try {
-    const used = ["briefs", "reports", "research"].some((sub) => readdirSync5(join10(dir, sub)).length > 0);
+    const used = ["briefs", "reports", "research"].some((sub) => readdirSync5(join11(dir, sub)).length > 0);
     return used ? dir : void 0;
   } catch {
     return void 0;
   }
 }
-var reportPath = (pc, task, role) => join10(workDir(pc), "reports", `${task}-${role}.md`);
+var reportPath = (pc, task, role) => join11(workDir(pc), "reports", `${task}-${role}.md`);
 function taskSection(planMd, id) {
   const lines = planMd.split("\n");
   let start = -1;
@@ -10418,6 +10509,27 @@ function securityBlock(pc) {
   return ["## PRD security section", "", body || "(the PRD has no Security section: review against the security checklist alone)", ""];
 }
 var priorMustFix = (sl, report) => (sl.mustFix ?? []).filter((x) => x.report === report);
+function proofsBlock(s, sl) {
+  const mine = proofsOfTask(s.endProofs, sl, allTasks(s));
+  if (!mine.length) return [];
+  return [
+    "## Proofs this task answers for",
+    "",
+    "These runnable checks define done. Their files are locked: never edit, move or delete them (a merge that touches one is refused). Build until they pass.",
+    `Run them in your worktree, without recording: \`cairn prove --here --task ${sl.id}\` (screenshots land in the folder it prints).`,
+    'If you find a case no proof checks, write the check in a new file and name it under Concerns as "Proposed proof: <id> covers <FR ids>, run <command>, files <paths>".',
+    "",
+    ...mine.map(
+      ({ proof: p, waitsOn }) => [
+        `- **${p.id}** (${p.covers.join(", ")}): \`${p.run}\``,
+        `  Files: ${p.files.join(", ")}`,
+        ...p.shots?.length ? [`  Screenshots: ${p.shots.join(", ")}; they must show: ${p.look}`] : [],
+        ...waitsOn.length ? [`  Also needs task${waitsOn.length === 1 ? "" : "s"} ${waitsOn.map((t) => t.id).join(", ")}: it may stay red until ${waitsOn.length === 1 ? "that one merges" : "they merge"}; make your part pass.`] : []
+      ].join("\n")
+    ),
+    ""
+  ];
+}
 function buildBrief(pc, s, sl, role, again = false) {
   const b = taskBits(pc, s, sl);
   const report = reportPath(pc, sl.id, role);
@@ -10463,6 +10575,7 @@ function buildBrief(pc, s, sl, role, again = false) {
       }
     }
   }
+  if (role === "build" || role === "fix") parts.push(...proofsBlock(s, sl));
   parts.push("## Report", "", `Write your full report to: ${report}`);
   return { text: parts.join("\n") + "\n", report };
 }
@@ -10471,7 +10584,7 @@ function writeBrief(pc, id, role, again = false) {
   const sl = findTask(s, id);
   if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
   const { text, report } = buildBrief(pc, s, sl, role, again);
-  const path = join10(workDir(pc), "briefs", `${id}-${role}${again ? "-again" : ""}.md`);
+  const path = join11(workDir(pc), "briefs", `${id}-${role}${again ? "-again" : ""}.md`);
   writeFileSync3(path, text);
   return { path, report, name: sl.name, builder: builderOf(s, sl, role === "fix" ? sl.fixRound : 0) };
 }
@@ -10492,7 +10605,7 @@ ${builderLine(r.builder)}` : ""}${lean ? "\nReviewer: sonnet, effort default \u2
 var FAILING = /\b(?:fail(?:ed|ing|ure)?|error)\b|✗|✖|^not ok\b/i;
 var failingLines = (output) => output.split("\n").filter((l) => FAILING.test(l)).slice(0, 5).map((l) => l.length > 200 ? `${l.slice(0, 199)}\u2026` : l);
 function testLog(pc, output) {
-  const path = join10(workDir(pc), "reports", "tests.log");
+  const path = join11(workDir(pc), "reports", "tests.log");
   mkdirSync4(dirname3(path), { recursive: true });
   writeFileSync3(path, `${output}
 `);
@@ -10833,7 +10946,7 @@ var TASK_MERGE = /^merge task (\S+)/;
 function planByPr(root, pr) {
   for (const dir of plansDirsIn(root))
     for (const name of readdirSync6(dir))
-      if (new RegExp(`^- PR: \\S*/pull/${pr}(?!\\d)`, "m").test(readText(join11(dir, name, "RECORD.md")) ?? "")) return relative2(root, join11(dir, name));
+      if (new RegExp(`^- PR: \\S*/pull/${pr}(?!\\d)`, "m").test(readText(join12(dir, name, "RECORD.md")) ?? "")) return relative2(root, join12(dir, name));
   return void 0;
 }
 function cmdTrace(ctx, spec, opts) {
@@ -10865,7 +10978,7 @@ function cmdTrace(ctx, spec, opts) {
     if (slug) {
       t.plan = slug;
       const rel = planRelIn(slug, root);
-      if (existsSync6(join11(root, rel))) t.record = `${rel}/RECORD.md`;
+      if (existsSync7(join12(root, rel))) t.record = `${rel}/RECORD.md`;
     } else if (t.pr) {
       const rel = planByPr(root, t.pr);
       if (rel) {
@@ -10893,13 +11006,218 @@ function cmdTrace(ctx, spec, opts) {
 }
 
 // plugins/cairn/cli/src/commands/stages.ts
+import { join as join15 } from "node:path";
+
+// plugins/cairn/cli/src/commands/prove.ts
+import { createHash as createHash4 } from "node:crypto";
+import { existsSync as existsSync8, mkdirSync as mkdirSync5, readFileSync as readFileSync7, rmSync as rmSync3, writeFileSync as writeFileSync4 } from "node:fs";
 import { join as join13 } from "node:path";
+var USAGE3 = 'usage: cairn prove [<id>...] [--task <id>] [--here] | prove list [--json] | prove judge <id> pass|fail [--note "\u2026"] | prove add <id> --covers FR-01[,FR-02] --run "<cmd>" --files a[,b] [--shots x,y --look "\u2026"] [--note "why"]';
+var runDir = (wt, slug, id, here = false) => join13(commonDir(wt), "cairn", "proofs", slug, here ? `here-${id}` : id);
+var csv = (v) => typeof v === "string" ? v.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean) : [];
+function proofState(p, wt, planRel2, baseMerges) {
+  const current2 = filesHash(wt, p.files);
+  if (p.lock && current2 !== p.lock) return { state: "changed", why: `its files changed since they were locked (${p.files.join(", ")})` };
+  const r = p.last;
+  if (!r) return { state: "not run", why: "it has not run" };
+  if (r.files !== current2) return { state: "stale", why: "its files changed since it ran" };
+  if (r.result === "fail") return { state: "red", why: r.tail };
+  if (!r.head) return { state: "stale", why: "its run belongs to no single commit (the checkout moved)" };
+  const since = changesSince(wt, r.head, planRel2, baseMerges);
+  if (since.length) return { state: "stale", why: `the code changed since it ran: ${since.join("; ")}` };
+  if (p.shots?.length && !r.judged) return { state: "unjudged", why: "its screenshots have no verdict" };
+  if (r.judged?.result === "fail") return { state: "judged fail", why: `the screenshots were judged wrong${r.judged.note ? `: ${r.judged.note}` : ""}` };
+  return { state: "green", why: "" };
+}
+function proofProblems(pc, s) {
+  if (!proofsActive(s)) return [];
+  const list3 = s.endProofs?.list ?? [];
+  if (!list3.length) return ["no proofs are loaded"];
+  const rel = planRelOf(pc.plan);
+  return list3.flatMap((p) => {
+    const st = proofState(p, pc.plan.worktree, rel, s.baseMerges ?? []);
+    return st.state === "green" ? [] : [`${p.id} is ${st.state}: ${st.why}`];
+  });
+}
+function proofSummary(s) {
+  const ep = s.endProofs;
+  if (!ep?.list.length) return void 0;
+  const shots = ep.list.filter((p) => p.shots?.length && p.last?.judged?.result === "pass");
+  const added = ep.list.filter((p) => p.added);
+  return [
+    `**Proofs:** ${ep.list.length} green on the shipped code`,
+    shots.length ? `, screenshots judged for ${shots.map((p) => `${p.id} (${p.last?.shotsDir})`).join(", ")}` : "",
+    added.length ? `; added during the build: ${added.map((p) => `${p.id} (${p.covers.join(", ")})${p.added?.note ? ` \u2014 ${p.added.note}` : ""}`).join("; ")}` : "",
+    ep.notProvable.length ? `; not provable by a run: ${ep.notProvable.map((n) => n.id).join(", ")}` : "",
+    "."
+  ].join("");
+}
+function proofApprovalProblems(pc, s) {
+  if (!proofsActive(s)) return [];
+  const ep = s.endProofs;
+  if (!ep?.list.length) return ["no proofs are loaded: write proofs.md with the proof-writer, then cairn plan load"];
+  const md = readText(planFile(pc, "proofs.md"));
+  if (!md || ep.hash !== hashText(md)) return ["proofs.md changed since it was loaded: cairn plan load"];
+  const out = [];
+  for (const p of ep.list) {
+    if (p.lock) continue;
+    const h = filesHash(pc.plan.worktree, p.files);
+    if (p.expect === "pass") {
+      if (p.last?.result !== "pass" || p.last.files !== h) out.push(`guard proof ${p.id} has not been seen passing: cairn prove ${p.id}`);
+    } else if (p.seenRed !== h) out.push(`proof ${p.id} has not been seen failing: cairn prove ${p.id} (a proof that passes before the build proves nothing; mark a guard with expect: pass)`);
+  }
+  return out;
+}
+function hashShots(dir, names) {
+  if (!names.length) return void 0;
+  const h = createHash4("sha256");
+  for (const n of names) {
+    const f = join13(dir, `${n}.png`);
+    h.update(existsSync8(f) ? readFileSync7(f) : "<missing>");
+  }
+  return h.digest("hex").slice(0, 16);
+}
+function runOne(pc, s, p, cwd, here) {
+  const dir = runDir(pc.plan.worktree, s.slug, p.id, here);
+  rmSync3(dir, { recursive: true, force: true });
+  mkdirSync5(dir, { recursive: true });
+  const r = runSuite(p.run, pc.cfg, cwd, { CAIRN_SHOTS: dir, CAIRN_PROOF: p.id });
+  const logPath = join13(dir, "run.log");
+  writeFileSync4(logPath, r.output ?? "");
+  const missing = (p.shots ?? []).filter((n) => !existsSync8(join13(dir, `${n}.png`)));
+  const ok = r.ok && r.ran && !missing.length;
+  const tail = missing.length && r.ok ? `missing screenshots in $CAIRN_SHOTS: ${missing.map((n) => `${n}.png`).join(", ")}` : r.tail;
+  return {
+    result: ok ? "pass" : "fail",
+    at: now(),
+    ...r.head ? { head: r.head } : {},
+    tail,
+    log: logPath,
+    files: filesHash(cwd, p.files),
+    ...p.shots?.length ? { shotsDir: dir, shots: hashShots(dir, p.shots) } : {}
+  };
+}
+function cmdRun(pc, ctx, pos, opts) {
+  const s0 = loadState(pc.plan.dir);
+  const list3 = s0.endProofs?.list ?? [];
+  if (!list3.length) throw new Refusal("this plan has no proofs loaded", ["write proofs.md (the proof-writer agent), then cairn plan load"]);
+  let pick = list3;
+  if (pos.length) {
+    const unknown = pos.filter((id) => !list3.some((p) => p.id === id));
+    if (unknown.length) throw new Refusal(`no proof ${unknown.join(", ")} in this plan`, ["cairn prove list"]);
+    pick = list3.filter((p) => pos.includes(p.id));
+  }
+  const tasks = allTasks(s0);
+  if (typeof opts.task === "string") {
+    const t = findTask(s0, opts.task);
+    if (!t) throw new Refusal(`no task "${opts.task}" in this plan`);
+    pick = pick.filter((p) => t.covers.some((c) => p.covers.includes(c)));
+    if (!pick.length) return { message: `No proof covers what task "${t.name}" builds.` };
+  }
+  const here = !!opts.here;
+  const cwd = here ? topLevel(ctx.cwd) : pc.plan.worktree;
+  const runs = pick.map((p) => ({ p, r: runOne(pc, s0, p, cwd, here) }));
+  if (!here)
+    mutate(pc, "proofs ran", (s) => {
+      for (const { p, r } of runs) {
+        const sp = s.endProofs?.list.find((x) => x.id === p.id);
+        if (!sp) continue;
+        sp.last = r;
+        if (r.result === "fail") sp.seenRed = r.files;
+      }
+      log(s, "proofs ran", runs.map(({ p, r }) => `${p.id} ${r.result}`).join(", "));
+    });
+  const green = runs.filter((x) => x.r.result === "pass").length;
+  const lines = runs.map(({ p, r }) => {
+    const waits = r.result === "fail" && !isDue(p, tasks) ? ` (expected for now: waits on ${tasksFor(p, tasks).filter((t) => t.status !== "done").map((t) => t.id).join(", ")})` : "";
+    const base2 = `  ${p.id}  ${r.result === "pass" ? "pass" : "FAIL"}  (${p.covers.join(", ")})`;
+    if (r.result === "fail") return `${base2}: ${r.tail}${waits}. Full output: ${r.log}`;
+    return p.shots?.length ? `${base2}. Screenshots: ${r.shotsDir}; judge them against: ${p.look}` : base2;
+  });
+  const where = here ? ` in ${cwd} (not recorded)` : "";
+  return {
+    message: [`Proofs${where}: ${green} of ${runs.length} pass.`, ...lines].join("\n"),
+    data: { here, results: runs.map(({ p, r }) => ({ id: p.id, covers: p.covers, result: r.result, tail: r.tail, log: r.log, shotsDir: r.shotsDir ?? null, look: p.look ?? null })) }
+  };
+}
+function cmdList(pc) {
+  const s = loadState(pc.plan.dir);
+  const ep = s.endProofs;
+  if (!ep?.list.length) return { message: proofsRequired(s) ? "No proofs loaded yet. This plan needs them before the plan approval." : "This plan has no proofs.", data: { proofs: [] } };
+  const rel = planRelOf(pc.plan);
+  const tasks = allTasks(s);
+  const rows = ep.list.map((p) => {
+    const st = proofState(p, pc.plan.worktree, rel, s.baseMerges ?? []);
+    return { id: p.id, covers: p.covers, state: st.state, why: st.why, due: isDue(p, tasks), locked: !!p.lock, added: !!p.added, shots: p.shots ?? [], look: p.look ?? null, run: p.run, files: p.files };
+  });
+  const green = rows.filter((r) => r.state === "green").length;
+  return {
+    message: [
+      `Proofs: ${green} of ${rows.length} green.`,
+      ...rows.map((r) => `  ${r.id}  ${r.state}${r.why ? `: ${r.why}` : ""}  (${r.covers.join(", ")}${r.due ? "" : ", not due yet"}${r.added ? ", added in build" : ""})`),
+      ...ep.notProvable.length ? [`Not provable by a run: ${ep.notProvable.map((n) => `${n.id} (${n.reason})`).join("; ")}`] : []
+    ].join("\n"),
+    data: { proofs: rows, notProvable: ep.notProvable }
+  };
+}
+function cmdJudge(pc, id, verdict, opts) {
+  if (!id || verdict !== "pass" && verdict !== "fail") throw new CliError('usage: cairn prove judge <id> pass|fail [--note "\u2026"]');
+  return mutate(pc, `proof ${id} judged`, (s) => {
+    const p = s.endProofs?.list.find((x) => x.id === id);
+    if (!p) throw new Refusal(`no proof ${id} in this plan`, ["cairn prove list"]);
+    if (!p.shots?.length) throw new Refusal(`proof ${id} takes no screenshots, so there is nothing to judge`);
+    if (!p.last || p.last.result !== "pass") throw new Refusal(`proof ${id} has no passing run to judge`, [`cairn prove ${id}`]);
+    p.last.judged = { result: verdict, at: now(), ...opts.note ? { note: String(opts.note) } : {} };
+    log(s, "proof judged", `${id} ${verdict}${opts.note ? `: ${opts.note}` : ""}`);
+    return { message: `Proof ${id}: screenshots judged ${verdict}.${verdict === "fail" ? " Fix the build until the screenshots match, then run it again." : ""}` };
+  });
+}
+function cmdAdd(pc, id, opts) {
+  if (!id) throw new CliError(USAGE3);
+  const covers = csv(opts.covers);
+  const files = csv(opts.files);
+  const shots = csv(opts.shots);
+  const run2 = typeof opts.run === "string" ? opts.run.trim() : "";
+  if (!covers.length || !files.length || !run2) throw new CliError(USAGE3);
+  const reqs = new Set(prdIds(readText(planFile(pc, "prd.md")) ?? ""));
+  return mutate(pc, `proof ${id} added`, (s) => {
+    if (!s.approvals.plan || !["execute", "verify", "review"].includes(s.stage)) throw new Refusal(`proofs are added during the build; the plan is in ${s.stage}`, ["before the plan approval, add it to proofs.md and run cairn plan load"]);
+    const ep = s.endProofs ??= { list: [], notProvable: [] };
+    if (ep.list.some((p) => p.id === id)) throw new Refusal(`proof ${id} exists, and proofs are add-only: pick a new id`);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Refusal("the proof id must be kebab-case");
+    const bad = covers.filter((c) => !reqs.has(c));
+    if (bad.length) throw new Refusal(`${bad.join(", ")} is not a requirement in prd.md`);
+    const gone = files.filter((f) => !existsSync8(join13(pc.plan.worktree, f)));
+    if (gone.length) throw new Refusal(`${gone.join(", ")} is not on the plan branch yet`, ["merge the task that wrote it first"]);
+    if (shots.length && typeof opts.look !== "string") throw new Refusal('a proof with --shots needs --look "<what the screenshots must show>"');
+    ep.list.push({
+      id,
+      covers,
+      run: run2,
+      files,
+      ...shots.length ? { shots, look: String(opts.look) } : {},
+      added: { at: now(), ...opts.note ? { note: String(opts.note) } : {} },
+      lock: filesHash(pc.plan.worktree, files)
+    });
+    log(s, "proof added", `${id} (${covers.join(", ")})${opts.note ? `: ${opts.note}` : ""}`);
+    return { message: `Added proof ${id}, locked. Run it: cairn prove ${id}. It is listed at ship.` };
+  });
+}
+function cmdProve(ctx, pos, opts) {
+  const pc = planCtx(ctx);
+  const [sub, a, b] = pos;
+  if (sub === "list") return cmdList(pc);
+  if (sub === "judge") return cmdJudge(pc, a, b, opts);
+  if (sub === "add") return cmdAdd(pc, a, opts);
+  if (sub === "help") throw new CliError(USAGE3);
+  return cmdRun(pc, ctx, pos, opts);
+}
 
 // plugins/cairn/cli/src/commands/fix.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
-import { existsSync as existsSync7, mkdtempSync, rmSync as rmSync3 } from "node:fs";
+import { existsSync as existsSync9, mkdtempSync, rmSync as rmSync4 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join as join12 } from "node:path";
+import { join as join14 } from "node:path";
 var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
 var fastLane = (s) => s.track === "fix" && (s.stage === "repro" || !!s.repro);
 var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build, testQuick: cfg.testQuick }));
@@ -10918,8 +11236,8 @@ var GROUP_WRAPPER = 'if command -v setsid >/dev/null 2>&1; then setsid sh -c "$1
 var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
 function runRepro(cmd, cwd, cfg) {
   const minutes = cfg.reproTimeoutMinutes ?? DEFAULT_REPRO_TIMEOUT_MINUTES;
-  const tmp = mkdtempSync(join12(tmpdir(), "cairn-repro-"));
-  const pidFile = join12(tmp, "pgid");
+  const tmp = mkdtempSync(join14(tmpdir(), "cairn-repro-"));
+  const pidFile = join14(tmp, "pgid");
   const r = spawnSync3("sh", ["-c", GROUP_WRAPPER, "sh", cmd, pidFile], { cwd, encoding: "utf8", env: childEnv(), timeout: minutes * 6e4, maxBuffer: 64 * 1024 * 1024 });
   const timedOut = r.error?.code === "ETIMEDOUT";
   const pgid = Number(readText(pidFile));
@@ -10929,7 +11247,7 @@ function runRepro(cmd, cwd, cfg) {
     } catch {
     }
   }
-  rmSync3(tmp, { recursive: true, force: true });
+  rmSync4(tmp, { recursive: true, force: true });
   const lines = `${r.stdout ?? ""}
 ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter((l) => l && !SETPGID_FAILURE.test(l));
   const last = lines.slice(-1)[0] ?? `exit ${r.status}`;
@@ -10969,7 +11287,7 @@ function cmdEscalate(ctx, opts) {
     const head = sl.branch && branchExists(sl.branch, pc.plan.worktree) ? sl.branch : sl.tip;
     if (!sl.base || !head) continue;
     const files = changedFiles(pc.plan.worktree, pre.slug, sl.base, head);
-    if (sl.status === "in_progress" && sl.worktree && existsSync7(sl.worktree))
+    if (sl.status === "in_progress" && sl.worktree && existsSync9(sl.worktree))
       for (const args of [["diff", "--name-only", "-z", "HEAD"], ["ls-files", "--others", "--exclude-standard", "-z"]])
         files.push(...git(args, sl.worktree).split("\0").filter((f) => f && !f.startsWith(own)));
     changed.set(sl.id, [...new Set(files.map((f) => f.replace(/[*?]/g, "?")))].sort());
@@ -11047,7 +11365,14 @@ function planSummary(s, planMd, cfg) {
   const approach = foundational ? chosenApproach(planMd) : void 0;
   return (approach ? `**Approach:** ${approach}
 
-` : "") + s.phases.flatMap((ph, i) => [`${i + 1}. **${ph.name}**`, ...ph.tasks.map((t) => `   - ${t.name} (${t.complexity})${t.risky ? " risky" : ""}`)]).join("\n");
+` : "") + doneWhen(s) + s.phases.flatMap((ph, i) => [`${i + 1}. **${ph.name}**`, ...ph.tasks.map((t) => `   - ${t.name} (${t.complexity})${t.risky ? " risky" : ""}`)]).join("\n");
+}
+function doneWhen(s) {
+  const ep = s.endProofs;
+  if (!ep?.list.length) return "";
+  const lines = ep.list.map((p) => `- ${p.id} (${p.covers.join(", ")}): \`${p.run}\`${p.shots?.length ? `; screenshots judged: ${p.look}` : ""}${p.expect === "pass" ? " (guard, already green)" : ""}`);
+  const np = ep.notProvable.map((n) => `- ${n.id}: not provable by a run (${n.reason})`);
+  return ["**Done when these pass** (locked at this approval; the build runs until they do):", ...lines, ...np, "", ""].join("\n");
 }
 function prdEditedSinceApproval(s, prd) {
   return !!s.approvals.prd?.hash && !!prd && hashText(prd) !== s.approvals.prd.hash;
@@ -11057,7 +11382,7 @@ var WRITING_STEPS = ["drafting", "checking", "recording", "asking"];
 function readyFor(pc) {
   try {
     const s = loadState(pc.plan.dir);
-    const file = (name) => join13(pc.plan.dir, name);
+    const file = (name) => join15(pc.plan.dir, name);
     const pcLike = pc;
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return void 0;
     if (s.stage === "prd" && !s.approvals.prd) {
@@ -11067,6 +11392,7 @@ function readyFor(pc) {
     if (s.stage === "plan" && !s.approvals.plan) {
       const md = readText(file("plan.md"));
       if (!s.phases.length || !md || s.planHash !== hashText(md)) return void 0;
+      if (proofApprovalProblems(pcLike, s).length) return void 0;
       const note = prdEditedSinceApproval(s, readText(file("prd.md"))) ? `${PRD_EDITED_NOTE}
 
 ` : "";
@@ -11075,8 +11401,10 @@ function readyFor(pc) {
     if (s.reapprove && !s.approvals.ship) return { kind: "ship", file: file("RECORD.md"), summary: `**Approve shipping again:** ${s.reapprove.why}.` };
     if (s.stage === "ship" && !s.approvals.ship && s.evidence.review?.result === "pass") {
       if (recordCheck(pcLike, fastLane(s) ? "fix" : "feature").problems.length) return void 0;
+      if (proofProblems(pcLike, s).length) return void 0;
       const md = readText(file("RECORD.md")) ?? "";
-      return { kind: "ship", file: file("RECORD.md"), summary: (sections(md).get("what was built") ?? "").trim() };
+      const proofs = proofSummary(s);
+      return { kind: "ship", file: file("RECORD.md"), summary: [(sections(md).get("what was built") ?? "").trim(), proofs].filter(Boolean).join("\n\n") };
     }
   } catch {
   }
@@ -11115,6 +11443,9 @@ function cmdApprove(ctx, kind, opts, io) {
         gate(s.phases.length > 0, s, "approve plan", opts, "no plan is loaded", ["cairn plan load"]);
         gate(!!md && s.planHash === hashText(md), s, "approve plan", opts, "plan.md changed since it was loaded", ["cairn plan load"]);
         linearPrdGate(s, readText(planFile(pc, "prd.md")), opts);
+        const unproved = proofApprovalProblems(pc, s);
+        gate(!unproved.length, s, "approve plan", opts, unproved.join("; "), ["write or fix the proofs (procedures/plan.md, the proofs step), cairn plan load, then cairn prove"]);
+        for (const p of s.endProofs?.list ?? []) p.lock = filesHash(pc.plan.worktree, p.files);
         s.approvals.plan = { ...approval(), hash: s.planHash };
         s.configHash = configHash(pc.cfg);
         log(s, "plan approved", source);
@@ -11134,6 +11465,8 @@ function cmdApprove(ctx, kind, opts, io) {
         const again = !!s.reapprove;
         gate(s.stage === "ship" || again, s, "approve ship", opts, `the plan is in ${s.stage}, not ship`);
         gate(s.evidence.review?.result === "pass", s, "approve ship", opts, "review has not passed", ["run the review procedure, then cairn evidence review pass"]);
+        const proofs = proofProblems(pc, s);
+        gate(!proofs.length, s, "approve ship", opts, `the proofs do not show the end state: ${proofs.join("; ")}`, ["cairn prove (and judge any screenshots), fixing until every proof is green"]);
         const record = recordCheck(pc, fastLane(s) ? "fix" : "feature");
         gate(!record.problems.length, s, "approve ship", opts, record.problems.join("; "), [record.fix]);
         gate(!waiting.length, s, "approve ship", opts, `this plan builds on work another plan has not shipped: ${waiting.join("; ")}`, ["ship the other plan first"]);
@@ -11182,6 +11515,10 @@ function cmdAdvance(ctx, opts) {
         break;
       case "verify":
         gate(s.evidence.verify?.result === "pass", s, "advance", opts, "verification has not passed", ['cairn evidence verify pass --note "\u2026"']);
+        {
+          const proofs = proofProblems(pc, s);
+          gate(!proofs.length, s, "advance", opts, `the proofs do not show the end state: ${proofs.join("; ")}`, ["cairn prove (and judge any screenshots), fixing until every proof is green"]);
+        }
         break;
       case "review":
         gate(s.evidence.review?.result === "pass" && !s.evidence.review.blocking, s, "advance", opts, "review has not passed with zero blocking findings", ["cairn evidence review pass --blocking 0"]);
@@ -11203,7 +11540,7 @@ function cmdAdvance(ctx, opts) {
       if (p && p.status === "pending") p.status = "in_progress";
     }
     log(s, "advanced", to);
-    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join13(pc.plan.dir, "RECORD.md")}.` };
+    if (to === "closed") return { message: `Closed "${s.title}". The record is ${join15(pc.plan.dir, "RECORD.md")}.` };
     return { message: `Moved to ${to}. ${nextFor(s).text}` };
   });
   if (pc.cfg.autoCommit) commitPath(pc.plan.worktree, planRelOf(pc.plan), `cairn(${pc.plan.slug}): advance to ${to}`);
@@ -11222,7 +11559,7 @@ function cmdClose(ctx, opts) {
     setStage(s, "closed");
     onAdvance(pc, s, "learn", "closed", opts, followups);
     log(s, "closed");
-    return { message: `Closed "${s.title}". The record is ${join13(pc.plan.dir, "RECORD.md")}.` };
+    return { message: `Closed "${s.title}". The record is ${join15(pc.plan.dir, "RECORD.md")}.` };
   });
   return closeMemory(pc, r);
 }
@@ -11237,10 +11574,10 @@ function listPlans(ctx) {
     const ref = planRef(slug, ctx.worktrees, b);
     try {
       const rel = resolvePlanDir(slug, { ref: b, cwd: ctx.top });
-      const raw = ref.dir && existsSync8(join14(ref.dir, "state.json")) ? readFileSync6(join14(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
+      const raw = ref.dir && existsSync10(join16(ref.dir, "state.json")) ? readFileSync8(join16(ref.dir, "state.json"), "utf8") : git(["show", `${b}:${rel}/state.json`], ctx.top);
       const state = parseState(raw);
       if (state.branch !== b) continue;
-      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join14(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
+      rows.push({ state, live: !!ref.dir, worktree: ref.worktree, dir: ref.dir ?? join16(ctx.mainRoot, resolvePlanDir(slug, { root: ctx.mainRoot }) ?? rel ?? planRelIn(slug, ctx.mainRoot)) });
     } catch {
     }
   }
@@ -11291,7 +11628,7 @@ function warnings(pc, s) {
 }
 function waitingOnMerge(ctx, s, cwd, planRel2) {
   if (s.stage !== "learn" && s.stage !== "closed") return false;
-  return landedState(cwd, s.branch, s.base, planRel2, join14(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
+  return landedState(cwd, s.branch, s.base, planRel2, join16(commonDir(ctx.mainRoot), "cairn-pr-state.json")) === "open";
 }
 function taskIssuesOf(s) {
   const l = s.linear;
@@ -11372,7 +11709,7 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full 
     data: { state: opts.full ? s : slimState(s), ...usage ? { usage } : {}, ...branchReviewer ? { branchReviewer } : {}, suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...s.linear ? { foundational: foundationalSafe(s, pc) } : {}, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
   };
 }
-var procedurePath = (name) => join14(pluginRoot(), "procedures", `${name}.md`);
+var procedurePath = (name) => join16(pluginRoot(), "procedures", `${name}.md`);
 function cmdNext(ctx) {
   if (!ctx.plan) {
     const owed = mergedPlansAwaitingDone(ctx)[0];
@@ -11424,10 +11761,10 @@ function cmdRender(ctx) {
   if (ctx.plan) {
     const pc = planCtx(ctx);
     withLock(pc.plan.dir, () => saveState(pc.plan.dir, loadState(pc.plan.dir)));
-    return { message: `Rendered ${join14(pc.plan.dir, "STATUS.md")}.` };
+    return { message: `Rendered ${join16(pc.plan.dir, "STATUS.md")}.` };
   }
   refreshMemory(ctx.top, ctx);
-  return { message: `Rendered ${join14(ctx.top, OVERVIEW_REL)} (the changelog).` };
+  return { message: `Rendered ${join16(ctx.top, OVERVIEW_REL)} (the changelog).` };
 }
 
 // plugins/cairn/cli/src/commands/records.ts
@@ -11437,7 +11774,7 @@ function whyLine(md) {
   const para = body.split(/\n\s*\n/)[0]?.replace(/\s+/g, " ").trim() ?? "";
   return para.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? para;
 }
-var changelogIn = (root, e) => PLANS_DIRS.map((d) => join15(root, d, basename3(e.dir), "changelog.md")).find((p) => existsSync9(p));
+var changelogIn = (root, e) => PLANS_DIRS.map((d) => join17(root, d, basename3(e.dir), "changelog.md")).find((p) => existsSync11(p));
 function changelogEntry(e, root) {
   const path = (root === void 0 ? void 0 : changelogIn(root, e)) ?? e.changelog;
   return path ? stripControl(readText(path) ?? "").trim() : "";
@@ -11452,25 +11789,25 @@ function planEntries(ctx) {
   const bases = plansDirsIn(main2);
   for (const base2 of bases)
     for (const name of readdirSync7(base2)) {
-      const raw = readText(join15(base2, name, "state.json"));
+      const raw = readText(join17(base2, name, "state.json"));
       if (raw === void 0) continue;
       try {
         const state = parseState(raw);
-        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join15(base2, name) });
+        if (!found.has(state.slug)) found.set(state.slug, { state, dir: join17(base2, name) });
       } catch {
       }
     }
   return [...found.values()].map(({ state, dir }) => {
-    let recordPath = join15(dir, "RECORD.md");
-    if (!existsSync9(recordPath)) recordPath = bases.map((b) => join15(b, basename3(dir), "RECORD.md")).find((p) => existsSync9(p)) ?? recordPath;
-    let changelogPath = PLANS_DIRS.map((d) => join15(ctx.top, d, basename3(dir), "changelog.md")).find((p) => existsSync9(p)) ?? join15(dir, "changelog.md");
-    if (!existsSync9(changelogPath)) changelogPath = bases.map((b) => join15(b, basename3(dir), "changelog.md")).find((p) => existsSync9(p)) ?? changelogPath;
+    let recordPath = join17(dir, "RECORD.md");
+    if (!existsSync11(recordPath)) recordPath = bases.map((b) => join17(b, basename3(dir), "RECORD.md")).find((p) => existsSync11(p)) ?? recordPath;
+    let changelogPath = PLANS_DIRS.map((d) => join17(ctx.top, d, basename3(dir), "changelog.md")).find((p) => existsSync11(p)) ?? join17(dir, "changelog.md");
+    if (!existsSync11(changelogPath)) changelogPath = bases.map((b) => join17(b, basename3(dir), "changelog.md")).find((p) => existsSync11(p)) ?? changelogPath;
     return {
       state,
       dir,
       date: basename3(dir).match(DATE_PREFIX)?.[1] ?? state.created.slice(0, 10),
-      ...existsSync9(recordPath) ? { record: recordPath } : {},
-      ...existsSync9(changelogPath) ? { changelog: changelogPath } : {}
+      ...existsSync11(recordPath) ? { record: recordPath } : {},
+      ...existsSync11(changelogPath) ? { changelog: changelogPath } : {}
     };
   });
 }
@@ -11517,7 +11854,7 @@ function cmdRecords(ctx) {
 var OVERVIEW_REL = `${DOCS_DIR}/OVERVIEW.md`;
 var CHANGELOG_MARK = "<!-- Generated by cairn from each plan's changelog entry and record. Edits here are overwritten. -->";
 var NONE = "None yet.";
-var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename4(e.dir)}/RECORD.md`).find((rel) => existsSync10(join16(root, rel)));
+var recordRel = (root, e) => PLANS_DIRS.map((d) => `${d}/${basename4(e.dir)}/RECORD.md`).find((rel) => existsSync12(join18(root, rel)));
 var byNewest = (a, b) => b.date.localeCompare(a.date) || a.state.slug.localeCompare(b.state.slug);
 function renderChangelog(root, plans) {
   const out = ["# Changelog", "", CHANGELOG_MARK, ""];
@@ -11561,17 +11898,17 @@ function memoryIndex(root, plansOf) {
 // plugins/cairn/cli/src/commands/memory.ts
 var removed = (what) => new Refusal(`${what} was removed; the changelog in ${OVERVIEW_REL} replaces it.`);
 function refreshMemory(root, ctx) {
-  const before = readText(join17(root, OVERVIEW_REL));
+  const before = readText(join19(root, OVERVIEW_REL));
   const after = renderChangelog(root, planEntries(ctx));
   if (before === after) return [];
-  writeText(join17(root, OVERVIEW_REL), after);
+  writeText(join19(root, OVERVIEW_REL), after);
   return [OVERVIEW_REL];
 }
 function refreshUsage(root) {
-  const before = readText(join17(root, USAGE_REL));
+  const before = readText(join19(root, USAGE_REL));
   const after = renderUsage(root);
   if (before === after) return [];
-  writeText(join17(root, USAGE_REL), after);
+  writeText(join19(root, USAGE_REL), after);
   return [USAGE_REL];
 }
 function writeMemory(pc, s) {
@@ -11581,7 +11918,7 @@ function writeMemory(pc, s) {
     const u = planUsage(commonDir(pc.ctx.mainRoot), s.slug);
     if (u) {
       const rel = `${planRelOf(pc.plan)}/usage.json`;
-      writeText(join17(root, rel), `${JSON.stringify({ ...u, slug: s.slug, closedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, 2)}
+      writeText(join19(root, rel), `${JSON.stringify({ ...u, slug: s.slug, closedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, 2)}
 `);
       changed.push(rel);
       archiveLedger(commonDir(pc.ctx.mainRoot), s.slug);
@@ -11640,14 +11977,14 @@ function cmdNew(ctx, slug, opts) {
   } else {
     const root = worktreeRoot(cfg, ctx.mainRoot);
     if (!cfg.worktreeRoot) ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
-    wt = join18(root, worktreeName(branch));
+    wt = join20(root, worktreeName(branch));
     git(["worktree", "add", "-q", "-b", branch, wt, base2], ctx.top);
   }
   ensureExcluded(ctx.mainRoot, `${CAIRN_DIR}/work/`);
   excludeScratch(ctx.mainRoot);
   const rel = `${PLANS_DIR}/${planDirName(slug, /* @__PURE__ */ new Date())}`;
-  const dir = join18(wt, rel);
-  writeText(join18(dir, "decisions.md"), `# Decisions: ${title}
+  const dir = join20(wt, rel);
+  writeText(join20(dir, "decisions.md"), `# Decisions: ${title}
 
 Append-only. Written by \`cairn decide\` as each decision is made.
 `);
@@ -11655,6 +11992,7 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   state.cairnVersion = pluginVersion();
   if (stackedOn) state.stackedOn = stackedOn;
   if (track === "feature") {
+    if (cfg.proofs === "required") state.endProofs = { required: true, list: [], notProvable: [] };
     state.level = level;
     log(state, "level", level);
   }
@@ -11672,11 +12010,11 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   };
 }
 function cmdProductInit(ctx) {
-  const dir = join18(ctx.top, `${DOCS_DIR}/product`);
-  const prd = join18(dir, "PRD.md");
-  if (existsSync11(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
+  const dir = join20(ctx.top, `${DOCS_DIR}/product`);
+  const prd = join20(dir, "PRD.md");
+  if (existsSync13(prd)) throw new Refusal(`${DOCS_DIR}/product/PRD.md already exists`, ["edit it with the product procedure instead"]);
   writeText(prd, template("product-prd.md") ?? "# Product PRD\n\n## Vision\n\n## Users\n\n## Non-goals\n\n## Non-functional requirements\n\n## Must not trade off\n\n## Roadmap\n");
-  writeText(join18(dir, "decisions", ".gitkeep"), "");
+  writeText(join20(dir, "decisions", ".gitkeep"), "");
   return { message: `Created ${DOCS_DIR}/product/PRD.md and decisions/ on ${ctx.branch}. Fill it in, then commit.`, data: { path: prd } };
 }
 var REMOVED_DECIDE_OPTS = ["lasting", "promote", "replaces", "areas", "paths", "plan", "date"];
@@ -11692,7 +12030,7 @@ function cmdDecide(ctx, question, answer, opts) {
 function readDecisionFile(cwd, file) {
   let data;
   try {
-    data = JSON.parse(readFileSync7(resolve2(cwd, file), "utf8"));
+    data = JSON.parse(readFileSync9(resolve2(cwd, file), "utf8"));
   } catch (e) {
     throw new CliError(`cannot read decision file ${file}: ${e.message}`);
   }
@@ -11716,9 +12054,9 @@ _${now().slice(0, 16).replace("T", " ")}_
 }
 
 // plugins/cairn/cli/src/commands/level.ts
-var USAGE3 = "usage: cairn level mvp|standard|polished [--human]";
+var USAGE4 = "usage: cairn level mvp|standard|polished [--human]";
 function cmdLevel(ctx, value, opts, io) {
-  if (!value) throw new CliError(USAGE3);
+  if (!value) throw new CliError(USAGE4);
   if (!isLevel(value)) throw new Refusal(`"${value}" is not a level: use ${LEVELS.join(", ")}`);
   const to = value;
   const pc = planCtx(ctx);
@@ -11772,11 +12110,11 @@ function levelCheck(s, to) {
 }
 
 // plugins/cairn/cli/src/plan-parse.ts
-var import_yaml = __toESM(require_dist(), 1);
-var BLOCK = /```ya?ml\s+cairn-tasks\s*\n([\s\S]*?)```/;
+var import_yaml2 = __toESM(require_dist(), 1);
+var BLOCK2 = /```ya?ml\s+cairn-tasks\s*\n([\s\S]*?)```/;
 var COMPLEXITY = ["simple", "standard", "complex"];
 var KINDS = ["prefactor"];
-function strList(v, field, where, problems) {
+function strList2(v, field, where, problems) {
   if (v === void 0 || v === null) return [];
   if (Array.isArray(v) && v.every((x) => typeof x === "string")) return v;
   problems.push(`${where}: \`${field}\` must be a list of strings, like [a, b]`);
@@ -11786,11 +12124,11 @@ function parsePlan(planMd, prdMd) {
   const problems = [];
   const missing = missingSections(planMd, PLAN_SECTIONS);
   if (missing.length) problems.push(`plan.md is missing sections: ${missing.join(", ")}`);
-  const block = planMd.match(BLOCK)?.[1];
+  const block = planMd.match(BLOCK2)?.[1];
   if (!block) return { phases: [], problems: [...problems, "plan.md has no ```yaml cairn-tasks block under ## Phases"] };
   let doc;
   try {
-    doc = (0, import_yaml.parse)(block);
+    doc = (0, import_yaml2.parse)(block);
   } catch (e) {
     return { phases: [], problems: [...problems, `cairn-tasks YAML does not parse: ${e.message}`] };
   }
@@ -11799,7 +12137,7 @@ function parsePlan(planMd, prdMd) {
     return { phases: [], problems: [...problems, "cairn-tasks needs a non-empty `phases:` list"] };
   const prdSections = sections(prdMd);
   const requirements = prdSections.get("requirements") ?? prdSections.get("functional requirements");
-  const prdIds = new Set(ids(requirements));
+  const prdIds2 = new Set(ids(requirements));
   problems.push(...badRequirementIds(requirements));
   const phases = [];
   const phaseOf = /* @__PURE__ */ new Map();
@@ -11823,14 +12161,14 @@ function parsePlan(planMd, prdMd) {
       if (!SLUG.test(sid)) problems.push(`${where}: id must be kebab-case`);
       if (phaseOf.has(sid)) problems.push(`${where}: id is used twice`);
       phaseOf.set(sid, pi);
-      const covers = strList(rs.covers, "covers", where, problems);
-      const blockedBy = strList(rs.blocked_by, "blocked_by", where, problems);
-      const scope = strList(rs.scope, "scope", where, problems);
+      const covers = strList2(rs.covers, "covers", where, problems);
+      const blockedBy = strList2(rs.blocked_by, "blocked_by", where, problems);
+      const scope = strList2(rs.scope, "scope", where, problems);
       const complexity = rs?.complexity ?? "standard";
       const kind = rs?.kind === void 0 ? void 0 : String(rs.kind);
       if (kind !== void 0 && !KINDS.includes(kind)) problems.push(`${where}: kind must be ${KINDS.join(" or ")}, or left out`);
       if (!covers.length && kind !== "prefactor") problems.push(`${where}: \`covers\` must list the PRD FR ids it implements (only kind: prefactor may leave it empty)`);
-      for (const c of covers) if (!prdIds.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Requirements`);
+      for (const c of covers) if (!prdIds2.has(c)) problems.push(`${where}: covers ${c}, which is not in the PRD's Requirements`);
       if (!scope.length) problems.push(`${where}: \`scope\` must list the file globs it may touch`);
       if (!COMPLEXITY.includes(complexity)) problems.push(`${where}: complexity must be simple, standard, or complex`);
       const model = rs?.model === void 0 ? void 0 : String(rs.model);
@@ -11860,7 +12198,7 @@ function parsePlan(planMd, prdMd) {
   if (cycle) problems.push(`blocked_by has a cycle: ${cycle.join(" \u2192 ")}`);
   const covered = new Set(all.flatMap((s) => s.covers));
   const deferred = new Set(ids(sections(planMd).get("deferred requirements")));
-  const uncovered = [...prdIds].filter((id) => !covered.has(id) && !deferred.has(id));
+  const uncovered = [...prdIds2].filter((id) => !covered.has(id) && !deferred.has(id));
   if (uncovered.length)
     problems.push(`PRD requirements not covered by any task: ${uncovered.join(", ")}. Cover them or list them under ## Deferred requirements`);
   return { phases, problems };
@@ -11926,6 +12264,10 @@ function cmdPlanLoad(ctx, opts) {
   const approaches = (sections(planMd).get("approaches considered") ?? "").replace(/<!--[\s\S]*?-->/g, "").trim();
   if (isFoundational(link, linearConfig(pc.cfg)) && (!approaches || /<(approach|reason)>/.test(approaches)))
     parsed.problems.push("this plan is foundational (an issue carries the foundational label), and plan.md has no ## Approaches considered: name the approach chosen and each one rejected, with a reason");
+  const proofsMd = readText(planFile(pc, "proofs.md"));
+  const proofs = proofsMd ? parseProofs(proofsMd, prdMd, planMd, pc.plan.worktree) : void 0;
+  if (proofs) parsed.problems.push(...proofs.problems);
+  else if (proofsRequired(loadState(pc.plan.dir))) parsed.problems.push("proofs.md does not exist: the proof-writer writes it (and the proof code) before the plan is loaded");
   if (parsed.problems.length) throw new Refusal(`plan.md is not loadable:
   - ${parsed.problems.join("\n  - ")}`, ["fix plan.md, then cairn plan load"]);
   return mutate(pc, "plan loaded", (s) => {
@@ -11953,6 +12295,7 @@ function cmdPlanLoad(ctx, opts) {
     }
     s.phases = phases;
     s.planHash = hashText(planMd);
+    if (proofs && proofsMd) s.endProofs = mergeProofs(s.endProofs, proofs, hashText(proofsMd));
     onPlanLoaded(s);
     if (replanning) {
       setStage(s, "plan");
@@ -11977,10 +12320,19 @@ Next: approve the plan with the user.`,
     };
   });
 }
+function mergeProofs(prev, next, hash) {
+  const old = new Map((prev?.list ?? []).map((p) => [p.id, p]));
+  const list3 = next.list.map((p) => {
+    const o = old.get(p.id);
+    return o ? { ...p, ...o.lock ? { lock: o.lock } : {}, ...o.seenRed ? { seenRed: o.seenRed } : {}, ...o.last ? { last: o.last } : {}, ...o.added ? { added: o.added } : {} } : p;
+  });
+  for (const o of prev?.list ?? []) if (o.added && !list3.some((p) => p.id === o.id)) list3.push(o);
+  return { ...prev?.required ? { required: true } : {}, hash, list: list3, notProvable: next.notProvable };
+}
 
 // plugins/cairn/cli/src/commands/tasks.ts
-import { existsSync as existsSync12 } from "node:fs";
-import { basename as basename5, join as join19 } from "node:path";
+import { existsSync as existsSync14 } from "node:fs";
+import { basename as basename5, join as join21 } from "node:path";
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
   const pc = planCtx(ctx);
@@ -12022,7 +12374,7 @@ function taskStart(pc, id, opts) {
   let needsSetup = false;
   const r = mutate(pc, void 0, (s) => {
     const branch = taskBranch(plan2.slug, id);
-    const path = join19(worktreeRoot(cfg, ctx.mainRoot), `${basename5(plan2.worktree)}--${id}`);
+    const path = join21(worktreeRoot(cfg, ctx.mainRoot), `${basename5(plan2.worktree)}--${id}`);
     const pb = s.branch;
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
@@ -12041,7 +12393,7 @@ function taskStart(pc, id, opts) {
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
     const base2 = git(["rev-parse", pb], plan2.worktree);
-    if (!existsSync12(path)) {
+    if (!existsSync14(path)) {
       if (branchExists(branch, plan2.worktree)) git(["worktree", "add", "-q", path, branch], plan2.worktree);
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan2.worktree);
       needsSetup = true;
@@ -12089,7 +12441,7 @@ function taskDone(pc, id, opts) {
   const pb = pre.branch;
   configGate(pre, pc.cfg, "task done", opts);
   const merged2 = branchExists(sl.branch, plan2.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree);
-  const dirty = sl.worktree && existsSync12(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync14(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan2.worktree) ? git(["rev-parse", "--short", sl.branch], plan2.worktree) : void 0;
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
@@ -12134,7 +12486,7 @@ function taskDone(pc, id, opts) {
       data: { phaseComplete: !left }
     };
   });
-  if (merged2 && sl.worktree && existsSync12(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
+  if (merged2 && sl.worktree && existsSync14(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
   if (merged2) gitOk(["branch", "-d", sl.branch], plan2.worktree);
   return r;
 }
@@ -12145,12 +12497,20 @@ function preMergeChecks(pc, pre, sl, opts) {
   configGate(pre, pc.cfg, "task merge", opts);
   if (pre.paused) throw new Refusal("the plan is paused: let running steps finish", ["/cairn:resume continues"]);
   if (opts.override) return;
+  const locked = lockedFiles(pre.endProofs);
+  const touched = locked.length && branchExists(sl.branch, plan2.worktree) ? git(["diff", "--name-only", `${pre.branch}...${sl.branch}`, "--", ...locked], plan2.worktree).split("\n").filter(Boolean) : [];
+  if (touched.length)
+    throw new Refusal(`task "${sl.name}" changes locked proof files: ${touched.join(", ")}. Proofs are add-only once the plan is approved`, [
+      `restore them on the task branch: git -C ${sl.worktree ?? "<task worktree>"} checkout ${pre.branch} -- ${touched.join(" ")}, then commit`,
+      "a new check goes in a new file, added after the merge with cairn prove add",
+      "if a proof itself is wrong, that is the user's call: changing it is a re-plan"
+    ]);
   const owner = pre.lastRed?.task ? findTask(pre, pre.lastRed.task) : void 0;
   if (pre.lastRed && owner && owner.id !== sl.id && owner.status !== "done") {
     const other = owner.name;
     throw new Refusal(`the plan branch is red from task ${other}'s merge: fix that first`, [`finish "${other}" (its fix brief carries the failing run), then merge this task`, `Full output: ${pre.lastRed.log}`]);
   }
-  const dirty = sl.worktree && existsSync12(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
+  const dirty = sl.worktree && existsSync14(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   if (dirty) throw new Refusal("the task worktree has uncommitted changes", [`commit or discard them in ${sl.worktree}`]);
   const commits = sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   if (commits <= 0) throw new Refusal(`${sl.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
@@ -12325,34 +12685,34 @@ ${buildText.trim()}` : buildText}`, data: { ran: tests.ran, ok: tests.ok, comman
 }
 
 // plugins/cairn/cli/src/commands/migrate.ts
-import { existsSync as existsSync13, lstatSync, mkdirSync as mkdirSync5, readdirSync as readdirSync8, renameSync as renameSync4, rmdirSync } from "node:fs";
-import { dirname as dirname5, join as join20 } from "node:path";
+import { existsSync as existsSync15, lstatSync, mkdirSync as mkdirSync6, readdirSync as readdirSync8, renameSync as renameSync4, rmdirSync } from "node:fs";
+import { dirname as dirname5, join as join22 } from "node:path";
 var PAIRS = [
   [LEGACY_CAIRN_DIR, CAIRN_DIR],
   [LEGACY_DOCS_DIR, DOCS_DIR]
 ];
 function isCairns(root, old) {
-  if (old === LEGACY_CAIRN_DIR) return existsSync13(join20(root, old, "config.json"));
-  if (existsSync13(join20(root, old, "product"))) return true;
-  const plans = join20(root, old, "plans");
-  return existsSync13(plans) && readdirSync8(plans).some((n) => existsSync13(join20(plans, n, "state.json")));
+  if (old === LEGACY_CAIRN_DIR) return existsSync15(join22(root, old, "config.json"));
+  if (existsSync15(join22(root, old, "product"))) return true;
+  const plans = join22(root, old, "plans");
+  return existsSync15(plans) && readdirSync8(plans).some((n) => existsSync15(join22(plans, n, "state.json")));
 }
 var legacyLayout = (root) => PAIRS.map(([old]) => old).filter((p) => isCairns(root, p));
 var tracked = (root, rel) => git(["ls-files", "--", rel], root) !== "";
 function move(root, from, to) {
-  mkdirSync5(dirname5(join20(root, to)), { recursive: true });
+  mkdirSync6(dirname5(join22(root, to)), { recursive: true });
   if (tracked(root, from)) git(["mv", from, to], root);
-  else renameSync4(join20(root, from), join20(root, to));
+  else renameSync4(join22(root, from), join22(root, to));
 }
 var present = (root, rel) => {
   try {
-    lstatSync(join20(root, rel));
+    lstatSync(join22(root, rel));
     return true;
   } catch {
     return false;
   }
 };
-var isDir = (root, rel) => lstatSync(join20(root, rel)).isDirectory();
+var isDir = (root, rel) => lstatSync(join22(root, rel)).isDirectory();
 function plan(root, old, next, out) {
   if (!present(root, next)) {
     out.moves.push([old, next]);
@@ -12363,10 +12723,10 @@ function plan(root, old, next, out) {
     return;
   }
   out.dirs.push(old);
-  for (const n of readdirSync8(join20(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
+  for (const n of readdirSync8(join22(root, old))) plan(root, `${old}/${n}`, `${next}/${n}`, out);
 }
 var prune = (root, dirs) => {
-  for (const d of [...dirs].reverse()) if (existsSync13(join20(root, d)) && !readdirSync8(join20(root, d)).length) rmdirSync(join20(root, d));
+  for (const d of [...dirs].reverse()) if (existsSync15(join22(root, d)) && !readdirSync8(join22(root, d)).length) rmdirSync(join22(root, d));
 };
 function cmdMigrate(ctx) {
   if (ctx.plan) throw new Refusal("run cairn migrate on the main branch, outside any plan");
@@ -12394,19 +12754,19 @@ function cmdMigrate(ctx) {
 }
 
 // plugins/cairn/cli/src/direction.ts
-var import_yaml2 = __toESM(require_dist(), 1);
-var BLOCK2 = /```ya?ml[ \t]+cairn-direction[ \t]*\r?\n([\s\S]*?)```/g;
+var import_yaml3 = __toESM(require_dist(), 1);
+var BLOCK3 = /```ya?ml[ \t]+cairn-direction[ \t]*\r?\n([\s\S]*?)```/g;
 var VERDICTS = ["aligned", "partial", "missing", "contradicted"];
 var CLASSES = ["pulled-forward", "unplanned", "non-goal-breach", "supporting"];
 var PATH_LINE = /^\S.*:\d+(-\d+)?$/;
 var empty = () => ({ requirements: [], unplanned: [], nfr: [] });
 function parseScorecard(md) {
-  const blocks = [...md.replace(/\r\n/g, "\n").matchAll(BLOCK2)];
+  const blocks = [...md.replace(/\r\n/g, "\n").matchAll(BLOCK3)];
   if (!blocks.length) return { rows: empty(), problems: ["the report has no ```yaml cairn-direction block"] };
   if (blocks.length > 1) return { rows: empty(), problems: ["the report has more than one cairn-direction block; keep exactly one"] };
   let doc;
   try {
-    doc = (0, import_yaml2.parse)(blocks[0][1]);
+    doc = (0, import_yaml3.parse)(blocks[0][1]);
   } catch (e) {
     return { rows: empty(), problems: [`cairn-direction YAML does not parse: ${e.message}`] };
   }
@@ -12497,7 +12857,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join21 } from "node:path";
+import { join as join23 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -12521,7 +12881,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join21(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join23(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -12554,8 +12914,8 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { appendFileSync as appendFileSync2, existsSync as existsSync14, readFileSync as readFileSync8, realpathSync } from "node:fs";
-import { dirname as dirname6, isAbsolute, join as join22, relative as relative4, resolve as resolve3 } from "node:path";
+import { appendFileSync as appendFileSync2, existsSync as existsSync16, readFileSync as readFileSync10, realpathSync } from "node:fs";
+import { dirname as dirname6, isAbsolute as isAbsolute2, join as join24, relative as relative4, resolve as resolve3 } from "node:path";
 
 // plugins/cairn/hooks/mod/guard-rules.ts
 var WHY = "approvals and plan state come from the user and the CLI, not from tool calls.";
@@ -12917,11 +13277,11 @@ function commandText(input) {
 }
 function landing(path, cwd) {
   if (path === "" || path.startsWith("~")) return void 0;
-  const abs = isAbsolute(path) ? path : resolve3(cwd, path);
+  const abs = isAbsolute2(path) ? path : resolve3(cwd, path);
   const parts = abs.split("/");
   for (let cut = parts.length; cut >= 1; cut--) {
     const head = parts.slice(0, cut).join("/") || "/";
-    if (!existsSync14(head)) continue;
+    if (!existsSync16(head)) continue;
     const rest = parts.slice(cut).filter((x) => x !== "" && x !== ".");
     if (rest.includes("..")) return void 0;
     return [realpathSync(head).replace(/\/$/, ""), ...rest].join("/");
@@ -12953,16 +13313,16 @@ function indexFor(ctx) {
 }
 var startOut = (...parts) => {
   const root = codexRoot();
-  if (root) parts.push(`cairn CLI here: ${join22(root, "cli", "bin", "cairn")}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join22(root, "references", "hosts.md")}.`);
+  if (root) parts.push(`cairn CLI here: ${join24(root, "cli", "bin", "cairn")}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join24(root, "references", "hosts.md")}.`);
   const text = parts.filter(Boolean).join("\n");
   return text ? hookOut("SessionStart", text) : "";
 };
 function exportPath(envFile = process.env.CLAUDE_ENV_FILE) {
   if (!envFile || codexRoot()) return;
   try {
-    const line = `export PATH='${join22(pluginRoot(), "cli", "bin").replaceAll("'", "'\\''")}':"$PATH"
+    const line = `export PATH='${join24(pluginRoot(), "cli", "bin").replaceAll("'", "'\\''")}':"$PATH"
 `;
-    if (existsSync14(envFile) && readFileSync8(envFile, "utf8").includes(line)) return;
+    if (existsSync16(envFile) && readFileSync10(envFile, "utf8").includes(line)) return;
     appendFileSync2(envFile, line);
   } catch {
   }
@@ -12970,7 +13330,7 @@ function exportPath(envFile = process.env.CLAUDE_ENV_FILE) {
 function hookSessionStart(input) {
   exportPath();
   const ctx = context(input.cwd ?? process.cwd());
-  if (ctx.plan?.dir && existsSync14(join22(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync16(join24(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
     if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", indexFor(ctx));
@@ -12999,8 +13359,8 @@ var ANNOUNCES = [
 ];
 function lastAssistantText(input) {
   if (typeof input.last_assistant_message === "string") return input.last_assistant_message;
-  if (!input.transcript_path || !existsSync14(input.transcript_path)) return "";
-  const lines = readFileSync8(input.transcript_path, "utf8").trimEnd().split("\n");
+  if (!input.transcript_path || !existsSync16(input.transcript_path)) return "";
+  const lines = readFileSync10(input.transcript_path, "utf8").trimEnd().split("\n");
   for (let i = lines.length - 1; i >= 0 && i >= lines.length - 50; i--) {
     try {
       const row = JSON.parse(lines[i]);
@@ -13016,7 +13376,7 @@ function lastAssistantText(input) {
 function hookStop(input) {
   if (input.stop_hook_active) return "";
   const ctx = context(input.cwd ?? process.cwd());
-  if (!ctx.plan?.dir || !existsSync14(join22(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync16(join24(ctx.plan.dir, "state.json"))) return "";
   const s = loadState(ctx.plan.dir);
   if (s.stage === "closed" || s.paused) return "";
   const text = lastAssistantText(input).trim();
@@ -13034,13 +13394,13 @@ function hookPostEdit(input) {
   return hookOut("PostToolUse", notes.map((n) => `cairn: ${n}. Logged as out-of-scope; it is listed in the phase summary. If this was not intended, revert it.`).join("\n"));
 }
 function driftFor(file, cwd) {
-  const abs = isAbsolute(file) ? file : resolve3(cwd ?? process.cwd(), file);
+  const abs = isAbsolute2(file) ? file : resolve3(cwd ?? process.cwd(), file);
   let dir = dirname6(abs);
-  while (!existsSync14(dir) && dirname6(dir) !== dir) dir = dirname6(dir);
+  while (!existsSync16(dir) && dirname6(dir) !== dir) dir = dirname6(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync14(join22(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync16(join24(ctx.plan.dir, "state.json"))) return "";
   const rel = relative4(ctx.top, abs);
-  if (rel.startsWith("..") || isAbsolute(rel)) return "";
+  if (rel.startsWith("..") || isAbsolute2(rel)) return "";
   if (isCairnPath(rel) || rel === ".cairn/work" || rel.startsWith(".cairn/work/")) return "";
   const pc = planCtx(ctx);
   const logged = withLock(pc.plan.dir, () => {
@@ -13073,7 +13433,7 @@ function driftFor(file, cwd) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links", "claim", "again", "force"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links", "claim", "again", "force", "here"]);
 var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];
@@ -13097,7 +13457,7 @@ ${v}` : v;
   const noteFile = opts["note-file"];
   if (typeof noteFile === "string") {
     try {
-      opts.note = readFileSync9(resolve4(cwd, noteFile), "utf8");
+      opts.note = readFileSync11(resolve4(cwd, noteFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --note-file ${noteFile}: ${e.message}`);
     }
@@ -13105,16 +13465,17 @@ ${v}` : v;
   const textFile = opts["text-file"];
   if (typeof textFile === "string") {
     try {
-      opts.text = readFileSync9(resolve4(cwd, textFile), "utf8");
+      opts.text = readFileSync11(resolve4(cwd, textFile), "utf8");
     } catch (e) {
       throw new CliError(`cannot read --text-file ${textFile}: ${e.message}`);
     }
   }
   return { pos, opts };
 }
-var USAGE4 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
+var USAGE5 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] [--json [--full]] | new <slug> --title "\u2026" [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
+  prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers \u2026 --run "\u2026" --files \u2026
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
   index | pause [--now] | resume [<slug>] | close | render | records | migrate
@@ -13169,6 +13530,8 @@ function dispatch(argv, cwd, stdin) {
       return cmdPlanLoad(ctx(), opts);
     case "ready":
       return cmdReady(ctx());
+    case "prove":
+      return cmdProve(ctx(), [a, b, ...rest].filter((x) => x !== void 0), opts);
     case "repro":
       return cmdRepro(ctx(), a, opts);
     case "escalate":
@@ -13217,15 +13580,15 @@ function dispatch(argv, cwd, stdin) {
     case void 0:
     case "help":
     case "--help":
-      return { message: USAGE4 };
+      return { message: USAGE5 };
     default:
       throw new CliError(`unknown command "${cmd}"
-${USAGE4}`);
+${USAGE5}`);
   }
 }
 function readStdin() {
   try {
-    return JSON.parse(readFileSync9(0, "utf8") || "{}");
+    return JSON.parse(readFileSync11(0, "utf8") || "{}");
   } catch {
     return {};
   }
@@ -13253,7 +13616,7 @@ function main(argv) {
   const json = argv.includes("--json");
   try {
     const piped = argv[0] === "linear" && argv[1] === "import" && !argv.some((x) => x === "--file" || x.startsWith("--file=")) && !process.stdin.isTTY;
-    const r = run(argv, process.cwd(), piped ? readFileSync9(0, "utf8") : void 0);
+    const r = run(argv, process.cwd(), piped ? readFileSync11(0, "utf8") : void 0);
     if (json || r.message !== "") process.stdout.write((json ? JSON.stringify({ ok: true, message: r.message, ...r.data }, null, 2) : r.message) + "\n");
     return 0;
   } catch (e) {

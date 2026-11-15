@@ -3,17 +3,17 @@
 Read this only when one of these happens during `procedures/execute.md`. Talk to the user per `references/reporting.md`. Run every `cairn` command from the plan worktree: `cd <plan worktree> && cairn <command>`.
 
 ## The implementer needs context (`NEEDS_CONTEXT`)
-Its `Concerns` line holds the question. Answer it from the PRD, plan, or `decisions.md` and send the answer to the implementer with SendMessage. Ask the user only when the documents don't answer it (AskUserQuestion, recommended first; record with `cd <plan worktree> && cairn decide`).
+Its `Concerns` line holds the question. Answer it from the PRD, the plan, `proofs.md` or `decisions.md`, and send the answer to the implementer with SendMessage. When the documents almost answer it and the answer is easy to undo, take the default and record it as `references/autonomy.md` says (`cairn decide "Assumed: …"`). Otherwise set the task aside with the question and keep building; it waits for the one stop.
 
 ## A task is blocked (`BLOCKED`, or a task at step `blocked`)
 Run `cd <plan worktree> && cairn task step <id> blocked --note "<what blocks it>"`. Pick the cheapest remedy:
-- Missing information: answer it from the documents or ask the user, then restart the implementer.
+- Missing information: answer it from the documents, or take an easy-to-undo default and record it, then restart the implementer. When neither works, leave the task set aside with the question in its note; it waits for the one stop (`references/autonomy.md`).
 - A dependency between Linear issues (only when `cairn status --json` shows `state.linear`; the task needs something another issue builds, for example SAV-110 needs SAV-105's API): record it with `cd <plan worktree> && cairn linear depends SAV-110 --on SAV-105 --reason "<what it needs>"`. It queues the blocked-by link and a comment for Linear. Then:
   - Both issues are in this plan: re-plan so the tasks for SAV-110 come after the tasks for SAV-105 (send the change to the plan-writer, which edits `plan.md` and runs `cd <plan worktree> && cairn plan load --replan`; ask for approval of the changed plan).
-  - The blocker is outside the plan and not done: ask with AskUserQuestion, recommended first: pull it in (amend the PRD, re-plan) / release the blocked issue (`cd <plan worktree> && cairn linear release SAV-110 --reason "…"`, it goes back to Linear and keeps its link) / stub the dependency and file a follow-up (`cd <plan worktree> && cairn suggest add …`) / pause.
+  - The blocker is outside the plan and not done: this changes scope, so it is the user's call. Keep the task set aside and build the rest; at the one stop, ask with AskUserQuestion, recommended first: pull it in (amend the PRD, re-plan) / release the blocked issue (`cd <plan worktree> && cairn linear release SAV-110 --reason "…"`, it goes back to Linear and keeps its link) / stub the dependency and file a follow-up (`cd <plan worktree> && cairn suggest add …`) / pause.
   - The blocker is already done in Linear: nothing waits; restart the implementer.
 - Task too hard: restart with a fresh implementer one tier up, and tell the user in one line.
-- Task too big or wrong: tell the user and offer a re-plan (the plan-writer edits `plan.md` and runs `cd <plan worktree> && cairn plan load --replan`; then ask for approval of the changed plan).
+- Task too big or wrong: set it aside and, at the one stop, offer a re-plan (the plan-writer edits `plan.md` and runs `cd <plan worktree> && cairn plan load --replan`; then ask for approval of the changed plan).
 
 **Done when:** the task is unblocked and back at `implementing`, or the user chose to re-plan or pause.
 

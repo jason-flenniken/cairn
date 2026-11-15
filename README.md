@@ -157,12 +157,14 @@ The mod adds these commands, which run instantly without a Claude turn:
 |---|---|---|
 | **Discover** | An interview, one decision at a time, covering users, the core flow, non-goals, and anything risky. Facts come from the codebase first, so the questions are only real decisions. A fresh agent that never saw cairn's guess offers other approaches and the strongest objection, and anything it raises that's yours to decide becomes a question. | No |
 | **PRD** | A short PRD: Problem, Solution, Requirements (each with a one-line check), Non-goals, Open questions. Unhappy paths, security, and performance sections appear only when they matter. Before you see it, a fresh agent reads only the PRD and lists what a builder would have to guess. | **Yes: approve the PRD** |
-| **Plan** | The PRD is broken into phases of small vertical **tasks**. Each task lists its files, what it waits on, its size (which picks the model), and whether it's risky. Recommended follow-ups that touch the same files are offered as extra tasks. | **Yes: approve the plan** |
-| **Build** | Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic. Risky and complex tasks get their own reviewer, and risky tasks also get thorough tests and a security review, with at most two fix attempts before cairn asks you. The rest are reviewed once, at Review. Every task is merged and tested: the quick tests on its changed files when `testQuick` is set, otherwise the full suite. The full suite always runs at the phase end. A finished phase continues on its own when tests pass. | Only if tests fail or something is blocked |
-| **Check** | Tests and build, then one pass over the PRD's checks. A requirement that isn't met gets fixed. One that works but has no test becomes a recommended follow-up. | Only if something is broken |
+| **Plan** | First the end state: a proof-writer turns each requirement into a **proof**, a check that runs (a test, a command, or a browser flow with screenshots). You see each one fail before anything is built. Then the PRD is broken into phases of small vertical **tasks**. Each task lists its files, what it waits on, its size (which picks the model), and whether it's risky. Recommended follow-ups that touch the same files are offered as extra tasks. | **Yes: approve the plan** |
+| **Build** | Runs on its own until the proofs pass. Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic. Risky and complex tasks get their own reviewer, and risky tasks also get thorough tests and a security review, with at most two fix attempts. A task still stuck after that is set aside while the rest keep building, and you get one question about everything set aside, not one per problem. Small calls the documents almost answer are made and logged, and listed at ship. The rest are reviewed once, at Review. Every task is merged and tested: the quick tests on its changed files when `testQuick` is set, otherwise the full suite. The full suite always runs at the phase end. A finished phase continues on its own when tests pass. | Once, only if a task is stuck |
+| **Check** | Tests and build, then every proof must be green on the final code, with UI screenshots judged by a fresh agent against the look you agreed. Then one pass over the PRD's checks. A requirement that isn't met gets fixed. One that works but has no test becomes a recommended follow-up. | Only if something is broken |
 | **Review** | One review of the whole branch. It reads the tasks that had no review of their own in full. It runs on Sonnet, or Opus when a task is complex or the plan has 10 or more tasks. Blocking means a bug, a security hole, data loss, or an unmet requirement, and those are fixed in place. Problems in code the plan didn't touch, and everything else, become recommended follow-ups. | Only if something is blocking |
-| **Ship** | A one-page `RECORD.md`: links (including how to revert it), why, what was built, how it works, follow-ups. When reviews kept flagging the same kind of mistake, cairn offers up to three rules for `REVIEW.md`, and adds only the ones you tick. | **Yes: approve the ship** |
+| **Ship** | The approval card shows the proofs that passed, the screenshot folders, any proofs added during the build, and the calls the build made alone. A one-page `RECORD.md`: links (including how to revert it), why, what was built, how it works, follow-ups. When reviews kept flagging the same kind of mistake, cairn offers up to three rules for `REVIEW.md`, and adds only the ones you tick. | **Yes: approve the ship** |
 | **Learn** | Checks the follow-ups are tidied, then closes the plan. It asks you nothing. | No |
+
+**Proofs.** The plan approval locks the proofs. From then on, builders can add a proof (for an edge case they found) but never edit or remove one: a task merge that touches a locked proof file is refused. Leaving Check and approving the ship both need every proof green on the current code. Turn proofs on per repo with `"proofs": "required"` in `.cairn/config.json`. MVP never requires them. `templates/proofs.md` shows the format, and `references/autonomy.md` says what the build decides alone.
 
 The `cairn` CLI checks each move between stages. If something is missing, such as an approval, a required PRD section, or a passing test run, it refuses and prints the exact fix. You can overrule a refusal from an **Override** menu, and every override is logged with its reason.
 
@@ -406,7 +408,8 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
   "maxParallel": 3,
   "resumeFreshAfterMinutes": 60,
   "autoCommit": true,
-  "defaultLevel": "standard"
+  "defaultLevel": "standard",
+  "proofs": "required"
 }
 ```
 
@@ -418,6 +421,7 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 | `build` | The build command, run at Check. |
 | `start`, `seed`, `appTypes` | How to run the app, seed its data, and what kind of app it is (`web`, `expo`, `api`). These are recorded for checks that drive the running app; the lean defaults don't use them yet. |
 | `maxParallel` | How many tasks run at once (default 3). A task in review does not count, and a fix round after review is never held back, so the cap can briefly be exceeded by the tasks returning from review. |
+| `proofs` | `required`: new Standard and Polished plans need end-state proofs, seen failing before the plan approval and green before Check ends. `optional` (the default when unset): proofs are checked only on a plan that has them. |
 | `defaultLevel` | The level `/cairn:new` picks first: `mvp`, `standard` or `polished` (default standard). |
 | `resumeFreshAfterMinutes` | How long a pause counts as recent before resume suggests a fresh session (default 60). |
 | `fixMaxFiles` | How many files a bug fix may touch before cairn suggests a full plan (default 8). |
@@ -480,7 +484,7 @@ plugins/cairn/
   hooks/            the mod: register.tsx, plus mod/ (pane, agent tracking, approvals, pause, guards)
   procedures/       the step-by-step instructions for each stage; `cairn next` names the one to follow
   skills/           thin slash-command wrappers around the procedures
-  agents/           implementer, task-, branch-, security- and plan-reviewer, challenger, prd-checker, acceptance- and direction-checker, recorder
+  agents/           implementer, task-, branch-, security- and plan-reviewer, challenger, prd-checker, acceptance-, direction- and visual-checker, proof-writer, recorder
   templates/        PRD, plan, record, handoff, config, review (the REVIEW.md starter)
   references/       CLI contract, reporting rules (plain words, output style), model tiers
 ```
