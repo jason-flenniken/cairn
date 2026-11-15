@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import { builderLine, builderOf, type Builder } from '../builder.ts';
+import { builderLine, builderOf, taskReviewOf, type Builder } from '../builder.ts';
 import { commonDir } from '../git.ts';
 import { taskBranch, type Ctx } from '../locate.ts';
 import { findTask } from '../ready.ts';
@@ -161,6 +161,7 @@ function buildBrief(pc: PlanCtx, s: State, sl: Task, role: Role, again = false):
           '',
           'List each prior item as one line: `Prior: <path:line> | addressed|open | <note>`. Report anything the fix newly broke as normal finding lines. End with `Verdict: PASS` or `Verdict: FIX`.',
           '',
+          ...(sl.lean ? ['Scope: check only the items above and the code the fix changed (the fix report lists its commits). Do not review the rest of the task again.', ''] : []),
         );
       }
     }
@@ -187,8 +188,10 @@ export function taskBrief(pc: PlanCtx, id: string, opts: Opts): Result {
   if (again && role !== 'review' && role !== 'security') throw new CliError('--again needs --role review or --role security');
   const r = writeBrief(pc, id, role as Role, again);
   const builds = role === 'build' || role === 'fix';
+  // A lean re-review checks only the cited findings, so it runs at the default effort instead of the agent's high.
+  const lean = again && role === 'review' && !!findTask(loadState(pc.plan.dir), id)?.lean;
   return {
-    message: `Brief for ${again ? 're-' : ''}${role} · ${r.name}: ${r.path}. Report to: ${r.report}.${builds ? `\n${builderLine(r.builder)}` : ''}`,
+    message: `Brief for ${again ? 're-' : ''}${role} · ${r.name}: ${r.path}. Report to: ${r.report}.${builds ? `\n${builderLine(r.builder)}` : ''}${lean ? '\nReviewer: sonnet, effort default — a lean re-review checks only the cited findings' : ''}`,
     data: { path: r.path, report: r.report, role, ...(builds ? { builder: r.builder } : {}) },
   };
 }
@@ -281,7 +284,9 @@ export function taskReport(ctx: Ctx, id: string | undefined, path: string | unde
     let logged = 0;
     for (const f of found) if (logFollowUp(s, { ...f, from: 'implementer' }, true)) logged++;
     log(s, 'task report', `${sl.name}: ${status}, ${logged} follow-ups`);
-    return { message: `${status}; ${logged} follow-ups logged.`, data: { status, logged } };
+    const review = taskReviewOf(sl);
+    const line = `Task review: ${review.review ? 'yes' : 'no'} — ${review.reason}.`;
+    return { message: `${status}; ${logged} follow-ups logged.\n${line}`, data: { status, logged, taskReview: review } };
   });
 }
 

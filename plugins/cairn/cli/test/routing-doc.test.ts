@@ -13,10 +13,10 @@ const section = (src: string, from: string, to: string) => {
   return src.slice(a, b);
 };
 
-test('execute.md reviews every task and has no risky-only review branch', () => {
+test('execute.md reviews per the Task review line, and the security floor still runs on a skipped task', () => {
   const src = read('procedures/execute.md');
   const step = section(src, '## 5.', '## 6.');
-  assert.match(step, /review every task/);
+  assert.match(step, /`Task review:` line says `no`, skip the task-reviewer\. The next bullet still applies/);
   assert.match(step, /task-reviewer/);
   assert.doesNotMatch(src, /review it only if it is risky|review only risky|Not risky: go straight/i);
   assert.match(step, /`security-reviewer`[\s\S]*in parallel/);
@@ -61,9 +61,9 @@ test('fix.md reviews every fix, names the wider risky list, merges before close,
   assert.match(src, /--no-worktree[^\n]*<repo folder>--fix/);
 });
 
-test('model-tiers.md lists the task reviewer for every task and the security reviewer', () => {
+test('model-tiers.md lists the task reviewer by level and the security reviewer', () => {
   const src = read('references/model-tiers.md');
   assert.doesNotMatch(src, /risky tasks only/);
-  assert.match(src, /\| task-reviewer \(every task\) \| sonnet \|/);
+  assert.match(src, /\| task-reviewer \(Polished: every task; Standard: risky and complex tasks/);
   assert.match(src, /\| security-reviewer [^\n]*\| sonnet \|/);
 });

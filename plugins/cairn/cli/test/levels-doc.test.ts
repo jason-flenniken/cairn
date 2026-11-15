@@ -41,9 +41,10 @@ test('verify.md keeps the scan and audit floor text outside any level condition'
   assert.match(b, /the scan and audit are floors/);
 });
 
-test('execute.md keeps "review every task" and never says "review only risky"', () => {
+test('execute.md takes the task review from the CLI\'s Task review line, never its own risk call', () => {
   const src = read('procedures/execute.md');
-  assert.match(src, /review every task/i);
+  assert.match(src, /`Task review:` line says `no`, skip the task-reviewer/);
+  assert.match(block(src, '## At this level'), /Polished: every task gets the task-reviewer/);
   assert.doesNotMatch(src, /review it only if it is risky|review only risky|Not risky: go straight/i);
 });
 
@@ -96,7 +97,7 @@ test('new.md asks the level question and passes --level', () => {
 
 test('plan, execute and verify have the Polished requirements', () => {
   assert.match(block(read('procedures/plan.md'), '## At this level'), /Polished: every task lists Test cases[\s\S]*plan-reviewer/);
-  assert.match(block(read('procedures/execute.md'), '## At this level'), /Polished: test-first for every task/);
+  assert.match(block(read('procedures/execute.md'), '## At this level'), /Polished: every task gets the task-reviewer[^\n]*Test-first for every task/);
   assert.match(block(read('procedures/verify.md'), '## At this level'), /Polished: every requirement must be met and tested/);
   assert.match(block(read('procedures/phase-end.md'), '## At this level'), /Polished:[^\n]*on-track check[^\n]*without being asked/);
 });
@@ -116,7 +117,8 @@ test('verify MVP uses cairn test and sends a red suite past the fix loop', () =>
 
 test('MVP review uses a sonnet branch reviewer and files lesser findings as hardening', () => {
   const b = block(read('procedures/review.md'), '## At this level');
-  assert.match(b, /`branch-reviewer` with `model: sonnet`/);
+  assert.match(b, /MVP: in step 2 `branchReviewer` names sonnet/);
+  assert.match(read('procedures/review.md'), /`model` and `effort` from `branchReviewer` in `cairn status --json`/);
     assert.match(b, /whole-branch security review runs at every level/);
 });
 
@@ -131,8 +133,8 @@ test('MVP ship runs cairn test and names failing commands; learn keeps its cap',
 
 test('model-tiers.md has a separate MVP table and keeps the existing rows', () => {
   const src = read('references/model-tiers.md');
-  assert.match(src, /\| task-reviewer \(every task\) \| sonnet \|/);
-  assert.match(src, /\| branch-reviewer \| opus \|/);
+  assert.match(src, /\| task-reviewer \(Polished: every task; Standard: risky and complex tasks[^|]*\| sonnet \|/);
+  assert.match(src, /\| branch-reviewer \| `branchReviewer` in `cairn status --json` \(opus at Polished/);
   const mvp = block(src, '## MVP plans');
   assert.match(mvp, /implementer \| one tier below/);
   assert.match(mvp, /branch-reviewer \| sonnet/);

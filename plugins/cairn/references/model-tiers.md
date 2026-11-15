@@ -19,18 +19,18 @@ Opus builds a task only when the plan marks it (`model: opus` with a `model_reas
 | Role | Model | Effort |
 |---|---|---|
 | implementer | the `Builder:` line | the `Builder:` line |
-| task-reviewer (every task) | sonnet | high |
+| task-reviewer (Polished: every task; Standard: risky and complex tasks, per the `Task review:` line) | sonnet | high (a lean re-review: default, per its `Reviewer:` line) |
 | security-reviewer (risky tasks, and the whole branch) | sonnet | high |
 | Explore (research) | sonnet | default |
 | acceptance-checker, researcher | sonnet | default |
 | recorder | sonnet | low |
 | prd-writer, plan-writer | opus | default |
 | linear-sender | haiku | low |
-| branch-reviewer | opus | high |
+| branch-reviewer | `branchReviewer` in `cairn status --json` (opus at Polished; at Standard opus only for a complex task or 10 or more tasks, else sonnet) | high |
 | plan-reviewer (Polished plans only) | sonnet | default |
 | challenger, prd-checker (Standard and Polished) | sonnet | default |
 
-Reviewers, recorder and linear-sender carry their effort in the agent's frontmatter (`effort:`). Pass `effort` on an `Agent` call only when the `Builder:` line names one.
+Reviewers, recorder and linear-sender carry their effort in the agent's frontmatter (`effort:`). Pass `effort` on an `Agent` call only when the `Builder:` line, a `Reviewer:` line or `branchReviewer` names one.
 
 The main session stays on Opus. The writers (prd-writer, plan-writer) are opus because they hold a whole document; the linear-sender is haiku because it only carries calls.
 
@@ -47,6 +47,6 @@ Plans at MVP (`level` in `cairn status --json`; see `references/levels.md`) use 
 | Role | Model |
 |---|---|
 | implementer | one tier below the task's complexity (simple: haiku, standard: haiku, complex: sonnet), a plan mark still wins; the `Builder:` line gives it |
-| branch-reviewer | sonnet, set at dispatch |
+| branch-reviewer | sonnet (`branchReviewer` says so) |
 | task-reviewer | not dispatched |
 | challenger, prd-checker | not dispatched |

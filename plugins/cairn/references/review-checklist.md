@@ -57,6 +57,8 @@ Label every finding. The label decides what happens to it.
 
 Order findings by leverage: correctness and security first, then structure, then the rest. A few high-conviction findings beat a long list. One structural problem and ten nits means the structural problem is the review.
 
+Missing tests are labelled by what the task promised. A Test case the plan listed with no test, or a risky task's happy, unhappy or security path left untested, is Required. On any other task a missing test is Optional: it becomes a follow-up. A weakened test is Required everywhere.
+
 Set the label by the impact if it happens, not by how likely you think it is. A leak that needs two tabs open is still Critical. Unsure between two labels: pick the higher and say why in one line.
 
 ### Pre-existing

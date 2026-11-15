@@ -45,6 +45,8 @@ export interface TestRun {
   head?: string;
   /** True when the run hit `testTimeoutMinutes` and was stopped. */
   timedOut?: boolean;
+  /** True for a `testQuick` run: it never stands in for the full suite. */
+  quick?: boolean;
 }
 
 /**
@@ -139,18 +141,30 @@ function testInput(cwd: string): string | undefined {
 }
 
 export function runTests(cfg: Config, cwd: string): TestRun | undefined {
-  if (!cfg.test) return undefined;
+  return cfg.test ? runSuite(cfg.test, cfg, cwd) : undefined;
+}
+
+/**
+ * The quick run a lean Standard task's merge makes: `testQuick` with CAIRN_CHANGED_FILES set to the task's changed
+ * paths. With no `testQuick`, or no changed files, it is the full suite.
+ */
+export function runQuickTests(cfg: Config, cwd: string, files: string[]): TestRun | undefined {
+  if (!cfg.testQuick || !files.length) return runTests(cfg, cwd);
+  return { ...runSuite(cfg.testQuick, cfg, cwd, { CAIRN_CHANGED_FILES: files.join(' ') }), quick: true };
+}
+
+function runSuite(cmd: string, cfg: Config, cwd: string, extraEnv: Record<string, string> = {}): TestRun {
   const minutes = cfg.testTimeoutMinutes ?? DEFAULT_TEST_TIMEOUT_MINUTES;
   const before = testInput(cwd);
-  const r = spawnSync('sh', ['-c', cfg.test], { cwd, encoding: 'utf8', env: childEnv(), maxBuffer: 64 * 1024 * 1024, timeout: minutes * 60_000, killSignal: 'SIGKILL' });
+  const r = spawnSync('sh', ['-c', cmd], { cwd, encoding: 'utf8', env: { ...childEnv(), ...extraEnv }, maxBuffer: 64 * 1024 * 1024, timeout: minutes * 60_000, killSignal: 'SIGKILL' });
   const lines = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.split('\n').map((l) => l.trim()).filter(Boolean);
   const output = lines.join('\n');
   if ((r.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT')
-    return { ok: false, ran: true, timedOut: true, cmd: cfg.test, tail: `timed out after ${minutes} min (testTimeoutMinutes); the suite was stopped`, output };
+    return { ok: false, ran: true, timedOut: true, cmd, tail: `timed out after ${minutes} min (testTimeoutMinutes); the suite was stopped`, output };
   const after = testInput(cwd);
   if (before !== after)
-    return { ok: false, ran: true, cmd: cfg.test, tail: 'the checkout changed while the tests ran (a commit, checkout or edit), so the result belongs to no single commit; run again', output };
-  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}`, output, head: before?.split('\n')[0] };
+    return { ok: false, ran: true, cmd, tail: 'the checkout changed while the tests ran (a commit, checkout or edit), so the result belongs to no single commit; run again', output };
+  return { ok: r.status === 0, ran: !r.error, cmd, tail: testSummary(lines) ?? `exit ${r.status}`, output, head: before?.split('\n')[0] };
 }
 
 /** A hardening item is a follow-up an MVP plan leaves behind; its `where` is never empty. */

@@ -7,12 +7,12 @@ import { planRelOf, taskBranch, type Ctx } from '../locate.ts';
 import { isCairnPath } from '../paths.ts';
 import { phaseStatus } from '../plan-parse.ts';
 import { currentPhase, findTask, readySet } from '../ready.ts';
-import { loadState, log, setStage } from '../state.ts';
+import { levelOf, loadState, log, setStage } from '../state.ts';
 import { SUBSTEPS, type State, type Substep, type Task } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
 import { builderLine, builderOf, MAX_FIX_ROUNDS } from '../builder.ts';
 import { recordTestRun, taskBrief, taskReport, writeBrief } from './brief.ts';
-import { ensureExcluded, gate, mutate, planCtx, runSetup, runTests, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
+import { ensureExcluded, gate, mutate, planCtx, runQuickTests, runSetup, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
 import { syncTickets } from './linear.ts';
 import { linearConfig } from '../linear.ts';
@@ -88,7 +88,7 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
       else git(['worktree', 'add', '-q', '-b', branch, path, pb], plan.worktree);
       needsSetup = true;
     }
-    Object.assign(sl, { status: 'in_progress', substep: 'implementing', fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level });
+    Object.assign(sl, { status: 'in_progress', substep: 'implementing', fixRound: 0, branch, worktree: path, base: sl.base ?? base, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level, lean: sl.startedAt ? sl.lean : (!fastLane(s) && levelOf(s) === 'standard') || undefined });
     const phase = s.phases.find((p) => p.tasks.includes(sl))!;
     if (phase.status === 'pending') phase.status = 'in_progress';
     log(s, 'task started', sl.name);
@@ -138,8 +138,11 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const commits = tip && sl.base ? Number(git(['rev-list', '--count', `${sl.base}..${sl.branch}`], plan.worktree)) : 0;
   const planDirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   const checkable = merged && !dirty && !planDirty;
-  const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan.worktree), id) : undefined;
-  const testedCommit = tests?.head;
+  // A lean Standard task runs `testQuick` on its changed files when one is set; the full suite runs at phase finish.
+  const quickFiles = sl.lean && pc.cfg.testQuick && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, pb) : [];
+  const tests = checkable ? recordTestRun(pc, runQuickTests(pc.cfg, plan.worktree, quickFiles), id) : undefined;
+  // Only a full-suite run is kept as the tested commit: phase finish reuses it, and a quick run must not stand in for the suite.
+  const testedCommit = tests?.quick ? undefined : tests?.head;
   // The fix track adds: the repro now passes, and the fix stays small (FR-25). Both are checked even when an
   // override waives the checks above: the repro whenever the task is merged, the size whenever there is a base.
   // The size counts the task branch and the plan branch from the task base, so commits made beside the task count.
@@ -172,7 +175,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
         s.drift.push({ path, at: now(), reason: `changed outside task "${cur.name}" scope (found at task done)`, task: cur.id });
         log(s, 'drift', path);
       }
-    Object.assign(cur, { status: 'done', substep: undefined, doneAt: now(), tip, tests: tests ? `${tests.cmd} → ${tests.tail}` : undefined, testedCommit: tests?.ok ? testedCommit : undefined });
+    Object.assign(cur, { status: 'done', substep: undefined, doneAt: now(), tip, tests: tests ? `${tests.quick ? 'quick: ' : ''}${tests.cmd} → ${tests.tail}` : undefined, testedCommit: tests?.ok ? testedCommit : undefined });
     const phase = s.phases.find((p) => p.tasks.some((x) => x.id === id))!;
     phase.status = phaseStatus(phase, phase.status);
     // The fix track has no phase stop: the single phase is done with its task.
@@ -181,7 +184,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
     syncTickets(s, linearConfig(pc.cfg));
     const left = phase.tasks.filter((x) => x.status !== 'done').length;
     return {
-      message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`}`,
+      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? 'quick tests' : 'tests'}: ${tests.tail})` : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`}`,
       data: { phaseComplete: !left },
     };
   });

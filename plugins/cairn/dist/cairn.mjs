@@ -8277,19 +8277,25 @@ function testInput(cwd) {
 ${status.ok ? status.out : "?"}`;
 }
 function runTests(cfg, cwd) {
-  if (!cfg.test) return void 0;
+  return cfg.test ? runSuite(cfg.test, cfg, cwd) : void 0;
+}
+function runQuickTests(cfg, cwd, files) {
+  if (!cfg.testQuick || !files.length) return runTests(cfg, cwd);
+  return { ...runSuite(cfg.testQuick, cfg, cwd, { CAIRN_CHANGED_FILES: files.join(" ") }), quick: true };
+}
+function runSuite(cmd, cfg, cwd, extraEnv = {}) {
   const minutes = cfg.testTimeoutMinutes ?? DEFAULT_TEST_TIMEOUT_MINUTES;
   const before = testInput(cwd);
-  const r = spawnSync2("sh", ["-c", cfg.test], { cwd, encoding: "utf8", env: childEnv(), maxBuffer: 64 * 1024 * 1024, timeout: minutes * 6e4, killSignal: "SIGKILL" });
+  const r = spawnSync2("sh", ["-c", cmd], { cwd, encoding: "utf8", env: { ...childEnv(), ...extraEnv }, maxBuffer: 64 * 1024 * 1024, timeout: minutes * 6e4, killSignal: "SIGKILL" });
   const lines = `${r.stdout ?? ""}
 ${r.stderr ?? ""}`.split("\n").map((l) => l.trim()).filter(Boolean);
   const output = lines.join("\n");
   if (r.error?.code === "ETIMEDOUT")
-    return { ok: false, ran: true, timedOut: true, cmd: cfg.test, tail: `timed out after ${minutes} min (testTimeoutMinutes); the suite was stopped`, output };
+    return { ok: false, ran: true, timedOut: true, cmd, tail: `timed out after ${minutes} min (testTimeoutMinutes); the suite was stopped`, output };
   const after = testInput(cwd);
   if (before !== after)
-    return { ok: false, ran: true, cmd: cfg.test, tail: "the checkout changed while the tests ran (a commit, checkout or edit), so the result belongs to no single commit; run again", output };
-  return { ok: r.status === 0, ran: !r.error, cmd: cfg.test, tail: testSummary(lines) ?? `exit ${r.status}`, output, head: before?.split("\n")[0] };
+    return { ok: false, ran: true, cmd, tail: "the checkout changed while the tests ran (a commit, checkout or edit), so the result belongs to no single commit; run again", output };
+  return { ok: r.status === 0, ran: !r.error, cmd, tail: testSummary(lines) ?? `exit ${r.status}`, output, head: before?.split("\n")[0] };
 }
 function addHardening(s, item) {
   return pushSuggestion(s, { ...item, from: "mvp", kind: "hardening" });
@@ -10158,6 +10164,23 @@ function builderOf(s, t, fixAttempt = 0) {
   return b;
 }
 var builderLine = (b) => `Builder: ${b.model}${b.effort ? `, effort ${b.effort}` : ""}${b.reason ? ` \u2014 ${b.reason}` : ""}`;
+function taskReviewOf(t) {
+  if (levelOf(t) === "mvp") return { review: false, reason: "MVP has no task review" };
+  if (!t.lean) return { review: true, reason: "every task is reviewed at this level" };
+  if (t.risky) return { review: true, reason: "the task is risky" };
+  if (t.complexity === "complex") return { review: true, reason: "the task is complex" };
+  return { review: false, reason: "the branch review covers it" };
+}
+var OPUS_BRANCH_TASKS = 10;
+function branchReviewerOf(s, tasks) {
+  const level = levelOf(s);
+  if (level === "polished") return { model: "opus", effort: "high", reason: "Polished" };
+  if (level === "mvp") return { model: "sonnet", effort: "high", reason: "MVP" };
+  if (tasks.some((t) => t.complexity === "complex")) return { model: "opus", effort: "high", reason: "a task is complex" };
+  if (tasks.length >= OPUS_BRANCH_TASKS) return { model: "opus", effort: "high", reason: `${tasks.length} tasks` };
+  if (tasks.some((t) => t.startedAt && !t.lean)) return { model: "opus", effort: "high", reason: "tasks started before lean Standard" };
+  return { model: "sonnet", effort: "high", reason: "a small plan with no complex task" };
+}
 
 // plugins/cairn/cli/src/commands/brief.ts
 var ROLES = ["build", "review", "security", "fix"];
@@ -10276,7 +10299,8 @@ function buildBrief(pc, s, sl, role, again = false) {
           `The fix report: ${reportPath(pc, sl.id, "fix")}`,
           "",
           "List each prior item as one line: `Prior: <path:line> | addressed|open | <note>`. Report anything the fix newly broke as normal finding lines. End with `Verdict: PASS` or `Verdict: FIX`.",
-          ""
+          "",
+          ...sl.lean ? ["Scope: check only the items above and the code the fix changed (the fix report lists its commits). Do not review the rest of the task again.", ""] : []
         );
       }
     }
@@ -10300,9 +10324,10 @@ function taskBrief(pc, id, opts) {
   if (again && role !== "review" && role !== "security") throw new CliError("--again needs --role review or --role security");
   const r = writeBrief(pc, id, role, again);
   const builds = role === "build" || role === "fix";
+  const lean = again && role === "review" && !!findTask(loadState(pc.plan.dir), id)?.lean;
   return {
     message: `Brief for ${again ? "re-" : ""}${role} \xB7 ${r.name}: ${r.path}. Report to: ${r.report}.${builds ? `
-${builderLine(r.builder)}` : ""}`,
+${builderLine(r.builder)}` : ""}${lean ? "\nReviewer: sonnet, effort default \u2014 a lean re-review checks only the cited findings" : ""}`,
     data: { path: r.path, report: r.report, role, ...builds ? { builder: r.builder } : {} }
   };
 }
@@ -10374,7 +10399,10 @@ function taskReport(ctx, id, path) {
     let logged = 0;
     for (const f of found) if (logFollowUp(s, { ...f, from: "implementer" }, true)) logged++;
     log(s, "task report", `${sl.name}: ${status}, ${logged} follow-ups`);
-    return { message: `${status}; ${logged} follow-ups logged.`, data: { status, logged } };
+    const review = taskReviewOf(sl);
+    const line = `Task review: ${review.review ? "yes" : "no"} \u2014 ${review.reason}.`;
+    return { message: `${status}; ${logged} follow-ups logged.
+${line}`, data: { status, logged, taskReview: review } };
   });
 }
 var FINDING = /^\s*(?:\d+[.)]|[-*])?\s*[*_]*(Critical|Required|Optional|Nit|FYI)[*_]*(\s+pre-existing)?\s*\|\s*(.*)$/i;
@@ -10716,14 +10744,14 @@ import { tmpdir } from "node:os";
 import { join as join12 } from "node:path";
 var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
 var fastLane = (s) => s.track === "fix" && (s.stage === "repro" || !!s.repro);
-var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build }));
+var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build, testQuick: cfg.testQuick }));
 function configGate(s, cfg, event, opts) {
   gate(
     !s.configHash || s.configHash === configHash(cfg),
     s,
     event,
     opts,
-    `the setup, test, or build command in ${CONFIG_REL} changed since the user approved it`,
+    `the setup, test, testQuick or build command in ${CONFIG_REL} changed since the user approved it`,
     ["the user re-approves the commands by running, in their own terminal: cairn approve plan --human", "or the user chooses Override in the menu"]
   );
 }
@@ -11170,6 +11198,7 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full 
   for (const x of listed2) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
   const timing = stageTimes(s);
   const usage = planUsage(commonDir(ctx.mainRoot), s.slug);
+  const branchReviewer = s.track === "fix" ? void 0 : { ...branchReviewerOf(s, allTasks(s)), unreviewed: allTasks(s).filter((t) => t.status === "done" && t.lean && !taskReviewOf(t).review).map((t) => t.id) };
   return {
     message: [
       summary(s, prOpen),
@@ -11182,7 +11211,7 @@ ${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full 
       ...w.map((x) => `! ${x}`),
       ...ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : []
     ].join("\n"),
-    data: { state: opts.full ? s : slimState(s), ...usage ? { usage } : {}, suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...s.linear ? { foundational: foundationalSafe(s, pc) } : {}, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
+    data: { state: opts.full ? s : slimState(s), ...usage ? { usage } : {}, ...branchReviewer ? { branchReviewer } : {}, suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...s.linear ? { foundational: foundationalSafe(s, pc) } : {}, level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) }
   };
 }
 var procedurePath = (name) => join14(pluginRoot(), "procedures", `${name}.md`);
@@ -11566,6 +11595,7 @@ function cmdLevel(ctx, value, opts, io) {
         filed++;
       }
       t.level = to;
+      delete t.lean;
     }
     return { message: `Level raised to ${LEVEL_LABEL[to]}.${filed ? ` ${filed} started task(s) got a hardening item.` : ""}`, data: { level: to, hardening: filed } };
   });
@@ -11714,7 +11744,7 @@ function mergeProgress(next, prev) {
       const o = old.get(s.id);
       if (!o) continue;
       kept.add(s.id);
-      p.tasks[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, testedCommit: o.testedCommit, doneAt: o.doneAt, startedAt: o.startedAt, note: o.note };
+      p.tasks[i] = { ...s, status: o.status, substep: o.substep, fixRound: o.fixRound, branch: o.branch, worktree: o.worktree, base: o.base, tip: o.tip, tests: o.tests, testedCommit: o.testedCommit, doneAt: o.doneAt, startedAt: o.startedAt, lean: o.lean, note: o.note };
     }
   const lostDone = [...old.values()].filter((s) => s.status !== "pending" && !kept.has(s.id)).map((s) => s.id);
   for (const p of next) p.status = phaseStatus(p, prev.find((q) => q.id === p.id)?.status);
@@ -11858,7 +11888,7 @@ function taskStart(pc, id, opts) {
       else git(["worktree", "add", "-q", "-b", branch, path, pb], plan2.worktree);
       needsSetup = true;
     }
-    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base2, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level });
+    Object.assign(sl, { status: "in_progress", substep: "implementing", fixRound: 0, branch, worktree: path, base: sl.base ?? base2, startedAt: sl.startedAt ?? now(), level: sl.level ?? s.level, lean: sl.startedAt ? sl.lean : !fastLane(s) && levelOf(s) === "standard" || void 0 });
     const phase = s.phases.find((p) => p.tasks.includes(sl));
     if (phase.status === "pending") phase.status = "in_progress";
     log(s, "task started", sl.name);
@@ -11906,8 +11936,9 @@ function taskDone(pc, id, opts) {
   const commits = tip && sl.base ? Number(git(["rev-list", "--count", `${sl.base}..${sl.branch}`], plan2.worktree)) : 0;
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
   const checkable = merged2 && !dirty && !planDirty;
-  const tests = checkable ? recordTestRun(pc, runTests(pc.cfg, plan2.worktree), id) : void 0;
-  const testedCommit = tests?.head;
+  const quickFiles = sl.lean && pc.cfg.testQuick && sl.base ? changedFiles(plan2.worktree, plan2.slug, sl.base, pb) : [];
+  const tests = checkable ? recordTestRun(pc, runQuickTests(pc.cfg, plan2.worktree, quickFiles), id) : void 0;
+  const testedCommit = tests?.quick ? void 0 : tests?.head;
   const fix = fastLane(pre);
   const repro = fix && merged2 && pre.repro ? runRepro(pre.repro.cmd, plan2.worktree, pc.cfg) : void 0;
   const heads = [pb, ...tip ? [sl.branch] : []];
@@ -11933,7 +11964,7 @@ function taskDone(pc, id, opts) {
         s.drift.push({ path, at: now(), reason: `changed outside task "${cur.name}" scope (found at task done)`, task: cur.id });
         log(s, "drift", path);
       }
-    Object.assign(cur, { status: "done", substep: void 0, doneAt: now(), tip, tests: tests ? `${tests.cmd} \u2192 ${tests.tail}` : void 0, testedCommit: tests?.ok ? testedCommit : void 0 });
+    Object.assign(cur, { status: "done", substep: void 0, doneAt: now(), tip, tests: tests ? `${tests.quick ? "quick: " : ""}${tests.cmd} \u2192 ${tests.tail}` : void 0, testedCommit: tests?.ok ? testedCommit : void 0 });
     const phase = s.phases.find((p) => p.tasks.some((x) => x.id === id));
     phase.status = phaseStatus(phase, phase.status);
     if (fastLane(s) && phase.status === "awaiting_approval") phase.status = "done";
@@ -11941,7 +11972,7 @@ function taskDone(pc, id, opts) {
     syncTickets(s, linearConfig(pc.cfg));
     const left = phase.tasks.filter((x) => x.status !== "done").length;
     return {
-      message: `Task "${cur.name}" done${tests ? ` (tests: ${tests.tail})` : " (no test command configured: nothing was run)"}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? "The fix is built: `cairn advance` to review." : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`}`,
+      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? "quick tests" : "tests"}: ${tests.tail})` : " (no test command configured: nothing was run)"}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? "The fix is built: `cairn advance` to review." : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`}`,
       data: { phaseComplete: !left }
     };
   });

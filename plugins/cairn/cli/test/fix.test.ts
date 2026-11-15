@@ -453,3 +453,9 @@ test('escalate narrows a running task to its committed and uncommitted files, wi
   ok(wt, 'escalate');
   assert.deepEqual(stateOf(wt, 'wip').phases[0].tasks[0].scope, ['bug.txt', 'notes.txt', 'src/we?rd?.ts', 'src/wip.ts']);
 });
+
+test('a fix task is never stamped lean: no quick tests, and its report asks for the task review', () => {
+  const { wt } = fixInExecute('lean-stamp');
+  const tasks = (ok(wt, 'status', '--json', '--full').data!.state as { phases: { tasks: { lean?: boolean }[] }[] }).phases[0].tasks;
+  assert.equal(tasks[0].lean, undefined);
+});

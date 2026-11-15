@@ -51,6 +51,7 @@ export function cmdLevel(ctx: Ctx, value: string | undefined, opts: Opts, io?: P
         filed++;
       }
       t.level = to;
+      delete t.lean;
     }
     return { message: `Level raised to ${LEVEL_LABEL[to]}.${filed ? ` ${filed} started task(s) got a hardening item.` : ''}`, data: { level: to, hardening: filed } };
   });
