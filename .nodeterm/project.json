@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "rev": 11,
+  "savedAt": "2026-11-07T16:57:23.750Z",
+  "id": "project-1sy450x",
+  "name": "Project 1",
+  "color": "#0a84ff",
+  "viewport": {
+    "x": -455.5,
+    "y": 221.5865478515625,
+    "zoom": 1
+  },
+  "nodes": [
+    {
+      "id": "term-mvvq55lu-66ba10a6",
+      "kind": "terminal",
+      "position": {
+        "x": 535.5,
+        "y": -141.5865478515625
+      },
+      "size": {
+        "width": 1279,
+        "height": 745
+      },
+      "title": "Claude Code",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude",
+      "agentSessionId": "ac3de0d3-08dc-423d-89fb-7eb57434b75f"
+    }
+  ],
+  "bridges": [],
+  "ropes": []
+}
