@@ -14,7 +14,7 @@ A task is set aside when it can't go on without the user: its fix attempts are u
 A set-aside task holds its phase open: tasks in later phases wait for it, unless the phase has `overlap`. So the build reaches the one stop below at the end of that phase, not at the end of the plan.
 
 ## The one stop
-When nothing else can run (no ready task, no agent running) and something is set aside or held, ask once. Use one AskUserQuestion with up to four questions, one per set-aside task or held question, most blocking first. Each question has the recommended answer first, as an option, with what was tried in its description. The usual options for a stuck task are: Try another approach (Recommended, when there is one, named) / Fix by hand / Accept as is (noted in the record) / Re-plan this task. Run `cairn step asking` before and `cairn step clear` after (the build has no other step). Then act on every answer and carry on.
+When nothing else can run (no ready task, no agent running) and something is set aside or held, ask once. Use one AskUserQuestion with up to four questions, one per set-aside task or held question, most blocking first. Each question has the recommended answer first, as an option, with what was tried in its description. The usual options for a stuck task are: Re-plan this task (Recommended when another approach exists; name it) / Fix by hand / Accept as is (noted in the record). There is no third fix attempt: the CLI allows two per task. Run `cairn step asking` before and `cairn step clear` after (the build has no other step). Then act on every answer and carry on.
 
 ## Still a stop, every time
 - The user's approvals: the PRD, the plan and the ship.

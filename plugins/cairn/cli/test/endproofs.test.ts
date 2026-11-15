@@ -118,6 +118,10 @@ test('proofs: required before the plan approval, seen red, locked, add-only, and
 
   // A proof has to be seen failing before the build, or it proves nothing.
   refusedByUser(wt, /total has not been seen failing/, 'approve', 'plan');
+  write(join(wt, 'proofs/cart.sh'), 'test -f src/cart.txt && cp src/cart.txt "$CAIRN_SHOTS/cart.png" # edited\n');
+  ok(wt, 'prove');
+  refusedByUser(wt, /proof files are not committed on the plan branch: proofs\/cart\.sh/, 'approve', 'plan');
+  commit(wt, 'proof edit');
   const red = ok(wt, 'prove');
   assert.match(red.message, /0 of 2 pass/);
   assert.match(red.message, /total {2}FAIL/);

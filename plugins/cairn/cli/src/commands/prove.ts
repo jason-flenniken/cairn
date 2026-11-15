@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { filesHash, isDue, prdIds, proofsActive, proofsRequired, tasksFor } from '../endproofs.ts';
-import { commonDir, topLevel } from '../git.ts';
+import { commonDir, git, gitOk, topLevel } from '../git.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
 import { allTasks, findTask } from '../ready.ts';
 import { loadState, log } from '../state.ts';
@@ -71,6 +71,12 @@ export function proofApprovalProblems(pc: PlanCtx, s: State): string[] {
   const md = readText(planFile(pc, 'proofs.md'));
   if (!md || ep.hash !== hashText(md)) return ['proofs.md changed since it was loaded: cairn plan load'];
   const out: string[] = [];
+  // Task worktrees branch from the committed plan branch: a proof file that is untracked or edited would not reach them.
+  const files = [...new Set(ep.list.flatMap((p) => p.files))];
+  const untracked = files.filter((f) => !gitOk(['ls-files', '--error-unmatch', '--', f], pc.plan.worktree));
+  const dirty = files.length ? git(['diff', '--name-only', 'HEAD', '--', ...files], pc.plan.worktree).split('\n').filter(Boolean) : [];
+  const loose = [...new Set([...untracked, ...dirty])];
+  if (loose.length) out.push(`proof files are not committed on the plan branch: ${loose.join(', ')} (commit them, then run cairn prove again)`);
   for (const p of ep.list) {
     if (p.lock) continue; // Locked before a re-plan: its code may already be built, so it can't be red now.
     const h = filesHash(pc.plan.worktree, p.files);

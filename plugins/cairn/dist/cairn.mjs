@@ -11059,6 +11059,11 @@ function proofApprovalProblems(pc, s) {
   const md = readText(planFile(pc, "proofs.md"));
   if (!md || ep.hash !== hashText(md)) return ["proofs.md changed since it was loaded: cairn plan load"];
   const out = [];
+  const files = [...new Set(ep.list.flatMap((p) => p.files))];
+  const untracked = files.filter((f) => !gitOk(["ls-files", "--error-unmatch", "--", f], pc.plan.worktree));
+  const dirty = files.length ? git(["diff", "--name-only", "HEAD", "--", ...files], pc.plan.worktree).split("\n").filter(Boolean) : [];
+  const loose = [.../* @__PURE__ */ new Set([...untracked, ...dirty])];
+  if (loose.length) out.push(`proof files are not committed on the plan branch: ${loose.join(", ")} (commit them, then run cairn prove again)`);
   for (const p of ep.list) {
     if (p.lock) continue;
     const h = filesHash(pc.plan.worktree, p.files);
