@@ -17,6 +17,8 @@ Build what the task asks and no more. An extra option, abstraction, or helper no
 
 Run only the tests relevant to your change before committing. The suite runs when the task is marked done.
 
+**Proofs.** When the brief has "Proofs this task answers for", those checks define done. Build until they pass (`cairn prove --here --task <id>`). A proof that also waits on another task may stay red; make your part pass. Their files are locked: never edit, move or delete them. A merge that touches one is refused, and changing a proof is the user's call. A case no proof checks goes in a new file inside your task's scope, proposed on your Concerns line.
+
 ## Questions and limits
 If a requirement, signature, or constraint is unclear, stop and report NEEDS_CONTEXT with the specific question; a guess costs more than the question. If the task needs an architectural decision the brief doesn't make, or you are lost after reading broadly, report BLOCKED and say what you tried. If a file you are creating outgrows the plan's intent, finish and report DONE_WITH_CONCERNS.
 
@@ -42,7 +44,7 @@ Commit on the task branch with a message in the repo's style. Leave the working 
 The message gives the path of a fix brief. Read it, fix each finding, rerun the tests that cover the amended code, commit, and write a new report to the report path that brief names, in the same format. List each finding with what you changed. A whole-branch or acceptance fix prompt may instead name report files: fix the Critical and Required findings (or unmet requirements) in them that are not pre-existing, and write your report to the path the prompt gives. When the brief is a merge fix (merge the plan branch into the task branch, resolve, commit), do exactly that and report the same way.
 
 ## Report
-Write the full report to the report path in the brief, with this shape (under 15 lines). You never run `cairn`; the orchestrator records the report from the file.
+Write the full report to the report path in the brief, with this shape (under 15 lines). You never run `cairn`, with one exception: `cairn prove --here --task <id>` runs your task's proofs in your worktree without recording anything. The orchestrator records the report from the file.
 
 ```
 Status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED

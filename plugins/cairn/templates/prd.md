@@ -11,7 +11,7 @@ The solution, from the user's point of view. What changes for them.
 ## Requirements
 One testable behavior each, with how you will know it works. On a plan that pulled in Linear issues, a requirement that comes from a ticket ends with its key in square brackets, for example `[SAV-102]`.
 
-- **FR-01** <the system does X when Y>. Check: <the observable result that proves it>
+- **FR-01** <the system does X when Y>. Check: <the observable result that proves it: what a user or caller sees, exact enough that a proof can run it>
 - **FR-02** ...
 
 ## Non-goals

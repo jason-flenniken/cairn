@@ -28,9 +28,9 @@ Relay the summary line in one or two lines. When it says Linear updates are queu
 
 ## 3. Stop only when something is wrong
 If `cairn phase finish` refuses, stop and tell the user what it names, in plain words:
-- Tests are red: show the failing output tail and ask with AskUserQuestion: Fix it (Recommended; dispatch one `implementer`, `description` "Fix · <phase name>", with a prompt naming the plan worktree, the plugin root, the path after "Full output:" in the refusal (the full failing test log; implementers never run `cairn`), and a report path in `<work folder>/reports/`, then rerun step 1) / Pause.
+- Tests are red: fix without asking (`references/autonomy.md`). Dispatch one `implementer`, `description` "Fix · <phase name>", with a prompt naming the plan worktree, the plugin root, the path after "Full output:" in the refusal (the full failing test log; implementers never run `cairn`), and a report path in `<work folder>/reports/`. Tell the user in one line, then rerun step 1. Ask only when it is still red after that fix: Fix by hand / Pause.
 - Changes in Linear are not handled: the refusal lists each; handle them as in step 1, then rerun.
-- A task is blocked or the plan is paused: say which, and follow `procedures/execute-cases.md` ("A task is blocked") or `/cairn:resume`.
+- A task is blocked (set aside) or the plan is paused: go back to `procedures/execute.md` step 8 (the one stop asks about every set-aside task together), or `/cairn:resume`.
 - The on-track check for the phase is red: show its report path and ask: Fix first / Pause. Never override it.
 
 The on-track check is optional. Run `/cairn:direction` when you want it for a phase; it does not run automatically.

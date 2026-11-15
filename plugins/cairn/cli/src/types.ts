@@ -141,6 +141,54 @@ export interface Evidence {
   blocking?: number;
 }
 
+/** One run of an end-state proof, tied to the proof files and the commit it ran on. */
+export interface ProofRun {
+  result: 'pass' | 'fail';
+  at: string;
+  /** The commit it ran on; unset when the checkout moved during the run. */
+  head?: string;
+  tail: string;
+  /** Full output, under the git common dir (not committed). */
+  log?: string;
+  /** filesHash of the proof's files at the run. */
+  files: string;
+  /** Where the run's screenshots are, and a hash of them: a new run clears the verdict. */
+  shotsDir?: string;
+  shots?: string;
+  /** The visual checker's verdict on this run's screenshots. */
+  judged?: { result: 'pass' | 'fail'; at: string; note?: string };
+}
+
+/** A runnable check that says when part of the plan is done. Written before the build; add-only once the plan is approved. */
+export interface EndProof {
+  id: string;
+  covers: string[];
+  run: string;
+  /** The proof's code, repo-relative. Locked at plan approval: builders may not edit or remove it. */
+  files: string[];
+  /** Screenshot names the run must write to $CAIRN_SHOTS as <name>.png; a visual checker judges them against `look`. */
+  shots?: string[];
+  look?: string;
+  /** A guard proof pins behavior that already works: green from the start instead of red. */
+  expect?: 'pass';
+  /** Added during the build (`cairn prove add`); listed at ship. */
+  added?: { at: string; note?: string };
+  /** filesHash recorded when locked. */
+  lock?: string;
+  /** filesHash of the files when a red run was last seen: the plan approval needs it for each new proof. */
+  seenRed?: string;
+  last?: ProofRun;
+}
+
+export interface EndProofs {
+  /** Set by `cairn new` on feature plans: Standard and Polished need proofs before the plan approval. */
+  required?: boolean;
+  /** Hash of proofs.md when loaded. */
+  hash?: string;
+  list: EndProof[];
+  notProvable: { id: string; reason: string }[];
+}
+
 export interface DriftEntry {
   path: string;
   at: string;
@@ -219,6 +267,8 @@ export interface State {
   repro?: { cmd: string; tail: string; at: string };
   configHash?: string;
   phases: Phase[];
+  /** End-state proofs (proofs.md), loaded with the plan. */
+  endProofs?: EndProofs;
   evidence: { verify?: Evidence; review?: Evidence };
   drift: DriftEntry[];
   suggestions?: Suggestion[];
@@ -353,6 +403,12 @@ export interface Config {
   reproTimeoutMinutes?: number;
   /** How long one test run may take before it is stopped and reported as timed out. Default 30. */
   testTimeoutMinutes?: number;
+  /**
+   * Whether new feature plans prove their end state when `cairn new` gets neither --proofs nor --no-proofs, and the
+   * answer /cairn:new recommends: "on" or "off". A plan with proofs on needs proofs.md, seen failing, before the plan
+   * approval. A plan with proofs off still enforces any proofs it loads.
+   */
+  proofs?: 'on' | 'off';
   /** The level `/cairn:new` pre-selects: mvp, standard or polished. Standard when unset. */
   defaultLevel?: string;
   /** Opt-in Linear link. Without it, nothing Linear-related runs. */

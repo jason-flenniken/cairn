@@ -9,5 +9,6 @@
   "resumeFreshAfterMinutes": 60,
   "autoCommit": true,
   "audit": "",
-  "defaultLevel": "standard"
+  "defaultLevel": "standard",
+  "proofs": "on"
 }

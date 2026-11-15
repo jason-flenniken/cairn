@@ -1,6 +1,6 @@
 # Plan
 
-Have the approved PRD turned into phases of vertical tasks and loaded, then stop for approval. The main thread routes; the plan-writer holds the document.
+Have the approved PRD turned into proofs (the runnable end state) and phases of vertical tasks, loaded, then stop for approval. The main thread routes; the proof-writer and the plan-writer hold the documents. This approval is the last stop before the build runs on its own (`references/autonomy.md`), so the user approves the end state here, not prose.
 
 Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -8,6 +8,7 @@ Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run 
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
+- Proofs: run step 2a whenever `cairn status --json` shows `state.endProofs.required` (the user chose proofs when the plan started). Otherwise skip it unless the user asks for proofs now; a plan that loads `proofs.md` enforces them from then on.
 - MVP: few, large vertical tasks, usually one phase, no Test cases lists; risky tasks still get `risky: true`, and the writer files the areas it leaves untested with `cairn suggest add --kind hardening --area tests --from plan --where <glob> --text "<what to cover and why>"`. Tell the writer the level in the brief; it holds the rules.
 - Standard: as written below.
 - Polished: every task lists Test cases, each naming the failure mode it pins, and step 4 runs the `plan-reviewer` fresh read.
@@ -23,12 +24,22 @@ Dispatch `researcher` agents (`model: sonnet`, `description` "Check · <area> re
 
 **Done when:** every researcher returned and you hold the paths of their files.
 
+## 2a. Write the proofs
+Run `cd <plan worktree> && cairn step drafting`. Dispatch the `proof-writer` agent (`model: sonnet`, effort high; `opus` at Polished; `description` "Build · proofs") with paths only: the plan folder, the plan worktree, the research files, `.cairn/config.json`, and the template `${CLAUDE_PLUGIN_ROOT}/templates/proofs.md`. It writes the proof code (committed on the plan branch) and `proofs.md`, and returns at most 8 lines. Ask the user its questions (AskUserQuestion, recommended first). UI proofs judge screenshots against a written look or a mockup, so offer the user the chance to point at a mockup. Run `cairn decide`, and send the answers back with SendMessage.
+
+**Done when:** the proof-writer returned, `proofs.md` exists, and its questions are decided.
+
 ## 3. Brief the writer
-Run `cd <plan worktree> && cairn step drafting`, so the pane does not offer the plan for approval while it is written. Then dispatch the `plan-writer` agent (`model: opus`, `description` "Build · plan") with a brief of paths, no pasted content: the plan folder, `prd.md`, `decisions.md`, the research files, `issues/` when `state.linear` is set, the level, `foundational` when the status shows it, and the template `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. The writer follows the slicing rules (its own prompt holds them), writes `plan.md`, runs `cairn plan load` and fixes its refusals, and returns at most 10 lines: the phases and task count, the longest-chain line `plan load` printed, the `Opus builds:` line when it printed one, any warning about other plans, questions for the user, and the path.
+Run `cd <plan worktree> && cairn step drafting`, so the pane does not offer the plan for approval while it is written. Then dispatch the `plan-writer` agent (`model: opus`, `description` "Build · plan") with a brief of paths, no pasted content: the plan folder, `prd.md`, `decisions.md`, the research files, `proofs.md` when it exists (tasks build toward its proofs; `cairn plan load` loads both files), `issues/` when `state.linear` is set, the level, `foundational` when the status shows it, and the template `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`. The writer follows the slicing rules (its own prompt holds them), writes `plan.md`, runs `cairn plan load` and fixes its refusals, and returns at most 10 lines: the phases and task count, the longest-chain line `plan load` printed, the `Opus builds:` line when it printed one, any warning about other plans, questions for the user, and the path.
 
 You never edit `plan.md` yourself. When the longest chain is over half the tasks, send the writer one line asking for a contract-first split, and let it reload. Ask the user about its questions (AskUserQuestion, recommended first), run `cairn decide`, and send the answers to the writer with SendMessage (or a fresh `plan-writer` with the same paths, when it has ended).
 
 **Done when:** the writer returned, its `cairn plan load` exited 0, and every question it raised is decided.
+
+## 3a. See the proofs fail
+Only when step 2a ran. Send the proof-writer one line with SendMessage (or dispatch a fresh one with the same paths): "The plan is loaded: run cairn prove and confirm each proof fails for the right reason." It fixes any proof that fails for the wrong reason, reloads, and returns. The plan approval refuses until each new proof has been seen failing (a guard, `expect: pass`, has been seen passing).
+
+**Done when:** the proof-writer says every proof fails for the right reason, and `cairn prove list` shows no proof as `not run`.
 
 ## 4. Fresh read (Polished)
 Standard and MVP skip this step. At Polished: run `cd <plan worktree> && cairn step checking`, then dispatch `plan-reviewer` (`model: sonnet`, `description` "Review · plan") with the paths to `prd.md` and `plan.md` and the report path `<work folder>/reports/plan-review.md`. It ends with the counts, the questions for the user and the report path. Send that report path to the writer with SendMessage: it applies the answered and minor items, reloads, and returns only what is for the user. Ask the user about those, send the answers to the writer, and confirm its reload exited 0.
@@ -36,7 +47,7 @@ Standard and MVP skip this step. At Polished: run `cd <plan worktree> && cairn s
 **Done when:** the writer's reload succeeded after the review, or the level skips the step.
 
 ## 5. Stop for approval
-Run `cd <plan worktree> && cairn step approving`; the pane offers the plan for approval from here on. Then show a tree preview and about three lines of summary, built from `cairn status --json` and the writer's summary (the pane shows the document; do not read `plan.md` into your context). When `cairn plan load` printed an "Opus builds:" line, include it in the summary: each task the plan marks for Opus, with its reason:
+Run `cd <plan worktree> && cairn step approving`; the pane offers the plan for approval from here on. Then show a tree preview and about three lines of summary, built from `cairn status --json` and the writer's summary (the pane shows the document; do not read `plan.md` into your context). When there are proofs, the summary leads with them: "Done when: <N> proofs pass (<UI flows> judged by screenshots)", plus the not-provable requirements by name. Add one line on what happens after approval: the build runs on its own, sets aside a task that gets stuck, and asks once (`references/autonomy.md`). When `cairn plan load` printed an "Opus builds:" line, include it in the summary: each task the plan marks for Opus, with its reason:
 
 ```
 Phase 1: Foundations

@@ -35,7 +35,7 @@ Under `## Phases` put exactly one `yaml cairn-tasks` block, then one `### Task: 
 Level: MVP is few, large vertical tasks, usually one phase, no Test cases lists, but `risky: true` still goes on every task that touches a trust boundary; log the areas left untested with `cairn suggest add --kind hardening --area tests --from plan --where <glob> --text "<what to cover and why>"`. Polished: every task lists Test cases, each naming the failure mode it pins. At Standard, when you consciously skip tests on a non-risky task, log up to 5 of them: `cairn suggest add --area tests --from plan --where <glob> --text "<what to cover and why>"`.
 
 ## Load
-Run `cd <plan worktree> && cairn plan load`. On refusal, read what it names (a cycle, an unknown FR id, a missing scope, an uncovered requirement, a task that breaks the order of two Linear issues), fix `plan.md` yourself, and rerun until it exits 0. Never run `cairn approve` or `cairn advance`.
+Run `cd <plan worktree> && cairn plan load`. On refusal, read what it names (a cycle, an unknown FR id, a missing scope, an uncovered requirement, a task that breaks the order of two Linear issues), fix `plan.md` yourself, and rerun until it exits 0. A refusal about `proofs.md` or a proof file is not yours to fix: never edit proofs. Return it as a question, and the proof-writer fixes it. When `proofs.md` exists, each proof's requirements are built by tasks that cover them; a proof spanning several tasks goes green only when the last of them merges. Never run `cairn approve` or `cairn advance`.
 
 ## When resumed with a reviewer report
 The message gives the path of the plan-reviewer's report. Read it and apply:

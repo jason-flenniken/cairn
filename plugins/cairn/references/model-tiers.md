@@ -23,6 +23,8 @@ Opus builds a task only when the plan marks it (`model: opus` with a `model_reas
 | security-reviewer (risky tasks, and the whole branch) | sonnet | high |
 | Explore (research) | sonnet | default |
 | acceptance-checker, researcher | sonnet | default |
+| proof-writer | sonnet (opus at Polished) | high |
+| visual-checker | sonnet | default |
 | recorder | sonnet | low |
 | prd-writer, plan-writer | opus | default |
 | linear-sender | haiku | low |

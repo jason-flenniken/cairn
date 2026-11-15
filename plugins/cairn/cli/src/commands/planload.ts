@@ -10,6 +10,8 @@ import { loadState } from '../state.ts';
 import { onPlanLoaded } from './linear.ts';
 import { keepPublishedTickets } from './publish.ts';
 import { mutate, planCtx, planFile, type Opts, type Result } from '../shared.ts';
+import { parseProofs, proofsRequired, type ParsedProofs } from '../endproofs.ts';
+import type { EndProofs } from '../types.ts';
 
 export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
@@ -25,6 +27,11 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
   // The template's placeholders (<approach>, <reason>) are not an approach.
   if (isFoundational(link, linearConfig(pc.cfg)) && (!approaches || /<(approach|reason)>/.test(approaches)))
     parsed.problems.push('this plan is foundational (an issue carries the foundational label), and plan.md has no ## Approaches considered: name the approach chosen and each one rejected, with a reason');
+  // End-state proofs: written before the plan is approved, so the build has a done it can't redefine.
+  const proofsMd = readText(planFile(pc, 'proofs.md'));
+  const proofs: ParsedProofs | undefined = proofsMd ? parseProofs(proofsMd, prdMd, planMd, pc.plan.worktree) : undefined;
+  if (proofs) parsed.problems.push(...proofs.problems);
+  else if (proofsRequired(loadState(pc.plan.dir))) parsed.problems.push('proofs.md does not exist: the proof-writer writes it (and the proof code) before the plan is loaded');
   if (parsed.problems.length) throw new Refusal(`plan.md is not loadable:\n  - ${parsed.problems.join('\n  - ')}`, ['fix plan.md, then cairn plan load']);
   return mutate(pc, 'plan loaded', (s) => {
     const replanning = s.stage !== 'plan';
@@ -52,6 +59,7 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
     }
     s.phases = phases;
     s.planHash = hashText(planMd);
+    if (proofs && proofsMd) s.endProofs = mergeProofs(s.endProofs, proofs, hashText(proofsMd));
     onPlanLoaded(s);
     if (replanning) {
       setStage(s, 'plan');
@@ -72,4 +80,18 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
       data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, tasks: p.tasks.map((x) => x.id) })), chain, warnings: clashes },
     };
   });
+}
+
+/**
+ * Load proofs.md over what the plan had: a proof that keeps its id keeps its runs and its lock (a re-plan's approval
+ * re-locks it). Proofs added during the build are add-only, so a re-plan that leaves them out keeps them.
+ */
+function mergeProofs(prev: EndProofs | undefined, next: ParsedProofs, hash: string): EndProofs {
+  const old = new Map((prev?.list ?? []).map((p) => [p.id, p]));
+  const list = next.list.map((p) => {
+    const o = old.get(p.id);
+    return o ? { ...p, ...(o.lock ? { lock: o.lock } : {}), ...(o.seenRed ? { seenRed: o.seenRed } : {}), ...(o.last ? { last: o.last } : {}), ...(o.added ? { added: o.added } : {}) } : p;
+  });
+  for (const o of prev?.list ?? []) if (o.added && !list.some((p) => p.id === o.id)) list.push(o);
+  return { ...(prev?.required ? { required: true } : {}), hash, list, notProvable: next.notProvable };
 }

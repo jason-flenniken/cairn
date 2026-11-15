@@ -1,6 +1,6 @@
 # Check
 
-Prove the finished build works: tests and build, then one pass over the PRD's acceptance checks.
+Prove the finished build works: tests and build, the proofs (the end state agreed before the build), then one pass over the PRD's acceptance checks. Fix what fails without asking (`references/autonomy.md`).
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -10,7 +10,7 @@ Templates live in `templates/`, next to this `procedures/` folder. Talk to the u
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
 - MVP: step 2 runs `cairn test`. A red suite is not a blocker: it goes to step 6 with its hardening item (which `cairn test` files) and the note lists it as a known failure, not to the fix loop in step 5. Steps 3 and 4 run as written; the scan and audit are floors.
 - Standard: as written below.
-- Polished: every requirement must be met and tested. Treat "met but untested" in step 4 as blocking and fix it in step 5. App or browser verification is added when cairn can run it.
+- Polished: every requirement must be met and tested. Treat "met but untested" in step 4 as blocking and fix it in step 5. UI work is checked in the app or browser through its proofs (step 3a).
 
 ## 1. Check
 Run `cairn status --json`. The stage must be `verify`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
@@ -58,6 +58,15 @@ Run `cd <plan worktree> && cairn step scanning`. Then read the Secrets section o
 
 **Done when:** the scan, the audit (or its one-line skip) and the lockfile review each have a result, and every blocking finding is queued for step 5.
 
+## 3a. Proofs
+Skip when `cairn prove list` says the plan has no proofs. Otherwise run `cd <plan worktree> && cairn step testing`, then `cd <plan worktree> && cairn prove`. It runs every proof on the plan branch and prints one line per proof.
+- **A red proof:** blocking. The line ends with "Full output: <log>". Queue it for step 5 with its log path.
+- **Screenshots:** for each proof that passed and takes screenshots, the line names the folder and what they must show. Dispatch one `visual-checker` (`model: sonnet`, `description` "Check · screenshots") for all of them, with each proof's id, folder, screenshot names and `look`, and the report path `<work folder>/reports/screenshots.md`. Record each verdict line it ends with: `cd <plan worktree> && cairn prove judge <id> pass|fail --note "<what differs>"`. A fail is blocking: queue it for step 5.
+
+`cairn advance` refuses to leave the check stage until every proof is green on the current code and its screenshots are judged pass.
+
+**Done when:** every proof passed and every screenshot was judged, or the failures are queued for step 5.
+
 ## 4. Acceptance checks
 Dispatch the `acceptance-checker` agent (`model: sonnet`, `description` "Check · acceptance") with the path to `prd.md`, the plan worktree path, and the report path `<plan worktree>/.cairn/work/<slug>/reports/acceptance.md`. It walks each requirement's `Check:` and writes met / met but untested / not met, each with `path:line`, to the report; it returns the counts and the unmet requirements by name.
 
@@ -67,13 +76,13 @@ Dispatch the `acceptance-checker` agent (`model: sonnet`, `description` "Check �
 **Done when:** every requirement has a verdict, and every "met but untested" item is logged.
 
 ## 5. Fix what is blocking
-Skip when tests are green, nothing is not met, no secret was found, and no reachable critical or high advisory remains. Otherwise run `cd <plan worktree> && cairn step fixing --count N` (N is the number of failing tests, unmet requirements, secrets and advisories to fix), then dispatch one `implementer` (`model: sonnet`, `description` "Fix · acceptance") on the plan worktree itself. It commits directly on the plan branch; there is no new task, phase, or re-plan. Its prompt names the plugin root, the report path `<work folder>/reports/verify-fix.md`, the acceptance report path for unmet requirements, the path after "Full output:" (the full failing test log; implementers never run `cairn`), and in a few lines the failing tests, the secret finding (file and line only) or the advisory; tell it to add a test for the fix. Then rerun step 2 (`cairn test`), step 3's blocking findings and step 4's unmet items once more.
+Skip when tests are green, every proof is green and judged, nothing is not met, no secret was found, and no reachable critical or high advisory remains. Otherwise run `cd <plan worktree> && cairn step fixing --count N` (N is the number of failing tests, unmet requirements, secrets and advisories to fix), then dispatch one `implementer` (`model: sonnet`, `description` "Fix · acceptance") on the plan worktree itself. It commits directly on the plan branch; there is no new task, phase, or re-plan. Its prompt names the plugin root, the report path `<work folder>/reports/verify-fix.md`, the acceptance report path for unmet requirements, each red proof's id, command and log path, each failed screenshot verdict with what differs (proof files are locked: the fix changes the code, never a proof), the path after "Full output:" (the full failing test log; implementers never run `cairn`), and in a few lines the failing tests, the secret finding (file and line only) or the advisory; tell it to add a test for the fix. Then rerun step 2 (`cairn test`), step 3's blocking findings, step 3a's red and failed proofs (`cairn prove`, then judge again) and step 4's unmet items once more.
 
-If it is still failing after that one attempt, stop and ask the user with AskUserQuestion: Fix by hand / Accept as is (noted in the record) / Pause.
+When something is still failing after that attempt, dispatch one more fix, one tier up (`opus`), with the new logs. Only when that one fails too, stop and ask the user with AskUserQuestion, all failures in one question: Fix by hand / Accept as is (noted in the record; leaving the check stage with a red proof then takes the user's override, through an Override menu)  / Pause.
 
 **Done when:** tests are green and no requirement is not met, or the user chose how to proceed.
 
 ## 6. Record the result
-Run `cairn evidence verify pass --note "<tests: N passing; M requirements met, K untested; secret scan: clean or N found; audit: result or skipped>"`, or `cairn evidence verify fail --note "<one line>"` when the user stops here. Then run `cairn advance`.
+Run `cairn evidence verify pass --note "<tests: N passing; proofs: N green; M requirements met, K untested; secret scan: clean or N found; audit: result or skipped>"`, or `cairn evidence verify fail --note "<one line>"` when the user stops here. Then run `cairn advance`.
 
 **Done when:** the stage is `review`. Then run `cairn next --json`. Follow the procedure it names.

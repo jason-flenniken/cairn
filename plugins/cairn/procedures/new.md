@@ -58,7 +58,7 @@ Name the plan. When the selection is exactly one issue, put its key in the slug 
 ## 3. Repo config
 Check for `.cairn/config.json`, then for the legacy `.sdlc/config.json`.
 - Either present: read it and move on; never write a second config. When only `.sdlc/config.json` exists, say once that `cairn migrate` (on main, with no plan in flight) moves the repo to `.cairn/` and `docs/cairn/`.
-- Neither present: detect commands from `package.json` scripts, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `app.json` (Expo), and similar. Fill the shape of `${CLAUDE_PLUGIN_ROOT}/templates/config.json` (`test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `autoCommit`). Ask with AskUserQuestion, one question per uncertain field (test command first), recommended detection first, with the proposed JSON as a preview. Write `.cairn/config.json`, then commit it on the current branch: `git add .cairn/config.json && git commit -m "chore: add cairn config"`. Propose `testQuick` only when the test runner can run the tests related to a list of files, passed in `$CAIRN_CHANGED_FILES` (for example `npx vitest related --run $CAIRN_CHANGED_FILES`, `npx jest --findRelatedTests $CAIRN_CHANGED_FILES`); otherwise leave it out, and Standard merges run the full suite.
+- Neither present: detect commands from `package.json` scripts, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `app.json` (Expo), and similar. Fill the shape of `${CLAUDE_PLUGIN_ROOT}/templates/config.json` (`test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `autoCommit`, `proofs`: `"on"` unless the user says new work should not start with proofs). Ask with AskUserQuestion, one question per uncertain field (test command first), recommended detection first, with the proposed JSON as a preview. Write `.cairn/config.json`, then commit it on the current branch: `git add .cairn/config.json && git commit -m "chore: add cairn config"`. Propose `testQuick` only when the test runner can run the tests related to a list of files, passed in `$CAIRN_CHANGED_FILES` (for example `npx vitest related --run $CAIRN_CHANGED_FILES`, `npx jest --findRelatedTests $CAIRN_CHANGED_FILES`); otherwise leave it out, and Standard merges run the full suite.
 
 **Done when:** `.cairn/config.json` (or the legacy `.sdlc/config.json`) exists and is committed, and its `test` command is non-empty.
 
@@ -74,13 +74,22 @@ Security review of risky work and the three approvals stay at every level. This 
 
 **Done when:** you hold the level the user picked.
 
+## 4a. Proofs
+Ask once with AskUserQuestion, a plain choice and not an approval: "Prove the end state with runnable checks?" Recommend Yes at Standard and Polished, No at MVP, unless `.cairn/config.json` sets `"proofs": "off"` (then recommend No) or `"on"` (then recommend Yes at every level). Recommended option first:
+- Yes: before the build, an agent writes each requirement as a check that runs (a test, a command, or a browser flow with screenshots). You see them fail, they lock when you approve the plan, and the build runs on its own until they pass.
+- No: the build is checked by tests, reviews and the acceptance pass, as before.
+
+A fix plan (`--track fix`) skips this: its repro is its proof. Proofs can still be added to a plan started without them, at the plan stage, when the user asks.
+
+**Done when:** you hold the user's answer.
+
 ## 5. Create the plan
 With `--from-linear`, first check whether the work can start alongside another plan. Run `cairn linear board --json` (skip this when it refuses because no project has been read). Look in `data.alongside` for the selection: the epic key, or each selected issue key. When every one of them is listed and all name the same plan in `after` (`after[].slug`), the outside blockers are built (the plan is in verify or later, or every task is done) and in review or built in that one plan, so the new plan can start on that plan's branch instead of waiting. Ask with AskUserQuestion, the first option marked "(Recommended)":
 - Start on `<after branch>` (Recommended): the new plan begins with that plan's code, and moves onto main once that plan has merged. It cannot ship before then.
 - Wait for it to merge: start from main as usual.
 When the work does not fit one plan (its blockers sit in several plans), or the user waits, start from main.
 
-Run `cairn new <slug> --title "<title>" --level <mvp|standard|polished>`, adding `--after <plan slug>` when the user chose to start on that plan's branch. `--after` refuses unless that plan is built (verify or later, or every task done) and not closed, and with `--track fix`; pass on its message when it refuses. The output prints the plan worktree path.
+Run `cairn new <slug> --title "<title>" --level <mvp|standard|polished> --proofs` (or `--no-proofs`, from step 4a), adding `--after <plan slug>` when the user chose to start on that plan's branch. `--after` refuses unless that plan is built (verify or later, or every task done) and not closed, and with `--track fix`; pass on its message when it refuses. The output prints the plan worktree path.
 
 **Done when:** the command exits 0 and you have the worktree path.
 
@@ -96,7 +105,7 @@ Record the answer: `cd <plan worktree> && cairn decide "Spec from tickets" "<Bui
 **Done when:** `cairn linear import` exited 0, and for specced issues the user's choice is recorded.
 
 ## 6. Tell the user where the plan lives
-Tell the user the plan worktree path and the level in one line. Never move the session into the worktree with a worktree-entering tool: a session locked to a worktree blocks its subagents from editing and committing in task worktrees. You stay at the repo root, and every later `cairn` command runs as `cd <plan worktree> && cairn <command>`.
+Tell the user the plan worktree path, the level and whether proofs are on in one line. Never move the session into the worktree with a worktree-entering tool: a session locked to a worktree blocks its subagents from editing and committing in task worktrees. You stay at the repo root, and every later `cairn` command runs as `cd <plan worktree> && cairn <command>`.
 
 Confirm with `cd <plan worktree> && cairn status --json` that the stage is `discover`.
 

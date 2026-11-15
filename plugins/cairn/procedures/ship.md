@@ -15,7 +15,9 @@ Read `level` from `cairn status --json`; `references/levels.md` has the full tab
 ## 1. Check
 Run `cairn status --json`. When `state.reapprove` is set (the plan can be at learn or closed), code changed after the ship approval: go to the Merge section, step 1, the "Code changed after the approval" case. Otherwise the stage must be `ship`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
 
-**Done when:** the stage is `ship` and verify and review evidence are recorded.
+When the plan has proofs (`cairn prove list`), review fixes may have changed the code since they ran. If the list shows any proof that is not `green`, run `cd <plan worktree> && cairn prove`, and judge any screenshots again as in `procedures/verify.md` step 3a. A red proof here goes to one fix implementer, as in the review procedure. The ship approval refuses until every proof is green on the shipped code. The approval card then shows the proofs line: how many passed, the screenshot folders, and proofs added during the build.
+
+**Done when:** the stage is `ship`, verify and review evidence are recorded, and every proof is green.
 
 ## 2. Tidy the follow-ups
 A plan closes with at most 5 open recommended follow-ups from itself. Run `cairn suggest list --open --json` and look at the ones whose key starts with `<slug>:`.
@@ -35,7 +37,7 @@ Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, 
 **Done when:** `RECORD.md` exists with every template heading and is within 600 words (`wc -w`), and `changelog.md` exists, is at most 120 words, and is committed.
 
 ## 4. Show and stop
-Run `cd <plan worktree> && cairn step approving`. Then show the user the record and the changelog entry, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
+Run `cd <plan worktree> && cairn step approving`. Then show the user the record and the changelog entry, plus one line on recommended follow-ups ("N open: 2 tests, 1 security"; `/cairn:suggestions` lists them). When `decisions.md` has `Assumed:` entries (defaults the build took without asking, `references/autonomy.md`), list them one line each, so the user can reverse any before approving. Run `cairn status --json`. If `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. Otherwise read `modActive`.
 - True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output:
   - Approve (Recommended): approve the record, then open the PR
   - Revise the record or the entry: run `cd <plan worktree> && cairn step recording`, ask what to change, edit, recheck the word counts, and return to step 4

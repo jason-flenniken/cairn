@@ -22,6 +22,7 @@ import {
   cmdTest,
   cmdSuggest,
   cmdPlanLoad,
+  cmdProve,
   cmdProductInit,
   cmdReady,
   cmdRecords,
@@ -45,7 +46,7 @@ import { sendable } from './linear.ts';
 import { loadState } from './state.ts';
 import { procedurePath } from './commands/status.ts';
 
-const BOOLEAN = new Set(['json', 'full', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board', 'merge', 'links', 'claim', 'again', 'force']);
+const BOOLEAN = new Set(['json', 'full', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board', 'merge', 'links', 'claim', 'again', 'force', 'here', 'proofs', 'no-proofs']);
 /** Flags that may repeat; the values are joined with newlines. */
 const REPEATABLE = new Set(['where', 'for']);
 
@@ -87,8 +88,9 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
 }
 
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
-  next | status [--all] [--json [--full]] | new <slug> --title "…" [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
+  next | status [--all] [--json [--full]] | new <slug> --title "…" [--level …] [--proofs | --no-proofs] [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
   approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
+  prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers … --run "…" --files …
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
   index | pause [--now] | resume [<slug>] | close | render | records | migrate
@@ -149,6 +151,8 @@ function dispatch(argv: string[], cwd: string, stdin?: string): Result {
       return cmdPlanLoad(ctx(), opts);
     case 'ready':
       return cmdReady(ctx());
+    case 'prove':
+      return cmdProve(ctx(), [a, b, ...rest].filter((x): x is string => x !== undefined), opts);
     case 'repro':
       return cmdRepro(ctx(), a, opts);
     case 'escalate':
