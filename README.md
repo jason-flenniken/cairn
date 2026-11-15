@@ -14,21 +14,23 @@ A small CLI owns each plan's state, so you always know three things: where a pla
 
 ## Why it exists
 
-Workflow plugins such as Compound Engineering and Superpowers describe their stages in prose that the model may or may not follow, and they let the session that shaped a plan also judge it. That leads to five problems:
+Workflow plugins such as Compound Engineering and Superpowers describe their stages in prose that the model may or may not follow, and they let the session that shaped a plan also judge it. That leads to six problems:
 
 - Long plans drift.
 - Steps get skipped.
 - There's no single view of where a plan stands.
 - Every run costs a lot of tests, reviews, and gates, whether or not the change needs them.
 - The session that shaped a plan is the one judging it, so a wrong direction goes unchallenged.
+- "Done" is whatever the builder says it is, so you get pulled back mid-build to answer questions you'd always answer the same way.
 
-cairn fixes this in five ways:
+cairn fixes this in six ways:
 
-- **A script owns the state.** The stage, phases, tasks, approvals, and test results live in a `state.json` that only the `cairn` CLI writes. The CLI refuses a move when its proof is missing, and it names the fix.
+- **A script owns the state.** The stage, phases, tasks, approvals, and test results live in a `state.json` that only the `cairn` CLI writes. The CLI refuses a move when something it needs is missing, and it names the fix.
 - **Effort you choose.** Each plan starts at a **level**: MVP to prototype fast, Standard for normal work, or Polished for the deepest checks. At Standard every task gets tests for its core logic. **Risky** tasks (auth, money, deleting data, migrations, public APIs) also get thorough tests, their own reviewer and a security review; complex tasks get their own reviewer too. One branch review covers the rest, and the full suite runs at each phase end. Polished reviews every task and runs the full suite before each merge. Everything else worth doing later goes into a list of **recommended follow-ups**, and cairn offers them back when you next touch the same code.
 - **You can see it working.** A live pane beside the chat shows a card for every running agent: what it's doing, how long it's taken, and roughly how long is left.
 - **Parallel, isolated work.** Each plan runs on its own branch and worktree, and each task on its own branch and worktree. Tasks that don't touch the same files run in parallel, up to 3 at a time.
 - **Fresh eyes before you commit.** Before you approve the PRD, agents that never saw the interview challenge the direction and check that the PRD stands on its own. See Fresh eyes.
+- **A done you agree on up front.** You can choose to have each requirement written as a check that runs before anything is built. You see the checks fail, they lock when you approve the plan, and the build runs on its own until they pass. See Proofs.
 
 ## Requirements
 
@@ -164,7 +166,7 @@ The mod adds these commands, which run instantly without a Claude turn:
 | **Ship** | The approval card shows the proofs that passed, the screenshot folders, any proofs added during the build, and the calls the build made alone. A one-page `RECORD.md`: links (including how to revert it), why, what was built, how it works, follow-ups. When reviews kept flagging the same kind of mistake, cairn offers up to three rules for `REVIEW.md`, and adds only the ones you tick. | **Yes: approve the ship** |
 | **Learn** | Checks the follow-ups are tidied, then closes the plan. It asks you nothing. | No |
 
-**Proofs.** The plan approval locks the proofs. From then on, builders can add a proof (for an edge case they found) but never edit or remove one: a task merge that touches a locked proof file is refused. Leaving Check and approving the ship both need every proof green on the current code. `/cairn:new` asks whether to use proofs when the work starts (recommended at Standard and Polished, and at every level when the config sets `"proofs": "on"`). `templates/proofs.md` shows the format, and `references/autonomy.md` says what the build decides alone.
+**Proofs.** When you choose them at the start, the plan approval locks the proofs. From then on, builders can add a proof (for an edge case they found) but never edit or remove one: a task merge that touches a locked proof file is refused. Leaving Check and approving the ship both need every proof green on the current code. `/cairn:new` asks whether to use proofs when the work starts (recommended at Standard and Polished, and at every level when the config sets `"proofs": "on"`). See [Proofs](#proofs) for the full picture.
 
 The `cairn` CLI checks each move between stages. If something is missing, such as an approval, a required PRD section, or a passing test run, it refuses and prints the exact fix. You can overrule a refusal from an **Override** menu, and every override is logged with its reason.
 
@@ -186,6 +188,8 @@ A long plan used to grow the session you talk to by hundreds of thousands of tok
 | **MVP** | Prototyping fast, finding out if something is worth building | A short interview and thin PRD with no fresh-eyes agents, a few large tasks, no per-task review, tests that warn instead of block, one light branch review, and a short record. What it skips goes on a **hardening list**. |
 | **Standard** | Normal work, a first version you'll refine | The lifecycle above, as is: reviews and full test runs go where the risk and complexity are. |
 | **Polished** | Hardening what you'll keep | Every task reviewed, an Opus branch review, and the full suite before each merge. Three approaches compared before the PRD, test cases and test-first for every task, a fresh-agent review of the plan, an automatic on-track check at each phase end, and every requirement met and tested. |
+
+`/cairn:new` also asks whether the plan proves its end state (see [Proofs](#proofs)): yes is recommended at Standard and Polished, no at MVP, and any level can say yes. At Polished an Opus agent writes the proofs.
 
 Some things never change with the level: Check always runs the secret scan and dependency audit, any task touching a trust boundary gets a security review, the whole-branch security review always runs, and you still approve the PRD, the plan, and the ship.
 
@@ -224,6 +228,50 @@ Both return a list, not a pass or fail, because a reviewer asked for a verdict t
 **Cost and limits.** About two Sonnet passes per plan; MVP skips both. A fresh agent gives you a second view, not a smarter one: it's the same kind of model without your backstory. Fresh eyes on the finished code (a reader that sees the diff but not the PRD) are planned next.
 
 The idea comes from Dave Rensin's essay [Elephants, Goldfish and the New Golden Age of Software Engineering](https://medium.com/@drensin/elephants-goldfish-and-the-new-golden-age-of-software-engineering-c33641a48874) and Google's [Elephant-Goldfish Model](https://github.com/google/elephant-goldfish-model) plugin: design with an elephant that never forgets, test with a goldfish that remembers nothing. cairn takes the theory, not the plugin. It adds no review rounds or stops, and it splits agents by what they aren't told rather than by persona, following Anthropic's advice to [split subagents by context, not by problem type](https://claude.com/blog/building-agents-when-to-fold-subagents-into-your-main-agent-loop). Anthropic's [harness design post](https://www.anthropic.com/engineering/harness-design-long-running-apps) makes the same case for keeping the agent that judges separate from the one that built.
+
+## Proofs
+
+A plan used to be done when its builders said so: tests they wrote themselves passed, and a reviewer read the code. The PRD said what done meant, but nothing ran it. And because done was never pinned down, the build kept coming back to you with questions.
+
+With proofs, you and cairn agree on the end state before anything is built, written as checks that run. After that, how to get there is up to the agents. `/cairn:new` asks whether to use them, next to the level.
+
+**What a proof is.** A command that exits 0 only when a requirement holds, run from the repo root: a test file, a script, or a browser flow. `proofs.md` in the plan folder lists them (`templates/proofs.md` has the format):
+
+```yaml cairn-proofs
+proofs:
+  - id: checkout-total
+    covers: [FR-01]
+    run: npx playwright test proofs/checkout-total.spec.ts
+    files: [proofs/checkout-total.spec.ts]
+  - id: cart-layout
+    covers: [FR-02]
+    run: npx playwright test proofs/cart-layout.spec.ts
+    files: [proofs/cart-layout.spec.ts]
+    shots: [cart, confirm]
+    look: The cart lists each item with its price on one row and the total under them.
+```
+
+- **UI proofs** assert what a script can check (the element is there, the total is right, no console errors) and save screenshots to `$CAIRN_SHOTS` at the agreed points. A fresh `visual-checker` agent, which never saw the build, judges them against `look`: a written description or the path of a mockup you approved.
+- **Guard proofs** (`expect: pass`) pin behavior that already works and must keep working.
+- **Not provable.** A requirement no command can check (wording, tone) goes under `## Not provable` with a reason, and the acceptance checker covers it. `cairn plan load` refuses unless every requirement has a proof, a reason, or is deferred.
+
+**How a plan with proofs runs.**
+
+| When | What happens |
+|---|---|
+| Plan | After the PRD, a `proof-writer` agent writes the proofs and commits them. Each one must fail before the build, and for the right reason: the feature is missing, not the proof broken. A proof that passes before anything is built proves nothing. |
+| Plan approval | The card leads with "Done when these pass" and lists every proof. Approving locks them: a hash of each proof's files. |
+| Build | Each task's brief lists the proofs it answers for. Builders run them in their own worktree (`cairn prove --here`) and build until they pass. Proofs are **add-only**: a merge that edits or deletes a locked proof file is refused. A builder who finds an unchecked case writes a new proof, which is locked when it's added and listed at ship. |
+| Check | Every proof must be green on the final code, with its screenshots judged pass. Red ones go straight to a fix. |
+| Ship | The approval needs every proof green on the shipped code, so a review fix means running them again. The card shows how many passed, the screenshot folders, any proofs added during the build, and the calls the build made on its own. |
+
+**A build that runs without asking.** Once the plan is approved, the build doesn't stop to ask what you'd always answer the same way (`references/autonomy.md`):
+- **Decided alone and logged:** a question the documents almost answer, when the answer is easy to undo. It's recorded as an `Assumed:` decision and listed at ship, so you can reverse it.
+- **Fixed without a menu:** red tests, red proofs, unmet requirements and review findings go straight to a fix.
+- **Set aside, not stopped:** a task still stuck after its two fix attempts is set aside while every task that doesn't depend on it keeps building. When nothing else can run, you get one question covering everything set aside. Because a stuck task holds its phase open, that usually lands at the end of the phase.
+- **Still a stop:** your approvals; a change of scope, including changing or removing a proof; accepting an open finding or a red proof; and a leaked secret.
+
+**Cost and limits.** One extra agent before the build, plus a visual check per UI run. A proof is only as strong as it is written, which is why the plan approval shows them to you and why the proof-writer has to rule out stubs and hard-coded values. Proofs are separate from the **approval proof** under Approvals and overrides: that one shows an approval came from you, while these show the work is done. The two are unrelated.
 
 ## Review rules
 
@@ -452,6 +500,7 @@ Agents drive cairn through the `cairn` CLI. It is on the Bash tool's PATH while 
 cairn status --all          # every plan, at a glance
 cairn next                  # what to do now
 cairn suggest list --open   # open recommended follow-ups
+cairn prove list            # the plan's proofs: green, red, stale, or waiting on a task
 cairn approve plan --human  # approve from your own terminal
 ```
 
