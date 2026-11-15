@@ -144,3 +144,7 @@ In a throwaway git repo, `claude -p --plugin-dir plugins/cairn --permission-mode
 The same guard regex now also covers `docs/cairn/plans`, verified by `guards.test.ts`, not by a live run.
 
 The heartbeat file held the current epoch ms.
+
+## Stop hook
+
+- `hooks.json` registers `cairn hook stop` on Stop (Claude Code only; Codex has no Stop entry). It blocks the turn from ending, once per turn (`stop_hook_active`), when the cwd is a plan worktree that is neither closed nor paused and the last reply announces the next step ("Next: I'm …", "Starting it now") without ending in a question. Reason: a reply with no tool call ends the turn, and models were writing the progress line as a closing message. It reads `last_assistant_message` from the input and falls back to the transcript tail.

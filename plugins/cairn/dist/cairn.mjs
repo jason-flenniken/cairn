@@ -12834,6 +12834,40 @@ function hookSessionStart(input) {
   }
   return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), "The user can resume one with /cairn:resume <slug> or start another with /cairn:new."].join("\n"), indexFor(ctx));
 }
+var ANNOUNCES = [
+  /(^|\n)\s*(\*\*)?Next(:\*\*|\*\*:|:)\s*(I|I'm|I'll|I am|I will|we'll|we will|starting|running|reading|dispatching|moving|continuing|beginning|opening)\b/i,
+  /\b(I'll|I will|I'm going to|Let me)\s+(now\s+)?(start|begin|continue|move|run|read|dispatch|kick off|open)\b/i,
+  /\b(Starting|Continuing|Moving on|Kicking off|Beginning)\b[^.\n]*\bnow\b/i
+];
+function lastAssistantText(input) {
+  if (typeof input.last_assistant_message === "string") return input.last_assistant_message;
+  if (!input.transcript_path || !existsSync14(input.transcript_path)) return "";
+  const lines = readFileSync8(input.transcript_path, "utf8").trimEnd().split("\n");
+  for (let i = lines.length - 1; i >= 0 && i >= lines.length - 50; i--) {
+    try {
+      const row = JSON.parse(lines[i]);
+      if (row.type !== "assistant") continue;
+      const content = row.message?.content;
+      const text = Array.isArray(content) ? content.filter((b) => b.type === "text").map((b) => b.text).join("\n") : "";
+      if (text) return text;
+    } catch {
+    }
+  }
+  return "";
+}
+function hookStop(input) {
+  if (input.stop_hook_active) return "";
+  const ctx = context(input.cwd ?? process.cwd());
+  if (!ctx.plan?.dir || !existsSync14(join22(ctx.plan.dir, "state.json"))) return "";
+  const s = loadState(ctx.plan.dir);
+  if (s.stage === "closed" || s.paused) return "";
+  const text = lastAssistantText(input).trim();
+  if (!text || text.endsWith("?") || !ANNOUNCES.some((re) => re.test(text))) return "";
+  return JSON.stringify({
+    decision: "block",
+    reason: "cairn: your reply said what comes next but ended the turn, and a reply with no tool call is a stop. Do that step now: run `cairn next --json` and follow the procedure it names. If you are waiting on the user, ask with AskUserQuestion instead."
+  });
+}
 function hookPostEdit(input) {
   const one = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
   const files = one ? [one] : input.tool_name === "apply_patch" ? patchPaths(commandText(input) ?? "") : [];
@@ -13052,7 +13086,7 @@ function main(argv) {
   if (argv[0] === "hook") {
     try {
       const input = readStdin();
-      const out = argv[1] === "session-start" ? hookSessionStart(input) : argv[1] === "post-edit" ? hookPostEdit(input) : "";
+      const out = argv[1] === "session-start" ? hookSessionStart(input) : argv[1] === "post-edit" ? hookPostEdit(input) : argv[1] === "stop" ? hookStop(input) : "";
       if (out) process.stdout.write(out + "\n");
     } catch {
     }

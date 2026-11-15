@@ -36,6 +36,7 @@ import {
   hookPostEdit,
   hookSessionStart,
   hookPreTool,
+  hookStop,
   type Opts,
   type Result,
 } from './commands.ts';
@@ -225,7 +226,7 @@ function main(argv: string[]): number {
   if (argv[0] === 'hook') {
     try {
       const input = readStdin();
-      const out = argv[1] === 'session-start' ? hookSessionStart(input) : argv[1] === 'post-edit' ? hookPostEdit(input) : '';
+      const out = argv[1] === 'session-start' ? hookSessionStart(input) : argv[1] === 'post-edit' ? hookPostEdit(input) : argv[1] === 'stop' ? hookStop(input) : '';
       if (out) process.stdout.write(out + '\n');
     } catch {}
     return 0;
