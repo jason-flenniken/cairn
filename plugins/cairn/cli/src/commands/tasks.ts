@@ -16,6 +16,7 @@ import { ensureExcluded, gate, mutate, planCtx, runQuickTests, runSetup, testsGa
 import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
 import { syncTickets } from './linear.ts';
 import { linearConfig } from '../linear.ts';
+import { lockedFiles } from '../endproofs.ts';
 
 const DEFAULT_FIX_MAX_FILES = 8;
 
@@ -207,6 +208,15 @@ function preMergeChecks(pc: PlanCtx, pre: State, sl: Task, opts: Opts): void {
   configGate(pre, pc.cfg, 'task merge', opts);
   if (pre.paused) throw new Refusal('the plan is paused: let running steps finish', ['/cairn:resume continues']);
   if (opts.override) return; // task done checks again, with the user's proof, and logs the override
+  // Proofs are add-only after the plan approval: a task that edits or deletes a locked proof file does not merge.
+  const locked = lockedFiles(pre.endProofs);
+  const touched = locked.length && branchExists(sl.branch!, plan.worktree) ? git(['diff', '--name-only', `${pre.branch}...${sl.branch}`, '--', ...locked], plan.worktree).split('\n').filter(Boolean) : [];
+  if (touched.length)
+    throw new Refusal(`task "${sl.name}" changes locked proof files: ${touched.join(', ')}. Proofs are add-only once the plan is approved`, [
+      `restore them on the task branch: git -C ${sl.worktree ?? '<task worktree>'} checkout ${pre.branch} -- ${touched.join(' ')}, then commit`,
+      'a new check goes in a new file, added after the merge with cairn prove add',
+      'if a proof itself is wrong, that is the user\'s call: changing it is a re-plan',
+    ]);
   const owner = pre.lastRed?.task ? findTask(pre, pre.lastRed.task) : undefined;
   if (pre.lastRed && owner && owner.id !== sl.id && owner.status !== 'done') {
     const other = owner.name;

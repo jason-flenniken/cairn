@@ -60,6 +60,7 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   state.cairnVersion = pluginVersion();
   if (stackedOn) state.stackedOn = stackedOn;
   if (track === 'feature') {
+    if (cfg.proofs === 'required') state.endProofs = { required: true, list: [], notProvable: [] };
     state.level = level;
     log(state, 'level', level);
   }

@@ -10,6 +10,8 @@ import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
 import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { closeMemory } from './memory.ts';
+import { proofApprovalProblems, proofProblems, proofSummary } from './prove.ts';
+import { filesHash } from '../endproofs.ts';
 import { configGate, configHash, fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
 import { isFoundational, linearConfig, prdLinearProblems } from '../linear.ts';
@@ -124,14 +126,17 @@ export function readyFor(pc: { plan: { dir: string }; cfg?: Config }): Ready | u
     if (s.stage === 'plan' && !s.approvals.plan) {
       const md = readText(file('plan.md'));
       if (!s.phases.length || !md || s.planHash !== hashText(md)) return undefined;
+      if (proofApprovalProblems(pcLike, s).length) return undefined;
       const note = prdEditedSinceApproval(s, readText(file('prd.md'))) ? `${PRD_EDITED_NOTE}\n\n` : '';
       return { kind: 'plan', file: file('plan.md'), summary: note + planSummary(s, md, pc.cfg) };
     }
     if (s.reapprove && !s.approvals.ship) return { kind: 'ship', file: file('RECORD.md'), summary: `**Approve shipping again:** ${s.reapprove.why}.` };
     if (s.stage === 'ship' && !s.approvals.ship && s.evidence.review?.result === 'pass') {
       if (recordCheck(pcLike, fastLane(s) ? 'fix' : 'feature').problems.length) return undefined;
+      if (proofProblems(pcLike, s).length) return undefined;
       const md = readText(file('RECORD.md')) ?? '';
-      return { kind: 'ship', file: file('RECORD.md'), summary: (sections(md).get('what was built') ?? '').trim() };
+      const proofs = proofSummary(s);
+      return { kind: 'ship', file: file('RECORD.md'), summary: [(sections(md).get('what was built') ?? '').trim(), proofs].filter(Boolean).join('\n\n') };
     }
   } catch {
     // Not ready: the state or a document could not be read.
@@ -175,6 +180,10 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         gate(!!md && s.planHash === hashText(md), s, 'approve plan', opts, 'plan.md changed since it was loaded', ['cairn plan load']);
         // Issues pulled in or released since the PRD was approved are held to the same rules.
         linearPrdGate(s, readText(planFile(pc, 'prd.md')), opts);
+        const unproved = proofApprovalProblems(pc, s);
+        gate(!unproved.length, s, 'approve plan', opts, unproved.join('; '), ['write or fix the proofs (procedures/plan.md, the proofs step), cairn plan load, then cairn prove']);
+        // The proofs are the end state: from here builders may add proofs, never edit or remove one.
+        for (const p of s.endProofs?.list ?? []) p.lock = filesHash(pc.plan.worktree, p.files);
         s.approvals.plan = { ...approval(), hash: s.planHash };
         s.configHash = configHash(pc.cfg);
         log(s, 'plan approved', source);
@@ -197,6 +206,8 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         const again = !!s.reapprove;
         gate(s.stage === 'ship' || again, s, 'approve ship', opts, `the plan is in ${s.stage}, not ship`);
         gate(s.evidence.review?.result === 'pass', s, 'approve ship', opts, 'review has not passed', ['run the review procedure, then cairn evidence review pass']);
+        const proofs = proofProblems(pc, s);
+        gate(!proofs.length, s, 'approve ship', opts, `the proofs do not show the end state: ${proofs.join('; ')}`, ['cairn prove (and judge any screenshots), fixing until every proof is green']);
         const record = recordCheck(pc, fastLane(s) ? 'fix' : 'feature');
         gate(!record.problems.length, s, 'approve ship', opts, record.problems.join('; '), [record.fix]);
         gate(!waiting.length, s, 'approve ship', opts, `this plan builds on work another plan has not shipped: ${waiting.join('; ')}`, ['ship the other plan first']);
@@ -249,6 +260,10 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         break;
       case 'verify':
         gate(s.evidence.verify?.result === 'pass', s, 'advance', opts, 'verification has not passed', ['cairn evidence verify pass --note "…"']);
+        {
+          const proofs = proofProblems(pc, s);
+          gate(!proofs.length, s, 'advance', opts, `the proofs do not show the end state: ${proofs.join('; ')}`, ['cairn prove (and judge any screenshots), fixing until every proof is green']);
+        }
         break;
       case 'review':
         gate(s.evidence.review?.result === 'pass' && !s.evidence.review.blocking, s, 'advance', opts, 'review has not passed with zero blocking findings', ['cairn evidence review pass --blocking 0']);

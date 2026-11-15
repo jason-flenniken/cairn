@@ -3,7 +3,8 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { builderLine, builderOf, taskReviewOf, type Builder } from '../builder.ts';
 import { commonDir } from '../git.ts';
 import { taskBranch, type Ctx } from '../locate.ts';
-import { findTask } from '../ready.ts';
+import { allTasks, findTask } from '../ready.ts';
+import { proofsOfTask } from '../endproofs.ts';
 import { sections } from '../sections.ts';
 import { levelOf, loadState, log } from '../state.ts';
 import { SUGGESTION_AREAS, type MustFix, type Suggestion, type State, type Task } from '../types.ts';
@@ -118,6 +119,29 @@ function securityBlock(pc: PlanCtx): string[] {
 /** The must-fix a reviewer's earlier report left on the task. */
 const priorMustFix = (sl: Task, report: string): MustFix[] => (sl.mustFix ?? []).filter((x) => x.report === report);
 
+/** The proofs this task answers for: the done line it builds toward, read-only. */
+function proofsBlock(s: State, sl: Task): string[] {
+  const mine = proofsOfTask(s.endProofs, sl, allTasks(s));
+  if (!mine.length) return [];
+  return [
+    '## Proofs this task answers for',
+    '',
+    'These runnable checks define done. Their files are locked: never edit, move or delete them (a merge that touches one is refused). Build until they pass.',
+    `Run them in your worktree, without recording: \`cairn prove --here --task ${sl.id}\` (screenshots land in the folder it prints).`,
+    'If you find a case no proof checks, write the check in a new file and name it under Concerns as "Proposed proof: <id> covers <FR ids>, run <command>, files <paths>".',
+    '',
+    ...mine.map(({ proof: p, waitsOn }) =>
+      [
+        `- **${p.id}** (${p.covers.join(', ')}): \`${p.run}\``,
+        `  Files: ${p.files.join(', ')}`,
+        ...(p.shots?.length ? [`  Screenshots: ${p.shots.join(', ')}; they must show: ${p.look}`] : []),
+        ...(waitsOn.length ? [`  Also needs task${waitsOn.length === 1 ? '' : 's'} ${waitsOn.map((t) => t.id).join(', ')}: it may stay red until ${waitsOn.length === 1 ? 'that one merges' : 'they merge'}; make your part pass.`] : []),
+      ].join('\n'),
+    ),
+    '',
+  ];
+}
+
 function buildBrief(pc: PlanCtx, s: State, sl: Task, role: Role, again = false): { text: string; report: string } {
   const b = taskBits(pc, s, sl);
   const report = reportPath(pc, sl.id, role);
@@ -166,6 +190,7 @@ function buildBrief(pc: PlanCtx, s: State, sl: Task, role: Role, again = false):
       }
     }
   }
+  if (role === 'build' || role === 'fix') parts.push(...proofsBlock(s, sl));
   parts.push('## Report', '', `Write your full report to: ${report}`);
   return { text: parts.join('\n') + '\n', report };
 }

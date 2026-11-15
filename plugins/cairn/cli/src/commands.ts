@@ -7,6 +7,7 @@ export { cmdNew, cmdProductInit, cmdDecide } from './commands/plans.ts';
 export { cmdApprove, cmdAdvance, cmdClose } from './commands/stages.ts';
 export { cmdLevel } from './commands/level.ts';
 export { cmdPlanLoad } from './commands/planload.ts';
+export { cmdProve } from './commands/prove.ts';
 export { cmdReady, cmdTask } from './commands/tasks.ts';
 export { cmdReview } from './commands/brief.ts';
 export { cmdIndex, removed } from './commands/memory.ts';

@@ -153,7 +153,7 @@ export function runQuickTests(cfg: Config, cwd: string, files: string[]): TestRu
   return { ...runSuite(cfg.testQuick, cfg, cwd, { CAIRN_CHANGED_FILES: files.join(' ') }), quick: true };
 }
 
-function runSuite(cmd: string, cfg: Config, cwd: string, extraEnv: Record<string, string> = {}): TestRun {
+export function runSuite(cmd: string, cfg: Config, cwd: string, extraEnv: Record<string, string> = {}): TestRun {
   const minutes = cfg.testTimeoutMinutes ?? DEFAULT_TEST_TIMEOUT_MINUTES;
   const before = testInput(cwd);
   const r = spawnSync('sh', ['-c', cmd], { cwd, encoding: 'utf8', env: { ...childEnv(), ...extraEnv }, maxBuffer: 64 * 1024 * 1024, timeout: minutes * 60_000, killSignal: 'SIGKILL' });
