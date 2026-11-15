@@ -159,7 +159,7 @@ export type CairnBoard = {
   wideLinks?: { epic: string; on: string; holds: number }[]
 }
 
-/** The pane's last good read: every plan, and the slug of the one the session works on (isFallback: chosen from the repo root, not by location). */
+/** The pane's last good read: every plan, and the slug of the one the session works on (`hooks/mod/own.ts`; absent while the session has no plan of its own). */
 /** A plan's usage in one session's ledger file, or summed over all of them. */
 export type CairnLedgerEntry = {
   /** US dollars, from the session's cost. */
@@ -174,7 +174,7 @@ export type CairnLedgerEntry = {
   byStage: Record<string, { usd: number; tokens: number; weekPct: number }>
 }
 
-export type CairnView = { plans: CairnPlanRow[]; here?: string; isFallback?: boolean }
+export type CairnView = { plans: CairnPlanRow[]; here?: string }
 
 /** One subagent's card in the pane's NOW section (hooks/mod/activity.ts). */
 export type AgentCard = {
@@ -252,6 +252,8 @@ declare module 'claude-code' {
       git: CairnGit | null
       /** The read-back question open in the chat; null while none is. */
       readBack: CairnReadBack | null
+      /** The plan this session works on, under the session id it was set for; null until one is. Kept in $.store too. */
+      ownPlan: { key: string; slug: string } | null
       /** The Records tab's list; null until first loaded. */
       records: CairnRecord[] | null
       /** The record whose details the Records tab shows; null while none is open. */

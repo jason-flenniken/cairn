@@ -125,11 +125,11 @@ describe('the bar on every tab (FR-01)', () => {
     ['in the plan worktree', WT, () => row(BUILD_2_OF_3, WT), true],
     ['from the repo root', MAIN, () => row(BUILD_2_OF_3, WT), true],
     ['in the plan worktree, with a level and stage time shown', WT, () => withLevel(row(BUILD_2_OF_3, WT), 'polished', 'Polished', { execute: 12 * 60_000 }), true],
-    ['from the repo root, an approval waiting', MAIN, () => row(plan({ stage: 'plan' }), WT, undefined, ready('plan')), false],
+    ['in the plan worktree, an approval waiting and another plan', WT, () => row(plan({ stage: 'plan' }), WT, undefined, ready('plan')), false],
   ] as const
   for (const [where, cwd, make, hasTip] of INLINE_CASES) {
     test(`inline, ${where}, the pane with its bar line stays within 7 rows`, async ($, on) => {
-      world(on, { cwd, rows: [make()] })
+      world(on, { cwd, rows: where.includes('another plan') ? [make(), row(plan({ slug: 'other', title: 'Other' }), '/repo/.claude/worktrees/sdlc-other')] : [make()] })
       await start($, cwd)
       const ui = await mountAs($, { placement: 'inline' })
       expect(rowsOf((await ui.findAll({ type: 'Box' }))[0] as El)).toBeLessThanOrEqual(7)

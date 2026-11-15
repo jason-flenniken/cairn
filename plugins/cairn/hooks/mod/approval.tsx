@@ -110,10 +110,10 @@ export const INLINE_WAITING = 2
 const WHAT = { prd: 'PRD', plan: 'plan', ship: 'ship' } as const
 
 /**
- * The Waiting on you block: one entry per plan in `rows` (other plans that want the person). A plan with a document
- * ready gets Open (the doc viewer, on that plan's file) and Approve, which goes through the same confirm and read-back
- * path as the shown plan's, with that plan's slug. A plan asking in its own session has no buttons: only its name and
- * the worktree to go to. Inline, one row per plan with Approve alone, as the viewer is not drawn there.
+ * The Waiting on you block: one entry per plan in `rows` (other plans that want the person). It never approves:
+ * each plan is approved in its own session, so sessions on different plans never act on each other's. A plan with a
+ * document ready gets Open (the doc viewer, read only). A plan asking in its own session shows its name and the
+ * worktree to go to. Inline, one row per plan, as the viewer is not drawn there.
  */
 export function waitingBlock($: EngineInterface, ui: Ui, rows: CairnPlanRow[], isInline: boolean) {
   const { Box, Button, Text } = ui
@@ -125,12 +125,7 @@ export function waitingBlock($: EngineInterface, ui: Ui, rows: CairnPlanRow[], i
       const ready = r.ready
       return ready === undefined
         ? <Text key={`waiting:${slug}`} color="yellow" wrap="truncate-end">{`${title}: waiting for you in its session`}</Text>
-        : (
-          <Box key={`waiting:${slug}`} flexDirection="row" gap={1}>
-            <Text color="yellow" wrap="truncate-end">{`${title} · ${WHAT[ready.kind]}`}</Text>
-            <Button key={`approve:${slug}`} label="Approve" variant="primary" onPress={() => act($, () => approvePress($, slug, ready.kind))} />
-          </Box>
-        )
+        : <Text key={`waiting:${slug}`} color="yellow" wrap="truncate-end">{`${title} · ${WHAT[ready.kind]} approval, in its session`}</Text>
     })
   }
   return (
@@ -150,10 +145,9 @@ export function waitingBlock($: EngineInterface, ui: Ui, rows: CairnPlanRow[], i
         }
         return (
           <Box key={`waiting:${slug}`} flexDirection="column">
-            <Text wrap="truncate-end">{`${title} · ${WHAT[ready.kind]} approval`}</Text>
+            <Text wrap="truncate-end">{`${title} · ${WHAT[ready.kind]} approval, in its session`}</Text>
             <Box flexDirection="row" gap={1}>
               <Button key={`open:${slug}`} label="Open" onPress={() => act($, () => openDoc($, 'cairn', { file: ready.file, title: `${DOC_NAME[ready.kind]}: ${slug}`, kind: ready.kind }))} />
-              <Button key={`approve:${slug}`} label="Approve" variant="primary" onPress={() => act($, () => approvePress($, slug, ready.kind))} />
             </Box>
           </Box>
         )

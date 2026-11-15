@@ -101,15 +101,19 @@ describe('active time', () => {
     await ui.unmount()
   })
 
-  test('a second plan keeps its own total: moving to it saves the first and loads its own', async ($, on) => {
+  test('a second plan keeps its own total: a new session on it saves the first and loads its own', async ($, on) => {
     const BETA_WT = '/repo/.claude/worktrees/sdlc-beta'
     const { w, clock } = world(on, { rows: [row(BUILD, WT), row(plan({ slug: 'beta', title: 'Beta', stage: 'execute' }), BETA_WT)] })
     const m = memStore(on)
+    // A session keeps its plan when its folder moves; a new session (after /clear) in beta's worktree is beta's.
+    let sessionId = 'first'
+    on('session.id', () => ({ value: sessionId }))
     await start($, WT)
     await polls(clock, 1)
     await $.turn.start({ text: 'go', turnId: 'turn-1' })
     await polls(clock, 3)
-    // The session moves to the other plan's worktree; a state change makes the pane read the plans again.
+    // A new session in the other plan's worktree; a state change makes the pane read the plans again.
+    sessionId = 'second'
     w.cwd = BETA_WT
     w.mtimes.set(STATE, 2)
     // That poll still counts the first plan, the next one switches, the last counts the second.

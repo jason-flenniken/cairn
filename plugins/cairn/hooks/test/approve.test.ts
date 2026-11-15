@@ -26,6 +26,8 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
   const runs: Run[] = []
   const hashes: string[] = []
   const toasts: string[] = []
+  // `hangIn`: the first CLI run in that folder times out; later ones answer.
+  let hasHung = false
   // The approver files on disk, by the hash that names each.
   const live = new Set<string>()
   on('process.run', async (_$, e) => {
@@ -54,7 +56,10 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
       return answer(0, JSON.stringify({ ok: true, plans: rows, modActive: true }))
     }
     const given = e.init?.env?.CAIRN_APPROVER
-    if (hangIn !== undefined && e.init?.cwd === hangIn) return { deny: `timed out after ${e.init?.timeoutMs} ms` }
+    if (hangIn !== undefined && e.init?.cwd === hangIn && !hasHung) {
+      hasHung = true
+      return { deny: `timed out after ${e.init?.timeoutMs} ms` }
+    }
     if (refuse !== undefined) {
       const at = plans.find(p => p.worktree === e.init?.cwd)
       if (elsewhere && at !== undefined && args[0] === 'approve') at.approvals = { ...at.approvals, [args[1] as string]: { via: 'human' } }
@@ -440,7 +445,7 @@ describe('menu approval (FR-02)', () => {
     dialog(on, { [q]: 'Approve' })
     await $.tool.call(ask(q))
     const timeout = (pred: (r: Run) => boolean) => runs.filter(pred).map(r => r.init?.timeoutMs)
-    // One read for the already-approved check before the dialog, one when the approval is judged.
+    // One read before the dialog (the session's plan and the already-approved check), one when the approval is judged.
     expect(timeout(r => r.argv[1] === 'status')).toEqual([60_000, 60_000])
     expect(timeout(r => r.argv[0] === 'chmod')).toEqual([60_000])
     expect(timeout(r => r.argv[0] === 'rm')).toEqual([60_000])
@@ -448,16 +453,12 @@ describe('menu approval (FR-02)', () => {
   })
 
   test('an approve that times out is reported, and the next approval still gets a secret', async ($, on) => {
-    const { approveRuns } = world(on, [
-      { slug: 'hung', stage: 'prd', worktree: '/wt/hung' },
-      { slug: 'after', stage: 'prd', worktree: '/wt/after' },
-    ], { hangIn: '/wt/hung' })
+    const { approveRuns } = world(on, [{ slug: 'hung', stage: 'prd', worktree: '/wt/hung' }], { hangIn: '/wt/hung' })
     const hung = 'Approve? [cairn:approve prd hung]'
-    const after = 'Approve? [cairn:approve prd after]'
-    dialog(on, { [hung]: 'Approve', [after]: 'Approve' })
+    dialog(on, { [hung]: 'Approve' })
     const first = await $.tool.call(ask(hung))
     expect(first.context?.join()).toMatch(/hung prd approval failed: .*timed out/)
-    const second = await $.tool.call(ask(after))
+    const second = await $.tool.call(ask(hung))
     expect(second.context?.join()).toMatch(/prd approved/)
     expect(approveRuns()).toHaveLength(2)
   })
@@ -604,7 +605,7 @@ describe('already approved from the pane (FR-13, FR-15)', () => {
     expect(toasts).toHaveLength(1)
   })
 
-  test('FR-16: two stops of two plans in one dialog, each answered Approve, both approve', async ($, on) => {
+  test('two stops of two plans in one dialog: only the session\'s own plan is approved', async ($, on) => {
     const { approveRuns, toasts } = world(on, [
       { slug: 'one', stage: 'prd', worktree: '/wt/one' },
       { slug: 'two', stage: 'plan', worktree: '/wt/two' },
@@ -613,9 +614,9 @@ describe('already approved from the pane (FR-13, FR-15)', () => {
     const b = 'Approve the plan? [cairn:approve plan two]'
     counted(on, () => ({ [a]: 'Approve (Recommended)', [b]: 'Approve (Recommended)' }))
     const got = await $.tool.call(ask(a, b))
-    expect(approveRuns().map(r => r.argv.slice(1))).toEqual([['approve', 'prd'], ['approve', 'plan']])
-    expect(got.context).toHaveLength(2)
-    expect(got.context?.join('\n')).toMatch(/one: prd approved[\s\S]*two: plan approved/)
+    // The session had no plan, so the first tag made `one` its own; `two` belongs to another session.
+    expect(approveRuns().map(r => [r.init?.cwd, ...r.argv.slice(1)])).toEqual([['/wt/one', 'approve', 'prd']])
+    expect(got.context?.join('\n')).toMatch(/one: prd approved[\s\S]*this session works on one, so the plan approval on two was not done/)
     expect(toasts).toHaveLength(2)
   })
 
@@ -662,15 +663,14 @@ describe('the secret (FR-01, Review focus 1 and 2)', () => {
   test('another session approving in between leaves this session\'s next approval working', async ($, on) => {
     // The incident: worktrees share one git common dir, so every session's mod writes there. A secret kept
     // ready after a use went stale as soon as another session's mod wrote its own.
-    const { approveRuns, live } = world(on, [
-      { slug: 'mine', stage: 'prd', worktree: '/wt/mine' },
-      { slug: 'next', stage: 'plan', worktree: '/wt/next' },
-    ])
+    const plans: Plan[] = [{ slug: 'mine', stage: 'prd', worktree: '/wt/mine' }]
+    const { approveRuns, live } = world(on, plans)
     const first = 'Approve? [cairn:approve prd mine]'
-    const second = 'Approve? [cairn:approve plan next]'
+    const second = 'Approve? [cairn:approve plan mine]'
     dialog(on, { [first]: 'Approve', [second]: 'Approve' })
     await $.tool.call(ask(first))
     expect(live.size).toBe(0)
+    plans[0]!.stage = 'plan'
     live.add(await sha256('another session\'s secret'))
     const got = await $.tool.call(ask(second))
     expect(got.context?.join()).toMatch(/plan approved/)
@@ -700,14 +700,13 @@ describe('the secret (FR-01, Review focus 1 and 2)', () => {
   })
 
   test('back-to-back approvals each use their own secret, and both land', async ($, on) => {
-    const { approveRuns, hashes } = world(on, [
-      { slug: 'one', stage: 'prd', worktree: '/wt/one' },
-      { slug: 'two', stage: 'plan', worktree: '/wt/two' },
-    ])
+    const plans: Plan[] = [{ slug: 'one', stage: 'prd', worktree: '/wt/one' }]
+    const { approveRuns, hashes } = world(on, plans)
     const one = 'Approve? [cairn:approve prd one]'
-    const two = 'Approve? [cairn:approve plan two]'
+    const two = 'Approve? [cairn:approve plan one]'
     dialog(on, { [one]: 'Approve', [two]: 'Approve' })
     const first = await $.tool.call(ask(one))
+    plans[0]!.stage = 'plan'
     const second = await $.tool.call(ask(two))
     const [a, b] = approveRuns().map(r => r.init?.env?.CAIRN_APPROVER ?? '')
     expect(a).not.toBe(b)
@@ -717,17 +716,111 @@ describe('the secret (FR-01, Review focus 1 and 2)', () => {
     expect(second.context?.join()).toMatch(/plan approved/)
   })
 
-  test('approvals that land at once each use their own secret, and both land', async ($, on) => {
-    world(on, [
+  test('two plans\' questions answered at once in a session with no plan: exactly one plan becomes its own', async ($, on) => {
+    const { approveRuns } = world(on, [
       { slug: 'c1', stage: 'prd', worktree: '/wt/c1' },
       { slug: 'c2', stage: 'ship', worktree: '/wt/c2' },
     ])
     const one = 'Approve? [cairn:approve prd c1]'
     const two = 'Ship? [cairn:approve ship c2]'
     dialog(on, { [one]: 'Approve', [two]: 'Approve' })
-    const [first, second] = await Promise.all([$.tool.call(ask(one)), $.tool.call(ask(two))])
-    expect(first.context?.join()).toMatch(/prd approved/)
-    expect(second.context?.join()).toMatch(/ship approved/)
+    const said = (await Promise.all([$.tool.call(ask(one)), $.tool.call(ask(two))])).map(r => r.context?.join() ?? '')
+    expect(approveRuns()).toHaveLength(1)
+    expect(said.filter(t => /c[12]: (prd|ship) approved/.test(t))).toHaveLength(1)
+    expect(said.filter(t => /this session works on c[12]/.test(t))).toHaveLength(1)
+  })
+})
+
+describe('one plan per session', () => {
+  const MAIN = '/repo'
+  const wtA = '/repo/.claude/worktrees/feature-a'
+  const wtB = '/repo/.claude/worktrees/feature-b'
+
+  function bash(on: On) {
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ok', stderr: '', interrupted: false } }))
+  }
+
+  test('a cairn command run in a plan\'s worktree makes it the session\'s plan; another plan\'s approval is refused', async ($, on) => {
+    const { approveRuns } = world(on, [
+      { slug: 'a', stage: 'prd', worktree: wtA },
+      { slug: 'b', stage: 'prd', worktree: wtB },
+    ])
+    bash(on)
+    const qa = 'Approve? [cairn:approve prd a]'
+    const qb = 'Approve? [cairn:approve prd b]'
+    dialog(on, { [qa]: 'Approve', [qb]: 'Approve' })
+    await $.tool.call({ tool: 'Bash', command: `cd ${wtB} && cairn status` })
+    expect((await $.tool.call(ask(qa))).context?.join()).toMatch(/this session works on b, so the prd approval on a was not done; do it from a's own session/)
+    expect((await $.tool.call(ask(qb))).context?.join()).toMatch(/b: prd approved/)
+    expect(approveRuns().map(r => r.init?.cwd)).toEqual([wtB])
+  })
+
+  test('a command that is not cairn, or that names two plans\' worktrees, gives the session no plan', async ($, on) => {
+    const { approveRuns } = world(on, [
+      { slug: 'a', stage: 'prd', worktree: wtA },
+      { slug: 'b', stage: 'prd', worktree: wtB },
+    ])
+    bash(on)
+    const qb = 'Approve? [cairn:approve prd b]'
+    dialog(on, { [qb]: 'Approve' })
+    await $.tool.call({ tool: 'Bash', command: `cat ${wtA}/docs/cairn/plans/a/prd.md` })
+    await $.tool.call({ tool: 'Bash', command: `cd ${wtA} && cairn status && cd ${wtB} && cairn status` })
+    await $.tool.call({ tool: 'Bash', command: `cd ${wtA}-old && cairn status` })
+    // Still no plan of its own: the first tagged question names it.
+    expect((await $.tool.call(ask(qb))).context?.join()).toMatch(/b: prd approved/)
+    expect(approveRuns().map(r => r.init?.cwd)).toEqual([wtB])
+  })
+
+  test('a plan kept in the main checkout does not hide the worktree a command names', async ($, on) => {
+    world(on, [
+      { slug: 'root', stage: 'execute', worktree: MAIN },
+      { slug: 'b', stage: 'prd', worktree: wtB },
+    ], { cwd: '/elsewhere' })
+    bash(on)
+    const q = 'Approve? [cairn:approve prd b]'
+    dialog(on, { [q]: 'Approve' })
+    await $.tool.call({ tool: 'Bash', command: `cd ${wtB} && cairn status` })
+    expect((await $.tool.call(ask(q))).context?.join()).toMatch(/b: prd approved/)
+  })
+
+  test('once its plan is closed, the session can take up another', async ($, on) => {
+    const plans: Plan[] = [
+      { slug: 'a', stage: 'prd', worktree: wtA },
+      { slug: 'b', stage: 'prd', worktree: wtB },
+    ]
+    world(on, plans)
+    const qa = 'Approve? [cairn:approve prd a]'
+    const qb = 'Approve? [cairn:approve prd b]'
+    dialog(on, { [qa]: 'Approve', [qb]: 'Approve' })
+    expect((await $.tool.call(ask(qa))).context?.join()).toMatch(/a: prd approved/)
+    expect((await $.tool.call(ask(qb))).context?.join()).toMatch(/works on a/)
+    plans[0]!.stage = 'closed'
+    expect((await $.tool.call(ask(qb))).context?.join()).toMatch(/b: prd approved/)
+  })
+
+  test('a session that moves into another plan\'s worktree keeps its own plan', async ($, on) => {
+    const { approveRuns, where } = world(on, [
+      { slug: 'a', stage: 'prd', worktree: wtA },
+      { slug: 'b', stage: 'prd', worktree: wtB },
+    ], { cwd: `${wtA}/src` })
+    const qa = 'Approve? [cairn:approve prd a]'
+    const qb = 'Approve? [cairn:approve prd b]'
+    dialog(on, { [qa]: 'Approve', [qb]: 'Approve' })
+    expect((await $.tool.call(ask(qa))).context?.join()).toMatch(/a: prd approved/)
+    where.cwd = wtB
+    expect((await $.tool.call(ask(qb))).context?.join()).toMatch(/this session works on a, so the prd approval on b was not done/)
+    expect(approveRuns().map(r => r.init?.cwd)).toEqual([wtA])
+  })
+
+  test('a level change for another session\'s plan is refused', async ($, on) => {
+    const { levelRuns } = world(on, [
+      { slug: 'a', stage: 'prd', worktree: wtA },
+      { slug: 'b', stage: 'prd', worktree: wtB },
+    ], { cwd: `${wtA}/src` })
+    const q = 'Which level? [cairn:level b]'
+    dialog(on, { [q]: 'MVP' })
+    expect((await $.tool.call(ask(q))).context?.join()).toMatch(/this session works on a, so the level change on b was not done/)
+    expect(levelRuns()).toEqual([])
   })
 })
 
@@ -920,20 +1013,19 @@ describe('mod-run overrides (FR-34)', () => {
 
   test('override runs carry timeouts, and one that times out is reported and frees the secret', async ($, on) => {
     mock.clock(on)
-    const { cliRuns, approveRuns } = world(on, [
-      { slug: 'ov-hung', stage: 'review', worktree: '/wt/ov-hung' },
-      { slug: 'ov-next', stage: 'prd', worktree: '/wt/ov-next' },
-    ], { hangIn: '/wt/ov-hung' })
+    const plans: Plan[] = [{ slug: 'ov', stage: 'review', worktree: '/wt/ov' }]
+    const { cliRuns, approveRuns } = world(on, plans, { hangIn: '/wt/ov' })
     const ran = shell(on)
-    const o = 'Override the review? [cairn:override ov-hung]'
-    const q = 'Approve? [cairn:approve prd ov-next]'
+    const o = 'Override the review? [cairn:override ov]'
+    const q = 'Approve? [cairn:approve ship ov]'
     dialog(on, { [o]: 'Override', [q]: 'Approve' })
     await $.tool.call(ask(o))
     const got = await $.tool.call({ tool: 'Bash', command: ADVANCE })
     expect(cliRuns().map(r => r.init?.timeoutMs)).toEqual([600_000])
     expect((got.result as { stdout: string }).stdout).toMatch(/^cairn: the override run failed: .*timed out/)
     expect(ran).toEqual([])
-    expect((await $.tool.call(ask(q))).context?.join()).toMatch(/prd approved/)
+    plans[0]!.stage = 'ship'
+    expect((await $.tool.call(ask(q))).context?.join()).toMatch(/ship approved/)
     expect(approveRuns()).toHaveLength(1)
   })
 
@@ -976,7 +1068,7 @@ describe('mod-run overrides (FR-34)', () => {
     expect(ran).toEqual([ADVANCE, ADVANCE])
   })
 
-  test('with two plans holding overrides, each command runs only for the plan the session is in', async ($, on) => {
+  test('with two plans holding overrides, each command runs only for the session\'s own plan', async ($, on) => {
     mock.clock(on)
     const { cliRuns, where } = world(on, [
       { slug: 'pa', stage: 'review', worktree: '/wt/pa' },
@@ -987,25 +1079,24 @@ describe('mod-run overrides (FR-34)', () => {
     const b = 'Override? [cairn:override pb]'
     dialog(on, { [a]: 'Override', [b]: 'Override' })
     await $.tool.call(ask(a, b))
-    const fromRoot = await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(fromRoot.context?.join()).toMatch(/several plans/)
-    where.cwd = '/wt/pb'
+    // From the repo root the session's plan is the one its first tag named: pa.
     await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    where.cwd = '/wt/pa/src'
-    await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(cliRuns().map(r => r.init?.cwd)).toEqual(['/wt/pb', '/wt/pa'])
-    expect(ran).toEqual([ADVANCE])
+    const again = await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    expect(again.context?.join()).toMatch(/works on plan "pa", and your override is for another plan/)
+    // Moving into pb's worktree does not make the session pb's: it keeps its own plan.
+    where.cwd = '/wt/pb/src'
+    const moved = await $.tool.call({ tool: 'Bash', command: ADVANCE })
+    expect(moved.context?.join()).toMatch(/works on plan "pa", and your override is for another plan/)
+    expect(cliRuns().map(r => r.init?.cwd)).toEqual(['/wt/pa'])
+    expect(ran).toEqual([ADVANCE, ADVANCE])
   })
 
   test('the secret never reaches the model or the user', async ($, on) => {
     mock.clock(on)
-    const { cliRuns, toasts } = world(on, [
-      { slug: 'leak-a', stage: 'prd', worktree: '/wt/leak-a' },
-      { slug: 'leak-o', stage: 'review', worktree: '/wt/leak-o' },
-    ])
+    const { cliRuns, toasts } = world(on, [{ slug: 'leak', stage: 'prd', worktree: '/wt/leak' }])
     shell(on)
-    const q = 'Approve? [cairn:approve prd leak-a]'
-    const o = 'Override? [cairn:override leak-o]'
+    const q = 'Approve? [cairn:approve prd leak]'
+    const o = 'Override? [cairn:override leak]'
     dialog(on, { [q]: 'Approve', [o]: 'Override' })
     const seen = [JSON.stringify(await $.tool.call(ask(q, o))), JSON.stringify(await $.tool.call({ tool: 'Bash', command: ADVANCE }))]
     const secrets = cliRuns().map(r => r.init?.env?.CAIRN_APPROVER ?? '')

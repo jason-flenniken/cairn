@@ -63,7 +63,7 @@ export function etaText(row: CairnPlanRow, nowMs: number): string | undefined {
 
 /** `cairn · Build 9/19 tasks · 3 running · ~40m left`; away from a plan, how many are active. */
 export async function statusLine($: EngineInterface, v: CairnView): Promise<string | undefined> {
-  const row = v.isFallback ? undefined : v.plans.find(r => r.state.slug === v.here)
+  const row = v.plans.find(r => r.state.slug === v.here)
   const active = v.plans.filter(isActive).length
   const waiting = waitingOn(v.plans, v.here).length
   const waits = waiting === 0 ? '' : ` · ${waiting} plan${waiting === 1 ? ' waits' : 's wait'} on you`
@@ -81,9 +81,8 @@ export async function statusLine($: EngineInterface, v: CairnView): Promise<stri
 
 /**
  * The plan's title, stage and phase over its progress bar, in one Box so a gap never splits them.
- * `fallback` is the active-plan count when the view chose the plan from the repo root.
  */
-export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumns: number, nowMs: number, fallback?: number, running = 0) {
+export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumns: number, nowMs: number, running = 0) {
   const { Box, Text } = ui
   const s = row.state
   const phases = phasesOf(s)
@@ -99,7 +98,6 @@ export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumn
   return (
     <Box key="header" flexDirection="column">
       <Text key="head" bold color={accent} wrap="truncate-end">{`${row.epic === undefined || row.epic === '' ? '' : `${clean(row.epic)} `}${s.title ?? s.slug} · ${stageOf(s, row.prOpen)}${where}${levelTail(row)}`}</Text>
-      {fallback !== undefined && <Text key="fallback" dimColor wrap="truncate-end">{`Showing ${s.slug}, ${fallback > 1 ? 'the most recently updated of the active plans' : 'the active plan'}`}</Text>}
       {!!s.paused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>}
       {tasks.length > 0 ? <Text key="bar" color={accent} wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor color={accent} wrap="truncate-end">{label}</Text>}
     </Box>

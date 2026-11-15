@@ -51,14 +51,9 @@ export function resetLedger(): void {
   hasStepped = false
 }
 
-/**
- * The plan this session belongs to: the one it is in, or at the repo root (where execute runs) the only plan not
- * closed. Undefined when that is ambiguous.
- */
+/** The plan this session works on: the view's own plan (`own.ts`), undefined while it has none. */
 export function sessionPlan(v: CairnView | null): string | undefined {
-  if (v === null) return undefined
-  const sole = v.isFallback && v.plans.filter(r => r.state.stage !== 'closed').length === 1
-  return v.isFallback && !sole ? undefined : v.here
+  return v?.here
 }
 
 /** The plan this session's spend goes to, with its stage: `sessionPlan`'s, while it is open and not paused. */

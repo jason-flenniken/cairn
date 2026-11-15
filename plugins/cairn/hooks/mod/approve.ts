@@ -5,6 +5,7 @@ import type { EngineInterface, On, ProcessRunInit } from 'claude-code'
 import type { CairnReadBack, CairnRun } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
+import { claimPlan, namedPlan, ownPlan } from './own.ts'
 
 export type Kind = 'prd' | 'plan' | 'ship'
 export type Tag = { kind?: Kind; slug: string; question: string; override?: true; level?: true }
@@ -134,6 +135,15 @@ async function planRows($: EngineInterface): Promise<PlanRow[]> {
   return (await cairn($, ['status', '--all', '--json'], quick)).json?.plans ?? []
 }
 
+/** Why this session may not act on plan `slug`: it is not the session's own plan. Undefined when it is. */
+async function notOwn($: EngineInterface, rows: PlanRow[], slug: string, what: string): Promise<string | undefined> {
+  const own = await ownPlan($, rows)
+  if (own === slug) return undefined
+  return own === undefined
+    ? `cairn: this session has no plan of its own yet, so ${what} on ${slug} was not done; do it from that plan's session.`
+    : `cairn: this session works on ${own}, so ${what} on ${slug} was not done; do it from ${slug}'s own session.`
+}
+
 /** True when the CLI's status shows `kind` approved on plan `slug`. */
 function isApproved(rows: PlanRow[], slug: string, kind: Kind): boolean {
   return Boolean(rows.find(p => p.state?.slug === slug)?.state?.approvals?.[kind])
@@ -164,6 +174,8 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind): P
   const rows = await planRows($)
   const row = rows.find(p => p.state?.slug === slug)
   if (row?.state === undefined) return `cairn: no plan "${slug}", so nothing was approved.`
+  const other = await notOwn($, rows, slug, `the ${kind} approval`)
+  if (other !== undefined) return other
   if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so nothing was approved.`
   if (row.ready?.kind !== kind) {
     if (isApproved(rows, slug, kind)) {
@@ -193,8 +205,11 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind): P
  * The CLI decides what is allowed (no lower once a task started, not while paused, not at ship); its refusal is the answer.
  */
 export async function levelAs($: EngineInterface, slug: string, level: Level): Promise<string> {
-  const row = (await planRows($)).find(p => p.state?.slug === slug)
+  const rows = await planRows($)
+  const row = rows.find(p => p.state?.slug === slug)
   if (row?.state === undefined) return `cairn: no plan "${slug}", so the level was not changed.`
+  const other = await notOwn($, rows, slug, 'the level change')
+  if (other !== undefined) return other
   if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so the level was not changed.`
   const ran = await cairnWithSecret($, ['level', level], row.worktree).catch((err: unknown) => message(err))
   if (typeof ran === 'string') return `cairn: ${slug} level change failed: ${ran}`
@@ -260,60 +275,75 @@ function namesUserOnlyCommand(argv: string[]): boolean {
   return false
 }
 
+// The cairn program as a command word (`cairn …`, `…/bin/cairn …`), not a folder named cairn in a path.
+const RUNS_CAIRN = /(^|[\s;&|(])(\S*\/)?cairn(\s|$)/
+
 const USER_ONLY = 'approvals and level changes come from the user, so they never run on an override'
 
 /**
- * Runs a plain `cairn … --override` for the plan the user's Override named, spending it: the plan whose
- * worktree the session is in, or the one plan holding an override. `{}` when none is pending;
- * `{ why }` when the override can't be used.
+ * Runs a plain `cairn … --override` for the session's own plan when the user's Override named it, spending it.
+ * `{}` when none is pending; `{ why }` when the override can't be used.
  */
 async function runOverride($: EngineInterface, argv: string[]): Promise<{ ran?: CairnRun | string; why?: string }> {
   const now = await $.clock.now()
   for (const [slug, at] of pendingOverrides) if (now - at > OVERRIDE_MS) pendingOverrides.delete(slug)
   if (pendingOverrides.size === 0) return {}
   const plans = await planRows($)
-  const cwd = await $.session.cwd()
-  const here = plans.find(p => p.worktree !== undefined && (cwd === p.worktree || cwd.startsWith(`${p.worktree}/`)))
-  const slug = here?.state?.slug ?? (pendingOverrides.size === 1 ? [...pendingOverrides.keys()][0] : undefined)
-  if (slug === undefined) {
-    return { why: `overrides are pending for several plans (${[...pendingOverrides.keys()].join(', ')}), so run it from the plan's worktree` }
-  }
-  if (!pendingOverrides.has(slug)) return { why: `this session is in plan "${slug}", and your override is for another plan` }
+  const slug = await ownPlan($, plans)
+  if (slug === undefined) return { why: 'this session has no plan of its own yet, so the override is not used here' }
+  if (!pendingOverrides.has(slug)) return { why: `this session works on plan "${slug}", and your override is for another plan` }
   const worktree = plans.find(p => p.state?.slug === slug)?.worktree
   if (worktree === undefined) return { why: `plan "${slug}" is not checked out` }
   pendingOverrides.delete(slug)
   return { ran: await cairnWithSecret($, argv.slice(1), worktree).catch((err: unknown) => message(err)) }
 }
 
+/** Makes the one plan whose worktree a cairn command names the session's own, when it has none yet. */
+async function bindFromCommand($: EngineInterface, command: string): Promise<void> {
+  // A command with no path names no worktree: no status read for it.
+  if (!command.includes('/')) return
+  const rows = await planRows($)
+  const slug = namedPlan(rows, command)
+  if (slug !== undefined) await claimPlan($, slug, rows)
+}
+
 export function install(on: On): void {
   // FR-34: with an Override pending, the mod runs the model's plain `cairn … --override` itself,
   // with the secret, in place of the shell. Everything else goes on as written.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
-    const { command } = e
-    if (pendingOverrides.size === 0 || e.agentId !== undefined || !/cairn/.test(command) || !/--override/.test(command)) {
-      return next(e)
-    }
-    const argv = plainArgv(command)
-    if (argv !== undefined && argv[0] !== 'cairn') return next(e)
-    // Neither `approve` nor `level` ever rides an override: approvals and level changes come from the
-    // user (the menu, or /cairn-level). The Bash guard denies both too. Only words outside prose count.
-    const isUserOnly = argv !== undefined && namesUserOnlyCommand(argv)
-    const isPlain = argv !== undefined && !isUserOnly && hasOverride(argv)
-    const out = isPlain ? await runOverride($, argv) : { why: isUserOnly ? USER_ONLY : NOT_PLAIN }
-    if (out.ran !== undefined) {
-      // Core keeps no is_error from a hook's Bash result, so a failure reads as the Bash tool's does.
-      const proof = 'cairn ran this --override itself, with your Override answer as proof'
-      if (typeof out.ran === 'string') {
-        return { result: { stdout: `cairn: the override run failed: ${out.ran}`, stderr: '', interrupted: false }, context: [`${proof}.`] }
+    const ran = await overrideOrRun()
+    // A cairn command the session runs in a plan's worktree makes that plan the session's own, if it has none yet.
+    if (e.agentId === undefined && (ran as { deny?: unknown }).deny === undefined && RUNS_CAIRN.test(e.command)) await bindFromCommand($, e.command).catch(() => undefined)
+    return ran
+
+    /** With an Override pending, runs the model's plain `cairn … --override` with the secret in place of the shell. */
+    async function overrideOrRun() {
+      const { command } = e
+      if (pendingOverrides.size === 0 || e.agentId !== undefined || !/cairn/.test(command) || !/--override/.test(command)) {
+        return next(e)
       }
-      const { stdout, stderr, exitCode } = out.ran
-      const lead = exitCode === 0 ? '' : `Exit code ${exitCode}\n`
-      const said = exitCode === 0 ? `${proof}.` : `${proof}; it failed with exit code ${exitCode}.`
-      return { result: { stdout: `${lead}${stdout}`, stderr, interrupted: false }, context: [said] }
+      const argv = plainArgv(command)
+      if (argv !== undefined && argv[0] !== 'cairn') return next(e)
+      // Neither `approve` nor `level` ever rides an override: approvals and level changes come from the
+      // user (the menu, or /cairn-level). The Bash guard denies both too. Only words outside prose count.
+      const isUserOnly = argv !== undefined && namesUserOnlyCommand(argv)
+      const isPlain = argv !== undefined && !isUserOnly && hasOverride(argv)
+      const out = isPlain ? await runOverride($, argv) : { why: isUserOnly ? USER_ONLY : NOT_PLAIN }
+      if (out.ran !== undefined) {
+        // Core keeps no is_error from a hook's Bash result, so a failure reads as the Bash tool's does.
+        const proof = 'cairn ran this --override itself, with your Override answer as proof'
+        if (typeof out.ran === 'string') {
+          return { result: { stdout: `cairn: the override run failed: ${out.ran}`, stderr: '', interrupted: false }, context: [`${proof}.`] }
+        }
+        const { stdout, stderr, exitCode } = out.ran
+        const lead = exitCode === 0 ? '' : `Exit code ${exitCode}\n`
+        const said = exitCode === 0 ? `${proof}.` : `${proof}; it failed with exit code ${exitCode}.`
+        return { result: { stdout: `${lead}${stdout}`, stderr, interrupted: false }, context: [said] }
+      }
+      const ran = await next(e)
+      if (out.why === undefined || ran.deny !== undefined) return ran
+      return { ...ran, context: [...(ran.context ?? []), `cairn: the pending override was not used: ${out.why}.`] }
     }
-    const ran = await next(e)
-    if (out.why === undefined || ran.deny !== undefined) return ran
-    return { ...ran, context: [...(ran.context ?? []), `cairn: the pending override was not used: ${out.why}.`] }
   })
 
   // No deny catch (NFR-02): a hook that fails is skipped, and the user's answer goes on as it was.
@@ -327,8 +357,11 @@ export function install(on: On): void {
     let stopWatching = () => {}
     const answeredEarly = () => ({ result: { questions: e.questions, answers: Object.fromEntries(asked.map(t => [t.question, ALREADY_APPROVED])) } as never })
     const asked = e.agentId === undefined ? parseTags(e.questions) : []
+    const rows = asked.length > 0 ? await planRows($).catch(() => undefined) : undefined
+    // A session with no plan of its own yet takes the plan its first tagged question names, before it shows,
+    // so the pane shows that plan's stop while the question is open.
+    if (rows !== undefined) for (const tag of asked) await claimPlan($, tag.slug, rows)
     if (asked.length > 0 && asked.length === e.questions.length && asked.every(t => t.kind !== undefined)) {
-      const rows = await planRows($).catch(() => undefined)
       if (rows !== undefined && asked.every(t => isApproved(rows, t.slug, t.kind as Kind))) return answeredEarly()
       const waiting = new Set(asked.filter(t => rows === undefined || !isApproved(rows, t.slug, t.kind as Kind)).map(t => `${t.kind} ${t.slug}`))
       early = new Promise<void>(resolve => {
