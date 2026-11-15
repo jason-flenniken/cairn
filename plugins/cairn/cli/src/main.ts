@@ -45,7 +45,7 @@ import { sendable } from './linear.ts';
 import { loadState } from './state.ts';
 import { procedurePath } from './commands/status.ts';
 
-const BOOLEAN = new Set(['json', 'full', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board', 'merge', 'links', 'claim', 'again']);
+const BOOLEAN = new Set(['json', 'full', 'all', 'replan', 'now', 'no-worktree', 'human', 'open', 'dismiss', 'lasting', 'refresh', 'board', 'merge', 'links', 'claim', 'again', 'force']);
 /** Flags that may repeat; the values are joined with newlines. */
 const REPEATABLE = new Set(['where', 'for']);
 

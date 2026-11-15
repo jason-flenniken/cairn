@@ -7539,8 +7539,8 @@ function mergeState(cwd, branch, base2, planRel2) {
   if (gitOk(["show-ref", "--verify", "--quiet", `refs/remotes/origin/${base2}`], cwd)) ref = `origin/${base2}`;
   else if (branchExists(base2, cwd)) ref = base2;
   else return "unknown";
-  const quiet = [planRel2, ...CLOSE_PUBLISHED].map((p) => `:(exclude,top,literal)${p}`);
-  const args = ["rev-list", "-n", "1", "--end-of-options", `${ref}..${branch}`, "--", ":/", ...quiet];
+  const quiet2 = [planRel2, ...CLOSE_PUBLISHED].map((p) => `:(exclude,top,literal)${p}`);
+  const args = ["rev-list", "-n", "1", "--end-of-options", `${ref}..${branch}`, "--", ":/", ...quiet2];
   const r = spawnSync("git", [...NO_AUTO_MAINTENANCE, ...args], { cwd, encoding: "utf8", env: quietEnv() });
   if (r.status !== 0) return "unknown";
   return r.stdout.trim() === "" ? "merged" : "open";
@@ -9404,10 +9404,108 @@ ${ts2.map((t) => `- ${t.name} (${t.covers.join(", ") || "groundwork"})`).join("\
   return `${ref} is ticket "${name}" (${ts.length} task${ts.length === 1 ? "" : "s"}).`;
 }
 
+// plugins/cairn/cli/src/spec.ts
+var SPEC_LABEL = "cairn-spec";
+var EPIC_SECTIONS = ["Goal", "In scope", "Out of scope", "Done when"];
+var LEAF_SECTIONS = ["What", "Done when"];
+var specText = (d = "") => d.replace(/^\+\+\+[^\n]*\n[\s\S]*?^\+\+\+[ \t]*$/gm, "").replace(/<details[\s\S]*?<\/details>/gi, "");
+var stamped = (i) => !!i.labels?.some((x) => x.toLowerCase() === SPEC_LABEL);
+function specCheck(l, texts) {
+  const issues = takenIssues(l).filter((i) => !isDone(i));
+  if (!issues.some(stamped)) return void 0;
+  const parents = parentKeys(issues);
+  const problems = [];
+  for (const i of issues) {
+    if (!stamped(i)) {
+      problems.push(`${i.key} has no "${SPEC_LABEL}" label`);
+      continue;
+    }
+    const text = texts.get(i.key);
+    if (text === void 0) {
+      problems.push(`${i.key}'s text was not read`);
+      continue;
+    }
+    const have = sections(specText(text));
+    const need = parents.has(i.key) ? EPIC_SECTIONS : LEAF_SECTIONS;
+    const missing = need.filter((s) => !have.get(s.toLowerCase())?.trim());
+    if (missing.length) problems.push(`${i.key} is missing ${missing.map((s) => `## ${s}`).join(", ")}`);
+  }
+  return { ok: !problems.length, problems };
+}
+function issueDescription(file) {
+  const at = file.indexOf("\n## Description\n");
+  return at < 0 ? "" : file.slice(at + "\n## Description\n".length).trim();
+}
+function keyedDecisions(decisionsMd, prefix) {
+  const out = /* @__PURE__ */ new Map();
+  const re = new RegExp(`^### \\d+\\. ${prefix}:\\s*([A-Z][A-Z0-9]*-\\d+)\\s*\\n\\*\\*Decision:\\*\\* (.+)(?:\\n\\*\\*Why:\\*\\* (.+))?`, "gim");
+  for (const m of decisionsMd.matchAll(re)) out.set(m[1].toUpperCase(), m[3] ? `${m[2].trim()}, because ${m[3].trim()}` : m[2].trim());
+  return out;
+}
+var oneLine = (s = "") => s.replace(/\s+/g, " ").trim();
+var quiet = (s) => s.replace(/\bFR-(\d)/g, "FR\u2011$1");
+var noStop = (s) => s.replace(/[.;:,]+$/, "");
+function flat(body = "") {
+  const bullets = body.split("\n").filter((x) => /^\s*[-*]\s+/.test(x)).map((x) => noStop(x.replace(/^\s*[-*]\s+(\[[ x]\]\s+)?/, "").trim()));
+  return quiet(bullets.length ? bullets.join("; ") : noStop(oneLine(body)));
+}
+var firstParagraph = (body = "") => body.trim().split(/\n\s*\n/)[0] ?? "";
+function renderSpecPrd(title, l, texts, decisionsMd) {
+  const all = l.issues;
+  const parents = parentKeys(all);
+  const notTaken = keyedDecisions(decisionsMd, "Not taken");
+  const released = (i) => i.released?.reason ?? notTaken.get(i.key) ?? (isDone(i) ? "already done in Linear" : void 0);
+  const sec = (k) => sections(specText(texts.get(k) ?? ""));
+  const epics = all.filter((i) => parents.has(i.key));
+  const leaves = all.filter((i) => !parents.has(i.key) && !released(i));
+  const many = epics.length > 1;
+  const perEpic = (name, fmt) => epics.map((e) => ({ e, body: sec(e.key).get(name) ?? "" })).filter((x) => x.body.trim()).map((x) => many ? `**${x.e.key}: ${x.e.title}.** ${fmt(x.body)}` : fmt(x.body));
+  const keepText = (b) => quiet(b.trim());
+  const problem = perEpic("goal", keepText);
+  const solution = perEpic("in scope", keepText);
+  const nonGoals = perEpic("out of scope", keepText);
+  const reqs = leaves.map((i, n) => {
+    const s = sec(i.key);
+    const what = noStop(quiet(oneLine(firstParagraph(s.get("what"))))) || i.title;
+    return `- **FR-${String(n + 1).padStart(2, "0")}** ${what}. Check: ${flat(s.get("done when")) || "see the ticket"}. [${i.key}]`;
+  });
+  const notTakenLines = all.filter((i) => !parents.has(i.key) && released(i)).map((i) => `- ${i.key}: ${released(i)}`);
+  const blockers = keyedDecisions(decisionsMd, "Outside blocker");
+  const trust = perEpic("trust boundaries", keepText);
+  const sources = all.map((i) => ({ i, body: sec(i.key).get("source") ?? "" })).filter((x) => x.body.trim()).map((x) => `- ${x.i.key}: ${quiet(oneLine(x.body))}`);
+  const paragraphs = (xs) => xs.join("\n\n");
+  return [
+    `# PRD: ${title}`,
+    "",
+    `> Built from the specced Linear tickets${l.epic ? ` under ${l.epic}` : ""} by \`cairn linear prd\`. The tickets are the source: change them in Linear and rebuild, or edit here before approval.`,
+    "",
+    "## Problem",
+    paragraphs(problem) || `The tickets ${keysOf(leaves)} describe the work.`,
+    "",
+    "## Solution",
+    paragraphs(solution) || leaves.map((i) => `- ${i.title}`).join("\n"),
+    "",
+    "## Requirements",
+    ...reqs,
+    "",
+    "## Non-goals",
+    paragraphs(nonGoals) || "- Anything the tickets do not describe, because the tickets set the scope",
+    "",
+    "## Open questions",
+    "- [x] Do the tickets settle the requirements? (answer: yes, they were specced with /cairn:spec and chosen as the spec at plan start)",
+    ...trust.length ? ["", "## Security", paragraphs(trust)] : [],
+    ...notTakenLines.length ? ["", "## Issues not taken", ...notTakenLines] : [],
+    ...blockers.size ? ["", "## Outside blockers", ...[...blockers].map(([k, v]) => `- ${k}: ${v}`)] : [],
+    ...sources.length ? ["", "## Sources", ...sources] : [],
+    ""
+  ].join("\n");
+}
+var keysOf = (xs) => xs.map((i) => i.key).join(", ");
+
 // plugins/cairn/cli/src/commands/linear.ts
 var USAGE2 = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "\u2026" | hold <id> --note "\u2026" | depends <KEY> --on <KEY> --reason "\u2026" | ack <change> --as taken|later|noted [--note "\u2026"]
-  | release <KEY> --reason "\u2026" | take <KEY> --reason "\u2026" | board [--project "<name>"] [--json] | relink <EPIC> [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
+  | release <KEY> --reason "\u2026" | take <KEY> --reason "\u2026" | prd [--force] | board [--project "<name>"] [--json] | relink <EPIC> [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
 var NO_CONFIG = (where) => new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
 function inputText(ctx, opts) {
   if (typeof opts.file === "string") {
@@ -9441,6 +9539,8 @@ function cmdLinear(ctx, sub, arg, opts) {
       return release(ctx, arg, opts);
     case "take":
       return take(ctx, arg, opts);
+    case "prd":
+      return prdFromTickets(ctx, opts);
     case "board":
       return board(ctx, opts);
     case "relink":
@@ -9484,10 +9584,13 @@ function importPlan(ctx, opts) {
     const l = { ...emptyLink(doc.team ?? cfg.team), ...doc.project ? { project: doc.project } : {}, ...doc.milestone ? { milestone: doc.milestone } : {}, ...doc.epic ? { epic: doc.epic } : {}, ...doc.selection ? { selection: doc.selection } : {}, issues: doc.issues, known: doc.known };
     s.linear = l;
     writeIssueTexts(pc, s, doc.descriptions);
+    const spec = updateSpec(pc, s);
     log(s, "Linear issues imported", `${doc.issues.length}: ${keysText(doc.issues)}`);
     const lines = [`Pulled in ${doc.issues.length} Linear issue${doc.issues.length === 1 ? "" : "s"}: ${keysText(doc.issues)}.`];
     const texts = doc.issues.filter((i) => doc.descriptions.has(i.key)).length;
     lines.push(texts ? `Saved the text of ${texts} issue${texts === 1 ? "" : "s"} under ${planRelOf(pc.plan)}/issues/.` : 'No issue text was read: fetch the issues with "description" in the fields list and refresh, or discover works from titles only.');
+    if (spec?.ok) lines.push("Specced: every issue carries the cairn-spec label and its sections, so the PRD can be built from the tickets (cairn linear prd) instead of the full discover. Ask the user which.");
+    else if (spec) lines.push(`Specced, but not all of it: ${spec.problems.join("; ")}. Discover runs as usual; fix the tickets with /cairn:spec and refresh to build from them.`);
     if (isFoundational(l, cfg)) lines.push(`Foundational: an issue carries the "${cfg.foundationalLabel ?? "foundational"}" label, so the plan must name its approach and the ones it rejected (## Approaches considered).`);
     const parents = parentKeys(doc.issues);
     if (parents.size) {
@@ -9508,7 +9611,7 @@ function importPlan(ctx, opts) {
     if (claimed.length) lines.push(`Warning: already in another active plan: ${claimed.map((x) => `${x.i.key} (${x.o.slug}, ${x.o.stage})`).join(", ")}.`);
     const cycle = findIssueCycle(doc.issues);
     if (cycle) lines.push(`Warning: these issues block each other in a loop: ${cycle.join(" \u2192 ")}. The plan can't load until one link is removed in Linear.`);
-    return { message: lines.join("\n"), data: { issues: doc.issues.map((i) => i.key), parents: [...parents], outsideBlockers: ob, cycle: cycle ?? null } };
+    return { message: lines.join("\n"), data: { issues: doc.issues.map((i) => i.key), parents: [...parents], outsideBlockers: ob, cycle: cycle ?? null, spec: spec ?? null } };
   });
 }
 function refreshPlan(ctx, opts) {
@@ -9546,6 +9649,7 @@ function refreshPlan(ctx, opts) {
       Object.assign(i, { title: f.title, url: f.url ?? i.url, stateType: f.stateType ?? i.stateType, stateName: f.stateName ?? i.stateName, milestone: f.milestone ?? i.milestone, ...has(i.key).parent ? { parent: f.parent } : {}, ...has(i.key).blockedBy ? { blockedBy: f.blockedBy } : {}, ...has(i.key).labels ? { labels: f.labels } : {} });
     }
     for (const k of writeIssueTexts(pc, s, doc.descriptions)) noted.push(`${k}'s text changed after the PRD was approved: check the PRD against ${issueTextPath(pc, k)}`);
+    updateSpec(pc, s);
     const seen = new Set([...l.issues, ...l.known].map((i) => i.key));
     for (const f of [...doc.issues, ...doc.known])
       if (f.parent && taken.has(f.parent) && !seen.has(f.key) && !isDone(f)) change({ kind: "sub-issue", key: f.parent, issue: f });
@@ -9573,6 +9677,40 @@ function writeIssueTexts(pc, s, descriptions) {
     writeText(join9(pc.plan.dir, "issues", `${i.key}.md`), issueFile(i, d, at));
   }
   return changed;
+}
+function savedTexts(pc, l) {
+  const out = /* @__PURE__ */ new Map();
+  for (const i of l.issues) {
+    const f = readText(join9(pc.plan.dir, "issues", `${i.key}.md`));
+    if (f !== void 0) out.set(i.key, issueDescription(f));
+  }
+  return out;
+}
+function updateSpec(pc, s) {
+  const l = s.linear;
+  const spec = specCheck(l, savedTexts(pc, l));
+  if (spec) l.spec = spec;
+  else delete l.spec;
+  return spec;
+}
+function prdFromTickets(ctx, opts) {
+  const pc = planCtx(ctx);
+  return mutate(pc, "PRD built from the tickets", (s) => {
+    const l = linkOf(s);
+    if (!l.spec?.ok)
+      throw new Refusal(l.spec ? `the tickets are not fully specced: ${l.spec.problems.join("; ")}` : "the plan's Linear issues are not specced with /cairn:spec", ["write the PRD as usual (procedures/prd.md), or fix the tickets with /cairn:spec and run cairn linear import --refresh"]);
+    if (s.stage !== "prd") throw new Refusal(`the PRD is built in the prd stage; this plan is in ${s.stage}`, ["record the discover decisions, then cairn advance"]);
+    if (s.approvals.prd) throw new Refusal("the PRD is already approved", ["edit prd.md by hand; a rebuild would drop the approval's basis"]);
+    const file = planFile(pc, "prd.md");
+    const cur = readText(file);
+    if (cur && /^- \*\*FR-\d+\*\*/m.test(cur) && !cur.includes("by `cairn linear prd`") && !opts.force)
+      throw new Refusal("prd.md already has requirements that were not built from the tickets", ["pass --force to replace it"]);
+    const md = renderSpecPrd(s.title, l, savedTexts(pc, l), readText(planFile(pc, "decisions.md")) ?? "");
+    writeText(file, md);
+    const n = (md.match(/^- \*\*FR-\d+\*\*/gm) ?? []).length;
+    log(s, "PRD built from the tickets", `${n} requirements`);
+    return { message: `Wrote ${planRelOf(pc.plan)}/prd.md from the tickets: ${n} requirement${n === 1 ? "" : "s"}.`, data: { file: `${planRelOf(pc.plan)}/prd.md`, requirements: n } };
+  });
 }
 var changeText = (c) => c.kind === "link" ? `${c.key} is now blocked by ${c.on}` : `${c.issue?.key} "${c.issue?.title}" was added under ${c.key}`;
 function importBoard(ctx, opts) {
@@ -12915,7 +13053,7 @@ function driftFor(file, cwd) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links", "claim", "again"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links", "claim", "again", "force"]);
 var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];

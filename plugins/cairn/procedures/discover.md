@@ -18,6 +18,14 @@ Run `cairn status --json`. The stage must be `discover`. Any other stage: say wh
 
 **Done when:** the stage is `discover` and you know the plan slug and title.
 
+## 1a. Built from the tickets (only when the user chose it)
+When `cairn status --json` shows `state.linear.spec.ok` and `decisions.md` records "Spec from tickets" as "Build from the tickets", the tickets already hold the goal, scope, checks and decisions: they were specced with /cairn:spec. Do only this, then go to step 8; skip steps 2 to 7.
+- Do step 2a as written: the subset when there are more than about 8 leaf issues, issues in other milestones, outside blockers, loops. Record each issue left out as `cairn decide "Not taken: <KEY>" "<reason, e.g. later plan>"`, and each outside blocker as `cairn decide "Outside blocker: <KEY>" "<decision>" --why "<reason>"`: the PRD is built from these.
+- Record each item under the epic's `## Decisions` as `cairn decide "<the decision's question>" "<its answer>" --why "<its reason>, from <EPIC KEY>"`, so later stages see them in `decisions.md`.
+- Ask nothing else. No research, interview, challenge or read-back card: the user settled those when the tickets were specced. When an epic has no `## Trust boundaries` but the work plainly touches one (auth, money, deletes, personal data, untrusted input), ask that one question and record it.
+
+**Done when:** every issue is in, out or deferred, every outside blocker and every epic decision is recorded. Go to step 8.
+
 ## 2. Research first
 Dispatch these `researcher` agents in parallel (`model: sonnet`, `description` per `references/reporting.md`, for example "Check · discovery research"). Each gets the request, the repo path, and `research/<topic>.md` in the work folder (`<plan worktree>/.cairn/work/<slug>/`) to write to; it returns at most 12 lines with `path:line` or URL evidence:
 - Codebase: facts relevant to the request (stack, existing modules, patterns, tests, conventions), plus `docs/cairn/product/PRD.md` (non-goals, must-not-trade-off). Give it `docs/cairn/OVERVIEW.md` too, and ask which past plans are relevant to the request.
