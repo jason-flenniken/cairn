@@ -9,7 +9,8 @@ import { after, before, test } from 'node:test';
 import { hookPostEdit, hookSessionStart } from '../src/commands.ts';
 import { parseFindings, parsePrior, reportSuggestions, requirementText, taskSection } from '../src/commands/brief.ts';
 import { run } from '../src/main.ts';
-import type { State } from '../src/types.ts';
+import { branchReviewerOf, OPUS_BRANCH_TASKS, taskReviewOf } from '../src/builder.ts';
+import type { State, Task } from '../src/types.ts';
 import { Refusal } from '../src/util.ts';
 import { pd } from './plandir.ts';
 
@@ -274,11 +275,11 @@ test('task report logs the implementer suggestions as follow-ups', () => {
   const report = join(w.wt, '.cairn/work/billing/reports/charge-build.md');
   write(report, ['Status: DONE_WITH_CONCERNS', 'Commits: abc1234 charge', 'Tests: npm test -> 3 passed', 'Concerns / questions: one', 'Suggestions:', '- tests | src/charge/** | cover zero amounts', 'perf | src/charge/index.ts | cache the rate', 'bad line', ''].join('\n'));
   const r = ok(w.wt, 'task', 'report', 'charge', report);
-  assert.equal(r.message, 'DONE_WITH_CONCERNS; 2 follow-ups logged.');
-  assert.deepEqual(r.data, { status: 'DONE_WITH_CONCERNS', logged: 2 });
+  assert.match(r.message, /^DONE_WITH_CONCERNS; 2 follow-ups logged\.\nTask review: (yes|no) — /);
+  assert.deepEqual(r.data, { status: 'DONE_WITH_CONCERNS', logged: 2, taskReview: { review: false, reason: 'the branch review covers it' } });
   assert.deepEqual(w.state().suggestions!.map((x) => [x.area, x.from, x.text]), [['tests', 'implementer', 'cover zero amounts'], ['perf', 'implementer', 'cache the rate']]);
   write(report, 'Status: DONE\nSuggestions: none\n');
-  assert.equal(ok(w.wt, 'task', 'report', 'charge', report).message, 'DONE; 0 follow-ups logged.');
+  assert.match(ok(w.wt, 'task', 'report', 'charge', report).message, /^DONE; 0 follow-ups logged\.\n/);
   write(report, 'no status here\n');
   assert.match(refusal(w.wt, 'task', 'report', 'charge', report).message, /no Status: line/);
 });
@@ -548,8 +549,9 @@ test('re-review: the brief lists the prior must-fix and reuses the report path; 
   ok(w.wt, 'review', 'record', 'charge', report);
   const b = ok(w.wt, 'task', 'brief', 'charge', '--role', 'review', '--again');
   assert.equal(b.data!.report, report, 'the same report path as the first review');
-  assert.match(b.message, /^Brief for re-review · Charge: .*charge-review-again\.md\. Report to: .*charge-review\.md\.$/);
+  assert.match(b.message, /^Brief for re-review · Charge: .*charge-review-again\.md\. Report to: .*charge-review\.md\.\nReviewer: sonnet, effort default — a lean re-review checks only the cited findings$/);
   const md = readFileSync(b.data!.path as string, 'utf8');
+  assert.match(md, /^Scope: check only the items above and the code the fix changed/m);
   assert.match(md, /^# Re-review: Charge \(charge\)/);
   assert.match(md, /1\. Critical \| security \| injection \| src\/charge\/index\.ts:40/);
   assert.match(md, /2\. Required \| quality \| logic \| src\/charge\/index\.ts:12/);
@@ -772,4 +774,75 @@ test('review finding locations in backticks or asterisks match the stored locati
   write(rep, '1. Optional | quality | naming | `src/z.ts:3` | a z nit | tidy\n');
   ok(w.wt, 'review', 'record', 'charge', rep);
   assert.deepEqual(w.state().suggestions!.find((x) => x.text.startsWith('a z nit') && x.kind === 'hardening' && x.where.includes('src/z.ts'))?.where, ['src/z.ts']);
+});
+
+// ---------- lean Standard: task review, branch reviewer, quick tests ----------
+
+test('task review rule: MVP never, pre-lean always, lean only risky or complex', () => {
+  assert.equal(taskReviewOf({ level: 'mvp', complexity: 'complex', risky: true }).review, false);
+  assert.equal(taskReviewOf({ level: 'standard', complexity: 'simple' }).review, true);
+  assert.equal(taskReviewOf({ level: 'polished', complexity: 'simple' }).review, true);
+  assert.deepEqual(taskReviewOf({ level: 'standard', lean: true, complexity: 'standard', risky: true }), { review: true, reason: 'the task is risky' });
+  assert.deepEqual(taskReviewOf({ level: 'standard', lean: true, complexity: 'complex' }), { review: true, reason: 'the task is complex' });
+  assert.deepEqual(taskReviewOf({ level: 'standard', lean: true, complexity: 'standard' }), { review: false, reason: 'the branch review covers it' });
+});
+
+test('branch reviewer rule: Polished opus, MVP sonnet, Standard opus only for complex, big or pre-lean plans', () => {
+  const t = (n: number, extra: Partial<Task> = {}) => Array.from({ length: n }, () => ({ complexity: 'standard' as const, lean: true, startedAt: 'x', ...extra }));
+  assert.equal(branchReviewerOf({ level: 'polished' }, t(1)).model, 'opus');
+  assert.equal(branchReviewerOf({ level: 'mvp' }, t(20, { complexity: 'complex' })).model, 'sonnet');
+  assert.equal(branchReviewerOf({ level: 'standard' }, t(9)).model, 'sonnet');
+  assert.equal(branchReviewerOf({ level: 'standard' }, t(OPUS_BRANCH_TASKS)).model, 'opus');
+  assert.equal(branchReviewerOf({ level: 'standard' }, [...t(2), { complexity: 'complex', lean: true, startedAt: 'x' }]).model, 'opus');
+  assert.equal(branchReviewerOf({ level: 'standard' }, [...t(2), { complexity: 'standard', startedAt: 'x' }]).reason, 'tasks started before lean Standard');
+  // A task that never started has no stamp yet: it does not count as pre-lean.
+  assert.equal(branchReviewerOf({ level: 'standard' }, [...t(2), { complexity: 'standard' }]).model, 'sonnet');
+});
+
+test('lean Standard: the merge runs testQuick on the changed files, and phase finish runs the full suite', () => {
+  const marks = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-marks-')));
+  roots.push(marks);
+  const w = world({ test: `echo full >> ${marks}/full.txt`, testQuick: `echo "$CAIRN_CHANGED_FILES" >> ${marks}/quick.txt` });
+  assert.equal(w.state().level, 'standard');
+  for (const id of ['charge', 'refund']) {
+    const tw = ok(w.wt, 'task', 'start', id).data!.worktree as string;
+    commitIn(tw, `src/${id}/index.ts`, `export const ${id} = 1;\n`, id);
+    assert.match(ok(w.wt, 'task', 'merge', id).message, /quick tests/);
+  }
+  assert.deepEqual(readFileSync(join(marks, 'quick.txt'), 'utf8').trim().split('\n'), ['src/charge/index.ts', 'src/refund/index.ts']);
+  assert.equal(existsSync(join(marks, 'full.txt')), false);
+  const [charge] = w.state().phases[0].tasks;
+  assert.equal(charge.lean, true);
+  assert.match(charge.tests!, /^quick: /);
+  assert.equal(charge.testedCommit, undefined);
+  ok(w.wt, 'phase', 'finish');
+  assert.equal(readFileSync(join(marks, 'full.txt'), 'utf8').trim(), 'full');
+  const br = ok(w.wt, 'status', '--json').data!.branchReviewer as { model: string; unreviewed: string[] };
+  assert.equal(br.model, 'sonnet');
+  assert.deepEqual(br.unreviewed, ['charge', 'refund']);
+});
+
+test('MVP: unreviewed stays empty, so the light branch review is not asked for task-review depth', () => {
+  const w = world({ defaultLevel: 'mvp' });
+  const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+  commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
+  ok(w.wt, 'task', 'merge', 'charge');
+  assert.equal(w.state().phases[0].tasks[0].lean, undefined);
+  const br = ok(w.wt, 'status', '--json').data!.branchReviewer as { model: string; unreviewed: string[] };
+  assert.deepEqual([br.model, br.unreviewed], ['sonnet', []]);
+});
+
+test('Polished: no quick tests, every task reviewed, opus branch review', () => {
+  const marks = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-marks-')));
+  roots.push(marks);
+  const w = world({ defaultLevel: 'polished', test: `echo full >> ${marks}/full.txt`, testQuick: `echo quick >> ${marks}/quick.txt` });
+  assert.equal(w.state().level, 'polished');
+  const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+  commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
+  ok(w.wt, 'task', 'merge', 'charge');
+  assert.equal(existsSync(join(marks, 'quick.txt')), false);
+  assert.equal(readFileSync(join(marks, 'full.txt'), 'utf8').trim(), 'full');
+  assert.equal(w.state().phases[0].tasks[0].lean, undefined);
+  assert.equal(taskReviewOf(w.state().phases[0].tasks[0]).review, true);
+  assert.equal((ok(w.wt, 'status', '--json').data!.branchReviewer as { model: string }).model, 'opus');
 });

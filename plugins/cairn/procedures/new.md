@@ -56,15 +56,15 @@ Name the plan. When the selection is exactly one issue, put its key in the slug 
 ## 3. Repo config
 Check for `.cairn/config.json`, then for the legacy `.sdlc/config.json`.
 - Either present: read it and move on; never write a second config. When only `.sdlc/config.json` exists, say once that `cairn migrate` (on main, with no plan in flight) moves the repo to `.cairn/` and `docs/cairn/`.
-- Neither present: detect commands from `package.json` scripts, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `app.json` (Expo), and similar. Fill the shape of `${CLAUDE_PLUGIN_ROOT}/templates/config.json` (`test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `autoCommit`). Ask with AskUserQuestion, one question per uncertain field (test command first), recommended detection first, with the proposed JSON as a preview. Write `.cairn/config.json`, then commit it on the current branch: `git add .cairn/config.json && git commit -m "chore: add cairn config"`.
+- Neither present: detect commands from `package.json` scripts, `Makefile`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `app.json` (Expo), and similar. Fill the shape of `${CLAUDE_PLUGIN_ROOT}/templates/config.json` (`test`, `build`, `start`, `seed`, `appTypes`, `maxParallel`, `autoCommit`). Ask with AskUserQuestion, one question per uncertain field (test command first), recommended detection first, with the proposed JSON as a preview. Write `.cairn/config.json`, then commit it on the current branch: `git add .cairn/config.json && git commit -m "chore: add cairn config"`. Propose `testQuick` only when the test runner can run the tests related to a list of files, passed in `$CAIRN_CHANGED_FILES` (for example `npx vitest related --run $CAIRN_CHANGED_FILES`, `npx jest --findRelatedTests $CAIRN_CHANGED_FILES`); otherwise leave it out, and Standard merges run the full suite.
 
 **Done when:** `.cairn/config.json` (or the legacy `.sdlc/config.json`) exists and is committed, and its `test` command is non-empty.
 
 ## 4. Level
 Ask once with AskUserQuestion, a plain choice and not an approval: "How much effort should this build spend?" Options, with the repo's default first and marked "(Recommended)" (`defaultLevel` in `.cairn/config.json`, Standard when unset):
 - MVP: a short interview, few large tasks, no per-task review, red tests warn; shortcuts go on a hardening list for later.
-- Standard: the full interview, every task reviewed, tests, scans and the full branch review.
-- Polished: Standard plus test-first on every task, a fresh read of the plan, and the on-track check after every phase.
+- Standard: the full interview and PRD; reviews and tests go where the risk is (risky and complex tasks reviewed, one branch review for the rest, quick tests per task, the full suite each phase).
+- Polished: every task reviewed, an Opus branch review, the full suite at every task, test-first, a fresh read of the plan, and the on-track check after every phase.
 
 `references/levels.md` has the full table. When the issues fetched in step 2a include one carrying the foundational label (`linear.foundationalLabel` in `.cairn/config.json`, default `foundational`, any case), list Polished first, marked "(Recommended)", with a one-line reason: the ticket is flagged foundational, so the approach deserves the extra rigor. The user still picks; never change the level yourself.
 

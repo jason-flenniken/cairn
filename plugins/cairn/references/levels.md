@@ -8,13 +8,15 @@ Every feature plan has one level: MVP, Standard or Polished. It is the plan's `l
 |---|---|---|---|
 | Discover | A short interview: goal, the one flow that must work, trust boundaries. No implications multi-select, no fresh-eyes challenge. | The full interview, plus a fresh-eyes challenge: an agent that never saw cairn's guess offers two or three approaches, the strongest objection, and unstated assumptions | The full interview, plus the challenge comparing three approaches with their cost and risk |
 | PRD | Thin: Problem, Solution, Requirements with one-line checks, Non-goals. Security only when a trust boundary was recorded. No builder check. | The full PRD, plus a builder check: an agent that sees only the PRD restates it and lists what a builder would have to guess | Adds acceptance examples for conditional requirements |
-| Plan | Few, large vertical tasks, usually one phase. No test cases. Risky tasks are still flagged. | The full plan | Test cases for every task, the failure modes each test pins, and a fresh-agent review of the plan before approval |
-| Build | No per-task review except the security review the floor requires. Implementers run one tier lower. Red tests warn. | Every task reviewed; security review for risky tasks | Test-first for every task; the on-track check runs automatically at each phase end |
+| Plan | Few, large vertical tasks, usually one phase. No test cases. Risky tasks are still flagged. | The full plan; Test cases only on risky tasks | Test cases for every task, the failure modes each test pins, and a fresh-agent review of the plan before approval |
+| Build | No per-task review except the security review the floor requires. Implementers run one tier lower. Red tests warn. | A task review only for risky or complex tasks, plus the security review for risky ones; the branch review covers the rest. A merge runs `testQuick` on the task's changed files when one is set; the full suite runs at each phase end. A re-review after a fix checks only the cited findings | Every task reviewed; the full suite at every task merge; test-first for every task; the on-track check runs automatically at each phase end |
 | Check | The floor scans. Red tests warn. | Tests, build, scans, acceptance checker | Adds app or browser verification; every requirement must be met and tested |
-| Review | One light whole-branch review on a mid-tier model, plus the whole-branch security review | Opus branch review plus the security review | Adds a simplify pass and focused reviewers |
+| Review | One light whole-branch review on a mid-tier model, plus the whole-branch security review | One branch review that reads unreviewed tasks in full, plus the security review. Sonnet, or Opus when a task is complex or the plan has 10 or more tasks (`branchReviewer` in `cairn status --json`) | Opus branch review plus the security review |
 | Ship and Learn | A short record plus the hardening list; no learn step | The current ship and learn | Adds a captured learning that later plans read |
 
-Standard is how cairn behaves with no level set. Polished items that cairn has no way to do yet (app or browser verification, the simplify pass, focused reviewers, the captured learning) take effect when that arrives; until then Polished runs Standard plus the items that exist.
+Standard is how cairn behaves with no level set. It is built for work that will be refined later: every stage and floor runs, but reviews and tests are spent where risk and complexity are. Polished spends them on every task. Polished items that cairn has no way to do yet (app or browser verification, the captured learning) take effect when that arrives.
+
+Lean Standard arrived in 0.20.0. A task started before then keeps the per-task review and full-suite merges it started with, and its plan keeps the Opus branch review.
 
 ## Floors at every level
 

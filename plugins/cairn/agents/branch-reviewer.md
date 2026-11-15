@@ -21,6 +21,8 @@ Read `CLAUDE.md` and the README too. Flag code that breaks a convention in them,
 
 The brief lists findings already reported during this plan, as follow-ups or accepted as is. Do not report them again, per the checklist's honesty rules.
 
+When the prompt has an `Unreviewed tasks:` line, those tasks had no review of their own: you are their only reviewer. The plan names each task's scope. Read their changed files in full and give them the depth a task review would, on all five axes. For the rest of the diff, focus on how the tasks fit together: contracts between them, duplication across them, and the requirements as a whole.
+
 ## Output
 Name what is done well in one line first. Cite `path:line` for every finding. Critical and Required findings each name a proposed fix. Write the full report to the report path in the brief, with this shape (name the requirement a finding concerns inside its problem text):
 

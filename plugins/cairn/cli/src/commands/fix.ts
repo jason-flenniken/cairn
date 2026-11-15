@@ -18,7 +18,7 @@ const DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
 export const fastLane = (s: State): boolean => s.track === 'fix' && (s.stage === 'repro' || !!s.repro);
 
 /** Hash of the commands cairn runs for the plan (FR-32). A missing config hashes as empty. */
-export const configHash = (cfg: Config): string => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build }));
+export const configHash = (cfg: Config): string => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build, testQuick: cfg.testQuick }));
 
 /** Refuse while the configured commands differ from the ones the user approved. Plans without a recorded hash are not checked. */
 export function configGate(s: State, cfg: Config, event: string, opts: Opts): void {
@@ -27,7 +27,7 @@ export function configGate(s: State, cfg: Config, event: string, opts: Opts): vo
     s,
     event,
     opts,
-    `the setup, test, or build command in ${CONFIG_REL} changed since the user approved it`,
+    `the setup, test, testQuick or build command in ${CONFIG_REL} changed since the user approved it`,
     ['the user re-approves the commands by running, in their own terminal: cairn approve plan --human', 'or the user chooses Override in the menu'],
   );
 }

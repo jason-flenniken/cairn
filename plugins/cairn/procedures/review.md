@@ -8,9 +8,9 @@ Templates live in `templates/`, next to this `procedures/` folder. Talk to the u
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
-- MVP: in step 2 dispatch the `branch-reviewer` with `model: sonnet` instead of opus (the `security-reviewer` runs as written). in step 3 `cairn review record` files Optional, Nit and every pre-existing finding as hardening items at this level.
+- MVP: in step 2 `branchReviewer` names sonnet (the `security-reviewer` runs as written). in step 3 `cairn review record` files Optional, Nit and every pre-existing finding as hardening items at this level.
 - Standard: as written below.
-- Polished: as written below. The simplify pass and focused reviewers are added when cairn has them.
+- Polished: as written below; `branchReviewer` always names opus.
 - The whole-branch security review runs at every level.
 
 ## 1. Check
@@ -19,7 +19,7 @@ Run `cd <plan worktree> && cairn status --json`. The stage must be `review`. Any
 **Done when:** the stage is `review` and you hold the base and plan branch names.
 
 ## 2. Review the branch
-Run `cd <plan worktree> && cairn step reviewing`. Write the already-reported list to disk: `cd <plan worktree> && cairn suggest list --json > <work folder>/briefs/already-reported.json` (`<work folder>` is `<plan worktree>/.cairn/work/<slug>/`; create `briefs/` when missing). Then dispatch two agents in the same message, so they run in parallel: one `branch-reviewer` (`model: opus`, `description` "Review · whole branch") and one `security-reviewer` (`model: sonnet`, `description` "Review · whole branch (security)"). Each prompt is a few lines of paths and nothing else: the plugin root (`${CLAUDE_PLUGIN_ROOT}`), the paths to `prd.md` and `plan.md`, the plan worktree path, the diff command `git diff <base>...<plan-branch>`, the already-reported file (its entries whose key starts with `<slug>:` count, whatever their status), one line per finding the user accepted as is during build, and the report path (`<work folder>/reports/branch-review.md`, `branch-security.md`). Add no summary of what was built and no hints. Each ends with `Verdict`, `Counts` and `Report`.
+Run `cd <plan worktree> && cairn step reviewing`. Write the already-reported list to disk: `cd <plan worktree> && cairn suggest list --json > <work folder>/briefs/already-reported.json` (`<work folder>` is `<plan worktree>/.cairn/work/<slug>/`; create `briefs/` when missing). Then dispatch two agents in the same message, so they run in parallel: one `branch-reviewer` (`model` and `effort` from `branchReviewer` in `cairn status --json`, `description` "Review · whole branch") and one `security-reviewer` (`model: sonnet`, `description` "Review · whole branch (security)"). Each prompt is a few lines of paths and nothing else: the plugin root (`${CLAUDE_PLUGIN_ROOT}`), the paths to `prd.md` and `plan.md`, the plan worktree path, the diff command `git diff <base>...<plan-branch>`, the already-reported file (its entries whose key starts with `<slug>:` count, whatever their status), one line per finding the user accepted as is during build, one line `Unreviewed tasks: <ids>` from `branchReviewer.unreviewed` when it is not empty, and the report path (`<work folder>/reports/branch-review.md`, `branch-security.md`). Add no summary of what was built and no hints. Each ends with `Verdict`, `Counts` and `Report`.
 
 **Done when:** both reviewers returned.
 

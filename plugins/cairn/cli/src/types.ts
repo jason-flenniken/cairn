@@ -110,6 +110,11 @@ export interface Task {
   startedAt?: string;
   /** The plan's level when the task first started. */
   level?: Level;
+  /**
+   * Started under lean Standard (0.20.0 on): only a risky or complex task gets a task review, and the merge runs
+   * `testQuick` when one is set. Tasks started before 0.20.0, and every task at MVP or Polished, leave it unset.
+   */
+  lean?: boolean;
   /** Risky tasks (auth, money, deletes data, migrations, public API) get TDD and a reviewer. */
   risky?: boolean;
   riskReason?: string;
@@ -326,6 +331,11 @@ export interface Config {
   /** Run in every new plan and task worktree (e.g. install dependencies). CAIRN_MAIN_ROOT is set. */
   setup?: string;
   test?: string;
+  /**
+   * Optional quick test command for a lean Standard task's merge, run with CAIRN_CHANGED_FILES (the task's changed
+   * paths, space-separated). The full `test` suite still runs at phase finish, verify and the merge check.
+   */
+  testQuick?: string;
   build?: string;
   start?: string;
   seed?: string;

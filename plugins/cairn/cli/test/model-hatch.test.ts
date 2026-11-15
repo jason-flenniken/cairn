@@ -187,7 +187,7 @@ test('docs: tiers table, effort lines, and the Hard parts wording', () => {
   const tiers = read('references/model-tiers.md');
   assert.match(tiers, /\| complex \| sonnet \| high \|/);
   assert.match(tiers, /Opus builds a task only when the plan marks it/);
-  assert.match(tiers, /Pass `effort` on an `Agent` call only when the `Builder:` line names one/);
+  assert.match(tiers, /Pass `effort` on an `Agent` call only when the `Builder:` line, a `Reviewer:` line or `branchReviewer` names one/);
   for (const [a, e] of [['task-reviewer', 'high'], ['security-reviewer', 'high'], ['branch-reviewer', 'high'], ['linear-sender', 'low'], ['recorder', 'low']])
     assert.match(read(`agents/${a}.md`), new RegExp(`^effort: ${e}$`, 'm'), a);
   for (const f of readdirSync(join(root, 'agents'))) {

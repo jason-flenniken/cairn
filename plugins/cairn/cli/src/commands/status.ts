@@ -17,6 +17,7 @@ import { prdEditedSinceApproval, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
 import { isFoundational, linearConfig, takenIssues } from '../linear.ts';
 import { allTasks } from '../ready.ts';
+import { branchReviewerOf, taskReviewOf } from '../builder.ts';
 import { mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
 import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
@@ -189,6 +190,8 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
   for (const x of listed) if (x.slug === s.slug && x.open && x.hardening) hardeningByArea[x.area] = (hardeningByArea[x.area] ?? 0) + 1;
   const timing = stageTimes(s);
   const usage = planUsage(commonDir(ctx.mainRoot), s.slug);
+  // Who reviews the branch, and the done tasks that had no task review, which the branch reviewer reads in full.
+  const branchReviewer = s.track === 'fix' ? undefined : { ...branchReviewerOf(s, allTasks(s)), unreviewed: allTasks(s).filter((t) => t.status === 'done' && t.lean && !taskReviewOf(t).review).map((t) => t.id) };
   return {
     message: [summary(s, prOpen), `Next: ${prOpen ? 'merge the pull request; the plan shows "PR open" until it is merged.' : next.text}`,
       ...(s.level ? [`Level: ${levelLabel(s)}`] : []),
@@ -196,7 +199,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ...(hardeningItems ? [`Hardening items: ${hardeningItems}`] : []),
       ...(usage ? [`Usage: ${formatUsage(usage)}`] : []),
       ...(s.stageHistory ? [`Time per stage: ${timingText(timing)}`] : []), ...w.map((x) => `! ${x}`), ...(ctx.task ? [`(You are in the worktree for task "${ctx.task}".)`] : [])].join('\n'),
-    data: { state: opts.full ? s : slimState(s), ...(usage ? { usage } : {}), suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
+    data: { state: opts.full ? s : slimState(s), ...(usage ? { usage } : {}), ...(branchReviewer ? { branchReviewer } : {}), suggestionCounts: suggestionCounts(s, openSuggestions, Object.values(hardeningByArea).reduce((a, b) => a + b, 0)), next, ...(s.linear ? { foundational: foundationalSafe(s, pc) } : {}), level: levelOf(s), levelLabel: levelLabel(s), timing, prOpen, ready: readyFor(pc), warnings: w, task: ctx.task ?? null, planWorktree: pc.plan.worktree, planDir: pc.plan.dir, modActive: modIsActive(ctx), openSuggestions, hardeningItems, hardeningByArea, knownFailures: knownFailures(s).map((x) => ({ key: `${s.slug}:${x.id}`, command: x.testCmd, text: x.text })) },
   };
 }
 

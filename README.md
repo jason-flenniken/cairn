@@ -25,7 +25,7 @@ Workflow plugins such as Compound Engineering and Superpowers describe their sta
 cairn fixes this in five ways:
 
 - **A script owns the state.** The stage, phases, tasks, approvals, and test results live in a `state.json` that only the `cairn` CLI writes. The CLI refuses a move when its proof is missing, and it names the fix.
-- **Effort you choose.** Each plan starts at a **level**: MVP to prototype fast, Standard for normal work, or Polished for the deepest checks. At Standard every task gets tests for its core logic and a reviewer, the full test suite runs before each merge, and **risky** tasks (auth, money, deleting data, migrations, public APIs) also get thorough tests and a security review. Everything else worth doing later goes into a list of **recommended follow-ups**, and cairn offers them back when you next touch the same code.
+- **Effort you choose.** Each plan starts at a **level**: MVP to prototype fast, Standard for normal work, or Polished for the deepest checks. At Standard every task gets tests for its core logic. **Risky** tasks (auth, money, deleting data, migrations, public APIs) also get thorough tests, their own reviewer and a security review; complex tasks get their own reviewer too. One branch review covers the rest, and the full suite runs at each phase end. Polished reviews every task and runs the full suite before each merge. Everything else worth doing later goes into a list of **recommended follow-ups**, and cairn offers them back when you next touch the same code.
 - **You can see it working.** A live pane beside the chat shows a card for every running agent: what it's doing, how long it's taken, and roughly how long is left.
 - **Parallel, isolated work.** Each plan runs on its own branch and worktree, and each task on its own branch and worktree. Tasks that don't touch the same files run in parallel, up to 3 at a time.
 - **Fresh eyes before you commit.** Before you approve the PRD, agents that never saw the interview challenge the direction and check that the PRD stands on its own. See Fresh eyes.
@@ -157,9 +157,9 @@ The mod adds these commands, which run instantly without a Claude turn:
 | **Discover** | An interview, one decision at a time, covering users, the core flow, non-goals, and anything risky. Facts come from the codebase first, so the questions are only real decisions. A fresh agent that never saw cairn's guess offers other approaches and the strongest objection, and anything it raises that's yours to decide becomes a question. | No |
 | **PRD** | A short PRD: Problem, Solution, Requirements (each with a one-line check), Non-goals, Open questions. Unhappy paths, security, and performance sections appear only when they matter. Before you see it, a fresh agent reads only the PRD and lists what a builder would have to guess. | **Yes: approve the PRD** |
 | **Plan** | The PRD is broken into phases of small vertical **tasks**. Each task lists its files, what it waits on, its size (which picks the model), and whether it's risky. Recommended follow-ups that touch the same files are offered as extra tasks. | **Yes: approve the plan** |
-| **Build** | Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic and gets a reviewer. Risky tasks also get thorough tests and a security review, with at most two fix attempts before cairn asks you. Every task is merged and the full test suite runs. A finished phase continues on its own when tests pass. | Only if tests fail or something is blocked |
+| **Build** | Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic. Risky and complex tasks get their own reviewer, and risky tasks also get thorough tests and a security review, with at most two fix attempts before cairn asks you. The rest are reviewed once, at Review. Every task is merged and tested: the quick tests on its changed files when `testQuick` is set, otherwise the full suite. The full suite always runs at the phase end. A finished phase continues on its own when tests pass. | Only if tests fail or something is blocked |
 | **Check** | Tests and build, then one pass over the PRD's checks. A requirement that isn't met gets fixed. One that works but has no test becomes a recommended follow-up. | Only if something is broken |
-| **Review** | One review of the whole branch. Blocking means a bug, a security hole, data loss, or an unmet requirement, and those are fixed in place. Problems in code the plan didn't touch, and everything else, become recommended follow-ups. | Only if something is blocking |
+| **Review** | One review of the whole branch. It reads the tasks that had no review of their own in full. It runs on Sonnet, or Opus when a task is complex or the plan has 10 or more tasks. Blocking means a bug, a security hole, data loss, or an unmet requirement, and those are fixed in place. Problems in code the plan didn't touch, and everything else, become recommended follow-ups. | Only if something is blocking |
 | **Ship** | A one-page `RECORD.md`: links (including how to revert it), why, what was built, how it works, follow-ups. When reviews kept flagging the same kind of mistake, cairn offers up to three rules for `REVIEW.md`, and adds only the ones you tick. | **Yes: approve the ship** |
 | **Learn** | Checks the follow-ups are tidied, then closes the plan. It asks you nothing. | No |
 
@@ -181,8 +181,8 @@ A long plan used to grow the session you talk to by hundreds of thousands of tok
 | Level | For | What changes |
 |---|---|---|
 | **MVP** | Prototyping fast, finding out if something is worth building | A short interview and thin PRD with no fresh-eyes agents, a few large tasks, no per-task review, tests that warn instead of block, one light branch review, and a short record. What it skips goes on a **hardening list**. |
-| **Standard** | Normal work | The lifecycle above, as is. |
-| **Polished** | Hardening what you'll keep | Three approaches compared before the PRD, test cases and test-first for every task, a fresh-agent review of the plan, an automatic on-track check at each phase end, and every requirement met and tested. |
+| **Standard** | Normal work, a first version you'll refine | The lifecycle above, as is: reviews and full test runs go where the risk and complexity are. |
+| **Polished** | Hardening what you'll keep | Every task reviewed, an Opus branch review, and the full suite before each merge. Three approaches compared before the PRD, test cases and test-first for every task, a fresh-agent review of the plan, an automatic on-track check at each phase end, and every requirement met and tested. |
 
 Some things never change with the level: Check always runs the secret scan and dependency audit, any task touching a trust boundary gets a security review, the whole-branch security review always runs, and you still approve the PRD, the plan, and the ship.
 
@@ -401,7 +401,8 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 | Key | Meaning |
 |---|---|
 | `setup` | Runs in every new plan or task worktree, for example to install dependencies. |
-| `test` | The full test command. It runs before each task is marked done, and again at Check and close. |
+| `test` | The full test command. It runs at each phase end, at Check and at close, and before each task is marked done unless `testQuick` runs instead. |
+| `testQuick` | Optional. At Standard it runs instead of `test` when a task is marked done, with `$CAIRN_CHANGED_FILES` set to the task's changed files (for example `npx vitest related --run $CAIRN_CHANGED_FILES`). |
 | `build` | The build command, run at Check. |
 | `start`, `seed`, `appTypes` | How to run the app, seed its data, and what kind of app it is (`web`, `expo`, `api`). These are recorded for checks that drive the running app; the lean defaults don't use them yet. |
 | `maxParallel` | How many tasks run at once (default 3). A task in review does not count, and a fix round after review is never held back, so the cap can briefly be exceeded by the tasks returning from review. |
