@@ -8,10 +8,10 @@ import { allTasks, findTask } from '../ready.ts';
 import { loadState, log } from '../state.ts';
 import type { EndProof, ProofRun, State } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
-import { mutate, planCtx, planFile, runSuite, type Opts, type PlanCtx, type Result } from '../shared.ts';
+import { gate, mutate, planCtx, planFile, runSuite, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { changesSince } from './merge.ts';
 
-const USAGE = 'usage: cairn prove [<id>...] [--task <id>] [--here] | prove list [--json] | prove judge <id> pass|fail [--note "…"] | prove add <id> --covers FR-01[,FR-02] --run "<cmd>" --files a[,b] [--shots x,y --look "…"] [--note "why"]';
+const USAGE = 'usage: cairn prove [<id>...] [--task <id>] [--here] | prove list [--json] | prove judge <id> pass|fail [--note "…"] | prove add <id> --covers FR-01[,FR-02] --run "<cmd>" --files a[,b] [--shots x,y --look "…"] [--note "why"] | prove retire <id> --replaced-by <new-id> --override "<reason>"';
 
 export type ProofState = 'green' | 'red' | 'not run' | 'stale' | 'changed' | 'unjudged' | 'judged fail';
 
@@ -43,6 +43,7 @@ export function proofProblems(pc: PlanCtx, s: State): string[] {
   if (!list.length) return ['no proofs are loaded'];
   const rel = planRelOf(pc.plan);
   return list.flatMap((p) => {
+    if (p.retired) return [];
     const st = proofState(p, pc.plan.worktree, rel, s.baseMerges ?? []);
     return st.state === 'green' ? [] : [`${p.id} is ${st.state}: ${st.why}`];
   });
@@ -52,13 +53,16 @@ export function proofProblems(pc: PlanCtx, s: State): string[] {
 export function proofSummary(s: State): string | undefined {
   const ep = s.endProofs;
   if (!ep?.list.length) return undefined;
-  const shots = ep.list.filter((p) => p.shots?.length && p.last?.judged?.result === 'pass');
-  const added = ep.list.filter((p) => p.added);
+  const retired = ep.list.filter((p) => p.retired);
+  const live = ep.list.filter((p) => !p.retired);
+  const shots = live.filter((p) => p.shots?.length && p.last?.judged?.result === 'pass');
+  const added = live.filter((p) => p.added);
   return [
-    `**Proofs:** ${ep.list.length} green on the shipped code`,
+    `**Proofs:** ${live.length} green on the shipped code`,
     shots.length ? `, screenshots judged for ${shots.map((p) => `${p.id} (${p.last?.shotsDir})`).join(', ')}` : '',
     added.length ? `; added during the build: ${added.map((p) => `${p.id} (${p.covers.join(', ')})${p.added?.note ? ` — ${p.added.note}` : ''}`).join('; ')}` : '',
     ep.notProvable.length ? `; not provable by a run: ${ep.notProvable.map((n) => n.id).join(', ')}` : '',
+    retired.length ? `; retired: ${retired.map((p) => `${p.id} (replaced by ${p.retired?.by}) — ${p.retired?.reason}`).join('; ')}` : '',
     '.',
   ].join('');
 }
@@ -78,7 +82,7 @@ export function proofApprovalProblems(pc: PlanCtx, s: State): string[] {
   const loose = [...new Set([...untracked, ...dirty])];
   if (loose.length) out.push(`proof files are not committed on the plan branch: ${loose.join(', ')} (commit them, then run cairn prove again)`);
   for (const p of ep.list) {
-    if (p.lock) continue; // Locked before a re-plan: its code may already be built, so it can't be red now.
+    if (p.lock || p.retired) continue; // Locked before a re-plan: its code may already be built, so it can't be red now.
     const h = filesHash(pc.plan.worktree, p.files);
     if (p.expect === 'pass') {
       if (p.last?.result !== 'pass' || p.last.files !== h) out.push(`guard proof ${p.id} has not been seen passing: cairn prove ${p.id}`);
@@ -128,12 +132,14 @@ function cmdRun(pc: PlanCtx, ctx: Ctx, pos: string[], opts: Opts): Result {
     if (unknown.length) throw new Refusal(`no proof ${unknown.join(', ')} in this plan`, ['cairn prove list']);
     pick = list.filter((p) => pos.includes(p.id));
   }
+  const retiredPicked = pick.filter((p) => p.retired);
+  pick = pick.filter((p) => !p.retired);
   const tasks = allTasks(s0);
   if (typeof opts.task === 'string') {
     const t = findTask(s0, opts.task);
     if (!t) throw new Refusal(`no task "${opts.task}" in this plan`);
     pick = pick.filter((p) => t.covers.some((c) => p.covers.includes(c)));
-    if (!pick.length) return { message: `No proof covers what task "${t.name}" builds.` };
+    if (!pick.length && !retiredPicked.length) return { message: `No proof covers what task "${t.name}" builds.` };
   }
   const here = !!opts.here;
   const cwd = here ? topLevel(ctx.cwd) : pc.plan.worktree;
@@ -156,8 +162,9 @@ function cmdRun(pc: PlanCtx, ctx: Ctx, pos: string[], opts: Opts): Result {
     return p.shots?.length ? `${base}. Screenshots: ${r.shotsDir}; judge them against: ${p.look}` : base;
   });
   const where = here ? ` in ${cwd} (not recorded)` : '';
+  const retiredLines = retiredPicked.map((p) => `  ${p.id}  retired (replaced by ${p.retired?.by}): not run`);
   return {
-    message: [`Proofs${where}: ${green} of ${runs.length} pass.`, ...lines].join('\n'),
+    message: [`Proofs${where}: ${green} of ${runs.length} pass.`, ...lines, ...retiredLines].join('\n'),
     data: { here, results: runs.map(({ p, r }) => ({ id: p.id, covers: p.covers, result: r.result, tail: r.tail, log: r.log, shotsDir: r.shotsDir ?? null, look: p.look ?? null })) },
   };
 }
@@ -169,14 +176,16 @@ function cmdList(pc: PlanCtx): Result {
   const rel = planRelOf(pc.plan);
   const tasks = allTasks(s);
   const rows = ep.list.map((p) => {
+    if (p.retired) return { id: p.id, covers: p.covers, state: `retired (replaced by ${p.retired.by})`, why: p.retired.reason, due: false, locked: !!p.lock, added: !!p.added, retired: p.retired, shots: p.shots ?? [], look: p.look ?? null, run: p.run, files: p.files };
     const st = proofState(p, pc.plan.worktree, rel, s.baseMerges ?? []);
     return { id: p.id, covers: p.covers, state: st.state, why: st.why, due: isDue(p, tasks), locked: !!p.lock, added: !!p.added, shots: p.shots ?? [], look: p.look ?? null, run: p.run, files: p.files };
   });
   const green = rows.filter((r) => r.state === 'green').length;
+  const live = rows.filter((r) => !('retired' in r)).length;
   return {
     message: [
-      `Proofs: ${green} of ${rows.length} green.`,
-      ...rows.map((r) => `  ${r.id}  ${r.state}${r.why ? `: ${r.why}` : ''}  (${r.covers.join(', ')}${r.due ? '' : ', not due yet'}${r.added ? ', added in build' : ''})`),
+      `Proofs: ${green} of ${live} green.`,
+      ...rows.map((r) => `  ${r.id}  ${r.state}${r.why ? `: ${r.why}` : ''}  (${r.covers.join(', ')}${r.due || 'retired' in r ? '' : ', not due yet'}${r.added ? ', added in build' : ''})`),
       ...(ep.notProvable.length ? [`Not provable by a run: ${ep.notProvable.map((n) => `${n.id} (${n.reason})`).join('; ')}`] : []),
     ].join('\n'),
     data: { proofs: rows, notProvable: ep.notProvable },
@@ -228,12 +237,46 @@ function cmdAdd(pc: PlanCtx, id: string | undefined, opts: Opts): Result {
   });
 }
 
+/** Every reason the retirement can't happen; run before the user's proof is spent and again under the lock. */
+function retireRefusals(pc: PlanCtx, s: State, id: string, by: string): void {
+  if (!s.approvals.plan || !['execute', 'verify', 'review'].includes(s.stage)) throw new Refusal(`proofs are retired during the build; the plan is in ${s.stage}`);
+  const list = s.endProofs?.list ?? [];
+  const old = list.find((p) => p.id === id);
+  if (!old) throw new Refusal(`no proof ${id} in this plan`, ['cairn prove list']);
+  if (!old.lock) throw new Refusal(`proof ${id} is not locked, so it is not retired: fix it in proofs.md and run cairn plan load`);
+  if (old.retired) throw new Refusal(`proof ${id} is already retired (replaced by ${old.retired.by})`);
+  if (id === by) throw new Refusal('a proof cannot replace itself: --replaced-by names a different proof');
+  const rep = list.find((p) => p.id === by);
+  if (!rep) throw new Refusal(`no proof ${by} in this plan`, ['add the corrected proof first: cairn prove add <new-id> --covers … --run "…" --files …']);
+  if (rep.retired) throw new Refusal(`proof ${by} is retired itself, so it cannot replace ${id}`);
+  if (!rep.added) throw new Refusal(`proof ${by} was not added during the build, so it cannot replace ${id}`, ['add the corrected proof with cairn prove add']);
+  const missing = old.covers.filter((c) => !rep.covers.includes(c));
+  if (missing.length) throw new Refusal(`proof ${by} does not cover ${missing.join(', ')}, which ${id} covers`, ['add the corrected proof with every requirement the old one covered']);
+  const st = proofState(rep, pc.plan.worktree, planRelOf(pc.plan), s.baseMerges ?? []);
+  if (st.state !== 'green') throw new Refusal(`proof ${by} is ${st.state}, not green: ${st.why}`, [`cairn prove ${by}${rep.shots?.length ? ', then judge its screenshots' : ''}`]);
+}
+
+function cmdRetire(pc: PlanCtx, id: string | undefined, opts: Opts): Result {
+  const by = typeof opts['replaced-by'] === 'string' ? opts['replaced-by'] : '';
+  if (!id || !by) throw new CliError(USAGE);
+  retireRefusals(pc, loadState(pc.plan.dir), id, by);
+  return mutate(pc, `proof ${id} retired`, (s) => {
+    retireRefusals(pc, s, id, by);
+    gate(false, s, 'prove retire', opts, `retiring proof ${id} needs the user's choice`, [`proof ${id} is itself wrong and ${by} replaces it: ask the user, then retire it`]);
+    const p = s.endProofs?.list.find((x) => x.id === id) as EndProof;
+    p.retired = { at: now(), by, reason: String(opts.override) };
+    log(s, 'proof retired', `${id}, replaced by ${by}: ${opts.override}`);
+    return { message: `Retired proof ${id}; ${by} replaces it. It no longer runs or blocks, and the ship card lists it.` };
+  });
+}
+
 export function cmdProve(ctx: Ctx, pos: string[], opts: Opts): Result {
   const pc = planCtx(ctx);
   const [sub, a, b] = pos;
   if (sub === 'list') return cmdList(pc);
   if (sub === 'judge') return cmdJudge(pc, a, b, opts);
   if (sub === 'add') return cmdAdd(pc, a, opts);
+  if (sub === 'retire') return cmdRetire(pc, a, opts);
   if (sub === 'help') throw new CliError(USAGE);
   return cmdRun(pc, ctx, pos, opts);
 }

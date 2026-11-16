@@ -212,3 +212,94 @@ test('proofs are chosen per plan at the start: --proofs or --no-proofs, never th
   assert.throws(() => ok(repo, 'new', 'dflt', '--level', 'standard'), /--proofs or --no-proofs/, 'the repo default no longer answers for the user');
   assert.equal(ok(repo, 'new', 'optout', '--level', 'standard', '--no-proofs').data!.proofs, false);
 });
+
+test('retiring a locked proof that is itself wrong: the user chooses, a green replacement stands in, and nothing blocks after', () => {
+  const wt = ok(repo, 'new', 'retire', '--level', 'standard', '--title', 'Retire', '--proofs').data!.worktree as string;
+  const dir = pd(wt, 'retire');
+  const state = () => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
+  ok(wt, 'decide', 'q', 'a');
+  ok(wt, 'advance');
+  write(join(dir, 'prd.md'), PRD);
+  byUser(wt, 'approve', 'prd');
+  ok(wt, 'advance');
+  write(join(dir, 'plan.md'), PLAN.replace('{ id: cart, name: Cart, covers: [FR-02], scope: ["src/cart*"] }', '{ id: cart, name: Cart, covers: [FR-02], scope: ["src/cart*"] }'));
+  write(join(dir, 'proofs.md'), `# Proofs
+\`\`\`yaml cairn-proofs
+proofs:
+  - id: wrong
+    covers: [FR-01, FR-02]
+    run: sh proofs/wrong.sh
+    files: [proofs/wrong.sh]
+  - id: other
+    covers: [FR-02]
+    run: sh proofs/other.sh
+    files: [proofs/other.sh]
+\`\`\`
+`);
+  write(join(wt, 'proofs/wrong.sh'), 'test -f src/never.txt\n');
+  write(join(wt, 'proofs/other.sh'), 'test -f src/cart.txt\n');
+  commit(wt, 'proofs');
+  ok(wt, 'plan', 'load');
+  ok(wt, 'prove');
+  byUser(wt, 'approve', 'plan');
+  ok(wt, 'advance');
+  for (const t of ['total', 'cart']) {
+    const tw = ok(wt, 'task', 'start', t).data!.worktree as string;
+    write(join(tw, `src/${t}.txt`), 'x\n');
+    commit(tw, t);
+    ok(wt, 'task', 'merge', t);
+  }
+  ok(wt, 'phase', 'finish');
+  assert.equal(state().stage, 'verify');
+  ok(wt, 'evidence', 'verify', 'pass', '--note', 'green');
+  refused(wt, /proofs do not show the end state: wrong is red/, 'advance');
+
+  // Not before the plan approval's stages, and not for a proof or replacement that does not qualify.
+  const retire = (id: string, by: string, extra: string[] = ['--override', 'the check looks for a file that never exists']) => ['prove', 'retire', id, '--replaced-by', by, ...extra];
+  refusedByUser(wt, /no proof nope in this plan/, ...retire('nope', 'other'));
+  refusedByUser(wt, /no proof nope in this plan/, ...retire('wrong', 'nope'));
+  refusedByUser(wt, /cannot replace itself/, ...retire('wrong', 'wrong'));
+  refusedByUser(wt, /proof other was not added during the build/, ...retire('wrong', 'other'));
+  write(join(wt, 'proofs/part.sh'), 'test -f src/total.txt\n');
+  write(join(wt, 'proofs/fixed.sh'), 'test -f src/total.txt && test -f src/cart.txt\n');
+  commit(wt, 'corrected proofs');
+  ok(wt, 'prove', 'add', 'part', '--covers', 'FR-01', '--run', 'sh proofs/part.sh', '--files', 'proofs/part.sh');
+  ok(wt, 'prove', 'add', 'fixed', '--covers', 'FR-01,FR-02', '--run', 'sh proofs/fixed.sh', '--files', 'proofs/fixed.sh', '--note', 'the old check looked for a file that never exists');
+  refusedByUser(wt, /proof fixed is not run, not green/, ...retire('wrong', 'fixed'));
+  ok(wt, 'prove', 'part', 'fixed', 'other');
+  refusedByUser(wt, /proof part does not cover FR-02/, ...retire('wrong', 'part'));
+
+  // It always needs the user's choice: the plain command refuses, a model-run override has no proof.
+  assert.throws(
+    () => ok(wt, ...retire('wrong', 'fixed', [])),
+    (e: unknown) => e instanceof Refusal && /retiring proof wrong needs the user's choice/.test(e.message) && e.fixes.some((f) => /--override/.test(f)),
+  );
+  refused(wt, /an override needs proof that the user chose it/, ...retire('wrong', 'fixed'));
+  assert.equal(state().endProofs.list.find((p: { id: string }) => p.id === 'wrong').retired, undefined);
+  assert.match(byUser(wt, ...retire('wrong', 'fixed')).message, /Retired proof wrong; fixed replaces it/);
+  const gone = state().endProofs.list.find((p: { id: string }) => p.id === 'wrong');
+  assert.equal(gone.retired.by, 'fixed');
+  assert.equal(gone.retired.reason, 'the check looks for a file that never exists');
+  assert.ok(state().log.some((e: { event: string }) => e.event === 'proof retired'));
+  refusedByUser(wt, /proof wrong is already retired/, ...retire('wrong', 'fixed'));
+  refusedByUser(wt, /proof wrong is retired itself/, ...retire('part', 'wrong'));
+
+  // A retired proof is skipped by the run, shown by list, and no longer blocks.
+  const ran = ok(wt, 'prove', 'wrong');
+  assert.match(ran.message, /wrong {2}retired \(replaced by fixed\): not run/);
+  const list = ok(wt, 'prove', 'list').message;
+  assert.match(list, /wrong {2}retired \(replaced by fixed\)/);
+  assert.match(list, /3 of 3 green/);
+  ok(wt, 'advance');
+  assert.equal(state().stage, 'review');
+  ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
+  ok(wt, 'advance');
+  write(join(dir, 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
+  ok(wt, 'step', 'recording');
+  ok(wt, 'step', 'approving');
+  const row = (ok(repo, 'status', '--all').data!.plans as { state: { slug: string }; ready?: { kind: string; summary?: string } }[]).find((r) => r.state.slug === 'retire');
+  assert.equal(row?.ready?.kind, 'ship', 'status --all offers ship once the retired proof no longer blocks');
+  assert.match(row?.ready?.summary ?? '', /3 green on the shipped code.*retired: wrong \(replaced by fixed\) — the check looks for a file that never exists/);
+  byUser(wt, 'approve', 'ship');
+  assert.ok(state().approvals.ship);
+});

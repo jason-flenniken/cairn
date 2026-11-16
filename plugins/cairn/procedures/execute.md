@@ -86,6 +86,8 @@ Anything else (a refusal, a conflict outside `docs/cairn/`, red tests after the 
 
 **Proposed proofs.** When the implementer's report proposes a proof (its Concerns line names one: an id, the requirements, the command, the files), and the merge brought the files onto the plan branch, add it: `cd <plan worktree> && cairn prove add <id> --covers <FR ids> --run "<command>" --files <paths> --note "<the case it checks>"`. It is locked at once and listed at ship. Never use this to replace a proof.
 
+**A locked proof that is itself wrong.** Never edit or replace it by adding the same id. When the code is right and the proof is what is wrong, add a corrected copy with `cairn prove add`, run it green, then ask the user with an AskUserQuestion menu tagged `[cairn:override <slug>]` (options "Override" and a keep-it option). Only after Override, run `cairn prove retire <old-id> --replaced-by <new-id> --override "<reason>"` alone (no cd, no &&, a plain-words reason with none of ; | & $ ` > < \ # * ? ~ ( ) { } [ ]).
+
 **Done when:** `cairn task merge <id>` exits 0. Report in 1-3 lines: the task, the test count, what starts next.
 
 ## 8. Loop
