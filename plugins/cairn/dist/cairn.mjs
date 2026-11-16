@@ -11380,8 +11380,11 @@ function prdProblems(md) {
   if (open.length) problems.push(`prd.md has ${open.length} open question(s): ${open.join(" | ")}`);
   return problems;
 }
+function prdLinearIssues(s, md) {
+  return s.linear && md && !isPublished(s.linear) ? prdLinearProblems(s.linear, md) : [];
+}
 function prdApprovalProblems(s, md) {
-  return [...prdProblems(md), ...s.linear && md ? prdLinearProblems(s.linear, md) : []];
+  return [...prdProblems(md), ...prdLinearIssues(s, md)];
 }
 var firstSentence = (text = "") => text.replace(/\s+/g, " ").trim().match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text.trim();
 function prdSummary(md) {
@@ -11416,36 +11419,39 @@ function prdEditedSinceApproval(s, prd) {
 }
 var PRD_EDITED_NOTE = "**prd.md changed after you approved it; approving the plan also accepts those edits.**";
 var WRITING_STEPS = ["drafting", "checking", "recording", "asking"];
-function readyFor(pc) {
+var readyFor = (pc) => readyCheck(pc).ready;
+function readyCheck(pc) {
   try {
     const s = loadState(pc.plan.dir);
     const file = (name) => join15(pc.plan.dir, name);
-    const pcLike = pc;
-    if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return void 0;
+    const ready = (r) => ({ ready: r });
+    if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return {};
     if (s.stage === "prd" && !s.approvals.prd) {
       const md = readText(file("prd.md"));
-      return md && !prdApprovalProblems(s, md).length ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0;
+      return ready(md && !prdApprovalProblems(s, md).length ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0);
     }
     if (s.stage === "plan" && !s.approvals.plan) {
       const md = readText(file("plan.md"));
-      if (!s.phases.length || !md || s.planHash !== hashText(md)) return void 0;
-      if (proofApprovalProblems(pcLike, s).length) return void 0;
-      const note = prdEditedSinceApproval(s, readText(file("prd.md"))) ? `${PRD_EDITED_NOTE}
+      if (!s.phases.length || !md || s.planHash !== hashText(md)) return {};
+      const prd = readText(file("prd.md"));
+      if (prdLinearIssues(s, prd).length || proofApprovalProblems(pc, s).length) return {};
+      const note = prdEditedSinceApproval(s, prd) ? `${PRD_EDITED_NOTE}
 
 ` : "";
-      return { kind: "plan", file: file("plan.md"), summary: note + planSummary(s, md, pc.cfg) };
+      return ready({ kind: "plan", file: file("plan.md"), summary: note + planSummary(s, md, pc.cfg) });
     }
-    if (s.reapprove && !s.approvals.ship) return { kind: "ship", file: file("RECORD.md"), summary: `**Approve shipping again:** ${s.reapprove.why}.` };
+    if (s.reapprove && !s.approvals.ship) return ready({ kind: "ship", file: file("RECORD.md"), summary: `**Approve shipping again:** ${s.reapprove.why}.` });
     if (s.stage === "ship" && !s.approvals.ship && s.evidence.review?.result === "pass") {
-      if (recordCheck(pcLike, fastLane(s) ? "fix" : "feature").problems.length) return void 0;
-      if (proofProblems(pcLike, s).length) return void 0;
+      if (recordCheck(pc, fastLane(s) ? "fix" : "feature").problems.length) return {};
+      if (proofProblems(pc, s).length) return {};
       const md = readText(file("RECORD.md")) ?? "";
       const proofs = proofSummary(s);
-      return { kind: "ship", file: file("RECORD.md"), summary: [(sections(md).get("what was built") ?? "").trim(), proofs].filter(Boolean).join("\n\n") };
+      return ready({ kind: "ship", file: file("RECORD.md"), summary: [(sections(md).get("what was built") ?? "").trim(), proofs].filter(Boolean).join("\n\n") });
     }
-  } catch {
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
-  return void 0;
+  return {};
 }
 var APPROVAL_KINDS = ["prd", "plan", "ship"];
 var APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "\u2026"]';
@@ -11688,10 +11694,11 @@ function foundationalSafe(s, pc) {
   }
 }
 function readyRow(r, ctx) {
-  const ready = r.worktree ? readyFor({ plan: { dir: r.dir, worktree: r.worktree }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : void 0;
+  const pc = r.worktree ? { ctx, plan: { slug: r.state.slug, worktree: r.worktree, dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) } : void 0;
+  const { ready, error } = pc ? readyCheck(pc) : {};
   const st = r.state.step;
   const asked = st !== void 0 && st.stage === r.state.stage && (st.name === "approving" || st.name === "asking");
-  return { ready, needsUser: ready !== void 0 || asked };
+  return { ready, ...error ? { readyError: error } : {}, needsUser: ready !== void 0 || asked };
 }
 var slimState = (s, keepLog = false) => {
   const { log: logLines, suggestions: _suggestions, linear, ...rest } = s;

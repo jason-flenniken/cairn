@@ -36,6 +36,17 @@ function asUser<T>(fn: () => T): T {
 }
 const byUser = (cwd: string, ...argv: string[]) => asUser(() => ok(cwd, ...argv));
 const refusedByUser = (cwd: string, pattern: RegExp, ...argv: string[]) => asUser(() => refused(cwd, pattern, ...argv));
+/**
+ * The stop `status` offers in the plan worktree, asserted to match the all-plans listing the pane and approval menu read.
+ * The two once disagreed (the listing ran the check with a partial plan context), so approvals worked only from a terminal.
+ */
+function offered(slug: string): string | undefined {
+  const single = (ok(wt, 'status').data!.ready as { kind: string } | undefined)?.kind;
+  const row = (ok(repo, 'status', '--all').data!.plans as { state: { slug: string }; ready?: { kind: string }; readyError?: string }[]).find((r) => r.state.slug === slug);
+  assert.equal(row?.readyError, undefined, 'the ready check ran without error');
+  assert.equal(row?.ready?.kind, single, 'status --all offers the same stop as status');
+  return single;
+}
 const state = () => JSON.parse(readFileSync(join(pd(wt, 'billing'), 'state.json'), 'utf8'));
 const ctxOf = (out: string) => (out ? JSON.parse(out).hookSpecificOutput.additionalContext : '');
 const planDir = () => pd(wt, 'billing');
@@ -141,7 +152,7 @@ test('full lifecycle with every checkpoint', () => {
   assert.equal(prdReady.kind, 'prd');
   assert.equal(prdReady.file, join(planDir(), 'prd.md'));
   assert.match(prdReady.summary, /- FR-01 charge\./);
-  assert.equal((ok(repo, 'status', '--all').data!.plans as { ready?: { kind: string } }[])[0].ready?.kind, 'prd');
+  assert.equal(offered('billing'), 'prd');
   byUser(wt, 'approve', 'prd');
   assert.equal(ok(wt, 'status').data!.ready, undefined, 'approved stops are not ready');
   ok(wt, 'advance');
@@ -158,7 +169,7 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'step', 'checking');
   assert.equal(ok(wt, 'status').data!.ready, undefined, 'a loaded plan is not ready during the builder check');
   ok(wt, 'step', 'approving');
-  assert.equal((ok(wt, 'status').data!.ready as { kind: string }).kind, 'plan');
+  assert.equal(offered('billing'), 'plan');
   byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   assert.equal(state().stage, 'execute');
@@ -275,7 +286,7 @@ test('full lifecycle with every checkpoint', () => {
   ok(wt, 'step', 'recording');
   assert.equal(ok(wt, 'status').data!.ready, undefined, 'a valid RECORD.md is not ready while it is being written');
   ok(wt, 'step', 'approving');
-  assert.equal((ok(wt, 'status').data!.ready as { kind: string }).kind, 'ship');
+  assert.equal(offered('billing'), 'ship');
   byUser(wt, 'approve', 'ship');
   ok(wt, 'advance');
   ok(wt, 'close');
