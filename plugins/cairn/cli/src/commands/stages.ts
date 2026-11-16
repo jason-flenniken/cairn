@@ -14,7 +14,7 @@ import { proofApprovalProblems, proofProblems, proofSummary } from './prove.ts';
 import { filesHash } from '../endproofs.ts';
 import { configGate, configHash, fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
-import { isFoundational, linearConfig, prdLinearProblems } from '../linear.ts';
+import { isFoundational, isPublished, linearConfig, prdLinearProblems } from '../linear.ts';
 import { crossPlanBlockers, followupsFor, linearPrdGate, onAdvance, onPrdApproved, recordRequirements, type FollowupInfo } from './linear.ts';
 
 const STAGE_ORDER: Record<Track, Stage[]> = {
@@ -64,8 +64,13 @@ function prdProblems(md: string | undefined): string[] {
 }
 
 /** Everything `approve prd` would refuse over, Linear tags included. Empty when the PRD can be approved. */
+/** The PRD's Linear problems `approve prd` and `approve plan` refuse on: none once the plan's issues are published. */
+function prdLinearIssues(s: State, md: string | undefined): string[] {
+  return s.linear && md && !isPublished(s.linear) ? prdLinearProblems(s.linear, md) : [];
+}
+
 export function prdApprovalProblems(s: State, md: string | undefined): string[] {
-  return [...prdProblems(md), ...(s.linear && md ? prdLinearProblems(s.linear, md) : [])];
+  return [...prdProblems(md), ...prdLinearIssues(s, md)];
 }
 
 export interface Ready {
@@ -122,35 +127,42 @@ const PRD_EDITED_NOTE = '**prd.md changed after you approved it; approving the p
 const WRITING_STEPS = ['drafting', 'checking', 'recording', 'asking'];
 
 /** The stop the plan is waiting on, when approving it now would pass its checks. Never throws. */
-export function readyFor(pc: { plan: { dir: string; worktree?: string }; cfg?: Config }): Ready | undefined {
+export const readyFor = (pc: PlanCtx): Ready | undefined => readyCheck(pc).ready;
+
+/**
+ * `readyFor`, plus why the check itself failed. The checks here mirror `cmdApprove`'s gates; a check that throws
+ * means "not ready", and `error` carries the reason so the pane and menu can say it instead of a bare refusal.
+ */
+export function readyCheck(pc: PlanCtx): { ready?: Ready; error?: string } {
   try {
     const s = loadState(pc.plan.dir);
     const file = (name: string) => join(pc.plan.dir, name);
-    const pcLike = pc as PlanCtx;
-    if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return undefined;
+    const ready = (r: Ready | undefined) => ({ ready: r });
+    if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return {};
     if (s.stage === 'prd' && !s.approvals.prd) {
       const md = readText(file('prd.md'));
-      return md && !prdApprovalProblems(s, md).length ?{ kind: 'prd', file: file('prd.md'), summary: prdSummary(md) } : undefined;
+      return ready(md && !prdApprovalProblems(s, md).length ? { kind: 'prd', file: file('prd.md'), summary: prdSummary(md) } : undefined);
     }
     if (s.stage === 'plan' && !s.approvals.plan) {
       const md = readText(file('plan.md'));
-      if (!s.phases.length || !md || s.planHash !== hashText(md)) return undefined;
-      if (proofApprovalProblems(pcLike, s).length) return undefined;
-      const note = prdEditedSinceApproval(s, readText(file('prd.md'))) ? `${PRD_EDITED_NOTE}\n\n` : '';
-      return { kind: 'plan', file: file('plan.md'), summary: note + planSummary(s, md, pc.cfg) };
+      if (!s.phases.length || !md || s.planHash !== hashText(md)) return {};
+      const prd = readText(file('prd.md'));
+      if (prdLinearIssues(s, prd).length || proofApprovalProblems(pc, s).length) return {};
+      const note = prdEditedSinceApproval(s, prd) ? `${PRD_EDITED_NOTE}\n\n` : '';
+      return ready({ kind: 'plan', file: file('plan.md'), summary: note + planSummary(s, md, pc.cfg) });
     }
-    if (s.reapprove && !s.approvals.ship) return { kind: 'ship', file: file('RECORD.md'), summary: `**Approve shipping again:** ${s.reapprove.why}.` };
+    if (s.reapprove && !s.approvals.ship) return ready({ kind: 'ship', file: file('RECORD.md'), summary: `**Approve shipping again:** ${s.reapprove.why}.` });
     if (s.stage === 'ship' && !s.approvals.ship && s.evidence.review?.result === 'pass') {
-      if (recordCheck(pcLike, fastLane(s) ? 'fix' : 'feature').problems.length) return undefined;
-      if (proofProblems(pcLike, s).length) return undefined;
+      if (recordCheck(pc, fastLane(s) ? 'fix' : 'feature').problems.length) return {};
+      if (proofProblems(pc, s).length) return {};
       const md = readText(file('RECORD.md')) ?? '';
       const proofs = proofSummary(s);
-      return { kind: 'ship', file: file('RECORD.md'), summary: [(sections(md).get('what was built') ?? '').trim(), proofs].filter(Boolean).join('\n\n') };
+      return ready({ kind: 'ship', file: file('RECORD.md'), summary: [(sections(md).get('what was built') ?? '').trim(), proofs].filter(Boolean).join('\n\n') });
     }
-  } catch {
-    // Not ready: the state or a document could not be read.
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
   }
-  return undefined;
+  return {};
 }
 
 const APPROVAL_KINDS = ['prd', 'plan', 'ship'];
