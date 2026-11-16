@@ -239,7 +239,7 @@ function cmdAdd(pc: PlanCtx, id: string | undefined, opts: Opts): Result {
 
 /** Every reason the retirement can't happen; run before the user's proof is spent and again under the lock. */
 function retireRefusals(pc: PlanCtx, s: State, id: string, by: string): void {
-  if (!s.approvals.plan || !['execute', 'verify', 'review'].includes(s.stage)) throw new Refusal(`proofs are retired during the build; the plan is in ${s.stage}`);
+  if (!s.approvals.plan || s.approvals.ship || !['execute', 'verify', 'review', 'ship'].includes(s.stage)) throw new Refusal(`proofs are retired between the plan approval and the ship approval; the plan is in ${s.stage}`);
   const list = s.endProofs?.list ?? [];
   const old = list.find((p) => p.id === id);
   if (!old) throw new Refusal(`no proof ${id} in this plan`, ['cairn prove list']);

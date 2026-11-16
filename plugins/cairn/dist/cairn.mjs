@@ -11250,7 +11250,7 @@ function cmdAdd(pc, id, opts) {
   });
 }
 function retireRefusals(pc, s, id, by) {
-  if (!s.approvals.plan || !["execute", "verify", "review"].includes(s.stage)) throw new Refusal(`proofs are retired during the build; the plan is in ${s.stage}`);
+  if (!s.approvals.plan || s.approvals.ship || !["execute", "verify", "review", "ship"].includes(s.stage)) throw new Refusal(`proofs are retired between the plan approval and the ship approval; the plan is in ${s.stage}`);
   const list3 = s.endProofs?.list ?? [];
   const old = list3.find((p) => p.id === id);
   if (!old) throw new Refusal(`no proof ${id} in this plan`, ["cairn prove list"]);

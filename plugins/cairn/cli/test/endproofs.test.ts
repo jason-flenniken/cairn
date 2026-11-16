@@ -296,10 +296,13 @@ proofs:
   ok(wt, 'advance');
   write(join(dir, 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
   ok(wt, 'step', 'recording');
+  // Still allowed at ship, before the ship approval: a wrong proof can be found as late as the last run.
+  assert.match(byUser(wt, ...retire('part', 'fixed', ['--override', 'fixed covers it'])).message, /Retired proof part; fixed replaces it/);
   ok(wt, 'step', 'approving');
   const row = (ok(repo, 'status', '--all').data!.plans as { state: { slug: string }; ready?: { kind: string; summary?: string } }[]).find((r) => r.state.slug === 'retire');
   assert.equal(row?.ready?.kind, 'ship', 'status --all offers ship once the retired proof no longer blocks');
-  assert.match(row?.ready?.summary ?? '', /3 green on the shipped code.*retired: wrong \(replaced by fixed\) — the check looks for a file that never exists/);
+  assert.match(row?.ready?.summary ?? '', /2 green on the shipped code.*retired: wrong \(replaced by fixed\) — the check looks for a file that never exists; part \(replaced by fixed\) — fixed covers it/);
   byUser(wt, 'approve', 'ship');
   assert.ok(state().approvals.ship);
+  refusedByUser(wt, /between the plan approval and the ship approval/, ...retire('other', 'fixed'));
 });
