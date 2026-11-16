@@ -93,6 +93,8 @@ Skip when tests are green, every proof is green and judged, nothing is not met, 
 
 When something is still failing after that attempt, dispatch one more fix, one tier up (`opus`), with the new logs. Only when that one fails too, stop and ask the user with AskUserQuestion, all failures in one question: Fix by hand / Accept as is (noted in the record; leaving the check stage with a red proof then takes the user's override, through an Override menu)  / Pause.
 
+**A locked proof that is itself wrong.** When the code is right and the locked proof is what is wrong, do not weaken it. Add a corrected copy with `cd <plan worktree> && cairn prove add <new-id> --covers <FR ids> --run "<command>" --files <paths> --note "<what was wrong>"` (it must cover every requirement the old one covers), run it green, then ask the user with AskUserQuestion, a menu tagged `[cairn:override <slug>]`, with the options "Override" and a keep-it option, saying which proof is wrong and why. Only after Override, run `cairn prove retire <old-id> --replaced-by <new-id> --override "<reason>"` alone: no cd, no &&, the reason in plain words with none of ; | & $ ` > < \ # * ? ~ ( ) { } [ ]. The retired proof stops running and blocking, and the ship card lists it.
+
 **Done when:** tests are green and no requirement is not met, or the user chose how to proceed.
 
 ## 6. Record the result

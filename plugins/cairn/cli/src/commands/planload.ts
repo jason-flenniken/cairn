@@ -90,7 +90,7 @@ function mergeProofs(prev: EndProofs | undefined, next: ParsedProofs, hash: stri
   const old = new Map((prev?.list ?? []).map((p) => [p.id, p]));
   const list = next.list.map((p) => {
     const o = old.get(p.id);
-    return o ? { ...p, ...(o.lock ? { lock: o.lock } : {}), ...(o.seenRed ? { seenRed: o.seenRed } : {}), ...(o.last ? { last: o.last } : {}), ...(o.added ? { added: o.added } : {}) } : p;
+    return o ? { ...p, ...(o.lock ? { lock: o.lock } : {}), ...(o.seenRed ? { seenRed: o.seenRed } : {}), ...(o.last ? { last: o.last } : {}), ...(o.added ? { added: o.added } : {}), ...(o.retired ? { retired: o.retired } : {}) } : p;
   });
   for (const o of prev?.list ?? []) if (o.added && !list.some((p) => p.id === o.id)) list.push(o);
   return { ...(prev?.required ? { required: true } : {}), hash, list, notProvable: next.notProvable };

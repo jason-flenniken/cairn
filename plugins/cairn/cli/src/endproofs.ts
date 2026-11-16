@@ -119,6 +119,6 @@ export const isDue = (p: EndProof, tasks: Task[]): boolean => tasksFor(p, tasks)
 /** The proofs a task answers for, and the other tasks each still waits on. */
 export function proofsOfTask(ep: EndProofs | undefined, t: Task, tasks: Task[]): { proof: EndProof; waitsOn: Task[] }[] {
   return (ep?.list ?? [])
-    .filter((p) => t.covers.some((c) => p.covers.includes(c)))
+    .filter((p) => !p.retired && t.covers.some((c) => p.covers.includes(c)))
     .map((proof) => ({ proof, waitsOn: tasksFor(proof, tasks).filter((x) => x.id !== t.id && x.status !== 'done') }));
 }

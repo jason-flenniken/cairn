@@ -175,6 +175,8 @@ export interface EndProof {
   expect?: 'pass';
   /** Added during the build (`cairn prove add`); listed at ship. */
   added?: { at: string; note?: string };
+  /** Set when the user chose to retire this locked proof because the proof itself was wrong; `by` is the corrected proof that replaces it. A retired proof never runs and never blocks. */
+  retired?: { at: string; by: string; reason: string };
   /** filesHash recorded when locked. */
   lock?: string;
   /** filesHash of the files when a red run was last seen: the plan approval needs it for each new proof. */
