@@ -1,6 +1,6 @@
 # Cairn: Repeatable SDLC Workflows
 
-A Claude Code plugin for an agent-driven software development lifecycle. This repository is also its marketplace, so you can install it straight from GitHub.
+A Claude Code and Codex plugin for an agent-driven software development lifecycle. This repository is also its marketplace, so you can install it straight from GitHub.
 
 cairn takes a feature from an idea to a shipped, recorded change in the same fixed steps every time:
 
@@ -14,7 +14,7 @@ A small CLI owns each plan's state, so you always know three things: where a pla
 
 ## Why it exists
 
-Workflow plugins such as Compound Engineering and Superpowers describe their stages in prose that the model may or may not follow, and they let the session that shaped a plan also judge it. That leads to six problems:
+Workflow plugins such as Compound Engineering and Superpowers describe their stages in prose that the model may or may not follow. Both now run fresh reviewers, but nothing in them stops a skipped step, and the approvals in them are things the model can type for itself. Workflows that run on prose alone lead to six problems:
 
 - Long plans drift.
 - Steps get skipped.
@@ -120,7 +120,7 @@ To choose models for Codex subagents, set `codex.models` in `.cairn/config.json`
    cairn creates a branch (`feature/<slug>`) and a worktree for the plan. If the repo has no `.cairn/config.json`, cairn detects your test and build commands from `package.json`, a `Makefile`, `pyproject.toml` and the like, asks you to confirm them, and commits the file. Then the discovery interview starts.
 2. **Answer the interview.** It asks one question at a time, each with a recommended answer. Every answer is written to the plan's `decisions.md`.
 3. **Approve the PRD**, then **approve the plan**, from the menu.
-4. **Let it build.** Phases run on their own. Tasks run in parallel, get merged, and are tested. A phase that finishes with passing tests rolls straight into the next one.
+4. **Let it build.** Phases run on their own. Tasks run in parallel, get merged, and are tested. A phase that finishes with passing tests rolls straight into the next one; a plan can mark a later phase `overlap: true` so its tasks start once their own blockers are done. When a reply announces the next step and ends the turn, a stop hook sends the plan on.
 5. **Approve the ship.** cairn writes a one-page record of what was built and why.
 
 When you're unsure what to do, run **`/cairn:next`**. It does the one correct next thing for the plan you're in, and it's the only command you need to remember.
@@ -293,7 +293,7 @@ When a review keeps flagging the same thing, the fix belongs at the source. At s
 
 The pane opens on its own at the start of every session, docked on the right in fullscreen (`/tui fullscreen`). In the normal layout it sits above the prompt as a compact summary. `/cairn-pane on|off` shows or hides it, and the choice sticks across sessions; closing it by hand turns it off too. Everything in it is read from the plan's state, so it's right even after a pause, a crash, or a new session.
 
-It has four tabs, **Now**, **History**, **Records**, and **Changelog**, and the same bar along the bottom of each.
+It has four tabs, **Now**, **History**, **Records**, and **Changelog**, plus a **Linear** tab when the repo's config has a `linear` block, and the same bar along the bottom of each.
 
 ### Now
 
@@ -373,6 +373,23 @@ Behind the scenes, the mod makes a one-time secret for each approval and the CLI
 
 **Trust model.** The approval proof and the guards keep an agent from approving its own work by accident or by habit. They are not a security boundary against an agent that sets out to get around them. The guards match command spellings, so they are best effort. Codex never re-checks input sent to a command that is already running. And a process that can write cairn's folder under `.git` can make its own proof. Treat cairn's approvals as a reliable record of what you approved, inside a session you supervise.
 
+## Running a build without you
+
+After you approve the plan, the build runs until the ship approval without asking you anything. cairn decides what it does, but your session's settings decide what it's *allowed* to do. Before you leave a build running:
+
+- **Use auto mode, not bypass.** Add deny rules for `git push --force`, deploy commands and anything that touches production. cairn merges only after your ship approval, but a deny rule holds even when a prompt doesn't.
+- **Turn on Claude Code's sandbox** for Bash, and limit network access to the hosts your build needs: your package registry, GitHub, and Linear if you use it.
+- **Keep production credentials out of the worktree.** Agents read `.env` files the same way they read code.
+- **Know what stops the build.** These stop it:
+  - proofs going green;
+  - a task still stuck after two fixes, which is set aside;
+  - the next approval;
+  - **Pause** or **Stop now**.
+
+  **Cost is shown but not yet capped.** The pane shows each agent's cost and the plan's total, and nothing stops a plan that runs long.
+
+The guards and approval proofs aren't a sandbox (see Trust model above). The sandbox and your permission rules are the hard boundary.
+
 ## Pause and resume
 
 - **Pause** (`/cairn:pause`, the pane's Pause button, or `/cairn-pause-mod`) lets running work reach a safe point, then writes `handoff.md`: what's in flight, open questions, the next action.
@@ -450,6 +467,7 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
   "setup": "npm ci",
   "test": "npm test",
   "build": "npm run build",
+  "audit": "",
   "start": "npm run dev",
   "seed": "",
   "appTypes": ["web"],
@@ -474,6 +492,10 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 | `resumeFreshAfterMinutes` | How long a pause counts as recent before resume suggests a fresh session (default 60). |
 | `fixMaxFiles` | How many files a bug fix may touch before cairn suggests a full plan (default 8). |
 | `reproTimeoutMinutes` | How long a bug repro may run (default 10). |
+| `testTimeoutMinutes` | How long one test run may take before it is stopped and reported as timed out (default 30). Proof runs use it too. |
+| `audit` | Optional. The dependency-audit command run at Check. When it is empty, cairn picks one from the lockfile. |
+| `worktreeRoot` | The folder for plan and task worktrees, relative to the repo root (default `.claude/worktrees`). |
+| `codex.models` | Codex only: a model name for each tier (`haiku`, `sonnet`, `opus`) for subagents. A tier left unset uses the session's model. |
 | `linear` | Turns on the [Linear](#linear) integration: `team`, and optional `statuses`, `foundationalLabel` (default `foundational`) and `fileFollowUps` (`ordinary` by default, `all` or `none`). |
 
 The `setup`, `test`, and `build` commands are locked when you approve the plan. If they change mid-plan, cairn asks you to re-approve.
@@ -533,9 +555,9 @@ plugins/cairn/
   hooks/            the mod: register.tsx, plus mod/ (pane, agent tracking, approvals, pause, guards)
   procedures/       the step-by-step instructions for each stage; `cairn next` names the one to follow
   skills/           thin slash-command wrappers around the procedures
-  agents/           implementer, task-, branch-, security- and plan-reviewer, challenger, prd-checker, acceptance-, direction- and visual-checker, proof-writer, recorder
-  templates/        PRD, plan, record, handoff, config, review (the REVIEW.md starter)
-  references/       CLI contract, reporting rules (plain words, output style), model tiers
+  agents/           implementer, researcher, prd-writer, plan-writer, proof-writer, task-, branch-, security- and plan-reviewer, challenger, prd-checker, acceptance-, direction- and visual-checker, recorder, linear-sender
+  templates/        PRD, product PRD, plan, proofs, record, fix record, handoff, config, review (the REVIEW.md starter)
+  references/       CLI contract, host mapping, levels, model tiers, reporting rules, autonomy, review and security checklists, Linear ticket shape
 ```
 
 - Changes to `hooks/` take effect after `/reload-plugins`.
@@ -543,7 +565,7 @@ plugins/cairn/
 - Engine limits found while building the mod are in `plugins/cairn/hooks/NOTES.md`.
 - The design history is in `docs/design.md`, and each plan's record is in `docs/cairn/plans/`.
 - To rename the plugin: `plugins/cairn/scripts/rename.sh <name>`.
-- To release: raise `version` in `plugins/cairn/.claude-plugin/plugin.json` and push to `main`. People who installed from GitHub only receive commits that change it.
+- To release: raise `version` in both `plugins/cairn/.claude-plugin/plugin.json` and `plugins/cairn/.codex-plugin/plugin.json` (a test checks they match) and push to `main`. People who installed from GitHub only receive commits that change it.
 
 ## Credits
 
