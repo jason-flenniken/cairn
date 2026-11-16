@@ -83,7 +83,7 @@ before(() => {
 after(() => rmSync(repo, { recursive: true, force: true }));
 
 test('task done refuses plan-branch commits inside the task scope, and only those', () => {
-  wt = ok(repo, 'new', 'guard', '--title', 'Guard').data!.worktree as string;
+  wt = ok(repo, 'new', 'guard', '--level', 'standard', '--no-proofs', '--title', 'Guard').data!.worktree as string;
   const dir = pd(wt, 'guard');
   ok(wt, 'decide', 'Q?', 'A', '--why', 'w');
   ok(wt, 'advance');

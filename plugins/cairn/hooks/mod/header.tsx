@@ -40,6 +40,11 @@ export function lateTail(row: CairnPlanRow, running: number): string {
   return `${step !== undefined ? ` · ${step}` : ''}${running > 0 ? ` · ${running} running` : ''}`
 }
 
+/** In Build: " · wrapping up phase", the CLI's step for the stage, after the phase text. */
+function buildStep(row: CairnPlanRow): string {
+  return row.state.stage === 'execute' && row.stepText !== undefined && row.stepText !== '' ? ` · ${row.stepText}` : ''
+}
+
 export const list = <T,>(x: unknown): T[] => (Array.isArray(x) ? (x.filter(v => v !== null && typeof v === 'object') as T[]) : [])
 export const phasesOf = (s: CairnPlanState) => list<Phase>(s.phases)
 export const tasksOf = (s: CairnPlanState) => phasesOf(s).flatMap(p => list<Task>(p.tasks))
@@ -89,7 +94,7 @@ export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumn
   const tasks = tasksOf(s)
   const at = phaseAt(s)
   const late = LATE_STAGES.includes(s.stage ?? '')
-  const where = late ? lateTail(row, running) : phases.length === 0 ? '' : at < 0 ? '' : ` · phase ${at + 1} of ${phases.length}`
+  const where = late ? lateTail(row, running) : `${phases.length === 0 || at < 0 ? '' : ` · phase ${at + 1} of ${phases.length}`}${buildStep(row)}`
   const done = tasks.filter(x => x.status === 'done').length
   const rest = row.ready?.kind !== undefined ? 'Waiting on you' : row.next?.text
   const label = [tasks.length > 0 && `${done}/${tasks.length} tasks`, s.stage === 'execute' ? etaText(row, nowMs) : rest].filter(Boolean).join(' · ')

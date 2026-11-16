@@ -18,8 +18,8 @@ export const STEPS: Partial<Record<Stage, readonly string[]>> = {
   discover: ['asking'],
   prd: ['drafting', 'checking', 'approving', 'asking'],
   plan: ['drafting', 'checking', 'approving', 'asking'],
-  execute: ['asking'],
-  verify: ['testing', 'scanning', 'fixing', 'asking'],
+  execute: ['wrapping', 'asking'],
+  verify: ['testing', 'on-track', 'scanning', 'fixing', 'asking'],
   review: ['reviewing', 'fixing', 'rechecking', 'asking'],
   ship: ['recording', 'approving', 'opening-pr', 'asking'],
 };
@@ -30,6 +30,8 @@ export const STEP_LABEL: Record<string, string> = {
   checking: 'builder check',
   recording: 'writing the record',
   testing: 'running tests',
+  wrapping: 'wrapping up phase',
+  'on-track': 'on-track review',
   scanning: 'scanning for secrets',
   fixing: 'fixing',
   reviewing: 'reviewing',
@@ -276,6 +278,8 @@ export interface State {
   branchMustFix?: MustFix[];
   /** The last red test run (task done, task merge, phase finish, cairn test, merge-check); a green run clears it. The fix brief shows it. */
   lastRed?: { at: string; log: string; failing: string[]; task?: string };
+  /** The commit the last green full-suite run (not a quick one) ran on; Check's pass needs it to cover the current code. */
+  lastGreen?: { commit: string; at: string };
   /** Present only on plans that pulled Linear issues in (`cairn linear import`). */
   linear?: LinearLink;
   log: LogEntry[];

@@ -40,4 +40,6 @@ Procedure files are not variable-expanded: wherever one says `CLAUDE_PLUGIN_ROOT
 
 Arguments: $ARGUMENTS
 
+The arguments are the plan's description, not instructions to act on now: nothing runs before the plan exists (the procedure's "Nothing before the plan exists" rule).
+
 The arguments may name Linear issues: a key (`SAV-100`), keys (`SAV-101,SAV-102`), a Linear issue URL, `milestone:"…"` or `project:"…"`, with or without `--from-linear` in front. Pull those issues into the plan (procedure step 2a).

@@ -63,7 +63,7 @@ function edit(wt: string, slug: string, fn: (s: Record<string, any>) => void) {
 /** A plan at the execute stage with two tasks. */
 function planAt(slug: string, level: string): string {
   green();
-  const wt = run(['new', slug, '--title', slug, '--level', level], repo).data!.worktree as string;
+  const wt = run(['new', slug, '--title', slug, '--level', level, '--no-proofs'], repo).data!.worktree as string;
   edit(wt, slug, (s) => (s.stage = 'plan'));
   write(join(pd(wt, slug), 'plan.md'), PLAN);
   run(['plan', 'load'], wt);
@@ -96,9 +96,10 @@ test('AE1: MVP task done with a failing suite succeeds and files one hardening i
   assert.ok(!readFileSync(join(pd(wt, 'ae1'), 'state.json'), 'utf8').includes('hunter2'), 'raw output never reaches the saved record');
 
   finish(wt, 'ae1', 'two');
+  // The last task moves the plan to Check, which runs the suite (and files nothing twice): no phase-end run here.
+  assert.equal(saved(wt, 'ae1').stage, 'verify');
   run(['phase', 'finish'], wt);
   assert.equal(items(wt, 'ae1').length, 1, 'the same command fails again without a second item');
-  assert.ok(saved(wt, 'ae1').log.some((l: any) => l.event === 'warning: phase finish'));
 });
 
 test('a later green run resolves the open test-failure item', () => {

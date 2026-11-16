@@ -50,7 +50,7 @@ before(() => {
   writeFileSync(join(repo, 'README.md'), 'hi\n');
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'init');
-  wt = run(['new', 'pausing', '--title', 'Pausing'], repo).data!.worktree as string;
+  wt = run(['new', 'pausing', '--level', 'standard', '--no-proofs', '--title', 'Pausing'], repo).data!.worktree as string;
   const dir = pd(wt, 'pausing');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'state.json'), JSON.stringify(STATE, null, 2) + '\n');

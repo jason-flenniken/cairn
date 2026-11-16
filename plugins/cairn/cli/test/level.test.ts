@@ -26,7 +26,7 @@ function mkPlan(level: string, track = 'feature'): string {
   writeFileSync(join(repo, 'README.md'), 'hi\n');
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'init');
-  return run(['new', 'lv', '--title', 'lv', '--track', track, '--level', level], repo).data!.worktree as string;
+  return run(['new', 'lv', '--title', 'lv', '--track', track, '--level', level, '--no-proofs'], repo).data!.worktree as string;
 }
 /** Act as the user through the mod, as lifecycle.test.ts does. */
 function asUser<T>(fn: () => T): T {

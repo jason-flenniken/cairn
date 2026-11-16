@@ -45,7 +45,7 @@ const toLearn = (wt: string, slug: string) => {
 };
 
 test('close refuses more than 5 open follow-ups and names them; merging three lets it pass', () => {
-  const wt = run(['new', 'many', '--title', 'Many'], repo).data!.worktree as string;
+  const wt = run(['new', 'many', '--level', 'standard', '--no-proofs', '--title', 'Many'], repo).data!.worktree as string;
   for (let i = 1; i <= 6; i++) run(['suggest', 'add', '--area', 'tests', '--where', `src/p${i}/**`, '--text', `cover case ${i}`], wt);
   toLearn(wt, 'many');
   refused(wt, /6 open follow-ups.*many:s1.*many:s6/, 'close');
@@ -60,7 +60,7 @@ test('close refuses more than 5 open follow-ups and names them; merging three le
 });
 
 test('close refuses a record with no Findings section', () => {
-  const wt = run(['new', 'nofind', '--title', 'No findings'], repo).data!.worktree as string;
+  const wt = run(['new', 'nofind', '--level', 'standard', '--no-proofs', '--title', 'No findings'], repo).data!.worktree as string;
   edit(wt, 'nofind', (s) => (s.stage = 'learn'));
   const tpl = readFileSync(join(import.meta.dirname, '../../templates/record.md'), 'utf8');
   writeFileSync(join(pd(wt, 'nofind'), 'RECORD.md'), tpl.replace(/## Findings[\s\S]*?(?=## Follow-ups)/, ''));
@@ -68,15 +68,15 @@ test('close refuses a record with no Findings section', () => {
 });
 
 test('close counts only follow-ups from the closing plan', () => {
-  const wt = run(['new', 'other', '--title', 'Other'], repo).data!.worktree as string;
+  const wt = run(['new', 'other', '--level', 'standard', '--no-proofs', '--title', 'Other'], repo).data!.worktree as string;
   for (let i = 1; i <= 6; i++) run(['suggest', 'add', '--area', 'ux', '--text', `other ${i}`], wt);
-  const wt2 = run(['new', 'quiet', '--title', 'Quiet'], repo).data!.worktree as string;
+  const wt2 = run(['new', 'quiet', '--level', 'standard', '--no-proofs', '--title', 'Quiet'], repo).data!.worktree as string;
   toLearn(wt2, 'quiet');
   assert.match(run(['close'], wt2).message, /Closed/);
 });
 
 test('a follow-up declined twice, or 61 days old, is expired, not open', () => {
-  const wt = run(['new', 'aging', '--title', 'Aging'], repo).data!.worktree as string;
+  const wt = run(['new', 'aging', '--level', 'standard', '--no-proofs', '--title', 'Aging'], repo).data!.worktree as string;
   run(['suggest', 'add', '--area', 'docs', '--text', 'declined twice'], wt);
   run(['suggest', 'add', '--area', 'docs', '--text', 'old one'], wt);
   run(['suggest', 'add', '--area', 'docs', '--text', 'fresh'], wt);
@@ -94,7 +94,7 @@ test('a follow-up declined twice, or 61 days old, is expired, not open', () => {
 });
 
 test('discovery flow: matching follow-ups found by path; picking one closes it and the rest show one decline', () => {
-  const wt = run(['new', 'found', '--title', 'Found'], repo).data!.worktree as string;
+  const wt = run(['new', 'found', '--level', 'standard', '--no-proofs', '--title', 'Found'], repo).data!.worktree as string;
   run(['suggest', 'add', '--area', 'tests', '--where', 'src/pane/**', '--text', 'pane tests'], wt);
   run(['suggest', 'add', '--area', 'ux', '--where', 'src/pane/view.ts', '--text', 'pane spacing'], wt);
   run(['suggest', 'add', '--area', 'perf', '--where', 'src/other/**', '--text', 'unrelated'], wt);

@@ -110,7 +110,7 @@ const PLAN = planWith(`${CHARGE}\n${REFUND}`);
 
 /** A feature plan taken through discover, PRD, and plan approval to execute. */
 function featureInExecute(repo: string, slug: string, plan = PLAN): { wt: string; dir: string } {
-  const wt = ok(repo, 'new', slug, '--title', slug).data!.worktree as string;
+  const wt = ok(repo, 'new', slug, '--level', 'standard', '--no-proofs', '--title', slug).data!.worktree as string;
   const dir = pd(wt, slug);
   ok(wt, 'decide', 'q', 'a');
   ok(wt, 'advance');
@@ -190,7 +190,7 @@ test('an approval made through the mod shows in the generated STATUS.md', () => 
 
 test('plan load refuses a requirement id that is not FR-<digits> and names it', () => {
   const repo = mkRepo();
-  const wt = ok(repo, 'new', 'strict', '--title', 'Strict').data!.worktree as string;
+  const wt = ok(repo, 'new', 'strict', '--level', 'standard', '--no-proofs', '--title', 'Strict').data!.worktree as string;
   const dir = pd(wt, 'strict');
   ok(wt, 'decide', 'q', 'a');
   ok(wt, 'advance');
@@ -261,9 +261,10 @@ test('task done logs each file changed outside the task scope as drift, and phas
   assert.equal(s.drift[0].task, 'charge');
   assert.match(s.drift[0].reason, /outside task "Charge" scope/);
   buildTask(wt, 'driftcheck', 'refund', { 'src/refund/b.ts': '2\n' });
-  ok(wt, 'task', 'done', 'refund');
+  // The last task moves the plan to Check and lists the out-of-scope edits there.
+  const last = ok(wt, 'task', 'done', 'refund');
   assert.equal(stateOf(dir).drift.length, 1, 'a task inside its scope adds no drift');
-  assert.match(ok(wt, 'phase', 'finish').message, /out-of-scope edit\(s\): README\.md/);
+  assert.match(last.message, /moved to Check.*out-of-scope edit\(s\): README\.md/);
 });
 
 test('task done does not add drift for a path already logged and unreviewed', () => {
@@ -309,7 +310,7 @@ test('a re-plan of an escalated fix plan refuses to drop the fix task', () => {
 
 test('cairn new gives the path and cd command, with no EnterWorktree', () => {
   const repo = mkRepo();
-  const r = ok(repo, 'new', 'hint', '--title', 'Hint');
+  const r = ok(repo, 'new', 'hint', '--level', 'standard', '--no-proofs', '--title', 'Hint');
   const wt = r.data!.worktree as string;
   assert.ok(!r.message.includes('EnterWorktree'));
   assert.ok(r.message.includes(`Worktree: ${wt}`));
@@ -319,7 +320,7 @@ test('cairn new gives the path and cd command, with no EnterWorktree', () => {
 
 test('the terminal approval hint is a runnable command: cd to the plan worktree, then the absolute bin/cairn', () => {
   const repo = mkRepo();
-  const wt = ok(repo, 'new', 'hint2', '--title', 'Hint2').data!.worktree as string;
+  const wt = ok(repo, 'new', 'hint2', '--level', 'standard', '--no-proofs', '--title', 'Hint2').data!.worktree as string;
   assert.throws(
     () => run(['approve', 'prd'], wt),
     (e: unknown) => e instanceof Refusal && e.fixes.some(f => f.includes(`cd ${wt} && ${pluginRoot()}/cli/bin/cairn approve prd --human`)),

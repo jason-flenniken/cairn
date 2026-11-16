@@ -64,7 +64,7 @@ function atPlanStop(): string {
   writeFileSync(join(repo, 'README.md'), 'hi\n');
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'init');
-  const wt = run(['new', 'billing', '--title', 'Billing'], repo).data!.worktree as string;
+  const wt = run(['new', 'billing', '--level', 'standard', '--no-proofs', '--title', 'Billing'], repo).data!.worktree as string;
   run(['decide', 'Which processor?', 'Stripe'], wt);
   run(['advance'], wt);
   writeFileSync(join(pd(wt, 'billing'), 'prd.md'), PRD);

@@ -34,7 +34,7 @@ test('records lists the active plan first, then closed plans newest first, from 
     { id: 's1', at: '2026-03-02T00:00:00Z', text: 'tidy it', area: 'quality', where: [] },
   ]);
   closed('2026-02-01-norecord', 'norecord', '2026-02-01T00:00:00Z');
-  const wt = run(['new', 'live', '--title', 'Live one'], repo).data!.worktree as string;
+  const wt = run(['new', 'live', '--level', 'standard', '--no-proofs', '--title', 'Live one'], repo).data!.worktree as string;
 
   for (const cwd of [repo, wt]) {
     const rec = run(['records', '--json'], cwd).data!.records as any[];

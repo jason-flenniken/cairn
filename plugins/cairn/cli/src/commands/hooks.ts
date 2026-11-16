@@ -12,7 +12,7 @@ import { memoryIndex } from '../memory.ts';
 import { planEntries } from './records.ts';
 import { legacyLayout } from './migrate.ts';
 import { listPlans, warnings } from './status.ts';
-import { pendingCount } from './linear.ts';
+import { awaitsDone, pendingCount } from './linear.ts';
 import { workDirIfUsed } from './brief.ts';
 import { bashVerdict, pathProtected, WHY } from '../../../hooks/mod/guard-rules.ts';
 
@@ -120,13 +120,36 @@ export function exportPath(envFile = process.env.CLAUDE_ENV_FILE): void {
   }
 }
 
+/**
+ * A line for each plan whose branch merged while nobody ran cairn, so its Linear issues are not marked Done: in a plan
+ * worktree only that plan (another session's plan is not this session's to act on), on main each one `cairn next` there
+ * routes to. Local git only, no `gh`: a hook never waits on the network. Never fails a session.
+ */
+function mergedLines(ctx: ReturnType<typeof context>): string {
+  try {
+    const line = (title: string) => `cairn: ${title}'s pull request is merged; run /cairn:next to mark its Linear issues Done.`;
+    if (ctx.plan) {
+      const dir = ctx.plan.dir;
+      const s = dir && existsSync(join(dir, 'state.json')) ? loadState(dir) : undefined;
+      return s && awaitsDone(ctx, s, true) ? line(s.title) : '';
+    }
+    return listPlans(ctx)
+      .filter((r) => r.worktree && awaitsDone(ctx, r.state, true))
+      .map((r) => line(r.state.title))
+      .join('\n');
+  } catch {
+    return '';
+  }
+}
+
 export function hookSessionStart(input: HookInput): string {
   exportPath();
   const ctx = context(input.cwd ?? process.cwd());
+  const owed = mergedLines(ctx);
   if (ctx.plan?.dir && existsSync(join(ctx.plan.dir, 'state.json'))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === 'closed') return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : '', indexFor(ctx));
+    if (s.stage === 'closed') return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : '', owed, indexFor(ctx));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     const queued = pendingCount(s);
     if (queued) lines.push(`${queued} Linear update${queued === 1 ? '' : 's'} waiting to be sent; /cairn:next sends them first.`);
@@ -136,14 +159,14 @@ export function hookSessionStart(input: HookInput): string {
       const sl = findTask(s, ctx.task);
       if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit ${DOCS_DIRS.find((d) => planRelOf(pc.plan).startsWith(`${d}/`)) ?? DOCS_DIR}/.`);
     }
-    return startOut(lines.join('\n'), indexFor(ctx));
+    return startOut(lines.join('\n'), owed, indexFor(ctx));
   }
   const active = listPlans(ctx).filter((r) => r.state.stage !== 'closed');
   if (!active.length) {
     const legacy = legacyLayout(ctx.mainRoot);
-    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(' and ')}; run \`cairn migrate\` on main to move them.` : '', indexFor(ctx));
+    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(' and ')}; run \`cairn migrate\` on main to move them.` : '', owed, indexFor(ctx));
   }
-  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), 'The user can resume one with /cairn:resume <slug> or start another with /cairn:new.'].join('\n'), indexFor(ctx));
+  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), 'The user can resume one with /cairn:resume <slug> or start another with /cairn:new.'].join('\n'), owed, indexFor(ctx));
 }
 
 /** A reply that says it is about to do the next step: "Next: I'm reading…", "Starting it now", "I'll begin the interview". */

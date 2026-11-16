@@ -60,6 +60,8 @@ export type CairnPlanRow = {
   epic?: string
   /** Linear updates cairn queued for this plan that are not sent yet; absent when none are waiting. */
   linearDue?: number
+  /** True when the plan's branch has landed in its base and its Linear Done statuses are not queued yet; the CLI works it out. */
+  mergedAwaitingDone?: boolean
 }
 
 /** One plan of `cairn records --json`: in progress first, then newest first. */
@@ -264,6 +266,8 @@ declare module 'claude-code' {
       linearBoard: CairnBoard | null
       /** The CLI's refusal for the last board read (for example no project read yet); null after a good read. */
       linearNote: string | null
+      /** The cairn version in the plugin's plugin.json, read once; null until read or when unreadable. */
+      pluginVersion: string | null
     }
   }
 }

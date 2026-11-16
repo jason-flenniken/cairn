@@ -17,10 +17,23 @@ Run `cairn status --json`. The stage must be `verify`. Any other stage: say whic
 
 **Done when:** the stage is `verify`.
 
+## 1a. The last phase's wrap-up
+The last phase finished without a suite run or an on-track check: they run here, once. When you arrive from the build, tell the user in one line: every task is merged and the plan is in Check, running the full suite first.
+
+- When `cairn status --json` shows `state.linear`, re-read the plan's issues first, exactly as `procedures/phase-end.md` step 1 describes, unless the plan reached Check through `cairn phase finish` after that refresh just ran (the `linear-sender` "phase-end refresh" in the foreground, then each change decided with the user). `cairn evidence verify pass` refuses while a change is not handled.
+- Polished: the last phase's on-track check runs after the tests, in step 2a.
+
+**Done when:** Linear changes are handled, or there is no Linear link.
+
 ## 2. Tests and build
 Run `cd <plan worktree> && cairn step testing`. Then run `cd <plan worktree> && cairn test`. It runs the repo's test command (and the build command when `build` is set) and prints the counts and the failure tail; a red run's full output goes to the log named after "Full output:". With no test command, it says so; continue.
 
 **Done when:** you hold the pass/fail counts from a run made in this step. On failure, fix in place (step 5) before continuing.
+
+## 2a. The last phase's on-track check (Polished)
+Below Polished, skip this step. Run `cd <plan worktree> && cairn step on-track`, then the on-track check for the last phase: follow `procedures/direction.md` with that phase's id, ending with `cairn evidence phase`. A red result is fixed in step 5 like any other blocking finding, then checked again; `cairn evidence verify pass` refuses while it is red.
+
+**Done when:** below Polished, or the last phase's on-track check is recorded.
 
 ## 3. Security scan and dependency audit
 Run `cd <plan worktree> && cairn step scanning`. Then read the Secrets section of `references/security-checklist.md`, and the `[deps]` section when the branch touches a manifest or lockfile. Work from the branch diff, `git diff <base>...<plan branch>`, in the plan worktree.

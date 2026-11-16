@@ -92,7 +92,7 @@ let n = 0;
 /** A plan with its first phase (FR-01, FR-02) awaiting approval. */
 function awaiting(): { wt: string; dir: string; state: () => any } {
   const slug = `p${++n}`;
-  const wt = ok(repo, 'new', slug, '--title', slug).data!.worktree as string;
+  const wt = ok(repo, 'new', slug, '--level', 'standard', '--no-proofs', '--title', slug).data!.worktree as string;
   const dir = pd(wt, slug);
   ok(wt, 'decide', 'q', 'a');
   ok(wt, 'advance');
@@ -273,4 +273,62 @@ test('a re-plan clears every recorded phase verdict, on more than one phase', ()
   assert.ok(state().phases[1].verdict);
   ok(wt, 'plan', 'load', '--replan');
   for (const p of state().phases) assert.equal(p.verdict, undefined);
+});
+
+/** The plan from awaiting(), with its first phase finished and the last phase's only task merged. */
+function lastBuilt(): { wt: string; dir: string; state: () => any; done: { message: string } } {
+  const a = awaiting();
+  report(a.dir, card({}));
+  ok(a.wt, 'evidence', 'phase');
+  ok(a.wt, 'phase', 'finish');
+  const slug = a.state().slug;
+  const swt = ok(a.wt, 'task', 'start', 'receipt').data!.worktree as string;
+  write(join(swt, 'src/receipt/index.ts'), 'export const receipt = 1;\n');
+  g(swt, 'add', '-A');
+  g(swt, 'commit', '-q', '-m', 'receipt');
+  g(a.wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', `task/${slug}/receipt`);
+  return { ...a, done: ok(a.wt, 'task', 'done', 'receipt') };
+}
+const extras = (dir: string, md: string) => write(join(dir, 'direction/extras.md'), md.replace('# Direction: core', '# Direction: extras'));
+
+test('the first phase built stays in Build; merging the last task of the last phase moves the plan to Check', () => {
+  const { state, done, wt } = lastBuilt();
+  assert.equal(state().stage, 'verify');
+  assert.equal(state().phases[1].status, 'done');
+  assert.match(done.message, /moved to Check, which runs the full suite/);
+  // An agent that still runs the old phase finish is told where the plan is, not refused.
+  assert.match(ok(wt, 'phase', 'finish').message, /in Check/);
+});
+
+test('in Check, the last phase\'s on-track check is recorded, and a red one stops verification passing', () => {
+  const { wt, dir, state } = lastBuilt();
+  extras(dir, card({ requirements: [{ ...aligned('FR-01'), verdict: 'contradicted' }] }));
+  ok(wt, 'evidence', 'phase');
+  assert.equal(state().phases[1].verdict.result, 'red');
+  refused(wt, /on-track check for "Extras" is red/, 'evidence', 'verify', 'pass');
+  extras(dir, card({ requirements: [aligned('FR-01')] }));
+  ok(wt, 'evidence', 'phase');
+  ok(wt, 'evidence', 'verify', 'pass');
+});
+
+test('Check passes only when a green full suite covers the code as it is now', () => {
+  const { wt } = lastBuilt();
+  ok(wt, 'evidence', 'verify', 'fail', '--note', 'checking the gate');
+  // A fix committed in Check after the last suite run: the suite no longer covers the code.
+  write(join(wt, 'src/receipt/index.ts'), 'export const receipt = 2;\n');
+  g(wt, 'add', '-A');
+  g(wt, 'commit', '-q', '-m', 'fix in check');
+  refused(wt, /the full suite has not passed on the current code/, 'evidence', 'verify', 'pass');
+  ok(wt, 'test');
+  ok(wt, 'evidence', 'verify', 'pass');
+});
+
+test('the wrap-up step clears when the next phase opens', () => {
+  const { wt, dir, state } = awaiting();
+  ok(wt, 'step', 'wrapping');
+  assert.equal(state().step.name, 'wrapping');
+  report(dir, card({}));
+  ok(wt, 'evidence', 'phase');
+  ok(wt, 'phase', 'finish');
+  assert.equal(state().step, undefined);
 });

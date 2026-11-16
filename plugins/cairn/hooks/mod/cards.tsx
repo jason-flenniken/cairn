@@ -27,7 +27,7 @@ export const STATUS_COLOR = { running: '#ff8700', completed: 'green', failed: 'r
 export type CardContext = { ui: Ui; nowMs: number; columns?: number; stage?: string; taskNames?: string[]; taskIssues?: Record<string, string[]>; isGrid?: boolean; model?: string }
 
 /** What a role in an agent's "<Role> · <what>" description does; a review of a task or for security says which. */
-const ROLE_STEP: Record<string, string> = { Build: 'building', Review: 'review', Fix: 'fixing', Check: 'checking', Record: 'writing the record' }
+const ROLE_STEP: Record<string, string> = { Build: 'building', Review: 'review', Fix: 'fixing', Check: 'checking', Research: 'researching', Record: 'writing the record' }
 
 /**
  * Where an agent is in the process, from its description ("Review · Cart (security)", per reporting.md):

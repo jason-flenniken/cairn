@@ -91,14 +91,14 @@ after(() => rmSync(repo, { recursive: true, force: true }));
 
 test('full lifecycle with every checkpoint', () => {
   // new
-  const r = ok(repo, 'new', 'billing', '--title', 'Billing');
+  const r = ok(repo, 'new', 'billing', '--level', 'standard', '--no-proofs', '--title', 'Billing');
   wt = r.data!.worktree as string;
   assert.equal(wt, join(repo, '.claude/worktrees/feature-billing'));
   assert.equal(g(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'feature/billing');
   assert.match(readFileSync(join(repo, '.git/info/exclude'), 'utf8'), /\.claude\/worktrees\//);
   assert.ok(existsSync(join(wt, '.setup-ran')), 'setup ran in the plan worktree');
   assert.equal(state().stage, 'discover');
-  refused(repo, /already exists/, 'new', 'billing');
+  refused(repo, /already exists/, 'new', 'billing', '--level', 'standard', '--no-proofs');
   refused(repo, /already exists \(feature\/billing\)/, 'new', 'billing', '--track', 'fix');
 
   // a hand-made branch with no plan files is not a plan: left out of the list, and the CLI acts as on main
@@ -258,9 +258,10 @@ test('full lifecycle with every checkpoint', () => {
   g(receiptWt, 'add', '-A');
   g(receiptWt, 'commit', '-q', '-m', 'receipt');
   g(wt, 'merge', '-q', '--no-ff', '-m', 'merge receipt', 'task/billing/receipt');
-  ok(wt, 'task', 'done', 'receipt');
-  ok(wt, 'phase', 'finish');
+  // The last task of the last phase moves the plan to Check by itself; Check runs the full suite.
+  assert.match(ok(wt, 'task', 'done', 'receipt').message, /moved to Check/);
   assert.equal(state().stage, 'verify');
+  assert.match(ok(wt, 'phase', 'finish').message, /already|in Check/);
 
   // verify -> review -> ship -> learn -> closed
   refused(wt, /verification has not passed/, 'advance');
@@ -288,7 +289,7 @@ test('full lifecycle with every checkpoint', () => {
 });
 
 test('override lets a refused step through and logs the reason', () => {
-  const r = ok(repo, 'new', 'spike', '--title', 'Spike');
+  const r = ok(repo, 'new', 'spike', '--level', 'standard', '--no-proofs', '--title', 'Spike');
   const swt = r.data!.worktree as string;
   byUser(swt, 'advance', '--override', 'user wants to skip the interview');
   const s = JSON.parse(readFileSync(join(pd(swt, 'spike'), 'state.json'), 'utf8'));
@@ -335,7 +336,7 @@ test('post-edit reads a Codex apply_patch: every added, updated and moved-to fil
 });
 
 test('re-plan from verify adds fix tasks, keeps progress, and re-runs verification', () => {
-  const r = ok(repo, 'new', 'fixes', '--title', 'Fixes');
+  const r = ok(repo, 'new', 'fixes', '--level', 'standard', '--no-proofs', '--title', 'Fixes');
   const fwt = r.data!.worktree as string;
   const dir = pd(fwt, 'fixes');
   ok(fwt, 'decide', 'q', 'a');
@@ -381,7 +382,7 @@ test('a hand-made branch that shares a plan slug is not that plan', () => {
     const slugs = (cwd: string) => (ok(cwd, 'status', '--all').data!.plans as { state: { slug: string } }[]).map((p) => p.state.slug);
 
     // (a) a second branch with the plan's slug is not listed twice
-    const foo = ok(r, 'new', 'foo').data!.worktree as string;
+    const foo = ok(r, 'new', 'foo', '--level', 'standard', '--no-proofs').data!.worktree as string;
     g(r, 'branch', 'fix/foo');
     assert.deepEqual(slugs(r), ['foo']);
 
@@ -396,7 +397,7 @@ test('a hand-made branch that shares a plan slug is not that plan', () => {
     g(r, 'branch', '-D', 'fix/foo');
 
     // (c) a legacy sdlc/ plan stays itself when a hand-made feature/ branch shares its slug
-    const orig = ok(r, 'new', 'leg').data!.worktree as string;
+    const orig = ok(r, 'new', 'leg', '--level', 'standard', '--no-proofs').data!.worktree as string;
     const file = join(pd(orig, 'leg'), 'state.json');
     write(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), branch: 'sdlc/leg' }));
     g(orig, 'add', '-A');

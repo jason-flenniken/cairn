@@ -21,7 +21,7 @@ before(() => {
   writeFileSync(join(repo, 'README.md'), 'hi\n');
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'init');
-  wt = run(['new', 'gone', '--title', 'Gone'], repo).data!.worktree as string;
+  wt = run(['new', 'gone', '--level', 'standard', '--no-proofs', '--title', 'Gone'], repo).data!.worktree as string;
 });
 after(() => rmSync(repo, { recursive: true, force: true }));
 
