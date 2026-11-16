@@ -122,7 +122,7 @@ const PRD_EDITED_NOTE = '**prd.md changed after you approved it; approving the p
 const WRITING_STEPS = ['drafting', 'checking', 'recording', 'asking'];
 
 /** The stop the plan is waiting on, when approving it now would pass its checks. Never throws. */
-export function readyFor(pc: { plan: { dir: string }; cfg?: Config }): Ready | undefined {
+export function readyFor(pc: { plan: { dir: string; worktree?: string }; cfg?: Config }): Ready | undefined {
   try {
     const s = loadState(pc.plan.dir);
     const file = (name: string) => join(pc.plan.dir, name);

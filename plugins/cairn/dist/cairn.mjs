@@ -11688,7 +11688,7 @@ function foundationalSafe(s, pc) {
   }
 }
 function readyRow(r, ctx) {
-  const ready = r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : void 0;
+  const ready = r.worktree ? readyFor({ plan: { dir: r.dir, worktree: r.worktree }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : void 0;
   const st = r.state.step;
   const asked = st !== void 0 && st.stage === r.state.stage && (st.name === "approving" || st.name === "asking");
   return { ready, needsUser: ready !== void 0 || asked };

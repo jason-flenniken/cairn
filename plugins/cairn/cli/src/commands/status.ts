@@ -136,7 +136,7 @@ function foundationalSafe(s: State, pc: PlanCtx): boolean {
 
 /** A row's `ready` and `needsUser`: the human is wanted when a document waits, or the plan is asking or at its approval stop. */
 function readyRow(r: { state: State; worktree?: string; dir: string }, ctx: Ctx) {
-  const ready = r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined;
+  const ready = r.worktree ? readyFor({ plan: { dir: r.dir, worktree: r.worktree }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined;
   const st = r.state.step;
   const asked = st !== undefined && st.stage === r.state.stage && (st.name === 'approving' || st.name === 'asking');
   return { ready, needsUser: ready !== undefined || asked };
