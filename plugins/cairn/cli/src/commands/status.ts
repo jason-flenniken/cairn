@@ -13,7 +13,7 @@ import { hashText, pluginRoot, readText, Refusal, withLock } from '../util.ts';
 import { refreshMemory } from './memory.ts';
 import { formatUsage, planUsage } from '../usage.ts';
 import { restack } from './merge.ts';
-import { prdEditedSinceApproval, readyFor } from './stages.ts';
+import { prdEditedSinceApproval, readyCheck, readyFor } from './stages.ts';
 import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from './suggest.ts';
 import { isFoundational, linearConfig, takenIssues } from '../linear.ts';
 import { allTasks } from '../ready.ts';
@@ -134,12 +134,17 @@ function foundationalSafe(s: State, pc: PlanCtx): boolean {
   }
 }
 
-/** A row's `ready` and `needsUser`: the human is wanted when a document waits, or the plan is asking or at its approval stop. */
+/**
+ * A row's `ready` and `needsUser`: the human is wanted when a document waits, or the plan is asking or at its approval stop.
+ * The check gets the same full plan context `cairn status` and `cairn approve` build, so the menu and pane (which read this
+ * listing) offer exactly the stops the approval accepts. `readyError` says why the check itself failed.
+ */
 function readyRow(r: { state: State; worktree?: string; dir: string }, ctx: Ctx) {
-  const ready = r.worktree ? readyFor({ plan: { dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) }) : undefined;
+  const pc: PlanCtx | undefined = r.worktree ? { ctx, plan: { slug: r.state.slug, worktree: r.worktree, dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) } : undefined;
+  const { ready, error } = pc ? readyCheck(pc) : {};
   const st = r.state.step;
   const asked = st !== undefined && st.stage === r.state.stage && (st.name === 'approving' || st.name === 'asking');
-  return { ready, needsUser: ready !== undefined || asked };
+  return { ready, ...(error ? { readyError: error } : {}), needsUser: ready !== undefined || asked };
 }
 
 /**

@@ -6,7 +6,7 @@ const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const TOKEN_PREFIX = '/repo/.git/cairn/approver-'
 
 type Run = { argv: readonly string[]; init?: { cwd?: string; env?: Record<string, string>; timeoutMs?: number } }
-type Plan = { slug: string; stage: string; approvals?: Record<string, unknown>; phases?: unknown[]; worktree?: string; ready?: { kind: string } }
+type Plan = { slug: string; stage: string; approvals?: Record<string, unknown>; phases?: unknown[]; worktree?: string; ready?: { kind: string }; readyError?: string }
 
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -43,7 +43,7 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
     if (args.join(' ') === 'status --all --json') {
       // A plan at an unapproved stop is ready unless the fixture says `ready: undefined`.
       const rows = plans.map(p => {
-        const { worktree, ready, ...rest } = p
+        const { worktree, ready, readyError, ...rest } = p
         const atStop = ['prd', 'plan', 'ship'].includes(p.stage) && !p.approvals?.[p.stage]
         return {
           state: { approvals: {}, phases: [], ...rest },
@@ -51,6 +51,7 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
           worktree,
           next: {},
           ready: 'ready' in p ? ready : atStop ? { kind: p.stage } : undefined,
+          ...(readyError !== undefined ? { readyError } : {}),
         }
       })
       return answer(0, JSON.stringify({ ok: true, plans: rows, modActive: true }))
@@ -227,6 +228,16 @@ describe('menu approval (FR-02)', () => {
     expect(approveRuns()).toEqual([])
     expect(got.context?.join('\n')).toMatch(/not waiting for prd approval/)
     expect(toasts.join('\n')).toMatch(/not waiting for prd approval/)
+  })
+
+  test('a stop whose ready check failed approves nothing and says the reason', async ($, on) => {
+    const { approveRuns, toasts } = world(on, [{ slug: 'shop', stage: 'plan', worktree: '/wt/shop', ready: undefined, readyError: 'git ls-files failed' }])
+    const q = 'Approve? [cairn:approve plan shop]'
+    dialog(on, { [q]: 'Approve' })
+    const got = await $.tool.call(ask(q))
+    expect(approveRuns()).toEqual([])
+    expect(got.context?.join('\n')).toMatch(/could not be checked for plan approval \(git ls-files failed\)/)
+    expect(toasts.join('\n')).toMatch(/git ls-files failed/)
   })
 
   test('a secret file that cannot be written runs nothing and says the approval failed', async ($, on) => {

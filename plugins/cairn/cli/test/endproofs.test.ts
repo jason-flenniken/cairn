@@ -125,6 +125,9 @@ test('proofs: required before the plan approval, seen red, locked, add-only, and
   const red = ok(wt, 'prove');
   assert.match(red.message, /0 of 2 pass/);
   assert.match(red.message, /total {2}FAIL/);
+  // The pane and the approval menu read the all-plans listing: it must offer the stop too.
+  const row = (ok(repo, 'status', '--all').data!.plans as { state: { slug: string }; ready?: { kind: string } }[]).find((r) => r.state.slug === 'shop');
+  assert.equal(row?.ready?.kind, 'plan', 'status --all offers a plan with proofs for approval');
   byUser(wt, 'approve', 'plan');
   assert.ok(state().endProofs.list.every((p: { lock?: string }) => p.lock), 'every proof is locked at the plan approval');
   ok(wt, 'advance');

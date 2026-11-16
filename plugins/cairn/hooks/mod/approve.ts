@@ -130,7 +130,7 @@ function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promi
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 export type PlanState = { slug?: string; stage?: string; approvals?: Record<string, unknown> }
-type PlanRow = { state?: PlanState; worktree?: string; ready?: { kind?: string } }
+type PlanRow = { state?: PlanState; worktree?: string; ready?: { kind?: string }; readyError?: string }
 
 /** Every plan, from `cairn status --all --json` run where the session is. */
 async function planRows($: EngineInterface): Promise<PlanRow[]> {
@@ -186,6 +186,7 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind, fr
       fireApproved(kind, slug)
       return undefined
     }
+    if (row.readyError !== undefined) return `cairn: plan "${slug}" could not be checked for ${kind} approval (${row.readyError}), so nothing was approved.`
     return `cairn: plan "${slug}" is not waiting for ${kind} approval, so nothing was approved.`
   }
   const ran = await cairnWithSecret($, ['approve', kind], row.worktree).catch((err: unknown) => message(err))
