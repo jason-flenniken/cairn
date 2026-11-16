@@ -41,10 +41,17 @@ A reply with no tool call ends your turn, so it is a stop. Put every progress li
 ## Refusals
 When the CLI refuses a command (exit code 2), read what it says is missing, do that, and rerun. An approval refusal is fixed and approved again, never overridden from a procedure.
 
+An approval answered in the menu is recorded before the menu's answer reaches you: read `state.approvals` once, right away. When a cairn note says the approval was not recorded, ask the tagged approval menu once more; when the note says the session may run an outdated cairn, tell the user to restart the session. Never end a turn asking the user to press Approve in the pane: an approval from the pane continues the chat by itself. Give the `--human` terminal command only when `modActive` is false.
+
 A refusal that the user may choose to overrule gets an Override menu: AskUserQuestion with `[cairn:override <slug>]` in the question text, and an option labeled exactly "Override". Rerun the command with `--override "<reason>"` only after the user picks Override, and report that an override was used.
 
 ## Agent titles
-Every `Agent` call sets `description` to `"<Role> · <task name>"`, where Role is one of Build, Review, Fix, Check, Record. The pane shows it as the card title. Examples: "Build · Cart API", "Review · Cart API", "Fix · Cart API", "Check · acceptance", "Record · completion".
+Every `Agent` call sets `description` to `"<Role> · <task name>"`, where Role is one of Build, Review, Fix, Check, Research, Record. The pane shows it as the card title. Examples: "Build · Cart API", "Review · Cart API", "Fix · Cart API", "Check · acceptance", "Research · payment providers", "Record · completion".
+
+Check is also the name of the stage after Build, so the Check role is only for work in that stage (acceptance, screenshots). Research in discover or plan is "Research · <topic>"; an on-track check during Build is "Review · on-track <phase>".
+
+## Build and Check
+In anything the user reads, the end of a phase during Build is "wrapping up phase N" (its full suite, and the on-track check at Polished). Never call it "checks" or "the check": the user reads that as the Check stage. Once every task is merged, the plan is in Check; say so ("All 14 tasks are merged; the plan is in Check, running the full suite"). Never say the plan is in Check, or about to run its checks, while the pane still shows Build.
 
 ## Suggestions
 Quality work worth doing later is logged, not argued about now: `cairn suggest add --area <tests|security|perf|quality|ux|docs> --where <glob> --text "…" --from <source>`. Log it in one line and move on. The count shows up in the phase summary, at ship, and in `/cairn:suggestions`.

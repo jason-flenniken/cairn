@@ -39,7 +39,7 @@ const edit = (wt: string, slug: string, fn: (s: Record<string, any>) => void) =>
 
 /** A feature plan at learn with a valid record and a code change. */
 function learnPlan(slug: string, root = repo): string {
-  const wt = run(['new', slug, '--title', `Plan ${slug}`], root).data!.worktree as string;
+  const wt = run(['new', slug, '--level', 'standard', '--no-proofs', '--title', `Plan ${slug}`], root).data!.worktree as string;
   edit(wt, slug, (s) => (s.stage = 'learn'));
   copyFileSync(join(import.meta.dirname, '../../templates/record.md'), join(pd(wt, slug), 'RECORD.md'));
   run(['decide', 'Which store?', 'Use files', '--why', 'simple'], wt);

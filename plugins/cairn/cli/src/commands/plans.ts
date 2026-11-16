@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { CONFIG_REL, loadConfig, worktreeRoot } from '../config.ts';
+import { loadConfig, worktreeRoot } from '../config.ts';
 import { commitPath, git, gitOk, gitTry } from '../git.ts';
 import { CAIRN_DIR, DOCS_DIR } from '../paths.ts';
 import { PLANS_DIR, planBranch, planBranchesFor, planDirName, worktreeName, type Ctx } from '../locate.ts';
@@ -37,10 +37,23 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   const title = typeof opts.title === 'string' ? opts.title : slug;
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
   if (typeof opts.level === 'string' && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(', ')}`);
-  const badDefault = cfg.defaultLevel !== undefined && !isLevel(cfg.defaultLevel);
-  const level: Level = typeof opts.level === 'string' ? (opts.level as Level) : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : 'standard';
   if (opts.proofs && opts['no-proofs']) throw new CliError('use --proofs or --no-proofs, not both');
-  const proofs = opts.proofs ? true : opts['no-proofs'] ? false : cfg.proofs === 'on';
+  // A feature plan starts only after the user was asked how much rigor it needs and whether to prove the end state.
+  // The config's defaultLevel and proofs only pick the recommended answer in the procedure; they never answer for the user.
+  if (track === 'feature') {
+    const needLevel = typeof opts.level !== 'string';
+    const needProofs = !opts.proofs && !opts['no-proofs'];
+    if (needLevel || needProofs) {
+      const missing = [...(needLevel ? ['--level mvp|standard|polished'] : []), ...(needProofs ? ['--proofs or --no-proofs'] : [])];
+      throw new Refusal(`a plan starts only after the user has been asked how much rigor it needs and whether to prove the end state; missing ${missing.join(' and ')}`, [
+        'ask the user the level question and the proofs question (procedures/new.md, steps 4 and 4a)',
+        `then run cairn new ${slug} again with both flags: --level <mvp|standard|polished> and --proofs or --no-proofs`,
+        'do no other work until the plan exists',
+      ]);
+    }
+  }
+  const level = opts.level as Level;
+  const proofs = opts.proofs === true;
 
   let wt: string;
   if (opts['no-worktree']) {
@@ -62,7 +75,7 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   state.cairnVersion = pluginVersion();
   if (stackedOn) state.stackedOn = stackedOn;
   if (track === 'feature') {
-    // Proofs are chosen per plan at the start: --proofs or --no-proofs, else the repo's default.
+    // Level and proofs are the user's answers, passed as required flags.
     if (proofs) state.endProofs = { required: true, list: [], notProvable: [] };
     log(state, 'proofs', proofs ? 'on' : 'off');
     state.level = level;
@@ -74,7 +87,6 @@ export function cmdNew(ctx: Ctx, slug: string | undefined, opts: Opts): Result {
   return {
     message: [
       `Started plan "${title}" on ${branch} (from ${base}${stackedOn ? `, stacked on plan ${stackedOn.slug}` : ''}).${setup}`,
-      ...(badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(', ')}; using standard.`] : []),
       `Worktree: ${wt}`,
       ...(track === 'feature' ? [proofs ? 'Proofs: on. The plan approval needs runnable proofs of the end state, seen failing.' : 'Proofs: off.'] : []),
       `The plan is ready. Continue with /cairn:next from where you are.`,

@@ -127,7 +127,7 @@ function world(level?: string) {
       delete process.env.CAIRN_APPROVER;
     }
   };
-  const wt = run(['new', 'billing', '--title', 'Billing', ...(level ? ['--level', level] : [])], repo).data!.worktree as string;
+  const wt = run(['new', 'billing', '--title', 'Billing', '--level', level ?? 'standard', '--no-proofs'], repo).data!.worktree as string;
   const dir = pd(wt, 'billing');
   run(['decide', 'Which?', 'This', '--why', 'because'], wt);
   run(['advance'], wt);

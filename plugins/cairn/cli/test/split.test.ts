@@ -55,7 +55,7 @@ before(() => {
 after(() => rmSync(repo, { recursive: true, force: true }));
 
 test('a v0.1 state.json without the v0.2 fields loads and status renders it byte-for-byte as before the split', () => {
-  const wt = run(['new', 'legacy', '--title', 'Legacy'], repo).data!.worktree as string;
+  const wt = run(['new', 'legacy', '--level', 'standard', '--no-proofs', '--title', 'Legacy'], repo).data!.worktree as string;
   const dir = pd(wt, 'legacy');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'state.json'), JSON.stringify(V01_STATE, null, 2) + '\n');

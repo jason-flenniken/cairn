@@ -4,7 +4,7 @@ Orchestrate the current phase: start every ready task, build it, review it, merg
 
 Talk to the user per `references/reporting.md`; model choices follow `references/model-tiers.md`. The build runs without asking: read `references/autonomy.md` once. It says what you decide alone, when a task is set aside, and the one stop. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
-**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, run `cd <plan worktree> && cairn step clear`; Build has no other step.
+**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, run `cd <plan worktree> && cairn step clear`; while tasks run, Build has no other step.
 
 You stay at the repo root. The session is not locked to a worktree, so your subagents can edit and commit in task worktrees. The plan lives in its own worktree on the plan branch (from `cairn status --json`, `state.branch`). You and the steward agents (the writers and the `linear-sender`) run `cairn`; implementers and reviewers never do, and never touch `docs/cairn/`. You are the only one who merges. Every `Agent` call sets `description` to "<Role> · <task name>" (Build, Review, Fix, Check, Record), per `references/reporting.md`.
 
@@ -93,7 +93,7 @@ After every completion, return to step 3. Make the pause check between rounds.
 
 When `cairn ready` is empty, no agent is running, and a task is set aside (`blocked`), this is the one stop: ask about every set-aside task and held question together, as `references/autonomy.md` describes, then act on the answers and return to step 3.
 
-When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks. Run `cd <plan worktree> && cairn next --json`, follow the procedure it names (phase-end for a feature plan, review for a fix plan).
+When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks. Run `cd <plan worktree> && cairn next --json`, follow the procedure it names (phase-end for a feature plan, review for a fix plan). When the merge of the last task said the plan moved to Check, it names Check: follow it (its first step tells the user).
 
 ## Rare cases
 Read `procedures/execute-cases.md` only when one of these happens: an implementer returns `NEEDS_CONTEXT` or `BLOCKED`, `cairn task merge` refuses or conflicts, tests are red after the merge, a task is blocked, or the plan is paused.

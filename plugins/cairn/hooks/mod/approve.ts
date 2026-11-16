@@ -6,6 +6,8 @@ import type { CairnReadBack, CairnRun } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
 import { claimPlan, namedPlan, ownPlan } from './own.ts'
+import { wakeChat } from './pause.ts'
+import { pluginVersion } from './util.ts'
 
 export type Kind = 'prd' | 'plan' | 'ship'
 export type Tag = { kind?: Kind; slug: string; question: string; override?: true; level?: true }
@@ -169,8 +171,10 @@ function fireApproved(kind: Kind, slug: string): void {
  * Approves `kind` on plan `slug` with the secret, or says why not: the one approval path, shared by
  * the menu answer, the pane's Approve button and /cairn-approve. Each attempt gets its own one-time secret.
  * Only a stop the CLI reports ready is approved. A stop already approved says nothing (undefined), so a second pass is silent.
+ * `from` names where an approval came from when it was not the chat's own menu answer ("the pane", "/cairn-approve"):
+ * the chat is not waiting on those, so a recorded approval then sends it a message to carry on.
  */
-export async function approveAs($: EngineInterface, slug: string, kind: Kind): Promise<string | undefined> {
+export async function approveAs($: EngineInterface, slug: string, kind: Kind, from?: string): Promise<string | undefined> {
   const rows = await planRows($)
   const row = rows.find(p => p.state?.slug === slug)
   if (row?.state === undefined) return `cairn: no plan "${slug}", so nothing was approved.`
@@ -194,9 +198,19 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind): P
       fireApproved(kind, slug)
       return undefined
     }
+    // The CLI found no proof from this session's cairn: the likely cause is an outdated cairn in this session,
+    // not anything the user can fix in a terminal.
+    if (said.includes('has no proof that one did')) {
+      // A pane press or /cairn-approve shows the person a toast: no instruction meant for the model there.
+      if (from !== undefined) return `cairn: ${slug} ${kind} approval was not recorded: this session's cairn (version ${(await pluginVersion($)) ?? 'unknown'}) looks outdated. Restart the session and approve again.`
+      return `cairn: ${slug} ${kind} approval was not recorded: the CLI got no proof from this session's cairn (version ${(await pluginVersion($)) ?? 'unknown'}). This usually means the session runs an outdated cairn: restart the session, then ask the approval menu again. Do not send the user to the terminal.`
+    }
     return `cairn: ${slug} ${kind} approval refused: ${said}`
   }
   fireApproved(kind, slug)
+  if (from !== undefined) {
+    wakeChat($, `cairn: the ${kind === 'ship' ? 'ship' : kind === 'prd' ? 'PRD' : 'plan'} approval for ${slug} is recorded (from ${from}). Continue the plan: run cairn next in its worktree.`)
+  }
   return `cairn: ${slug}: ${said}`
 }
 

@@ -105,6 +105,19 @@ describe('where an agent is in the process', () => {
     await ui.unmount()
   })
 
+  test('a research agent reads "researching" under its topic', async ($, on) => {
+    const { clock } = world(on, { rows: [row(plan({ stage: 'discover' }), WT)] })
+    on('agent.spawn', () => ({ model: 'sonnet', agentId: 'agent-1' }))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.agent.spawn({ prompt: 'p', description: 'Research · payment providers', subagentType: 'cairn:researcher' })
+    await clock.advance(1_000)
+    const text = await drawn(ui)
+    expect(text).toContain('Discover · researching')
+    expect(text).toContain('Payment providers')
+    await ui.unmount()
+  })
+
   test('at the Review stage a whole-branch reviewer reads Review · review under "Whole branch"', async ($, on) => {
     const { clock } = world(on, { rows: [row(plan({ stage: 'review' }), WT)] })
     on('agent.spawn', () => ({ model: 'opus', agentId: 'agent-1' }))
@@ -480,7 +493,7 @@ describe('the Main card in the new frame (FR-09, FR-10, FR-12, FR-16)', () => {
     await ui.unmount()
   })
 
-  test('running cards come first, oldest first, above finished ones; a done card lingers 60 s, a failed one 120 s', async ($, on) => {
+  test('running cards come first, oldest first, above finished ones; a finished card leaves the Now tab after 30 s', async ($, on) => {
     const { clock } = world(on, { rows: [row(EXECUTE, WT)] })
     let n = 0
     on('agent.spawn', () => ({ model: 'sonnet', agentId: `agent-${++n}` }))
@@ -496,9 +509,9 @@ describe('the Main card in the new frame (FR-09, FR-10, FR-12, FR-16)', () => {
     await $.turn.complete({ turnId: 'b', agentId: 'agent-2', reason: 'error', answer: '', durationMs: 1 } as never)
     await clock.advance(1_000)
     expect(await tops()).toEqual(['Main', '3', '2', '1'])
-    await clock.advance(59_500)
-    expect(await tops()).toEqual(['Main', '3', '2'])
-    await clock.advance(60_000)
+    await clock.advance(25_000)
+    expect(await tops()).toEqual(['Main', '3', '2', '1'])
+    await clock.advance(5_000)
     expect(await tops()).toEqual(['Main', '3'])
     await ui.unmount()
   })

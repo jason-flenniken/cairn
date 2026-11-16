@@ -4,6 +4,11 @@ Start a feature plan: title, slug, repo config, branch and worktree. Then contin
 
 Templates live in `templates/`, next to this `procedures/` folder (`${CLAUDE_PLUGIN_ROOT}/templates/<file>`). Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
+## Nothing before the plan exists
+Until `cairn new` has exited 0, run only steps 1 to 5 (and 2a with `--from-linear`), in order. That means no reading of documents the arguments point at, no research, no agents, no edits, no tests, no brainstorming and no Claude Code plan-mode planning. The arguments are the plan's description, even when they ask to read, discuss or brainstorm something: take the title from them and hand them on to discover, whose interview and research are where that discussion happens (discover reads the documents they name). The level and proofs questions (steps 4 and 4a) are always asked; the CLI refuses to create a feature plan without both answers.
+
+If the session is in plan mode, say in one line that cairn writes the plan itself and ask the user to leave plan mode (shift+tab), then continue.
+
 ## 1. Check
 Run `cairn status --json`.
 - On a plan branch (one that holds `docs/cairn/plans/<date>-<slug>/state.json`, such as `feature/<slug>`, `fix/<slug>`, or `task/<slug>/<task>`), tell the user a plan is already active, name it, and stop. Offer `/cairn:next` to continue it.
@@ -89,7 +94,7 @@ With `--from-linear`, first check whether the work can start alongside another p
 - Wait for it to merge: start from main as usual.
 When the work does not fit one plan (its blockers sit in several plans), or the user waits, start from main.
 
-Run `cairn new <slug> --title "<title>" --level <mvp|standard|polished> --proofs` (or `--no-proofs`, from step 4a), adding `--after <plan slug>` when the user chose to start on that plan's branch. `--after` refuses unless that plan is built (verify or later, or every task done) and not closed, and with `--track fix`; pass on its message when it refuses. The output prints the plan worktree path.
+Run `cairn new <slug> --title "<title>" --level <mvp|standard|polished> --proofs` (or `--no-proofs`, from step 4a). Both flags are required for a feature plan: the command refuses without the level from step 4 and one proofs flag from step 4a, so do not run it before you hold both answers. Add `--after <plan slug>` when the user chose to start on that plan's branch. `--after` refuses unless that plan is built (verify or later, or every task done) and not closed, and with `--track fix`; pass on its message when it refuses. The output prints the plan worktree path.
 
 **Done when:** the command exits 0 and you have the worktree path.
 

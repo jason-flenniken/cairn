@@ -15,9 +15,9 @@ import { gitLine, readGit, startGit, trackGit } from './git.ts'
 import { linearRows, stripControl } from './linear.tsx'
 import { isActive, list, waitingOn, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task, type Ui } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
-import { act, cells, clean, message } from './util.ts'
-import { pause, plan, resume, stopNow, turnRunning } from './pause.ts'
-import { ownPlan } from './own.ts'
+import { act, cells, clean, message, pluginVersion, shownVersion } from './util.ts'
+import { flushWakes, hasWakes, pause, plan, resume, stopNow, turnRunning, wakeChat } from './pause.ts'
+import { lastOwnPlan, ownPlan } from './own.ts'
 import { inlineUsage, install as installUsage, limitsLine, modelLine, modelName, planLine, readUsage } from './usage.ts'
 import { primeLedger, readPlanUsage, trackLedger } from './ledger.ts'
 
@@ -65,11 +65,11 @@ const planDir = (r: CairnPlanRow) => r.dir ?? `${r.worktree}/docs/cairn/plans/${
  * The docked bar's lines: the git line, the usage lines, then the stage steps at the bottom, with a
  * dim rule between each group shown. Empty lines and groups are left out.
  */
-function docked(git: BarLine, usage: BarLine[], steps: BarLine[], columns: number, isGrid: boolean): BarLine[] {
+function docked(git: BarLine, usage: BarLine[], steps: BarLine[], columns: number, isGrid: boolean, tail: BarLine[] = []): BarLine[] {
   // Off a grid of cells a run of rules wraps or falls short, so the groups part with a blank row instead.
   const rule: BarLine = isGrid ? [{ text: '─'.repeat(columns), dim: true }] : []
   const groups = [[git], usage, steps].map(g => g.filter(line => line.length > 0)).filter(g => g.length > 0)
-  return groups.flatMap((g, i) => (i === 0 ? g : [rule, ...g]))
+  return [...groups.flatMap((g, i) => (i === 0 ? g : [rule, ...g])), ...tail]
 }
 
 const stateFile = (r: CairnPlanRow) => `${planDir(r)}/state.json`
@@ -151,6 +151,29 @@ async function showStatus($: EngineInterface, v: CairnView): Promise<void> {
   $.ui.status(text)
 }
 
+// Plans this session already told the chat are merged, so each is told once (also kept in $.store across a reload).
+const mergeTold = new Set<string>()
+const MERGE_CHECK_MS = 30_000
+let mergeCheckedAt = 0
+
+/**
+ * The session's own plan has landed in its base but its Linear Done statuses are not queued: wake the chat once
+ * so it runs the step that marks them. Another session's plan is never announced here.
+ */
+async function wakeMerged($: EngineInterface, v: CairnView): Promise<void> {
+  // Only the plan this session itself worked on (stored per session id), closed or not: a plan closes before its pull
+  // request merges. Never the fallback guess of the shown plan, which can be another session's.
+  const slug = await lastOwnPlan($)
+  const own = slug === undefined ? undefined : v.plans.find(r => r.state.slug === slug && r.mergedAwaitingDone === true)
+  if (own === undefined) return
+  const key = `merged-told:${common ?? ''}:${own.state.slug}`
+  if (mergeTold.has(key)) return
+  mergeTold.add(key)
+  if ((await $.store.get(key).catch(() => undefined)) === 'yes') return
+  await $.store.set(key, 'yes').catch(() => undefined)
+  wakeChat($, `cairn: ${clean(own.state.title ?? own.state.slug)}'s pull request is merged. Run cairn next in its worktree to mark its Linear issues Done.`)
+}
+
 /** Re-reads every plan into the view; false, keeping the last good view, when the read failed. */
 async function refresh($: EngineInterface): Promise<boolean> {
   const plans = await readPlans($)
@@ -164,6 +187,7 @@ async function refresh($: EngineInterface): Promise<boolean> {
   const next: CairnView = { plans, here: await ownPlan($, plans) }
   await update($, view, () => next)
   await showStatus($, next)
+  await wakeMerged($, next).catch(() => undefined)
   const isSetUp = await hasLinear($, plans.find(p => p.state.slug === next.here)?.worktree)
   if (isSetUp !== (await read($, linearSetup))) await update($, linearSetup, () => isSetUp)
   const shown = await read($, tab)
@@ -186,6 +210,20 @@ async function poll($: EngineInterface): Promise<void> {
     const isRunning = turnRunning()
     if ((await read($, isTurnRunning)) !== isRunning) await update($, isTurnRunning, () => isRunning)
     const current = await read($, view)
+    if ((await shownVersion($)) === undefined) await pluginVersion($)
+    // A message for the chat that could not go out while a turn ran or the engine refused it goes out now.
+    if (hasWakes()) flushWakes($)
+    // A plan with its pull request open can merge with no file of its own changing: look again every so often. The
+    // session's own plan counts closed too: it closes before its pull request merges.
+    const ownSlug = (await lastOwnPlan($)) ?? current?.here
+    const own = current?.plans.find(r => r.state.slug === ownSlug)
+    if (own?.prOpen === true && !mergeTold.has(`merged-told:${common ?? ''}:${own.state.slug}`)) {
+      const at = await $.clock.now()
+      if (at - mergeCheckedAt >= MERGE_CHECK_MS) {
+        mergeCheckedAt = at
+        seen = undefined
+      }
+    }
     // Working agents and the clock change the status line without any file changing.
     if (current !== null) {
       await showStatus($, current)
@@ -252,6 +290,7 @@ export async function onSessionStart($: EngineInterface, _e: SessionStartInput):
   await primeLedger($)
   await startActive($)
   startGit()
+  await pluginVersion($)
   // Outside a git repo there are no plans, but the agent cards still apply: the pane opens anyway.
   await findRepo($)
   ticking?.cancel()
@@ -287,7 +326,7 @@ async function approveCommand($: EngineInterface, arg: string): Promise<string> 
   const waiting = found.ready?.kind
   if (waiting === undefined) return `cairn: nothing is ready for approval on ${state.slug}.`
   if (arg !== '' && arg !== waiting) return `cairn: ${state.slug} is waiting for ${waiting} approval, not ${arg}; nothing was approved.`
-  return (await confirmAndApprove($, state.slug, waiting)) ?? `cairn: ${state.slug} ${waiting} is already approved.`
+  return (await confirmAndApprove($, state.slug, waiting, '/cairn-approve')) ?? `cairn: ${state.slug} ${waiting} is already approved.`
 }
 
 /** /cairn-level: asks which level for the session's plan; the menu offers only what the CLI would accept. */
@@ -405,6 +444,7 @@ export function install(on: On): void {
     const othersRows = isInline && othersCount > 0 ? 1 : 0
     // Set by the plan view when its agents and other-plans lines merge into one row; the other-plans line then is not drawn alone.
     let othersFolded = false
+    const version = await shownVersion($)
     const barLines: BarLine[] = isInline
       ? step.length === 0
         ? []
@@ -415,6 +455,7 @@ export function install(on: On): void {
           here === undefined ? [] : stageSteps(here.state, here.prOpen, e.props.bodyColumns - 2),
           e.props.bodyColumns - 2,
           isGrid,
+          version === undefined ? [] : [[{ text: `cairn ${version}`, dim: true }]],
         )
 
     /**

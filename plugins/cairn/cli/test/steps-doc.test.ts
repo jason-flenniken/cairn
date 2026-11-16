@@ -38,6 +38,7 @@ test('procedures that ask a blocking question run cairn step asking, and say how
   for (const file of ['execute', 'phase-end', 'discover']) {
     const src = read(`procedures/${file}.md`);
     assert.match(src, /cd <plan worktree> && cairn step asking/, file);
-    assert.match(src, /cd <plan worktree> && cairn step clear/, file);
+    // The phase end goes back to its own step; the others have none to go back to.
+    assert.match(src, file === 'phase-end' ? /cd <plan worktree> && cairn step wrapping/ : /cd <plan worktree> && cairn step clear/, file);
   }
 });

@@ -1,16 +1,19 @@
 import type { Ctx } from '../locate.ts';
-import { log } from '../state.ts';
 import { CliError, now, readText, Refusal } from '../util.ts';
-import { git } from '../git.ts';
 import { computeVerdict, parseScorecard } from '../direction.ts';
 import { currentPhase } from '../ready.ts';
 import { gate, mutate, planCtx, planFile, type Opts, type Result } from '../shared.ts';
+import { git, gitOk } from '../git.ts';
+import { cairnPathspecExcludes } from '../paths.ts';
+import { levelOf, loadState, log } from '../state.ts';
 
 function cmdEvidencePhase(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
   return mutate(pc, 'phase direction verdict', (s) => {
-    const phase = currentPhase(s);
-    if (s.stage !== 'execute' || !phase || phase.status !== 'awaiting_approval') throw new Refusal('no phase is built and waiting to finish', ['finish the phase\'s tasks first (cairn ready / cairn task done)']);
+    // In Build, the phase built and waiting to finish; in Check, the last phase, whose on-track check runs there.
+    const phase = s.stage === 'verify' ? s.phases.at(-1) : currentPhase(s);
+    const ready = s.stage === 'verify' ? !!phase : s.stage === 'execute' && phase?.status === 'awaiting_approval';
+    if (!phase || !ready) throw new Refusal('no phase is built and waiting to finish', ['finish the phase\'s tasks first (cairn ready / cairn task done)']);
     const rel = `direction/${phase.id}.md`;
     const md = readText(planFile(pc, rel));
     if (md === undefined) throw new Refusal(`${rel} does not exist`, ['run the direction check and write the report with a cairn-direction scorecard']);
@@ -33,10 +36,22 @@ export function cmdEvidence(ctx: Ctx, kind: string | undefined, result: string |
   if ((kind !== 'verify' && kind !== 'review') || (result !== 'pass' && result !== 'fail'))
     throw new CliError('usage: cairn evidence verify|review pass|fail [--note "…"] [--blocking N] | evidence phase [--note "…"]');
   const pc = planCtx(ctx);
+  // Check's pass needs a green full suite on the code as it is now: the last phase no longer runs one before Check.
+  const green = loadState(pc.plan.dir).lastGreen;
+  const suiteCovers = !!green && gitOk(['diff', '--quiet', green.commit, 'HEAD', '--', '.', ...cairnPathspecExcludes()], pc.plan.worktree);
   return mutate(pc, `${kind} ${result}`, (s) => {
     gate(s.stage === kind, s, `evidence ${kind}`, opts, `the plan is in ${s.stage}, not ${kind}`);
     const blocking = opts.blocking !== undefined ? Number(opts.blocking) : undefined;
     if (result === 'pass' && blocking) throw new Refusal(`a review with ${blocking} blocking finding(s) can't pass`, ['fix them in place, then record the review with --blocking 0']);
+    if (kind === 'verify' && result === 'pass') {
+      if (pc.cfg.test && levelOf(s) !== 'mvp')
+        gate(suiteCovers && !s.lastRed, s, 'evidence verify', opts, 'the full suite has not passed on the current code', ['cairn test (procedures/verify.md step 2), fixing until it is green']);
+      // The last phase's on-track check and the Linear refresh run in Check, so their gates are here.
+      const last = s.phases.at(-1);
+      gate(last?.verdict?.result !== 'red', s, 'evidence verify', opts, `the on-track check for "${last?.name}" is red${last?.verdict?.note ? ` (${last.verdict.note})` : ''}`, ['fix what the report flags, then re-run `cairn evidence phase`']);
+      const open = (s.linear?.changes ?? []).filter((c) => !c.handled);
+      gate(!open.length, s, 'evidence verify', opts, `changes in Linear are not handled yet: ${open.map((c) => c.id).join(', ')}`, ['handle each as procedures/phase-end.md says (cairn linear depends | ack | release)']);
+    }
     s.evidence[kind] = { result, at: now(), ...(opts.note ? { note: String(opts.note) } : {}), ...(blocking !== undefined ? { blocking } : {}) };
     log(s, `${kind} ${result}`, opts.note ? String(opts.note) : undefined);
     return { message: `Recorded ${kind}: ${result}.` };

@@ -36,7 +36,7 @@ export function row(state: Record<string, unknown>, worktree?: string, next = `n
   return { state, live: worktree !== undefined, worktree, next: { text: next }, stepText: stepTextOf(state), ready }
 }
 
-const STEP_WORDS: Record<string, string> = { testing: 'running tests', scanning: 'scanning for secrets', reviewing: 'reviewing', rechecking: 're-checking', approving: 'waiting on approval', 'opening-pr': 'opening the PR' }
+const STEP_WORDS: Record<string, string> = { testing: 'running tests', scanning: 'scanning for secrets', reviewing: 'reviewing', rechecking: 're-checking', approving: 'waiting on approval', 'opening-pr': 'opening the PR', wrapping: 'wrapping up phase' }
 /** The step as the CLI words it in the row (cli/src/render.ts stepText): the current stage's step only. */
 function stepTextOf(state: Record<string, unknown>): string | undefined {
   const st = state.step as { stage: string; name: string; count?: number } | undefined
@@ -95,6 +95,8 @@ export function world(on: On, init: WorldInit = {}) {
     aborts: [] as string[],
     secrets: [] as string[],
     files: new Map<string, string>(),
+    /** The plugin's own plugin.json text (whatever the plugin root is); unset, it can't be read. */
+    pluginJson: undefined as string | undefined,
     /** Every fs.write the mod made, in order. */
     written: [] as { path: string; text: string }[],
     views: [] as Record<string, unknown>[],
@@ -181,7 +183,7 @@ export function world(on: On, init: WorldInit = {}) {
     return names.length === 0 ? { deny: 'ENOENT: no such directory' } : { value: names.map(name => ({ name, kind: 'file', size: 1, mtimeMs: 1, isLink: false })) as never }
   })
   on('fs.read', (_$, e) => {
-    const text = w.files.get(e.path)
+    const text = e.path.endsWith('/.claude-plugin/plugin.json') ? w.pluginJson : w.files.get(e.path)
     return text === undefined ? { deny: 'ENOENT: no such file' } : { value: text as never }
   })
   on('ui.view', (_$, e) => {

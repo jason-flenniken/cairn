@@ -37,7 +37,7 @@ const toLearn = (wt: string, slug: string) => {
 };
 type Row = { key: string; status: string; open: boolean; kind?: string; from: string; where: string[]; text: string };
 const rows = (wt: string): Row[] => run(['suggest', 'list', '--json'], wt).data!.suggestions as Row[];
-const newPlan = (repo: string, slug: string, level = 'mvp') => run(['new', slug, '--title', slug, '--level', level], repo).data!.worktree as string;
+const newPlan = (repo: string, slug: string, level = 'mvp') => run(['new', slug, '--title', slug, '--level', level, '--no-proofs'], repo).data!.worktree as string;
 const hard = (wt: string, where: string, text: string) => run(['suggest', 'add', '--kind', 'hardening', '--area', 'tests', '--where', where, '--text', text], wt);
 
 test('AE6: an MVP plan with nine hardening items and two follow-ups closes; status counts them apart', () => {

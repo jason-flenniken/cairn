@@ -56,7 +56,7 @@ after(() => rmSync(repo, { recursive: true, force: true }));
 
 test('cairn status --all: plan rows carry taskIssues and epic only for a Linear-linked plan', () => {
   // Linked plan: two PRD-tagged issues under one epic, and a released issue that must not appear.
-  const linked = run(['new', 'linked-plan', '--title', 'Linked'], repo).data!.worktree as string;
+  const linked = run(['new', 'linked-plan', '--level', 'standard', '--no-proofs', '--title', 'Linked'], repo).data!.worktree as string;
   run(['linear', 'import'], linked, JSON.stringify({
     epic: 'SAV-100',
     issues: [
@@ -76,7 +76,7 @@ test('cairn status --all: plan rows carry taskIssues and epic only for a Linear-
   saveState(dir, s);
 
   // Unlinked plan: no Linear link at all.
-  run(['new', 'bare-plan', '--title', 'Bare'], repo);
+  run(['new', 'bare-plan', '--level', 'standard', '--no-proofs', '--title', 'Bare'], repo);
 
   const rows = run(['status', '--all'], repo).data!.plans as { state: State; taskIssues?: Record<string, string[]>; epic?: string }[];
   const linkedRow = rows.find((r) => r.state.slug === 'linked-plan')!;

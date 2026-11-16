@@ -27,7 +27,7 @@ When `cairn status --json` shows `state.linear.spec.ok` and `decisions.md` recor
 **Done when:** every issue is in, out or deferred, every outside blocker and every epic decision is recorded. Go to step 8.
 
 ## 2. Research first
-Dispatch these `researcher` agents in parallel (`model: sonnet`, `description` per `references/reporting.md`, for example "Check · discovery research"). Each gets the request, the repo path, and `research/<topic>.md` in the work folder (`<plan worktree>/.cairn/work/<slug>/`) to write to; it returns at most 12 lines with `path:line` or URL evidence:
+Dispatch these `researcher` agents in parallel (`model: sonnet`, `description` per `references/reporting.md`, for example "Research · payment providers"). Each gets the request, the repo path, and `research/<topic>.md` in the work folder (`<plan worktree>/.cairn/work/<slug>/`) to write to; it returns at most 12 lines with `path:line` or URL evidence:
 - Codebase: facts relevant to the request (stack, existing modules, patterns, tests, conventions), plus `docs/cairn/product/PRD.md` (non-goals, must-not-trade-off). Give it `docs/cairn/OVERVIEW.md` too, and ask which past plans are relevant to the request.
 - Web: only when the request touches an external API, standard, or competitor.
 

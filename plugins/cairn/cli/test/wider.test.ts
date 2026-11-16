@@ -114,7 +114,7 @@ const planMd = (scope: string) => `## Goal\ng\n## Architecture\na\n## Phases\n\`
 
 /** A plan worktree moved straight to a stage; the CLI is the only writer of state in real use, tests may jump. */
 function newPlan(slug: string, stage: State['stage'], scope: string): { wt: string; dir: string } {
-  const wt = ok(repo, 'new', slug, '--title', slug).data!.worktree as string;
+  const wt = ok(repo, 'new', slug, '--level', 'standard', '--no-proofs', '--title', slug).data!.worktree as string;
   const dir = pd(wt, slug);
   write(join(dir, 'prd.md'), PRD);
   write(join(dir, 'plan.md'), planMd(scope));
@@ -177,7 +177,7 @@ test('task start runs setup after the lock is released and still reports it', ()
 });
 
 test('an overlap task starts while the earlier phase is open, and its phase finishes after', () => {
-  const wt = ok(repo, 'new', 'overlapper', '--title', 'overlapper').data!.worktree as string;
+  const wt = ok(repo, 'new', 'overlapper', '--level', 'standard', '--no-proofs', '--title', 'overlapper').data!.worktree as string;
   const dir = pd(wt, 'overlapper');
   const plan = `## Goal\ng\n## Architecture\na\n## Phases\n\`\`\`yaml cairn-tasks\nphases:\n  - id: one\n    name: One\n    tasks:\n      - { id: first, name: First, covers: [FR-01], scope: ["src/o-first/**"] }\n      - { id: slow, name: Slow, covers: [FR-01], scope: ["src/o-slow/**"] }\n  - id: two\n    name: Two\n    overlap: true\n    tasks:\n      - { id: early, name: Early, covers: [FR-02], scope: ["src/o-early/**"], blocked_by: [first] }\n      - { id: late, name: Late, covers: [FR-02], scope: ["src/o-late/**"], blocked_by: [slow] }\n\`\`\`\n`;
   write(join(dir, 'prd.md'), PRD);

@@ -17,6 +17,7 @@ import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
 import { syncTickets } from './linear.ts';
 import { linearConfig } from '../linear.ts';
 import { lockedFiles } from '../endproofs.ts';
+import { finishLastPhase, isLastPhase } from './phase.ts';
 
 const DEFAULT_FIX_MAX_FILES = 8;
 
@@ -184,15 +185,29 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
     log(s, 'task done', cur.name);
     syncTickets(s, linearConfig(pc.cfg));
     const left = phase.tasks.filter((x) => x.status !== 'done').length;
+    // The last task of the last phase moves the plan to Check, which runs the full suite and the on-track check there.
+    // Anything the phase end would still settle (a set-aside task, open Linear changes, a red on-track check) leaves it for `cairn phase finish`.
+    const toCheck = !fastLane(s) && phase.status === 'awaiting_approval' && currentPhase(s) === phase && isLastPhase(s, phase) &&
+      !s.paused && !phase.tasks.some((x) => x.substep === 'blocked') && phase.verdict?.result !== 'red' && !(s.linear?.changes ?? []).some((c) => !c.handled);
+    if (toCheck) finishLastPhase(s, phase, linearConfig(pc.cfg));
+    const built = toCheck
+      ? `Every task is built: the plan moved to Check, which runs the full suite next.${outOfScope(s)}`
+      : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`;
     return {
-      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? 'quick tests' : 'tests'}: ${tests.tail})` : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`}`,
-      data: { phaseComplete: !left },
+      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? 'quick tests' : 'tests'}: ${tests.tail})` : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : built}`,
+      data: { phaseComplete: !left, stage: s.stage },
     };
   });
   // Clean up the task worktree and branch once its work is in the plan branch.
   if (merged && sl.worktree && existsSync(sl.worktree)) gitOk(['worktree', 'remove', sl.worktree], plan.worktree);
   if (merged) gitOk(['branch', '-d', sl.branch], plan.worktree);
   return r;
+}
+
+/** " 1 out-of-scope edit(s): README.md" for edits not reviewed yet; empty when there are none. */
+function outOfScope(s: State): string {
+  const drift = s.drift.filter((d) => !d.acked);
+  return drift.length ? ` ${drift.length} out-of-scope edit(s): ${drift.slice(0, 5).map((d) => d.path).join(', ')}.` : '';
 }
 
 const DOCS_ROOTS = ['docs/cairn/', 'docs/sdlc/'];
