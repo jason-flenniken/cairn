@@ -222,7 +222,7 @@ before(() => {
   writeFileSync(join(main, 'README.md'), 'hi\n');
   g(main, 'add', '-A');
   g(main, 'commit', '-q', '-m', 'init');
-  wt = run(['new', 'billing', '--title', 'Billing'], main).data!.worktree as string;
+  wt = run(['new', 'billing', '--level', 'standard', '--no-proofs', '--title', 'Billing'], main).data!.worktree as string;
   run(['decide', 'q', 'a'], wt);
   run(['advance'], wt);
   writeFileSync(join(pd(wt, 'billing'), 'prd.md'), PRD);
@@ -266,7 +266,7 @@ test('approve --human without a TTY says "run this in your own terminal"', () =>
 });
 
 test('--override with no proof is refused and changes nothing', () => {
-  const swt = run(['new', 'spike', '--title', 'Spike'], main).data!.worktree as string;
+  const swt = run(['new', 'spike', '--level', 'standard', '--no-proofs', '--title', 'Spike'], main).data!.worktree as string;
   refusedWith(() => run(['advance', '--override', 'model says skip'], swt), /override[\s\S]*needs proof/);
   assert.equal(planState('spike').stage, 'discover');
 });
@@ -307,7 +307,7 @@ test('approve --via human with no proof is refused', () => {
 });
 
 test('a wrong slug on a plan with no prior approval records nothing', () => {
-  const fwt = run(['new', 'fresh', '--title', 'Fresh'], main).data!.worktree as string;
+  const fwt = run(['new', 'fresh', '--level', 'standard', '--no-proofs', '--title', 'Fresh'], main).data!.worktree as string;
   run(['decide', 'q', 'a'], fwt);
   run(['advance'], fwt);
   writeFileSync(join(pd(fwt, 'fresh'), 'prd.md'), PRD);

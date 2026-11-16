@@ -46,7 +46,7 @@ function legacyPlan(slug: string, track: 'feature' | 'fix') {
   writeFileSync(join(r, '.sdlc/config.json'), JSON.stringify({ test: 'true', maxParallel: 3 }));
   g(r, 'add', '-A');
   g(r, 'commit', '-q', '-m', 'init');
-  const wt = run(['new', slug, '--title', slug, ...(track === 'fix' ? ['--track', 'fix'] : [])], r).data!.worktree as string;
+  const wt = run(['new', slug, '--title', slug, '--level', 'standard', '--no-proofs', ...(track === 'fix' ? ['--track', 'fix'] : [])], r).data!.worktree as string;
   mkdirSync(join(wt, 'docs/sdlc'), { recursive: true });
   g(wt, 'mv', 'docs/cairn/plans', 'docs/sdlc/plans');
   g(wt, 'commit', '-q', '-m', 'legacy layout');
@@ -82,7 +82,7 @@ for (const track of ['feature', 'fix'] as const) {
 }
 
 test('new plans land under docs/cairn/plans', () => {
-  const r = run(['new', 'alpha', '--title', 'A'], repo);
+  const r = run(['new', 'alpha', '--level', 'standard', '--no-proofs', '--title', 'A'], repo);
   assert.match(r.data!.dir as string, /docs\/cairn\/plans\/\d{4}-\d{2}-\d{2}-alpha$/);
 });
 

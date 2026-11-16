@@ -1,7 +1,30 @@
 // The helpers the pane modules share: cell measuring and fitting, durations, the token count, and the
 // press helpers. One module, so each has one definition.
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 import type { BarLine } from './bar.tsx'
+
+// The running cairn's version, read once from its plugin.json.
+const pluginVer = atom({ plugin: 'cairn', key: 'pluginVersion' } as const, null as string | null)
+
+/** The version already read, for a render (which can't write state); undefined before the first read. */
+export async function shownVersion($: EngineInterface): Promise<string | undefined> {
+  return (await read($, pluginVer)) ?? undefined
+}
+
+/** The version in `<plugin root>/.claude-plugin/plugin.json`, read once and cached; undefined when it can't be read. Not for a render. */
+export async function pluginVersion($: EngineInterface): Promise<string | undefined> {
+  const held = await read($, pluginVer)
+  if (held !== null) return held
+  try {
+    const v = (JSON.parse(await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`)) as { version?: unknown }).version
+    if (typeof v !== 'string' || clean(v) === '') return undefined
+    await update($, pluginVer, () => clean(v))
+    return clean(v)
+  } catch {
+    return undefined
+  }
+}
 
 // ESC sequences (CSI, OSC, any other two-byte one), then C0/C1 controls, then bidi overrides and isolates and
 // the left/right marks. ASCII escapes only: a literal invisible character in source hides what it does.

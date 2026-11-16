@@ -27,7 +27,7 @@ function plan(stage: Stage, track: 'feature' | 'fix' = 'feature') {
   writeFileSync(join(repo, 'README.md'), 'hi\n');
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'init');
-  const wt = run(['new', 'demo', '--title', 'Demo', ...(track === 'fix' ? ['--track', 'fix'] : [])], repo).data!.worktree as string;
+  const wt = run(['new', 'demo', '--title', 'Demo', '--level', 'standard', '--no-proofs', ...(track === 'fix' ? ['--track', 'fix'] : [])], repo).data!.worktree as string;
   const dir = pd(wt, 'demo');
   const s = loadState(dir);
   s.stage = stage;
@@ -92,7 +92,7 @@ test('the other stages take their own steps; the fix track uses review and ship'
   const f = plan('review', 'fix');
   run(['step', 'reviewing'], f.wt);
   assert.equal(f.state().step?.name, 'reviewing');
-  refused(plan('verify', 'fix').wt, /valid steps: testing, scanning, fixing/, 'step', 'merging');
+  refused(plan('verify', 'fix').wt, /valid steps: testing, on-track, scanning, fixing/, 'step', 'merging');
 });
 
 test('prd approving is refused while approval would refuse the PRD, and taken once it would pass', () => {

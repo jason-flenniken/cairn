@@ -27,7 +27,7 @@ const commitAll = (wt: string, msg: string) => {
 };
 /** A feature plan at learn with a valid record and one code commit on its branch. */
 function learnPlan(slug: string): string {
-  const wt = run(['new', slug, '--title', slug], repo).data!.worktree as string;
+  const wt = run(['new', slug, '--level', 'standard', '--no-proofs', '--title', slug], repo).data!.worktree as string;
   edit(wt, slug, (s) => (s.stage = 'learn'));
   copyFileSync(join(import.meta.dirname, '../../templates/record.md'), join(pd(wt, slug), 'RECORD.md'));
   writeFileSync(join(wt, `${slug}.txt`), 'code\n');

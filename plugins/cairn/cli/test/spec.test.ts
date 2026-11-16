@@ -152,7 +152,7 @@ const importDoc = (labels: (k: string) => string[]) => ({
 });
 
 test('specced epic: import flags it, linear prd writes an approvable PRD, the plan loads against it', () => {
-  const wt = ok(repo, 'new', 'resolver-test', '--title', 'Resolver test').data!.worktree as string;
+  const wt = ok(repo, 'new', 'resolver-test', '--level', 'standard', '--no-proofs', '--title', 'Resolver test').data!.worktree as string;
   const dir = pd(wt, 'resolver-test');
   const state = (): State => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
   const msg = run(['linear', 'import'], wt, JSON.stringify(importDoc(() => ['cairn-spec', 'Spike']))).message;
@@ -177,7 +177,7 @@ test('specced epic: import flags it, linear prd writes an approvable PRD, the pl
 });
 
 test('unstamped or partly stamped epic: no spec path, linear prd refuses', () => {
-  const wt = ok(repo, 'new', 'plain-epic', '--title', 'Plain').data!.worktree as string;
+  const wt = ok(repo, 'new', 'plain-epic', '--level', 'standard', '--no-proofs', '--title', 'Plain').data!.worktree as string;
   const dir = pd(wt, 'plain-epic');
   const msg = run(['linear', 'import'], wt, JSON.stringify(importDoc(() => ['Feature']))).message;
   assert.doesNotMatch(msg, /Specced/);
@@ -186,7 +186,7 @@ test('unstamped or partly stamped epic: no spec path, linear prd refuses', () =>
   g(repo, 'worktree', 'remove', '--force', wt);
   g(repo, 'branch', '-D', 'feature/plain-epic');
 
-  const wt2 = ok(repo, 'new', 'part-epic', '--title', 'Part').data!.worktree as string;
+  const wt2 = ok(repo, 'new', 'part-epic', '--level', 'standard', '--no-proofs', '--title', 'Part').data!.worktree as string;
   const msg2 = run(['linear', 'import'], wt2, JSON.stringify(importDoc((k) => (k === 'SAV-89' ? [] : ['cairn-spec'])))).message;
   assert.match(msg2, /Specced, but not all of it: SAV-89 has no "cairn-spec" label/);
   refused(wt2, /not fully specced: SAV-89/, 'linear', 'prd');

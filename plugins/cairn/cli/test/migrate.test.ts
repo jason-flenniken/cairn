@@ -55,7 +55,7 @@ test('second run is a no-op', () => {
 });
 
 test('refuses with an in-flight plan', () => {
-  run(['new', 'live', '--title', 'L'], repo);
+  run(['new', 'live', '--level', 'standard', '--no-proofs', '--title', 'L'], repo);
   put('.sdlc/config.json', '{}');
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'legacy leftover');

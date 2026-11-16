@@ -43,7 +43,7 @@ test('planDirName dates the folder by the plan start', () => {
 });
 
 test('cairn new creates the dated folder on the plain-slug branch', () => {
-  const r = run(['new', 'demo', '--title', 'Demo'], repo);
+  const r = run(['new', 'demo', '--level', 'standard', '--no-proofs', '--title', 'Demo'], repo);
   const wt = r.data!.worktree as string;
   assert.equal(g(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'feature/demo');
   assert.equal(r.data!.dir, join(wt, `docs/cairn/plans/${today}-demo`));
@@ -54,7 +54,7 @@ test('cairn new creates the dated folder on the plain-slug branch', () => {
 });
 
 test('a plan renamed to the dated form on its branch is found by status, next, decide and task start', () => {
-  const wt = run(['new', 'shop', '--title', 'Shop'], repo).data!.worktree as string;
+  const wt = run(['new', 'shop', '--level', 'standard', '--no-proofs', '--title', 'Shop'], repo).data!.worktree as string;
   renameFolder(wt, `${today}-shop`, '2026-10-01-shop');
   assert.equal(resolvePlanDir('shop', { root: wt }), 'docs/cairn/plans/2026-10-01-shop');
   assert.equal((run(['status'], wt).data!.state as { slug: string }).slug, 'shop');
@@ -70,7 +70,7 @@ test('a plan renamed to the dated form on its branch is found by status, next, d
 });
 
 test('a branch whose tree still has the old folder resolves to it, and status --all lists it from the branch', () => {
-  const wt = run(['new', 'legacy-app', '--title', 'Legacy app'], repo).data!.worktree as string;
+  const wt = run(['new', 'legacy-app', '--level', 'standard', '--no-proofs', '--title', 'Legacy app'], repo).data!.worktree as string;
   renameFolder(wt, `${today}-legacy-app`, 'legacy-app');
   g(repo, 'worktree', 'remove', '--force', wt); // only the branch remains
   assert.equal(resolvePlanDir('legacy-app', { ref: 'feature/legacy-app', cwd: repo }), 'docs/cairn/plans/legacy-app');
@@ -83,7 +83,7 @@ test('a branch whose tree still has the old folder resolves to it, and status --
 });
 
 test('a checkout holding both the old and the dated folder lists the plan once and prefers the dated one', () => {
-  const wt = run(['new', 'twin', '--title', 'Twin'], repo).data!.worktree as string;
+  const wt = run(['new', 'twin', '--level', 'standard', '--no-proofs', '--title', 'Twin'], repo).data!.worktree as string;
   const dated = pd(wt, 'twin');
   const old = join(dirname(dated), 'twin');
   mkdirSync(old, { recursive: true });
@@ -94,7 +94,7 @@ test('a checkout holding both the old and the dated folder lists the plan once a
 });
 
 test('a slug only matches its exact folder name, never another plan whose name ends the same', () => {
-  const wt = run(['new', 'pet-shop', '--title', 'Pet shop'], repo).data!.worktree as string;
+  const wt = run(['new', 'pet-shop', '--level', 'standard', '--no-proofs', '--title', 'Pet shop'], repo).data!.worktree as string;
   renameFolder(wt, `${today}-pet-shop`, '2026-10-01-pet-shop');
   // `shop` lives on its own branch, so look in the pet-shop checkout: only pet-shop's folder is there.
   assert.equal(resolvePlanDir('shop', { root: wt }), undefined);

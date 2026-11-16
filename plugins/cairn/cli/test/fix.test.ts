@@ -154,7 +154,7 @@ test('the repro child environment has no CAIRN_APPROVER', () => {
 });
 
 test('repro refuses on a feature plan', () => {
-  const wt = ok(repo, 'new', 'feat-repro', '--title', 'Feature').data!.worktree as string;
+  const wt = ok(repo, 'new', 'feat-repro', '--level', 'standard', '--no-proofs', '--title', 'Feature').data!.worktree as string;
   refused(wt, /fix plan/, 'repro', 'false');
 });
 
@@ -236,7 +236,7 @@ const PLAN = `## Goal\ng\n## Architecture\na\n## Global constraints\nc\n## Revie
 
 /** A feature plan with an approved plan, in execute. */
 function featureInExecute(slug: string): string {
-  const wt = ok(repo, 'new', slug, '--title', slug).data!.worktree as string;
+  const wt = ok(repo, 'new', slug, '--level', 'standard', '--no-proofs', '--title', slug).data!.worktree as string;
   const dir = dirOf(wt, slug);
   ok(wt, 'decide', 'q', 'a');
   ok(wt, 'advance');
@@ -334,7 +334,7 @@ test('escalate after the fix task is done narrows its scope from the recorded ti
 });
 
 test('escalate on a feature plan refuses', () => {
-  const wt = ok(repo, 'new', 'feat-escalate', '--title', 'Feature').data!.worktree as string;
+  const wt = ok(repo, 'new', 'feat-escalate', '--level', 'standard', '--no-proofs', '--title', 'Feature').data!.worktree as string;
   refused(wt, /only a fix plan/, 'escalate');
 });
 

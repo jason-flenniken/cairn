@@ -36,6 +36,31 @@ export const turnRunning = (): boolean => mainTurn !== undefined
 // hook (it would wait on the turn the hook holds), so the message goes out when that turn completes.
 let stopMessageFor: string | undefined
 
+// Messages for the chat that wait for a free turn: an approval made in the pane, a merged plan. A prompt.submit
+// while a turn runs, or one the engine refuses (a command's own hook), is not lost: it goes out when the turn
+// completes, or on a later poll. The send is not awaited (the engine settles it with the turn it starts), and
+// one goes at a time: each starts a turn, and the next waits for it.
+const wakes: { text: string; tries: number }[] = []
+const WAKE_TRIES = 10
+
+/** Queues `text` for the main chat (once while it waits) and sends it now when no turn runs. */
+export function wakeChat($: EngineInterface, text: string): void {
+  if (!wakes.some(w => w.text === text)) wakes.push({ text, tries: 0 })
+  flushWakes($)
+}
+
+/** True while a wake message still waits to be sent. */
+export const hasWakes = (): boolean => wakes.length > 0
+
+/** Sends the first waiting message when no main turn runs and no Stop now message is owed; a refused one waits for the next try. */
+export function flushWakes($: EngineInterface): void {
+  if (wakes.length === 0 || mainTurn !== undefined || stopMessageFor !== undefined) return
+  const next = wakes.shift() as { text: string; tries: number }
+  $.prompt.submit({ text: next.text }).catch(() => {
+    if (++next.tries < WAKE_TRIES && !wakes.some(w => w.text === next.text)) wakes.unshift(next)
+  })
+}
+
 // The template's own example line under Open questions (templates/handoff.md).
 const TEMPLATE_QUESTION = '- <question> (recommended: <answer>)'
 // What Open questions holds when there are none yet: a line for the agent to replace, not an answer.
@@ -222,6 +247,8 @@ export function install(on: On): void {
       if (e.turnId === stopMessageFor) {
         stopMessageFor = undefined
         void $.prompt.submit({ text: STOP_NOW_MESSAGE }).catch(() => undefined)
+      } else {
+        flushWakes($)
       }
     }
     return done

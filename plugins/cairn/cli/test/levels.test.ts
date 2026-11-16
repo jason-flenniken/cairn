@@ -36,7 +36,12 @@ const edit = (wt: string, slug: string, fn: (s: Record<string, unknown>) => void
   fn(s);
   writeFileSync(fileOf(wt, slug), JSON.stringify(s, null, 2) + '\n');
 };
-const newPlan = (repo: string, slug: string, ...flags: string[]) => run(['new', slug, '--title', slug, ...flags], repo);
+// Feature plans need both answers; tests that don't care about one get the plain value.
+const newPlan = (repo: string, slug: string, ...flags: string[]) => {
+  const fix = flags.includes('fix');
+  const extra = [...(fix || flags.includes('--level') ? [] : ['--level', 'standard']), ...(fix || flags.includes('--proofs') || flags.includes('--no-proofs') ? [] : ['--no-proofs'])];
+  return run(['new', slug, '--title', slug, ...flags, ...extra], repo);
+};
 
 test('cairn new --level mvp stores mvp and logs it', () => {
   const repo = makeRepo();
@@ -47,11 +52,9 @@ test('cairn new --level mvp stores mvp and logs it', () => {
   assert.match(s.cairnVersion, /^\d+\.\d+\.\d+/, 'new state is stamped with the cairn version');
 });
 
-test('cairn new with no flag uses defaultLevel from config, and Standard when config has none', () => {
-  const withDefault = makeRepo({ defaultLevel: 'polished' });
-  assert.equal(stateOf(newPlan(withDefault, 'a').data!.worktree as string, 'a').level, 'polished');
-  const without = makeRepo({ maxParallel: 2 });
-  assert.equal(stateOf(newPlan(without, 'b').data!.worktree as string, 'b').level, 'standard');
+test('defaultLevel in config does not answer for the user: cairn new without --level refuses', () => {
+  const repo = makeRepo({ defaultLevel: 'polished' });
+  assert.throws(() => run(['new', 'a', '--title', 'a', '--no-proofs'], repo), (e: unknown) => e instanceof Refusal && /--level/.test(e.message));
 });
 
 test('cairn new --level fast refuses and names the three values', () => {
@@ -60,13 +63,6 @@ test('cairn new --level fast refuses and names the three values', () => {
     () => newPlan(repo, 'bad', '--level', 'fast'),
     (e: unknown) => e instanceof Refusal && /mvp/.test(e.message) && /standard/.test(e.message) && /polished/.test(e.message),
   );
-});
-
-test('an invalid defaultLevel warns and creates a Standard plan', () => {
-  const repo = makeRepo({ defaultLevel: 'turbo' });
-  const r = newPlan(repo, 'warned');
-  assert.match(r.message, /defaultLevel.*turbo/);
-  assert.equal(stateOf(r.data!.worktree as string, 'warned').level, 'standard');
 });
 
 test('a fix-track plan has no level, and levelOf returns Standard', () => {

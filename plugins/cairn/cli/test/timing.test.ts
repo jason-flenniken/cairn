@@ -31,7 +31,7 @@ const history = (...rows: [State['stage'], number][]) => rows.map(([stage, m]) =
 const bare = (over: Partial<State>): State => ({ stage: 'discover', paused: null, log: [], ...over }) as State;
 
 test('advancing discover to prd records two history entries, and the discover time is the gap between them', () => {
-  const wt = run(['new', 'timed', '--title', 'Timed'], repo).data!.worktree as string;
+  const wt = run(['new', 'timed', '--level', 'standard', '--no-proofs', '--title', 'Timed'], repo).data!.worktree as string;
   run(['decide', 'Which?', 'This one'], wt);
   run(['advance'], wt);
   const s = JSON.parse(readFileSync(join(pd(wt, 'timed'), 'state.json'), 'utf8')) as State;

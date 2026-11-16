@@ -18,7 +18,7 @@ import { collectSuggestions, openSuggestionCount, type ListedSuggestion } from '
 import { isFoundational, linearConfig, takenIssues } from '../linear.ts';
 import { allTasks } from '../ready.ts';
 import { branchReviewerOf, taskReviewOf } from '../builder.ts';
-import { mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
+import { awaitsDone, mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
 import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function listPlans(ctx: Ctx): IndexRow[] {
@@ -170,7 +170,7 @@ export function cmdStatus(ctx: Ctx, opts: Opts): Result {
       ? shown.map((r) => `${r.state.stage === 'closed' ? '✓' : r.state.paused ? '⏸' : '•'} ${summary(r.state, r.prOpen)}\n    next: ${nextFor(r.state).text}${r.worktree ? '' : ' (not checked out)'}`)
       : ['No plans yet. Start one with /cairn:new.'];
     const openSuggestions = openSuggestionCount(ctx);
-    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full ? r.state : slimRow(r.state), next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions } };
+    return { message: `${active.length} active plan(s).\n${lines.join('\n')}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full ? r.state : slimRow(r.state), next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), mergedAwaitingDone: awaitsDone(ctx, r.state), openSuggestions, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);

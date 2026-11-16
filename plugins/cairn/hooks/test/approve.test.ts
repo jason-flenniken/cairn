@@ -259,6 +259,20 @@ describe('menu approval (FR-02)', () => {
     expect(toasts.join('\n')).toMatch(/refused: .*review has not passed/)
   })
 
+  test('a refusal for lack of proof says the session runs an outdated cairn and never points at the terminal', async ($, on) => {
+    const { toasts } = world(on, [{ slug: 'old', stage: 'ship', worktree: '/wt/old' }], {
+      refuse: 'approvals come from the user, and this command has no proof that one did',
+    })
+    on('fs.read', (_$, e) => (e.path.endsWith('/.claude-plugin/plugin.json') ? { value: JSON.stringify({ name: 'cairn', version: '0.22.1' }) as never } : { deny: 'ENOENT' }))
+    const q = 'Ship it? [cairn:approve ship old]'
+    dialog(on, { [q]: 'Approve' })
+    const got = await $.tool.call(ask(q))
+    const said = got.context?.join('\n') ?? ''
+    expect(said).toContain("cairn: old ship approval was not recorded: the CLI got no proof from this session's cairn (version 0.22.1). This usually means the session runs an outdated cairn: restart the session, then ask the approval menu again. Do not send the user to the terminal.")
+    expect(said).not.toContain('refused')
+    expect(toasts.join('\n')).toContain('was not recorded')
+  })
+
   test('a subagent\'s dialog is left alone', async ($, on) => {
     const { approveRuns } = world(on, [{ slug: 'sub', stage: 'prd', worktree: '/wt/sub' }])
     const q = 'Approve? [cairn:approve prd sub]'

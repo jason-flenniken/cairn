@@ -225,7 +225,7 @@ function build(wt: string, slug: string, id: string, file: string) {
 }
 
 test('linear take: puts a released issue back, fixing the comment it left behind', () => {
-  const wt = ok(repo, 'new', 'take-back', '--title', 'Take back').data!.worktree as string;
+  const wt = ok(repo, 'new', 'take-back', '--level', 'standard', '--no-proofs', '--title', 'Take back').data!.worktree as string;
   const dir = pd(wt, 'take-back');
   const state = (): State => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
   const comments = (k: string) => state().linear!.outbox.filter((w) => w.target === k && w.kind === 'comment');
@@ -259,7 +259,7 @@ test('linear take: puts a released issue back, fixing the comment it left behind
 });
 
 test('linear: an epic from import to merged, with every check and queued write', () => {
-  const wt = ok(repo, 'new', 'checkout', '--title', 'Checkout').data!.worktree as string;
+  const wt = ok(repo, 'new', 'checkout', '--level', 'standard', '--no-proofs', '--title', 'Checkout').data!.worktree as string;
   const dir = pd(wt, 'checkout');
   const state = (): State => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
   const outbox = () => state().linear!.outbox;
@@ -356,7 +356,7 @@ test('linear: an epic from import to merged, with every check and queued write',
   sync(wt);
 
   // another plan built on this one can't ship first
-  const wt2 = ok(repo, 'new', 'mail', '--title', 'Mail').data!.worktree as string;
+  const wt2 = ok(repo, 'new', 'mail', '--level', 'standard', '--no-proofs', '--title', 'Mail').data!.worktree as string;
   const imp2 = run(['linear', 'import'], wt2, JSON.stringify({ issues: [{ key: 'SAV-107', title: 'Mail receipts', blockedBy: ['SAV-103'] }] }));
   assert.match(imp2.message, /SAV-103 \[in plan checkout, execute\] \(blocks SAV-107\)/);
   const s2 = JSON.parse(readFileSync(join(pd(wt2, 'mail'), 'state.json'), 'utf8'));
@@ -459,7 +459,7 @@ test('linear: nothing runs without the config block', () => {
     write(join(bare, 'README.md'), 'hi\n');
     g(bare, 'add', '-A');
     g(bare, 'commit', '-q', '-m', 'init');
-    const wt = ok(bare, 'new', 'plain', '--title', 'Plain').data!.worktree as string;
+    const wt = ok(bare, 'new', 'plain', '--level', 'standard', '--no-proofs', '--title', 'Plain').data!.worktree as string;
     refused(wt, /Linear is not set up for this repo/, 'linear', 'import', '--file', join(bare, 'README.md'));
     refused(wt, /no Linear issues/, 'linear', 'pending');
     ok(wt, 'decide', 'q', 'a');
@@ -474,7 +474,7 @@ test('linear: nothing runs without the config block', () => {
 });
 
 test('linear refresh: a sub-issue moved out of the epic leaves the plan and says so', () => {
-  const wt = ok(repo, 'new', 'moved', '--title', 'Moved').data!.worktree as string;
+  const wt = ok(repo, 'new', 'moved', '--level', 'standard', '--no-proofs', '--title', 'Moved').data!.worktree as string;
   const epic = { epic: 'SAV-300', issues: [{ key: 'SAV-300', title: 'Epic' }, { key: 'SAV-301', title: 'Child', parent: 'SAV-300' }, { key: 'SAV-302', title: 'Other', parent: 'SAV-300', blockedBy: ['SAV-399'] }] };
   run(['linear', 'import'], wt, JSON.stringify(epic));
   const moved = structuredClone(epic);
@@ -555,7 +555,7 @@ test('linear pure: follow-up filing modes, foundational label, issue file cap, b
 });
 
 test('linear: issue text is saved to the plan, shown in status, and noted when it changes after the PRD', () => {
-  const wt = ok(repo, 'new', 'texts', '--title', 'Texts').data!.worktree as string;
+  const wt = ok(repo, 'new', 'texts', '--level', 'standard', '--no-proofs', '--title', 'Texts').data!.worktree as string;
   const dir = pd(wt, 'texts');
   const body = 'Users pay by card.\n\nAcceptance: a declined card shows a reason.';
   run(['linear', 'import'], wt, JSON.stringify({ issues: [
@@ -588,7 +588,7 @@ test('linear: issue text is saved to the plan, shown in status, and noted when i
 });
 
 test('linear: a foundational issue makes the plan name its approach', () => {
-  const wt = ok(repo, 'new', 'found', '--title', 'Found').data!.worktree as string;
+  const wt = ok(repo, 'new', 'found', '--level', 'standard', '--no-proofs', '--title', 'Found').data!.worktree as string;
   const dir = pd(wt, 'found');
   const imp = run(['linear', 'import'], wt, JSON.stringify({ issues: [{ key: 'SAV-500', title: 'Data model', labels: ['Foundational'], description: 'Pick the store.' }] }));
   assert.match(imp.message, /Foundational/);
@@ -686,7 +686,7 @@ test('linear board: a merge read keeps links, asks only for what changed, and na
 });
 
 test('linear publish: a plan without tickets files an epic, then one ticket per group, then their links', () => {
-  const wt = ok(repo, 'new', 'publish-me', '--title', 'Gift cards').data!.worktree as string;
+  const wt = ok(repo, 'new', 'publish-me', '--level', 'standard', '--no-proofs', '--title', 'Gift cards').data!.worktree as string;
   const dir = pd(wt, 'publish-me');
   const state = (): State => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8'));
   const outbox = () => state().linear!.outbox;

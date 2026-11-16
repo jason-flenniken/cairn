@@ -3,7 +3,7 @@ import { cairnPathspecExcludes } from '../paths.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
 import { currentPhase } from '../ready.ts';
 import { levelOf, loadState, log, setStage } from '../state.ts';
-import type { State, Suggestion } from '../types.ts';
+import type { LinearConfig, Phase, State, Suggestion } from '../types.ts';
 import { CliError, Refusal } from '../util.ts';
 import { gate, mutate, planCtx, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { linearPhaseGate, onPhaseFinished } from './linear.ts';
@@ -20,6 +20,21 @@ export function newSuggestionsText(s: State): string {
   return `${fresh.length} new suggestion${fresh.length === 1 ? '' : 's'} (${[...by].map(([a, n]) => `${n} ${a}`).join(', ')})`;
 }
 
+/** True when `phase` is the plan's last unfinished one: every other phase is done. */
+export const isLastPhase = (s: State, phase: Phase): boolean => s.phases.every((p) => p === phase || p.status === 'done');
+
+/**
+ * The last phase is built: it is done, and the plan moves straight to Check. The full suite and, at Polished, the
+ * on-track check for this phase run there, once, instead of here and then again in Check.
+ */
+export function finishLastPhase(s: State, cur: Phase, cfg: LinearConfig | undefined): void {
+  cur.status = 'done';
+  log(s, 'phase finished', `${cur.name} (the full suite runs in Check)`);
+  onPhaseFinished(s, cfg);
+  setStage(s, 'verify');
+  log(s, 'advanced', 'verify');
+}
+
 /** Finish the current phase when it is built, clean and green; no human step. */
 export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Result {
   if (action !== 'finish') throw new CliError('usage: cairn phase finish');
@@ -27,6 +42,9 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
   const { plan } = pc;
   const pre = loadState(plan.dir);
   const phase = currentPhase(pre);
+  // Merging the last task already finished the last phase and moved the plan to Check: nothing is left to do here.
+  if (pre.stage === 'verify' && pre.phases.length && pre.phases.every((p) => p.status === 'done'))
+    return { message: 'Every phase is finished and the plan is in Check: continue there (cairn next).', data: { phase: null, next: null, stage: pre.stage } };
   if (pre.stage !== 'execute' || !phase) throw new Refusal(`the plan is in ${pre.stage}, with no phase to finish`, ['cairn next']);
   if (pre.paused) throw new Refusal('the plan is paused', ['cairn resume']);
   const unfinished = phase.tasks.filter((x) => x.status !== 'done');
@@ -36,16 +54,28 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
   const dirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${dirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
 
+  // The last phase runs no suite here: Check runs it next, on the same code.
+  const lastPhase = isLastPhase(pre, phase);
   // Reuse the last task's green test run when no code changed since; otherwise run the tests once.
   const head = git(['rev-parse', 'HEAD'], plan.worktree);
   const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? '').localeCompare(b.doneAt ?? '')).pop();
-  const reused = !!(last?.testedCommit && last.tests && gitOk(['diff', '--quiet', last.testedCommit, head, '--', '.', ...cairnPathspecExcludes()], plan.worktree));
-  const tests: TestRun | undefined = reused ? undefined : recordTestRun(pc, runTests(pc.cfg, plan.worktree));
+  const reused = !lastPhase && !!(last?.testedCommit && last.tests && gitOk(['diff', '--quiet', last.testedCommit, head, '--', '.', ...cairnPathspecExcludes()], plan.worktree));
+  const tests: TestRun | undefined = reused || lastPhase ? undefined : recordTestRun(pc, runTests(pc.cfg, plan.worktree));
 
   return mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s)!;
     gate(cur.verdict?.result !== 'red', s, 'phase finish', opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ''}`, ['fix what the report flags, then re-run `cairn evidence phase`']);
     linearPhaseGate(s, opts);
+    if (lastPhase) {
+      const drift = s.drift.filter((d) => !d.acked);
+      const suggestions = newSuggestionsText(s);
+      finishLastPhase(s, cur, linearConfig(pc.cfg));
+      const driftText = drift.length ? `; ${drift.length} out-of-scope edit(s): ${drift.slice(0, 5).map((d) => d.path).join(', ')}` : '';
+      return {
+        message: `Phase "${cur.name}" finished: ${cur.tasks.length} tasks, ${suggestions}${driftText}; moved to Check, which runs the full suite next.`,
+        data: { phase: cur.id, next: null, stage: s.stage },
+      };
+    }
     if (!reused) testsGate(tests, s, 'phase finish', opts);
     const testText = reused ? `tests green (${last!.tests!.split(' → ').pop()})` : tests ? `tests ${tests.ok ? 'green' : 'RED'} (${tests.tail})` : 'no test command';
     const suggestions = newSuggestionsText(s);
@@ -58,6 +88,8 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
     if (following) {
       // An overlap phase may already be built (awaiting its finish) or running: only a pending one starts here.
       if (following.status === 'pending') following.status = 'in_progress';
+      // The wrap-up is over: the next phase builds with no step shown.
+      if (s.step?.name === 'wrapping') delete s.step;
       next = `next phase "${following.name}"`;
     } else {
       setStage(s, 'verify');

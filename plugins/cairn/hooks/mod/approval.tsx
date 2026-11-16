@@ -16,14 +16,14 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${kind} stop of plan ${slug}?`
 
 /** Confirms with fixed wording, then approves through the shared secret path (FR-05). */
-export async function confirmAndApprove($: EngineInterface, slug: string, kind: Kind): Promise<string | undefined> {
+export async function confirmAndApprove($: EngineInterface, slug: string, kind: Kind, from = 'the pane'): Promise<string | undefined> {
   // The slug is the only plan text in the question, and only when it is a plain slug: no tag can ride in.
   if (!SLUG.test(slug)) return 'cairn: the plan name is not a plain slug, so nothing was approved.'
   // $.ui.ask answers only a label, so a dialog that answered itself while the user was away can't be told
   // apart here. Cancel comes first, so a dialog that takes its first option approves nothing.
   const answer = await $.ui.ask(confirmQuestion(kind, slug), ['Cancel', APPROVE]).catch(() => undefined)
   if (answer !== APPROVE) return 'cairn: not approved; nothing was recorded.'
-  return approveAs($, slug, kind)
+  return approveAs($, slug, kind, from)
 }
 
 /** The labels the CLI would accept as a target: not the level the plan is at, and none lower once a task has started. */

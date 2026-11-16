@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildBoard, ownerOf, type BoardIssue } from '../board.ts';
 import { loadConfig } from '../config.ts';
-import { commonDir, gitOk, gitTry, landedState, prMerged, safeRef } from '../git.ts';
+import { commonDir, gitOk, gitTry, landedState, mergeState, prMerged, safeRef } from '../git.ts';
 import {
   effectiveBlockers,
   emptyLink,
@@ -48,7 +48,7 @@ import { listPlans, stackBase } from './status.ts';
 import { onPublishSent, publish } from './publish.ts';
 import { issueDescription, renderSpecPrd, specCheck } from '../spec.ts';
 
-const USAGE = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
+const USAGE = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | closes [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "…" | hold <id> --note "…" | depends <KEY> --on <KEY> --reason "…" | ack <change> --as taken|later|noted [--note "…"]
   | release <KEY> --reason "…" | take <KEY> --reason "…" | prd [--force] | board [--project "<name>"] [--json] | relink <EPIC> [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
 
@@ -75,6 +75,8 @@ export function cmdLinear(ctx: Ctx, sub: string | undefined, arg: string | undef
       return opts.board ? importBoard(ctx, opts) : opts.refresh ? refreshPlan(ctx, opts) : importPlan(ctx, opts);
     case 'pending':
       return pending(ctx, opts);
+    case 'closes':
+      return closes(ctx);
     case 'sent':
       return markSent(ctx, arg, opts);
     case 'drop':
@@ -337,6 +339,21 @@ export function mergedAwaitingDone(pc: PlanCtx, s: State): boolean {
   return merged;
 }
 
+/**
+ * The plan's parent issues (not done yet) whose every sub-issue is built here (`shipped`) or done in Linear already.
+ * Only parents in the plan: their whole subtree was read. A parent outside it (a plan of one sub-issue) is left to Linear and the other plans.
+ */
+function coveredParents(l: LinearLink, cfg: LinearConfig | undefined, taken: LinearIssue[], shipped: (key: string) => boolean): string[] {
+  const parents = parentKeys(taken);
+  const all = [...l.issues, ...l.known];
+  const takenKeys = new Set(taken.map((i) => i.key));
+  return [...parents].filter((p) => {
+    if (settled(all.find((i) => i.key === p), cfg)) return false;
+    const kids = all.filter((i) => i.parent === p);
+    return kids.length > 0 && kids.every((k) => (takenKeys.has(k.key) && (parents.has(k.key) || shipped(k.key))) || settled(k, cfg));
+  });
+}
+
 /** Queue Done on the plan's issues once its branch has landed (checked first, outside the lock, by `mergedAwaitingDone`). */
 export function queueDone(pc: PlanCtx, s: State): number {
   const l = s.linear;
@@ -349,15 +366,7 @@ export function queueDone(pc: PlanCtx, s: State): number {
   // Only issues the plan built: one pulled in later and never put on a requirement stays as it is.
   for (const i of taken) if (!parents.has(i.key) && !settled(i, cfg) && progress.get(i.key) === 'shipped' && queueStatus(l, cfg, i.key, 'done', 'the pull request is merged')) n++;
   // A parent closes when every sub-issue is done: this plan's (now merged) and every other one Linear knows of.
-  const all = [...l.issues, ...l.known];
-  const takenKeys = new Set(taken.map((i) => i.key));
-  // Only parents in the plan: their whole subtree was read. A parent outside it (a plan of one sub-issue) is left to Linear and the other plans.
-  for (const p of parents) {
-    const parent = all.find((i) => i.key === p);
-    if (settled(parent, cfg)) continue;
-    const kids = all.filter((i) => i.parent === p);
-    if (kids.length && kids.every((k) => (takenKeys.has(k.key) && (parents.has(k.key) || progress.get(k.key) === 'shipped')) || settled(k, cfg)) && queueStatus(l, cfg, p, 'done', `every sub-issue of ${p} is done`)) n++;
-  }
+  for (const p of coveredParents(l, cfg, taken, (k) => progress.get(k) === 'shipped')) if (queueStatus(l, cfg, p, 'done', `every sub-issue of ${p} is done`)) n++;
   // Recorded even when nothing was queued, so the merge is checked once.
   l.mergedAt = now();
   log(s, 'Linear: merged', n ? `${n} issue(s) to mark Done` : 'nothing to mark Done');
@@ -388,6 +397,27 @@ function pending(ctx: Ctx, opts: Opts = {}): Result {
     ? [`${list.length} Linear update${list.length === 1 ? '' : 's'} to send${opts.claim ? ' (claimed for 10 minutes)' : ''}:`, ...list.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? ' (ask the user first)' : ''}${w.held ? ` (held: ${w.held.note})` : ''}${w.retry ? ' (retry: check Linear for it first)' : ''}: ${w.why}`)]
     : ['Nothing to send to Linear.'];
   return { message: lines.join('\n'), data: { pending: list.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
+}
+
+/**
+ * The closing lines for the pull request body: Linear's GitHub integration closes an issue when a pull request whose
+ * description says `Closes <KEY>` merges. One line per issue the plan builds: each built sub-issue, and each epic whose
+ * sub-issues are all built here or done already.
+ */
+function closes(ctx: Ctx): Result {
+  const pc = planCtx(ctx);
+  const s = loadState(pc.plan.dir);
+  const l = s.linear;
+  if (!l || !l.issues.length) return { message: '', data: { closes: [], lines: [] } };
+  const cfg = linearConfig(pc.cfg);
+  const taken = takenIssues(l);
+  const parents = parentKeys(taken);
+  const progress = issueProgress(s);
+  // Asked at ship, before the plan moves on: the tasks are done but not yet counted shipped.
+  const built = (k: string) => ['shipped', 'built'].includes(progress.get(k) ?? '');
+  const keys = [...taken.filter((i) => !parents.has(i.key) && built(i.key)).map((i) => i.key), ...coveredParents(l, cfg, taken, built)];
+  const lines = keys.map((k) => `Closes ${k}`);
+  return { message: lines.join('\n'), data: { closes: keys, lines } };
 }
 
 function entry(l: LinearLink, id: string | undefined) {
@@ -635,6 +665,8 @@ export function onAdvance(pc: PlanCtx, s: State, from: State['stage'], to: State
       const review = queueStatus(l, cfg, i.key, 'inReview', 'the pull request is open');
       queueComment(l, i.key, `Shipped by cairn plan "${s.title}" (\`${s.branch}\`)${l.pr ? `: ${l.pr}` : '; the pull request is open'}.${review ? '' : ' Waiting on review and merge.'}`, `${i.key} is in an open pull request`, 'pr');
     }
+    // An epic whose sub-issues are all in review moves with them; without a configured review status nothing is queued.
+    for (const p of coveredParents(l, cfg, taken, (k) => progress.get(k) === 'shipped')) queueStatus(l, cfg, p, 'inReview', 'the pull request is open');
     // The epic's own comment, so it reads without opening each child.
     for (const p of new Set([...parents, ...(l.epic ? [l.epic] : [])])) {
       const kids = [...l.issues, ...l.known].filter((i) => i.parent === p);
@@ -806,9 +838,10 @@ export function stackLanded(ctx: Ctx, st: NonNullable<State['stackedOn']>, row: 
 }
 
 /** Whether another plan's branch has landed in its base. Its state came from another branch, so its refs are checked first (`mergeState` does). */
-export function merged(ctx: Ctx, s: State): boolean {
+export function merged(ctx: Ctx, s: State, local = false): boolean {
   try {
     const rel = resolvePlanDir(s.slug, { ref: s.branch, cwd: ctx.top }) ?? '';
+    if (local) return mergeState(ctx.top, s.branch, s.base, rel) === 'merged';
     return landedState(ctx.top, s.branch, s.base, rel, join(commonDir(ctx.mainRoot), PR_CACHE)) === 'merged';
   } catch {
     return false;
@@ -1001,20 +1034,28 @@ function relink(ctx: Ctx, arg: string | undefined, opts: Opts): Result {
 }
 
 /**
+ * Whether a plan with Linear issues has landed in its base and has no Done statuses queued yet. Read from the plan's own
+ * state and the branch: git first, then `gh` through its cache; with `local`, git only (no network), for the session-start hook.
+ */
+export function awaitsDone(ctx: Ctx, s: State, local = false): boolean {
+  const l = s.linear;
+  return wellFormed(l) && l.issues.length > 0 && (s.stage === 'learn' || s.stage === 'closed') && !doneQueued(l) && merged(ctx, s, local);
+}
+
+/**
  * Plans whose branch merged while nobody ran cairn in their worktree, so their Done statuses were never queued.
  * `cairn next` on main points at the first; it may ask `gh`, so a hook never calls this.
  */
 export function mergedPlansAwaitingDone(ctx: Ctx): { slug: string; worktree: string }[] {
   try {
     return listPlans(ctx)
-      .filter((r) => r.worktree && wellFormed(r.state.linear) && (r.state.stage === 'learn' || r.state.stage === 'closed') && !doneQueued(r.state.linear) && merged(ctx, r.state))
+      .filter((r) => r.worktree && awaitsDone(ctx, r.state))
       .map((r) => ({ slug: r.state.slug, worktree: r.worktree! }));
   } catch {
     return [];
   }
 }
 
-/** For the session-start hook: the count only, no git or network. */
 /**
  * What `cairn next` routes to the sync for, and what the session-start line and a plan row's `linearDue` count: the
  * unsent entries a sender could take now plus those waiting on the user. Held ones wait for the next sync, and ones a

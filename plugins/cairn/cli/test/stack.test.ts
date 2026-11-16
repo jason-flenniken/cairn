@@ -45,7 +45,7 @@ function asUser<T>(fn: () => T): T {
 }
 /** A plan that has finished building: in verify, with one code commit. */
 function built(slug: string, files: Record<string, string>): string {
-  const wt = run(['new', slug, '--title', slug], repo).data!.worktree as string;
+  const wt = run(['new', slug, '--level', 'standard', '--no-proofs', '--title', slug], repo).data!.worktree as string;
   for (const [f, text] of Object.entries(files)) writeFileSync(join(wt, f), text);
   edit(wt, slug, (s) => (s.stage = 'verify'));
   commitAll(wt, `${slug}: code`);
@@ -65,7 +65,7 @@ before(() => {
 after(() => rmSync(repo, { recursive: true, force: true }));
 
 test('new --after refuses a plan that does not exist, is not built yet, or is checked against another --from', () => {
-  const baseWt = run(['new', 'base', '--title', 'base'], repo).data!.worktree as string;
+  const baseWt = run(['new', 'base', '--level', 'standard', '--no-proofs', '--title', 'base'], repo).data!.worktree as string;
   refused(repo, /no plan named "nope"/, 'new', 'c0', '--after', 'nope');
   refused(repo, /has not finished building yet \(it is in discover\)/, 'new', 'c0', '--after', 'base');
   edit(baseWt, 'base', (s) => (s.stage = 'verify'));
@@ -75,7 +75,7 @@ test('new --after refuses a plan that does not exist, is not built yet, or is ch
 
 test('new --after a built plan starts on its branch and records stackedOn; ship waits for the base to merge; restack follows the base, then main', () => {
   const baseWt = built('lib', { 'lib.txt': 'lib\n' });
-  const r = run(['new', 'app', '--title', 'app', '--after', 'lib'], repo);
+  const r = run(['new', 'app', '--level', 'standard', '--no-proofs', '--title', 'app', '--after', 'lib'], repo);
   const appWt = r.data!.worktree as string;
   assert.match(r.message, /stacked on plan lib/);
   const s = stateOf(appWt, 'app');
@@ -121,7 +121,7 @@ test('new --after a built plan starts on its branch and records stackedOn; ship 
 
 test('merge-check moves a stacked plan onto main first', () => {
   const baseWt = built('mc-base', { 'mc.txt': 'mc\n' });
-  const appWt = run(['new', 'mc-app', '--title', 'mc-app', '--after', 'mc-base'], repo).data!.worktree as string;
+  const appWt = run(['new', 'mc-app', '--level', 'standard', '--no-proofs', '--title', 'mc-app', '--after', 'mc-base'], repo).data!.worktree as string;
   writeFileSync(join(appWt, 'mc-app.txt'), 'x\n');
   edit(appWt, 'mc-app', (x) => {
     x.stage = 'ship';
@@ -139,7 +139,7 @@ test('merge-check moves a stacked plan onto main first', () => {
 
 test('a restack conflict comes back as the text of next, names the files, aborts the merge and leaves the plan stacked', () => {
   built('core', { 'conflict.txt': 'a\n' });
-  const appWt = run(['new', 'edge', '--title', 'edge', '--after', 'core'], repo).data!.worktree as string;
+  const appWt = run(['new', 'edge', '--level', 'standard', '--no-proofs', '--title', 'edge', '--after', 'core'], repo).data!.worktree as string;
   writeFileSync(join(appWt, 'conflict.txt'), 'edge\n');
   commitAll(appWt, 'edge: change');
   g(repo, 'merge', '--no-ff', '-q', '-m', 'Merge feature/core', 'feature/core');
@@ -155,7 +155,7 @@ test('a restack conflict comes back as the text of next, names the files, aborts
 
 test('restack refuses a dirty worktree', () => {
   const baseWt = built('dirtybase', { 'd.txt': 'd\n' });
-  const appWt = run(['new', 'dirtyapp', '--title', 'dirtyapp', '--after', 'dirtybase'], repo).data!.worktree as string;
+  const appWt = run(['new', 'dirtyapp', '--level', 'standard', '--no-proofs', '--title', 'dirtyapp', '--after', 'dirtybase'], repo).data!.worktree as string;
   writeFileSync(join(baseWt, 'd2.txt'), 'x\n');
   commitAll(baseWt, 'more');
   writeFileSync(join(appWt, 'loose.txt'), 'uncommitted\n');
@@ -181,7 +181,7 @@ const dropBranch = (wt: string, branch: string) => {
 test('new --after records the base tip, and refuses --track fix', () => {
   const baseWt = built('tip-base', { 'tb.txt': 'x\n' });
   refused(repo, /fix plan cannot start after another plan/, 'new', 'tip-fix', '--track', 'fix', '--after', 'tip-base');
-  const appWt = run(['new', 'tip-app', '--title', 'tip-app', '--after', 'tip-base'], repo).data!.worktree as string;
+  const appWt = run(['new', 'tip-app', '--level', 'standard', '--no-proofs', '--title', 'tip-app', '--after', 'tip-base'], repo).data!.worktree as string;
   assert.equal(stateOf(appWt, 'tip-app').stackedOn.tip, g(baseWt, 'rev-parse', 'HEAD'));
   writeFileSync(join(baseWt, 'tb2.txt'), 'y\n');
   commitAll(baseWt, 'tip-base: more');
@@ -191,7 +191,7 @@ test('new --after records the base tip, and refuses --track fix', () => {
 
 test('a base branch deleted unmerged is refused, not treated as merged: the plan stays stacked and cannot ship', () => {
   const baseWt = built('gone-base', { 'gone.txt': 'abandoned\n' });
-  const appWt = run(['new', 'gone-app', '--title', 'gone-app', '--after', 'gone-base'], repo).data!.worktree as string;
+  const appWt = run(['new', 'gone-app', '--level', 'standard', '--no-proofs', '--title', 'gone-app', '--after', 'gone-base'], repo).data!.worktree as string;
   readyToShip(appWt, 'gone-app');
   dropBranch(baseWt, 'feature/gone-base');
   const out = run(['next'], appWt);
@@ -205,7 +205,7 @@ test('a base branch deleted unmerged is refused, not treated as merged: the plan
 
 test('a base merged into main and then deleted moves the plan onto main', () => {
   const baseWt = built('del-base', { 'del.txt': 'del\n' });
-  const appWt = run(['new', 'del-app', '--title', 'del-app', '--after', 'del-base'], repo).data!.worktree as string;
+  const appWt = run(['new', 'del-app', '--level', 'standard', '--no-proofs', '--title', 'del-app', '--after', 'del-base'], repo).data!.worktree as string;
   readyToShip(appWt, 'del-app');
   g(repo, 'merge', '--no-ff', '-q', '-m', 'Merge feature/del-base', 'feature/del-base');
   dropBranch(baseWt, 'feature/del-base');
@@ -223,7 +223,7 @@ test('a base kept only on the remote is followed while unmerged, blocks shipping
   try {
     g(repo, 'push', '-q', 'origin', 'main');
     const baseWt = built('rem-base', { 'rem.txt': 'rem\n' });
-    const appWt = run(['new', 'rem-app', '--title', 'rem-app', '--after', 'rem-base'], repo).data!.worktree as string;
+    const appWt = run(['new', 'rem-app', '--level', 'standard', '--no-proofs', '--title', 'rem-app', '--after', 'rem-base'], repo).data!.worktree as string;
     readyToShip(appWt, 'rem-app');
     g(baseWt, 'push', '-q', 'origin', 'feature/rem-base');
     dropBranch(baseWt, 'feature/rem-base');
@@ -247,7 +247,7 @@ test('a base kept only on the remote is followed while unmerged, blocks shipping
 
 test('restack waits while a task is running, and says so', () => {
   const baseWt = built('run-base', { 'run.txt': 'run\n' });
-  const appWt = run(['new', 'run-app', '--title', 'run-app', '--after', 'run-base'], repo).data!.worktree as string;
+  const appWt = run(['new', 'run-app', '--level', 'standard', '--no-proofs', '--title', 'run-app', '--after', 'run-base'], repo).data!.worktree as string;
   edit(appWt, 'run-app', (s) => {
     s.stage = 'execute';
     s.phases = [{ id: 'p', name: 'p', status: 'in_progress', tasks: [{ id: 't', name: 't', covers: [], blockedBy: [], scope: ['src/**'], complexity: 'standard', status: 'in_progress', fixRound: 0, risky: false }] }];
@@ -268,7 +268,7 @@ test('restack waits while a task is running, and says so', () => {
 
 test('merge-check checks the stage and the approval before it restacks', () => {
   const baseWt = built('ord-base', { 'ord.txt': 'ord\n' });
-  const appWt = run(['new', 'ord-app', '--title', 'ord-app', '--after', 'ord-base'], repo).data!.worktree as string;
+  const appWt = run(['new', 'ord-app', '--level', 'standard', '--no-proofs', '--title', 'ord-app', '--after', 'ord-base'], repo).data!.worktree as string;
   writeFileSync(join(baseWt, 'ord2.txt'), 'more\n');
   commitAll(baseWt, 'ord-base: more');
   refused(appWt, /runs after the ship approval; the plan is in discover/, 'merge-check');

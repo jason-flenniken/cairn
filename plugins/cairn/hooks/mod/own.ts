@@ -74,6 +74,11 @@ async function store($: EngineInterface, slug: string): Promise<void> {
   await $.store.set(key, slug).catch(() => undefined)
 }
 
+/** The plan this session last worked on, closed or not: a plan closes before its pull request merges. */
+export async function lastOwnPlan($: EngineInterface): Promise<string | undefined> {
+  return storedPlan($)
+}
+
 const isOpen = (r: OwnRow | undefined) => r !== undefined && r.state?.stage !== 'closed'
 
 /**

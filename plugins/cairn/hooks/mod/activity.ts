@@ -19,8 +19,8 @@ const now = atom({ plugin: 'cairn', key: 'now' } as const, 0)
 const TICK_MS = 1_000
 const FEED_KEPT = 200
 const KEEP_ENDED_MS = 180_000
-/** How long a finished card stays on screen; a failure stays longer so it is not missed. */
-export const LINGER_MS = { done: 60_000, failed: 120_000 }
+/** How long a finished card stays on the Now tab; History keeps it after that. */
+export const LINGER_MS = { done: 30_000, failed: 30_000 }
 const ACTIVE = ['running', 'pending', 'waiting']
 /** Tools whose call stays open until you answer, so the main session is waiting for you while one runs. */
 const ASKS_YOU = new Set(['AskUserQuestion', 'ExitPlanMode'])

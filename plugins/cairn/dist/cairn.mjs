@@ -7978,8 +7978,8 @@ var STEPS = {
   discover: ["asking"],
   prd: ["drafting", "checking", "approving", "asking"],
   plan: ["drafting", "checking", "approving", "asking"],
-  execute: ["asking"],
-  verify: ["testing", "scanning", "fixing", "asking"],
+  execute: ["wrapping", "asking"],
+  verify: ["testing", "on-track", "scanning", "fixing", "asking"],
   review: ["reviewing", "fixing", "rechecking", "asking"],
   ship: ["recording", "approving", "opening-pr", "asking"]
 };
@@ -7989,6 +7989,8 @@ var STEP_LABEL = {
   checking: "builder check",
   recording: "writing the record",
   testing: "running tests",
+  wrapping: "wrapping up phase",
+  "on-track": "on-track review",
   scanning: "scanning for secrets",
   fixing: "fixing",
   reviewing: "reviewing",
@@ -9523,7 +9525,7 @@ function renderSpecPrd(title, l, texts, decisionsMd) {
 var keysOf = (xs) => xs.map((i) => i.key).join(", ");
 
 // plugins/cairn/cli/src/commands/linear.ts
-var USAGE2 = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | sent <id> [--ref <key or url>]
+var USAGE2 = `usage: cairn linear [status] | import (--file <path> | stdin) [--refresh | --board] | pending [--json] | closes [--json] | sent <id> [--ref <key or url>]
   | drop <id> --note "\u2026" | hold <id> --note "\u2026" | depends <KEY> --on <KEY> --reason "\u2026" | ack <change> --as taken|later|noted [--note "\u2026"]
   | release <KEY> --reason "\u2026" | take <KEY> --reason "\u2026" | prd [--force] | board [--project "<name>"] [--json] | relink <EPIC> [--project "<name>"] [--json] | publish --project "<name>" [--milestone "<name>"]`;
 var NO_CONFIG = (where) => new Refusal(`Linear is not set up for this repo: ${where} has no "linear" block`, [`add "linear": { "team": "<team key, e.g. SAV>" } to ${where}, then retry`]);
@@ -9545,6 +9547,8 @@ function cmdLinear(ctx, sub, arg, opts) {
       return opts.board ? importBoard(ctx, opts) : opts.refresh ? refreshPlan(ctx, opts) : importPlan(ctx, opts);
     case "pending":
       return pending(ctx, opts);
+    case "closes":
+      return closes(ctx);
     case "sent":
       return markSent(ctx, arg, opts);
     case "drop":
@@ -9762,6 +9766,16 @@ function mergedAwaitingDone(pc, s) {
   }
   return merged2;
 }
+function coveredParents(l, cfg, taken, shipped) {
+  const parents = parentKeys(taken);
+  const all = [...l.issues, ...l.known];
+  const takenKeys = new Set(taken.map((i) => i.key));
+  return [...parents].filter((p) => {
+    if (settled(all.find((i) => i.key === p), cfg)) return false;
+    const kids = all.filter((i) => i.parent === p);
+    return kids.length > 0 && kids.every((k) => takenKeys.has(k.key) && (parents.has(k.key) || shipped(k.key)) || settled(k, cfg));
+  });
+}
 function queueDone(pc, s) {
   const l = s.linear;
   if (!l || doneQueued(l)) return 0;
@@ -9771,14 +9785,7 @@ function queueDone(pc, s) {
   const progress2 = issueProgress(s);
   let n = 0;
   for (const i of taken) if (!parents.has(i.key) && !settled(i, cfg) && progress2.get(i.key) === "shipped" && queueStatus(l, cfg, i.key, "done", "the pull request is merged")) n++;
-  const all = [...l.issues, ...l.known];
-  const takenKeys = new Set(taken.map((i) => i.key));
-  for (const p of parents) {
-    const parent = all.find((i) => i.key === p);
-    if (settled(parent, cfg)) continue;
-    const kids = all.filter((i) => i.parent === p);
-    if (kids.length && kids.every((k) => takenKeys.has(k.key) && (parents.has(k.key) || progress2.get(k.key) === "shipped") || settled(k, cfg)) && queueStatus(l, cfg, p, "done", `every sub-issue of ${p} is done`)) n++;
-  }
+  for (const p of coveredParents(l, cfg, taken, (k) => progress2.get(k) === "shipped")) if (queueStatus(l, cfg, p, "done", `every sub-issue of ${p} is done`)) n++;
   l.mergedAt = now();
   log(s, "Linear: merged", n ? `${n} issue(s) to mark Done` : "nothing to mark Done");
   return n;
@@ -9799,6 +9806,20 @@ function pending(ctx, opts = {}) {
   }) : unsent(linkOf(s));
   const lines = list3.length ? [`${list3.length} Linear update${list3.length === 1 ? "" : "s"} to send${opts.claim ? " (claimed for 10 minutes)" : ""}:`, ...list3.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? " (ask the user first)" : ""}${w.held ? ` (held: ${w.held.note})` : ""}${w.retry ? " (retry: check Linear for it first)" : ""}: ${w.why}`)] : ["Nothing to send to Linear."];
   return { message: lines.join("\n"), data: { pending: list3.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
+}
+function closes(ctx) {
+  const pc = planCtx(ctx);
+  const s = loadState(pc.plan.dir);
+  const l = s.linear;
+  if (!l || !l.issues.length) return { message: "", data: { closes: [], lines: [] } };
+  const cfg = linearConfig(pc.cfg);
+  const taken = takenIssues(l);
+  const parents = parentKeys(taken);
+  const progress2 = issueProgress(s);
+  const built = (k) => ["shipped", "built"].includes(progress2.get(k) ?? "");
+  const keys = [...taken.filter((i) => !parents.has(i.key) && built(i.key)).map((i) => i.key), ...coveredParents(l, cfg, taken, built)];
+  const lines = keys.map((k) => `Closes ${k}`);
+  return { message: lines.join("\n"), data: { closes: keys, lines } };
 }
 function entry(l, id) {
   if (!id) throw new CliError(USAGE2);
@@ -10008,6 +10029,7 @@ function onAdvance(pc, s, from, to, opts, followups) {
       const review = queueStatus(l, cfg, i.key, "inReview", "the pull request is open");
       queueComment(l, i.key, `Shipped by cairn plan "${s.title}" (\`${s.branch}\`)${l.pr ? `: ${l.pr}` : "; the pull request is open"}.${review ? "" : " Waiting on review and merge."}`, `${i.key} is in an open pull request`, "pr");
     }
+    for (const p of coveredParents(l, cfg, taken, (k) => progress2.get(k) === "shipped")) queueStatus(l, cfg, p, "inReview", "the pull request is open");
     for (const p of /* @__PURE__ */ new Set([...parents, ...l.epic ? [l.epic] : []])) {
       const kids = [...l.issues, ...l.known].filter((i) => i.parent === p);
       const done = kids.filter((k) => isDone(k) || progress2.get(k.key) === "shipped").length;
@@ -10138,9 +10160,10 @@ function stackLanded(ctx, st, row, cwd) {
   }
   return prMerged(cwd, st.branch, join9(commonDir(ctx.mainRoot), PR_CACHE));
 }
-function merged(ctx, s) {
+function merged(ctx, s, local = false) {
   try {
     const rel = resolvePlanDir(s.slug, { ref: s.branch, cwd: ctx.top }) ?? "";
+    if (local) return mergeState(ctx.top, s.branch, s.base, rel) === "merged";
     return landedState(ctx.top, s.branch, s.base, rel, join9(commonDir(ctx.mainRoot), PR_CACHE)) === "merged";
   } catch {
     return false;
@@ -10290,9 +10313,13 @@ function relink(ctx, arg, opts) {
   const epicText = textOf(epicKey);
   return { message: lines.join("\n"), data: { epic: { key: epicKey, title: epic.title, ...epicText ? { text: epicText } : {} }, links } };
 }
+function awaitsDone(ctx, s, local = false) {
+  const l = s.linear;
+  return wellFormed(l) && l.issues.length > 0 && (s.stage === "learn" || s.stage === "closed") && !doneQueued(l) && merged(ctx, s, local);
+}
 function mergedPlansAwaitingDone(ctx) {
   try {
-    return listPlans(ctx).filter((r) => r.worktree && wellFormed(r.state.linear) && (r.state.stage === "learn" || r.state.stage === "closed") && !doneQueued(r.state.linear) && merged(ctx, r.state)).map((r) => ({ slug: r.state.slug, worktree: r.worktree }));
+    return listPlans(ctx).filter((r) => r.worktree && awaitsDone(ctx, r.state)).map((r) => ({ slug: r.state.slug, worktree: r.worktree }));
   } catch {
     return [];
   }
@@ -10614,7 +10641,12 @@ function testLog(pc, output) {
 function recordTestRun(pc, t, task) {
   if (!t || !t.ok && !t.ran) return t;
   if (t.ok) {
-    if (loadState(pc.plan.dir).lastRed) mutate(pc, void 0, (s) => void delete s.lastRed);
+    const full = t.ran && !t.quick && !!t.head;
+    if (loadState(pc.plan.dir).lastRed || full)
+      mutate(pc, void 0, (s) => {
+        delete s.lastRed;
+        if (full) s.lastGreen = { commit: t.head, at: now() };
+      });
     return t;
   }
   t.log = testLog(pc, t.output ?? "");
@@ -11680,7 +11712,7 @@ function cmdStatus(ctx, opts) {
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     const openSuggestions2 = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full ? r.state : slimRow(r.state), next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), openSuggestions: openSuggestions2, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
+${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full ? r.state : slimRow(r.state), next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), mergedAwaitingDone: awaitsDone(ctx, r.state), openSuggestions: openSuggestions2, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -11973,10 +12005,21 @@ function cmdNew(ctx, slug, opts) {
   const title = typeof opts.title === "string" ? opts.title : slug;
   const cfg = loadConfig(ctx.top, ctx.mainRoot);
   if (typeof opts.level === "string" && !isLevel(opts.level)) throw new Refusal(`"${opts.level}" is not a level: use ${LEVELS.join(", ")}`);
-  const badDefault = cfg.defaultLevel !== void 0 && !isLevel(cfg.defaultLevel);
-  const level = typeof opts.level === "string" ? opts.level : isLevel(cfg.defaultLevel) ? cfg.defaultLevel : "standard";
   if (opts.proofs && opts["no-proofs"]) throw new CliError("use --proofs or --no-proofs, not both");
-  const proofs = opts.proofs ? true : opts["no-proofs"] ? false : cfg.proofs === "on";
+  if (track === "feature") {
+    const needLevel = typeof opts.level !== "string";
+    const needProofs = !opts.proofs && !opts["no-proofs"];
+    if (needLevel || needProofs) {
+      const missing = [...needLevel ? ["--level mvp|standard|polished"] : [], ...needProofs ? ["--proofs or --no-proofs"] : []];
+      throw new Refusal(`a plan starts only after the user has been asked how much rigor it needs and whether to prove the end state; missing ${missing.join(" and ")}`, [
+        "ask the user the level question and the proofs question (procedures/new.md, steps 4 and 4a)",
+        `then run cairn new ${slug} again with both flags: --level <mvp|standard|polished> and --proofs or --no-proofs`,
+        "do no other work until the plan exists"
+      ]);
+    }
+  }
+  const level = opts.level;
+  const proofs = opts.proofs === true;
   let wt;
   if (opts["no-worktree"]) {
     git(["switch", "-q", "-c", branch, base2], ctx.top);
@@ -12010,7 +12053,6 @@ Append-only. Written by \`cairn decide\` as each decision is made.
   return {
     message: [
       `Started plan "${title}" on ${branch} (from ${base2}${stackedOn ? `, stacked on plan ${stackedOn.slug}` : ""}).${setup}`,
-      ...badDefault ? [`Warning: defaultLevel "${cfg.defaultLevel}" in ${CONFIG_REL} is not one of ${LEVELS.join(", ")}; using standard.`] : [],
       `Worktree: ${wt}`,
       ...track === "feature" ? [proofs ? "Proofs: on. The plan approval needs runnable proofs of the end state, seen failing." : "Proofs: off."] : [],
       `The plan is ready. Continue with /cairn:next from where you are.`
@@ -12342,6 +12384,109 @@ function mergeProofs(prev, next, hash) {
 // plugins/cairn/cli/src/commands/tasks.ts
 import { existsSync as existsSync14 } from "node:fs";
 import { basename as basename5, join as join21 } from "node:path";
+
+// plugins/cairn/cli/src/commands/phase.ts
+function newSuggestionsText(s) {
+  const since = [...s.log].reverse().find((l) => l.event === "phase finished" || l.event === "advanced" && l.detail === "execute")?.at ?? s.created;
+  const fresh = (s.suggestions ?? []).filter((x) => !x.resolves && !x.declines && x.at > since);
+  if (!fresh.length) return "0 new suggestions";
+  const by = /* @__PURE__ */ new Map();
+  for (const x of fresh) by.set(x.area, (by.get(x.area) ?? 0) + 1);
+  return `${fresh.length} new suggestion${fresh.length === 1 ? "" : "s"} (${[...by].map(([a, n]) => `${n} ${a}`).join(", ")})`;
+}
+var isLastPhase = (s, phase) => s.phases.every((p) => p === phase || p.status === "done");
+function finishLastPhase(s, cur, cfg) {
+  cur.status = "done";
+  log(s, "phase finished", `${cur.name} (the full suite runs in Check)`);
+  onPhaseFinished(s, cfg);
+  setStage(s, "verify");
+  log(s, "advanced", "verify");
+}
+function cmdPhase(ctx, action, opts) {
+  if (action !== "finish") throw new CliError("usage: cairn phase finish");
+  const pc = planCtx(ctx);
+  const { plan: plan2 } = pc;
+  const pre = loadState(plan2.dir);
+  const phase = currentPhase(pre);
+  if (pre.stage === "verify" && pre.phases.length && pre.phases.every((p) => p.status === "done"))
+    return { message: "Every phase is finished and the plan is in Check: continue there (cairn next).", data: { phase: null, next: null, stage: pre.stage } };
+  if (pre.stage !== "execute" || !phase) throw new Refusal(`the plan is in ${pre.stage}, with no phase to finish`, ["cairn next"]);
+  if (pre.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
+  const unfinished = phase.tasks.filter((x) => x.status !== "done");
+  if (unfinished.length) throw new Refusal(`phase "${phase.name}" still has unfinished tasks: ${unfinished.map((x) => x.name).join(", ")}`, ["cairn ready"]);
+  const blocked = phase.tasks.filter((x) => x.substep === "blocked");
+  if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(", ")}`);
+  const dirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
+  if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${dirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
+  const lastPhase = isLastPhase(pre, phase);
+  const head = git(["rev-parse", "HEAD"], plan2.worktree);
+  const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? "").localeCompare(b.doneAt ?? "")).pop();
+  const reused = !lastPhase && !!(last?.testedCommit && last.tests && gitOk(["diff", "--quiet", last.testedCommit, head, "--", ".", ...cairnPathspecExcludes()], plan2.worktree));
+  const tests = reused || lastPhase ? void 0 : recordTestRun(pc, runTests(pc.cfg, plan2.worktree));
+  return mutate(pc, `phase finished: ${phase.name}`, (s) => {
+    const cur = currentPhase(s);
+    gate(cur.verdict?.result !== "red", s, "phase finish", opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"]);
+    linearPhaseGate(s, opts);
+    if (lastPhase) {
+      const drift2 = s.drift.filter((d) => !d.acked);
+      const suggestions2 = newSuggestionsText(s);
+      finishLastPhase(s, cur, linearConfig(pc.cfg));
+      const driftText2 = drift2.length ? `; ${drift2.length} out-of-scope edit(s): ${drift2.slice(0, 5).map((d) => d.path).join(", ")}` : "";
+      return {
+        message: `Phase "${cur.name}" finished: ${cur.tasks.length} tasks, ${suggestions2}${driftText2}; moved to Check, which runs the full suite next.`,
+        data: { phase: cur.id, next: null, stage: s.stage }
+      };
+    }
+    if (!reused) testsGate(tests, s, "phase finish", opts);
+    const testText = reused ? `tests green (${last.tests.split(" \u2192 ").pop()})` : tests ? `tests ${tests.ok ? "green" : "RED"} (${tests.tail})` : "no test command";
+    const suggestions = newSuggestionsText(s);
+    const drift = s.drift.filter((d) => !d.acked);
+    cur.status = "done";
+    log(s, "phase finished", `${cur.name} (${testText})`);
+    onPhaseFinished(s, linearConfig(pc.cfg));
+    const following = currentPhase(s);
+    let next;
+    if (following) {
+      if (following.status === "pending") following.status = "in_progress";
+      if (s.step?.name === "wrapping") delete s.step;
+      next = `next phase "${following.name}"`;
+    } else {
+      setStage(s, "verify");
+      log(s, "advanced", "verify");
+      next = "moved to Check";
+    }
+    const driftText = drift.length ? `; ${drift.length} out-of-scope edit(s): ${drift.slice(0, 5).map((d) => d.path).join(", ")}` : "";
+    return {
+      message: `Phase "${cur.name}" finished: ${cur.tasks.length} tasks, ${testText}, ${suggestions}${driftText}; ${next}.`,
+      data: { phase: cur.id, next: following?.id ?? null, stage: s.stage }
+    };
+  });
+}
+function cmdTest(ctx, opts) {
+  const pc = planCtx(ctx);
+  const tests = recordTestRun(pc, runTests(pc.cfg, pc.plan.worktree));
+  const build = pc.cfg.build ? runTests({ ...pc.cfg, test: pc.cfg.build }, pc.plan.worktree) : void 0;
+  const buildText = build ? ` Build ${build.ok ? "green" : "RED"} (\`${build.cmd}\` \u2192 ${build.tail}).` : "";
+  const buildData = build ? { build: { ran: build.ran, ok: build.ok, command: build.cmd, summary: build.tail } } : {};
+  return mutate(pc, void 0, (s) => {
+    if (!tests) {
+      testsGate(tests, s, "check", opts);
+      return { message: `No test command configured: nothing was run.${buildText}`, data: { ran: false, ...buildData } };
+    }
+    const mvp = levelOf(s) === "mvp";
+    if (tests.ok || mvp) testsGate(tests, s, "check", opts);
+    const note = !tests.ok && mvp ? " Recorded as a hardening item; the plan continues." : "";
+    const logPath = tests.log;
+    const failing = tests.failing ?? [];
+    const more = logPath ? `${failing.length ? `
+${failing.map((l) => `  ${l}`).join("\n")}` : ""}
+Full output: ${logPath}` : "";
+    return { message: `Tests ${tests.ok ? "green" : "RED"} (\`${tests.cmd}\` \u2192 ${tests.tail}).${note}${more}${more && buildText ? `
+${buildText.trim()}` : buildText}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail, ...logPath ? { log: logPath, failing } : {}, ...buildData } };
+  });
+}
+
+// plugins/cairn/cli/src/commands/tasks.ts
 var DEFAULT_FIX_MAX_FILES = 8;
 function cmdReady(ctx) {
   const pc = planCtx(ctx);
@@ -12490,14 +12635,21 @@ function taskDone(pc, id, opts) {
     log(s, "task done", cur.name);
     syncTickets(s, linearConfig(pc.cfg));
     const left = phase.tasks.filter((x) => x.status !== "done").length;
+    const toCheck = !fastLane(s) && phase.status === "awaiting_approval" && currentPhase(s) === phase && isLastPhase(s, phase) && !s.paused && !phase.tasks.some((x) => x.substep === "blocked") && phase.verdict?.result !== "red" && !(s.linear?.changes ?? []).some((c) => !c.handled);
+    if (toCheck) finishLastPhase(s, phase, linearConfig(pc.cfg));
+    const built = toCheck ? `Every task is built: the plan moved to Check, which runs the full suite next.${outOfScope(s)}` : fastLane(s) ? "The fix is built: `cairn advance` to review." : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`;
     return {
-      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? "quick tests" : "tests"}: ${tests.tail})` : " (no test command configured: nothing was run)"}. ${left ? `${left} task(s) left in phase "${phase.name}".` : fastLane(s) ? "The fix is built: `cairn advance` to review." : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`}`,
-      data: { phaseComplete: !left }
+      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? "quick tests" : "tests"}: ${tests.tail})` : " (no test command configured: nothing was run)"}. ${left ? `${left} task(s) left in phase "${phase.name}".` : built}`,
+      data: { phaseComplete: !left, stage: s.stage }
     };
   });
   if (merged2 && sl.worktree && existsSync14(sl.worktree)) gitOk(["worktree", "remove", sl.worktree], plan2.worktree);
   if (merged2) gitOk(["branch", "-d", sl.branch], plan2.worktree);
   return r;
+}
+function outOfScope(s) {
+  const drift = s.drift.filter((d) => !d.acked);
+  return drift.length ? ` ${drift.length} out-of-scope edit(s): ${drift.slice(0, 5).map((d) => d.path).join(", ")}.` : "";
 }
 var DOCS_ROOTS = ["docs/cairn/", "docs/sdlc/"];
 function preMergeChecks(pc, pre, sl, opts) {
@@ -12611,85 +12763,6 @@ function cmdStep(ctx, name, opts) {
     s.step = { stage: s.stage, name, ...count !== void 0 ? { count: Number(count) } : {}, at: now() };
     log(s, "step", `${name}${count !== void 0 ? ` (${count})` : ""}`);
     return { message: `Step at ${s.stage}: ${name}${count !== void 0 ? ` (${count})` : ""}.`, data: { step: s.step } };
-  });
-}
-
-// plugins/cairn/cli/src/commands/phase.ts
-function newSuggestionsText(s) {
-  const since = [...s.log].reverse().find((l) => l.event === "phase finished" || l.event === "advanced" && l.detail === "execute")?.at ?? s.created;
-  const fresh = (s.suggestions ?? []).filter((x) => !x.resolves && !x.declines && x.at > since);
-  if (!fresh.length) return "0 new suggestions";
-  const by = /* @__PURE__ */ new Map();
-  for (const x of fresh) by.set(x.area, (by.get(x.area) ?? 0) + 1);
-  return `${fresh.length} new suggestion${fresh.length === 1 ? "" : "s"} (${[...by].map(([a, n]) => `${n} ${a}`).join(", ")})`;
-}
-function cmdPhase(ctx, action, opts) {
-  if (action !== "finish") throw new CliError("usage: cairn phase finish");
-  const pc = planCtx(ctx);
-  const { plan: plan2 } = pc;
-  const pre = loadState(plan2.dir);
-  const phase = currentPhase(pre);
-  if (pre.stage !== "execute" || !phase) throw new Refusal(`the plan is in ${pre.stage}, with no phase to finish`, ["cairn next"]);
-  if (pre.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
-  const unfinished = phase.tasks.filter((x) => x.status !== "done");
-  if (unfinished.length) throw new Refusal(`phase "${phase.name}" still has unfinished tasks: ${unfinished.map((x) => x.name).join(", ")}`, ["cairn ready"]);
-  const blocked = phase.tasks.filter((x) => x.substep === "blocked");
-  if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(", ")}`);
-  const dirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
-  if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${dirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
-  const head = git(["rev-parse", "HEAD"], plan2.worktree);
-  const last = [...phase.tasks].filter((x) => x.testedCommit).sort((a, b) => (a.doneAt ?? "").localeCompare(b.doneAt ?? "")).pop();
-  const reused = !!(last?.testedCommit && last.tests && gitOk(["diff", "--quiet", last.testedCommit, head, "--", ".", ...cairnPathspecExcludes()], plan2.worktree));
-  const tests = reused ? void 0 : recordTestRun(pc, runTests(pc.cfg, plan2.worktree));
-  return mutate(pc, `phase finished: ${phase.name}`, (s) => {
-    const cur = currentPhase(s);
-    gate(cur.verdict?.result !== "red", s, "phase finish", opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"]);
-    linearPhaseGate(s, opts);
-    if (!reused) testsGate(tests, s, "phase finish", opts);
-    const testText = reused ? `tests green (${last.tests.split(" \u2192 ").pop()})` : tests ? `tests ${tests.ok ? "green" : "RED"} (${tests.tail})` : "no test command";
-    const suggestions = newSuggestionsText(s);
-    const drift = s.drift.filter((d) => !d.acked);
-    cur.status = "done";
-    log(s, "phase finished", `${cur.name} (${testText})`);
-    onPhaseFinished(s, linearConfig(pc.cfg));
-    const following = currentPhase(s);
-    let next;
-    if (following) {
-      if (following.status === "pending") following.status = "in_progress";
-      next = `next phase "${following.name}"`;
-    } else {
-      setStage(s, "verify");
-      log(s, "advanced", "verify");
-      next = "moved to Check";
-    }
-    const driftText = drift.length ? `; ${drift.length} out-of-scope edit(s): ${drift.slice(0, 5).map((d) => d.path).join(", ")}` : "";
-    return {
-      message: `Phase "${cur.name}" finished: ${cur.tasks.length} tasks, ${testText}, ${suggestions}${driftText}; ${next}.`,
-      data: { phase: cur.id, next: following?.id ?? null, stage: s.stage }
-    };
-  });
-}
-function cmdTest(ctx, opts) {
-  const pc = planCtx(ctx);
-  const tests = recordTestRun(pc, runTests(pc.cfg, pc.plan.worktree));
-  const build = pc.cfg.build ? runTests({ ...pc.cfg, test: pc.cfg.build }, pc.plan.worktree) : void 0;
-  const buildText = build ? ` Build ${build.ok ? "green" : "RED"} (\`${build.cmd}\` \u2192 ${build.tail}).` : "";
-  const buildData = build ? { build: { ran: build.ran, ok: build.ok, command: build.cmd, summary: build.tail } } : {};
-  return mutate(pc, void 0, (s) => {
-    if (!tests) {
-      testsGate(tests, s, "check", opts);
-      return { message: `No test command configured: nothing was run.${buildText}`, data: { ran: false, ...buildData } };
-    }
-    const mvp = levelOf(s) === "mvp";
-    if (tests.ok || mvp) testsGate(tests, s, "check", opts);
-    const note = !tests.ok && mvp ? " Recorded as a hardening item; the plan continues." : "";
-    const logPath = tests.log;
-    const failing = tests.failing ?? [];
-    const more = logPath ? `${failing.length ? `
-${failing.map((l) => `  ${l}`).join("\n")}` : ""}
-Full output: ${logPath}` : "";
-    return { message: `Tests ${tests.ok ? "green" : "RED"} (\`${tests.cmd}\` \u2192 ${tests.tail}).${note}${more}${more && buildText ? `
-${buildText.trim()}` : buildText}`, data: { ran: tests.ran, ok: tests.ok, command: tests.cmd, summary: tests.tail, ...logPath ? { log: logPath, failing } : {}, ...buildData } };
   });
 }
 
@@ -12820,8 +12893,9 @@ function computeVerdict(rows) {
 function cmdEvidencePhase(ctx, opts) {
   const pc = planCtx(ctx);
   return mutate(pc, "phase direction verdict", (s) => {
-    const phase = currentPhase(s);
-    if (s.stage !== "execute" || !phase || phase.status !== "awaiting_approval") throw new Refusal("no phase is built and waiting to finish", ["finish the phase's tasks first (cairn ready / cairn task done)"]);
+    const phase = s.stage === "verify" ? s.phases.at(-1) : currentPhase(s);
+    const ready = s.stage === "verify" ? !!phase : s.stage === "execute" && phase?.status === "awaiting_approval";
+    if (!phase || !ready) throw new Refusal("no phase is built and waiting to finish", ["finish the phase's tasks first (cairn ready / cairn task done)"]);
     const rel = `direction/${phase.id}.md`;
     const md = readText(planFile(pc, rel));
     if (md === void 0) throw new Refusal(`${rel} does not exist`, ["run the direction check and write the report with a cairn-direction scorecard"]);
@@ -12844,10 +12918,20 @@ function cmdEvidence(ctx, kind, result, opts) {
   if (kind !== "verify" && kind !== "review" || result !== "pass" && result !== "fail")
     throw new CliError('usage: cairn evidence verify|review pass|fail [--note "\u2026"] [--blocking N] | evidence phase [--note "\u2026"]');
   const pc = planCtx(ctx);
+  const green = loadState(pc.plan.dir).lastGreen;
+  const suiteCovers = !!green && gitOk(["diff", "--quiet", green.commit, "HEAD", "--", ".", ...cairnPathspecExcludes()], pc.plan.worktree);
   return mutate(pc, `${kind} ${result}`, (s) => {
     gate(s.stage === kind, s, `evidence ${kind}`, opts, `the plan is in ${s.stage}, not ${kind}`);
     const blocking = opts.blocking !== void 0 ? Number(opts.blocking) : void 0;
     if (result === "pass" && blocking) throw new Refusal(`a review with ${blocking} blocking finding(s) can't pass`, ["fix them in place, then record the review with --blocking 0"]);
+    if (kind === "verify" && result === "pass") {
+      if (pc.cfg.test && levelOf(s) !== "mvp")
+        gate(suiteCovers && !s.lastRed, s, "evidence verify", opts, "the full suite has not passed on the current code", ["cairn test (procedures/verify.md step 2), fixing until it is green"]);
+      const last = s.phases.at(-1);
+      gate(last?.verdict?.result !== "red", s, "evidence verify", opts, `the on-track check for "${last?.name}" is red${last?.verdict?.note ? ` (${last.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"]);
+      const open = (s.linear?.changes ?? []).filter((c) => !c.handled);
+      gate(!open.length, s, "evidence verify", opts, `changes in Linear are not handled yet: ${open.map((c) => c.id).join(", ")}`, ["handle each as procedures/phase-end.md says (cairn linear depends | ack | release)"]);
+    }
     s.evidence[kind] = { result, at: now(), ...opts.note ? { note: String(opts.note) } : {}, ...blocking !== void 0 ? { blocking } : {} };
     log(s, `${kind} ${result}`, opts.note ? String(opts.note) : void 0);
     return { message: `Recorded ${kind}: ${result}.` };
@@ -13336,13 +13420,27 @@ function exportPath(envFile = process.env.CLAUDE_ENV_FILE) {
   } catch {
   }
 }
+function mergedLines(ctx) {
+  try {
+    const line = (title) => `cairn: ${title}'s pull request is merged; run /cairn:next to mark its Linear issues Done.`;
+    if (ctx.plan) {
+      const dir = ctx.plan.dir;
+      const s = dir && existsSync16(join24(dir, "state.json")) ? loadState(dir) : void 0;
+      return s && awaitsDone(ctx, s, true) ? line(s.title) : "";
+    }
+    return listPlans(ctx).filter((r) => r.worktree && awaitsDone(ctx, r.state, true)).map((r) => line(r.state.title)).join("\n");
+  } catch {
+    return "";
+  }
+}
 function hookSessionStart(input) {
   exportPath();
   const ctx = context(input.cwd ?? process.cwd());
+  const owed = mergedLines(ctx);
   if (ctx.plan?.dir && existsSync16(join24(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", indexFor(ctx));
+    if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", owed, indexFor(ctx));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     const queued = pendingCount(s);
     if (queued) lines.push(`${queued} Linear update${queued === 1 ? "" : "s"} waiting to be sent; /cairn:next sends them first.`);
@@ -13352,14 +13450,14 @@ function hookSessionStart(input) {
       const sl = findTask(s, ctx.task);
       if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(", ")}. Never edit ${DOCS_DIRS.find((d) => planRelOf(pc.plan).startsWith(`${d}/`)) ?? DOCS_DIR}/.`);
     }
-    return startOut(lines.join("\n"), indexFor(ctx));
+    return startOut(lines.join("\n"), owed, indexFor(ctx));
   }
   const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
   if (!active.length) {
     const legacy = legacyLayout(ctx.mainRoot);
-    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(" and ")}; run \`cairn migrate\` on main to move them.` : "", indexFor(ctx));
+    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(" and ")}; run \`cairn migrate\` on main to move them.` : "", owed, indexFor(ctx));
   }
-  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), "The user can resume one with /cairn:resume <slug> or start another with /cairn:new."].join("\n"), indexFor(ctx));
+  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), "The user can resume one with /cairn:resume <slug> or start another with /cairn:new."].join("\n"), owed, indexFor(ctx));
 }
 var ANNOUNCES = [
   /(^|\n)\s*(\*\*)?Next(:\*\*|\*\*:|:)\s*(I|I'm|I'll|I am|I will|we'll|we will|starting|running|reading|dispatching|moving|continuing|beginning|opening)\b/i,

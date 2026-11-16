@@ -49,7 +49,7 @@ before(() => {
   writeFileSync(join(main, 'README.md'), 'hi\n');
   g(main, 'add', '-A');
   g(main, 'commit', '-q', '-m', 'init');
-  wt = run(['new', 'billing', '--title', 'Billing'], main).data!.worktree as string;
+  wt = run(['new', 'billing', '--level', 'standard', '--no-proofs', '--title', 'Billing'], main).data!.worktree as string;
   run(['decide', 'q', 'a'], wt);
   run(['advance'], wt);
   writeFileSync(join(pd(wt, 'billing'), 'prd.md'), PRD);

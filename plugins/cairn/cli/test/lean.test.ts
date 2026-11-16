@@ -96,7 +96,7 @@ after(() => {
 });
 
 /** A throwaway repo with a plan "billing" at the start of execute. */
-function world(config: Record<string, unknown> = {}): World {
+function world({ level = 'standard', ...config }: Record<string, unknown> = {}): World {
   const repo = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-lean-')));
   roots.push(repo);
   g(repo, 'init', '-q', '-b', 'main');
@@ -115,7 +115,7 @@ function world(config: Record<string, unknown> = {}): World {
       delete process.env.CAIRN_APPROVER;
     }
   };
-  const wt = ok(repo, 'new', 'billing', '--title', 'Billing').data!.worktree as string;
+  const wt = ok(repo, 'new', 'billing', '--level', String(level), '--no-proofs', '--title', 'Billing').data!.worktree as string;
   const dir = pd(wt, 'billing');
   ok(wt, 'decide', 'Which processor?', 'Stripe', '--why', 'existing account');
   ok(wt, 'advance');
@@ -823,7 +823,7 @@ test('lean Standard: the merge runs testQuick on the changed files, and phase fi
 });
 
 test('MVP: unreviewed stays empty, so the light branch review is not asked for task-review depth', () => {
-  const w = world({ defaultLevel: 'mvp' });
+  const w = world({ level: 'mvp' });
   const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
   commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
   ok(w.wt, 'task', 'merge', 'charge');
@@ -835,7 +835,7 @@ test('MVP: unreviewed stays empty, so the light branch review is not asked for t
 test('Polished: no quick tests, every task reviewed, opus branch review', () => {
   const marks = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-marks-')));
   roots.push(marks);
-  const w = world({ defaultLevel: 'polished', test: `echo full >> ${marks}/full.txt`, testQuick: `echo quick >> ${marks}/quick.txt` });
+  const w = world({ level: 'polished', test: `echo full >> ${marks}/full.txt`, testQuick: `echo quick >> ${marks}/quick.txt` });
   assert.equal(w.state().level, 'polished');
   const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
   commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');

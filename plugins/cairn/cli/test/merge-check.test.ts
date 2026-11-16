@@ -55,7 +55,7 @@ function moveMain(file: string, text: string) {
 }
 /** A closed feature plan whose ship was approved, with one code commit, as the Merge step finds it. */
 function shipped(slug: string, code: Record<string, string> = { [`${slug}.txt`]: 'code\n' }): string {
-  const wt = run(['new', slug, '--title', slug], repo).data!.worktree as string;
+  const wt = run(['new', slug, '--level', 'standard', '--no-proofs', '--title', slug], repo).data!.worktree as string;
   for (const [f, text] of Object.entries(code)) writeFileSync(join(wt, f), text);
   edit(wt, slug, (s) => {
     s.stage = 'ship';

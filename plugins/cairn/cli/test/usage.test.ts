@@ -28,7 +28,7 @@ const session = (usd: number, stage: string) => ({
 });
 /** Move a fresh plan to learn with a valid record, committed, ready to close. */
 function learnPlan(slug: string, title: string): string {
-  const wt = run(['new', slug, '--title', title], repo).data!.worktree as string;
+  const wt = run(['new', slug, '--level', 'standard', '--no-proofs', '--title', title], repo).data!.worktree as string;
   const f = join(pd(wt, slug), 'state.json');
   const s = JSON.parse(readFileSync(f, 'utf8'));
   s.stage = 'learn';

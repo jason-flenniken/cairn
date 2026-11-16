@@ -244,7 +244,12 @@ export function testLog(pc: PlanCtx, output: string): string {
 export function recordTestRun(pc: PlanCtx, t: TestRun | undefined, task?: string): TestRun | undefined {
   if (!t || (!t.ok && !t.ran)) return t;
   if (t.ok) {
-    if (loadState(pc.plan.dir).lastRed) mutate(pc, undefined, (s) => void delete s.lastRed);
+    const full = t.ran && !t.quick && !!t.head;
+    if (loadState(pc.plan.dir).lastRed || full)
+      mutate(pc, undefined, (s) => {
+        delete s.lastRed;
+        if (full) s.lastGreen = { commit: t.head!, at: now() };
+      });
     return t;
   }
   t.log = testLog(pc, t.output ?? '');
