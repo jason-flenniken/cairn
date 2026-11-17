@@ -478,7 +478,7 @@ test('task merge: a dirty task worktree refuses before any merge, leaving no mer
 });
 
 test('a red task done writes tests.log, records lastRed, and the fix brief shows it; a green run clears it', () => {
-  const w = world({ test: RED_TEST });
+  const w = world({ level: 'polished', test: RED_TEST });
   const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
   commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
   commitIn(tw, 'src/charge/red.flag', 'x\n', 'break it');
@@ -710,7 +710,7 @@ test('linear pending --claim hands out held entries again; sent and a new hold c
 });
 
 test('a red merge belongs to its task: another task is refused before merging, and its fix brief leaves the red run out', () => {
-  const w = world({ test: RED_TEST });
+  const w = world({ level: 'polished', test: RED_TEST });
   const tc = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
   const tr = ok(w.wt, 'task', 'start', 'refund').data!.worktree as string;
   commitIn(tc, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
@@ -820,6 +820,25 @@ test('lean Standard: the merge runs testQuick on the changed files, and phase fi
   const br = ok(w.wt, 'status', '--json').data!.branchReviewer as { model: string; unreviewed: string[] };
   assert.equal(br.model, 'sonnet');
   assert.deepEqual(br.unreviewed, ['charge', 'refund']);
+});
+
+test('no testQuick: a merge runs no tests at MVP and Standard, and the full suite at Polished', () => {
+  for (const level of ['mvp', 'standard', 'polished']) {
+    const marks = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-marks-')));
+    roots.push(marks);
+    const w = world({ level, test: `echo full >> ${marks}/full.txt` });
+    const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+    commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
+    const msg = ok(w.wt, 'task', 'merge', 'charge').message;
+    if (level === 'polished') {
+      assert.equal(readFileSync(join(marks, 'full.txt'), 'utf8').trim(), 'full');
+      assert.doesNotMatch(msg, /left to the phase end/);
+    } else {
+      assert.equal(existsSync(join(marks, 'full.txt')), false);
+      assert.match(msg, /tests left to the phase end/);
+      assert.equal(w.state().phases[0].tasks[0].tests, undefined);
+    }
+  }
 });
 
 test('MVP: unreviewed stays empty, so the light branch review is not asked for task-review depth', () => {

@@ -94,7 +94,7 @@ before(() => {
   g(repo, 'init', '-q', '-b', 'main');
   write(join(repo, 'README.md'), 'hi\n');
   write(join(repo, '.gitignore'), '.setup-ran\n');
-  write(join(repo, '.sdlc/config.json'), JSON.stringify({ setup: 'touch .setup-ran', test: 'test ! -f ../cairn-test-FAIL', maxParallel: 3 }));
+  write(join(repo, '.sdlc/config.json'), JSON.stringify({ setup: 'touch .setup-ran', test: 'test ! -f ../cairn-test-FAIL', testQuick: 'test ! -f ../cairn-test-FAIL', maxParallel: 3 }));
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'init');
 });
@@ -276,6 +276,7 @@ test('full lifecycle with every checkpoint', () => {
 
   // verify -> review -> ship -> learn -> closed
   refused(wt, /verification has not passed/, 'advance');
+  ok(wt, 'test');
   ok(wt, 'evidence', 'verify', 'pass', '--note', 'all criteria covered');
   ok(wt, 'advance');
   refused(wt, /blocking/, 'evidence', 'review', 'pass', '--blocking', '2');
