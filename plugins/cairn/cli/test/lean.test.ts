@@ -298,6 +298,22 @@ test('task merge: a clean merge completes the task', () => {
   assert.ok(existsSync(join(w.wt, 'src/charge/index.ts')));
 });
 
+test('task start records implementing and task merge records merging by itself', () => {
+  const w = world();
+  const task = () => w.state().phases[0].tasks[0];
+  const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+  assert.equal(task().substep, 'implementing');
+  commitIn(tw, 'src/charge/index.ts', 'x\n', 'charge');
+  write(join(tw, 'src/charge/scratch.ts'), 'wip\n');
+  refusal(w.wt, 'task', 'merge', 'charge');
+  assert.equal(task().substep, 'implementing', 'a refusal before the merge leaves the step alone');
+  rmSync(join(tw, 'src/charge/scratch.ts'));
+  ok(w.wt, 'task', 'merge', 'charge');
+  assert.equal(task().status, 'done');
+  assert.equal(task().substep, undefined);
+  assert.match(JSON.stringify(w.state().log), /task merging/);
+});
+
 test('task merge: a conflict in code refuses with the files and leaves no merge in progress', () => {
   const w = world();
   commitIn(w.wt, 'src/shared.txt', 'base\n', 'shared');

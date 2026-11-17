@@ -261,6 +261,11 @@ function taskMerge(pc: PlanCtx, id: string, opts: Opts): Result {
   const pb = pre.branch;
   if (!branchExists(sl.branch, plan.worktree)) throw new Refusal(`branch ${sl.branch} does not exist`);
   preMergeChecks(pc, pre, sl, opts);
+  if (sl.substep !== 'merging')
+    mutate(pc, undefined, (s) => {
+      findTask(s, id)!.substep = 'merging';
+      log(s, 'task merging', sl.name);
+    });
   let note: string;
   let didMerge = false;
   if (!gitOk(['merge-base', '--is-ancestor', sl.branch, pb], plan.worktree)) {
