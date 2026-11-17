@@ -26,6 +26,7 @@ Opus builds a task only when the plan marks it (`model: opus` with a `model_reas
 | proof-writer | sonnet (opus at Polished) | high |
 | visual-checker | sonnet | default |
 | recorder | sonnet | low |
+| system-writer | sonnet | default |
 | prd-writer, plan-writer | opus | default |
 | linear-sender | haiku | low |
 | branch-reviewer | `branchReviewer` in `cairn status --json` (opus at Polished; at Standard opus only for a complex task or 10 or more tasks, else sonnet) | high |

@@ -17,6 +17,7 @@ export { cmdMergeCheck, cmdTrace } from './commands/merge.ts';
 export { cmdPhase, cmdTest } from './commands/phase.ts';
 export { cmdMigrate, legacyLayout } from './commands/migrate.ts';
 export { cmdRecords } from './commands/records.ts';
+export { cmdSystem } from './commands/system.ts';
 export { cmdSuggest } from './commands/suggest.ts';
 export { cmdEvidence, cmdDriftAck } from './commands/evidence.ts';
 export { cmdPause, cmdResume } from './commands/pause.ts';

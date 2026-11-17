@@ -26,6 +26,7 @@ import {
   cmdProductInit,
   cmdReady,
   cmdRecords,
+  cmdSystem,
   cmdRepro,
   cmdRender,
   cmdResume,
@@ -93,7 +94,7 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers … --run "…" --files …
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
-  index | pause [--now] | resume [<slug>] | close | render | records | migrate
+  index | pause [--now] | resume [<slug>] | close | render | records | migrate | system [--full] (the system overview brief)
   merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
   linear [status] | linear import|pending [--claim]|sent|drop|depends|ack|release|board … (plans that pull Linear issues in)
@@ -186,6 +187,8 @@ function dispatch(argv: string[], cwd: string, stdin?: string): Result {
       return cmdIndex(ctx());
     case 'close':
       return cmdClose(ctx(), opts);
+    case 'system':
+      return cmdSystem(ctx(), opts);
     case 'records':
       return cmdRecords(ctx());
     case 'migrate':

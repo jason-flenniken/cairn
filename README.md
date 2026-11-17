@@ -137,6 +137,7 @@ When you're unsure what to do, run **`/cairn:next`**. It does the one correct ne
 | `/cairn:new <issues>` | Starts a plan from Linear issues: `SAV-100` (an epic), `SAV-101,SAV-102`, a Linear issue URL, `milestone:"…"` or `project:"…"` (`--from-linear` in front still works). See [Linear](#linear). |
 | `/cairn:spec [<issues> or <file>]` | Turns a product brainstorm (this conversation, pasted text or a file) into cairn-ready Linear epics and sub-issues, or makes existing tickets cairn-ready. See [Specced tickets](#specced-tickets). |
 | `/cairn:board <project or KEY>` | Shows how a Linear project is moving across plans: done, in a plan, ready, blocked. |
+| `/cairn:system [full]` | Writes or refreshes `docs/cairn/SYSTEM.md`, a high-level overview of the whole system by capability. See [Project memory](#project-memory). |
 | `/cairn:suggestions` | Lists recommended follow-ups from every plan. Turn one into a fix, add it to the current plan, or dismiss it. |
 | `/cairn:direction` | An on-demand on-track check: compares the code to the PRD and reports green, yellow, or red per requirement. |
 | `/cairn:product` | Writes the whole-app product PRD (`docs/cairn/product/`) that every plan inherits. |
@@ -204,6 +205,7 @@ cairn remembers what was done, not how the code works now, so nothing it keeps c
 - **Plan records.** Each plan keeps its folder, `docs/cairn/plans/<date>-<slug>/`, with its `RECORD.md`: why it was built, what changed, and what review found.
 - **The changelog.** When a plan ships, the recorder also writes `changelog.md` in that folder: one short paragraph (120 words at most) on what was built, why, and the big rocks a developer would care about, such as a changed API, a new model, or reworked encryption. It is part of the PR you review. `docs/cairn/OVERVIEW.md` is the generated changelog, newest first, rewritten whenever a plan closes. A plan with no entry shows the first sentence of its record's Why instead.
 - **The Changelog tab.** The pane shows the changelog at any time, nicely formatted; select an entry to open its record.
+- **The system overview.** `/cairn:system` writes `docs/cairn/SYSTEM.md`: what the system does, organized by capability, with a diagram where a real flow exists and the files to start from. It is built from the records, the changelog and the commit history, plus a quick scan for folders it doesn't cover yet; code is opened only for those. It is stamped with the commit it was built from and regenerated rather than edited, so it is never trusted past its stamp: a later run updates only the sections touched since. Session start says when it is behind. It refreshes only when you ask, not at ship. Most work never goes through a plan, which is why the overview reads the commits as well as the records.
 - **What a session starts with.** The five most recent entries and a pointer to `docs/cairn/OVERVIEW.md`. Nothing is added until a plan has closed. Discovery reads the full changelog for context on older work. `cairn index` prints the same overview.
 
 ### Upgrading from 0.6

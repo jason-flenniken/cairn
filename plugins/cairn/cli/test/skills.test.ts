@@ -30,6 +30,7 @@ const SUBCOMMANDS = [
   'migrate',
   'linear',
   'review',
+  'system',
 ];
 
 type Skill = { name: string; allowedTools: string[] };
