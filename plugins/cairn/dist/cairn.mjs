@@ -8298,6 +8298,11 @@ function testInput(cwd) {
   return `${head.out}
 ${status.ok ? status.out : "?"}`;
 }
+function suiteGreenAtHead(pc) {
+  const s = loadState(pc.plan.dir);
+  return !!s.lastGreen && !s.lastRed && gitOk(["diff", "--quiet", s.lastGreen.commit, "HEAD", "--", ".", ...cairnPathspecExcludes()], pc.plan.worktree);
+}
+var reusedRun = (cfg) => cfg.test ? { ok: true, ran: true, cmd: cfg.test, tail: "green on this code already, not re-run" } : void 0;
 function runTests(cfg, cwd) {
   return cfg.test ? runSuite(cfg.test, cfg, cwd) : void 0;
 }
@@ -10947,7 +10952,7 @@ function cmdMergeCheck(ctx, _opts) {
     });
   }
   const lastGreen = s0.mergeChecked;
-  const untested = !lastGreen || changesSince(wt, lastGreen, rel, []).length > 0;
+  const untested = (!lastGreen || changesSince(wt, lastGreen, rel, []).length > 0) && !suiteGreenAtHead(pc);
   const tests = untested ? recordTestRun(pc, runTests(pc.cfg, wt)) : void 0;
   if (tests && !tests.ok) {
     mutate(pc, "tests fail at merge check", (s) => log(s, "merge check failed", `${tests.cmd}: ${tests.tail}`));
@@ -11571,7 +11576,7 @@ function cmdAdvance(ctx, opts) {
   const closing = fastLane(pre) && pre.stage === "ship";
   if (closing) configGate(pre, pc.cfg, "close", opts);
   const record = closing ? recordCheck(pc, "fix") : void 0;
-  const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : void 0;
+  const tests = closing ? suiteGreenAtHead(pc) ? reusedRun(pc.cfg) : runTests(pc.cfg, pc.plan.worktree) : void 0;
   const followups = closing && pre.linear ? followupsFor(pc, pre.slug) : void 0;
   let to;
   const r = mutate(pc, void 0, (s) => {
@@ -11633,7 +11638,7 @@ function cmdClose(ctx, opts) {
   const pc = planCtx(ctx);
   configGate(loadState(pc.plan.dir), pc.cfg, "close", opts);
   const record = recordCheck(pc, "feature");
-  const tests = runTests(pc.cfg, pc.plan.worktree);
+  const tests = suiteGreenAtHead(pc) ? reusedRun(pc.cfg) : runTests(pc.cfg, pc.plan.worktree);
   const pre = loadState(pc.plan.dir);
   const followups = pre.linear ? followupsFor(pc, pre.slug) : [];
   const r = mutate(pc, "closed", (s) => {
@@ -12648,7 +12653,8 @@ function taskDone(pc, id, opts) {
   const planDirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
   const checkable = merged2 && !dirty && !planDirty;
   const quickFiles = sl.lean && pc.cfg.testQuick && sl.base ? changedFiles(plan2.worktree, plan2.slug, sl.base, pb) : [];
-  const tests = checkable ? recordTestRun(pc, runQuickTests(pc.cfg, plan2.worktree, quickFiles), id) : void 0;
+  const deferTests = checkable && !!pc.cfg.test && !pc.cfg.testQuick && levelOf(pre) !== "polished" && !fastLane(pre);
+  const tests = checkable && !deferTests ? recordTestRun(pc, runQuickTests(pc.cfg, plan2.worktree, quickFiles), id) : void 0;
   const testedCommit = tests?.quick ? void 0 : tests?.head;
   const fix = fastLane(pre);
   const repro = fix && merged2 && pre.repro ? runRepro(pre.repro.cmd, plan2.worktree, pc.cfg) : void 0;
@@ -12665,7 +12671,7 @@ function taskDone(pc, id, opts) {
     gate(!planDirty, s, "task done", opts, `the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
     gate(!stray.length, s, "task done", opts, `commits for task "${cur.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(", ")}`, [`move these commits to the task branch (git cherry-pick them onto ${cur.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
     gate(merged2, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan2.worktree} merge --no-ff ${cur.branch}`]);
-    testsGate(tests ?? (checkable ? void 0 : { ok: false, ran: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts, cur.scope);
+    if (!deferTests) testsGate(tests ?? (checkable ? void 0 : { ok: false, ran: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts, cur.scope);
     if (fix) {
       gate(repro?.outcome === "passes", s, "task done", opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` \u2192 ${repro.detail})` : "the repro was not run: the task is not merged", ["fix the bug so the repro command exits 0"]);
       gate(changed <= maxFiles, s, "task done", opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ["this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work"]);
@@ -12686,7 +12692,7 @@ function taskDone(pc, id, opts) {
     if (toCheck) finishLastPhase(s, phase, linearConfig(pc.cfg));
     const built = toCheck ? `Every task is built: the plan moved to Check, which runs the full suite next.${outOfScope(s)}` : fastLane(s) ? "The fix is built: `cairn advance` to review." : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`;
     return {
-      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? "quick tests" : "tests"}: ${tests.tail})` : " (no test command configured: nothing was run)"}. ${left ? `${left} task(s) left in phase "${phase.name}".` : built}`,
+      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? "quick tests" : "tests"}: ${tests.tail})` : deferTests ? " (tests left to the phase end)" : " (no test command configured: nothing was run)"}. ${left ? `${left} task(s) left in phase "${phase.name}".` : built}`,
       data: { phaseComplete: !left, stage: s.stage }
     };
   });
@@ -12738,6 +12744,11 @@ function taskMerge(pc, id, opts) {
   const pb = pre.branch;
   if (!branchExists(sl.branch, plan2.worktree)) throw new Refusal(`branch ${sl.branch} does not exist`);
   preMergeChecks(pc, pre, sl, opts);
+  if (sl.substep !== "merging")
+    mutate(pc, void 0, (s) => {
+      findTask(s, id).substep = "merging";
+      log(s, "task merging", sl.name);
+    });
   let note;
   let didMerge = false;
   if (!gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree)) {

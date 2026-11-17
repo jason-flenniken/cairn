@@ -368,6 +368,7 @@ They never block anything. They come back to you at these points:
 Approvals have to come from you, not from the model. Only you can provide either form of proof:
 
 - **Menu (the usual way).** cairn asks with a menu, and the mod records the approval when *you* choose an option starting with "Approve", or type something like "approve", "yes", or "lgtm". Answers the model fills in itself, dialogs that time out while you're away, and menus inside subagents never count. The pane's Approve button and `/cairn-approve` work the same way.
+- **Stops you may walk away from end the turn.** At the plan approval, the ship approval, the merge choice and the question about set-aside tasks, cairn shows its summary and the answers it takes, then stops talking. Approve in the pane (or `/cairn-approve`) and the run carries on; reply instead (for example "approve", "revise: ...", "merge", "not yet") and cairn asks the one approval menu then, so the approval still comes from your pick. Nothing is held open while you're away, which is what makes the fresh start below possible.
 - **Terminal (fallback).** When the mod isn't running, run `cairn approve <prd|plan|ship> --human` in your own terminal and type the plan's name.
 
 Behind the scenes, the mod makes a one-time secret for each approval and the CLI checks it against a file on disk named by its hash, so a used secret can't be replayed and parallel sessions never spend each other's. Guards also stop the model from running `cairn approve` or editing plan state directly.
@@ -399,7 +400,9 @@ The guards and approval proofs aren't a sandbox (see Trust model above). The san
 
 - **Pause** (`/cairn:pause`, the pane's Pause button, or `/cairn-pause-mod`) lets running work reach a safe point, then writes `handoff.md`: what's in flight, open questions, the next action.
 - **Stop now** stops the current turn immediately and records where each task was.
-- **Resume** (`/cairn:resume`, or the pane's Resume button) gives a short recap and continues with only the unfinished steps. After a long pause, cairn suggests starting in a fresh session so you aren't paying for a stale context.
+- **Resume** (`/cairn:resume`, or the pane's Resume button) gives a short recap and continues with only the unfinished steps.
+- **Fresh start after a long wait.** The model's cache of the conversation lasts about an hour. Come back later than that and the next turn re-sends the whole conversation, often 300K tokens, at the higher write price. So when a session working on a plan has sat idle over an hour and holds more than 120K tokens, the mod starts a fresh conversation instead: it clears, runs `/cairn:resume <plan>` (everything the plan needs is on disk), then sends what you typed, or the pane approval, into the new conversation. A toast says it happened. Under an hour, or with a small conversation, the session simply continues.
+- **Setup notice.** At session start, if your plugins and MCP servers already fill more than 60K tokens before any work, a toast says so once: that load is re-read on every turn.
 
 ## The bug-fix lane
 
