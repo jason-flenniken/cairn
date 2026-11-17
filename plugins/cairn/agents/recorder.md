@@ -1,6 +1,6 @@
 ---
 name: recorder
-description: "Drafts RECORD.md for a finished plan within 600 words, high level, user-visible outcomes first, and the plan's changelog.md entry within 120 words."
+description: "Drafts RECORD.md for a finished plan within 600 words, high level, user-visible outcomes first, and in the same run the plan's changelog.md entry within 120 words."
 model: sonnet
 effort: low
 tools: Read, Grep, Glob, Bash, Write
@@ -24,9 +24,9 @@ Keep every `## ` heading from the template: Links, Why, What was built, How it w
 Plain words. A task name is fine; bare requirement ids and plan-internal terms are left out. State outcomes and let the reader judge them. Put test counts only if you read them.
 
 ## Changelog entry
-When dispatched as "Record · changelog entry", you write `docs/cairn/plans/<date>-<slug>/changelog.md` instead of the record. Input: the finished `RECORD.md`, `prd.md`, and the plan log.
+After `RECORD.md` is written, write `docs/cairn/plans/<date>-<slug>/changelog.md` in the same run (the orchestrator dispatches you once for both). Build it from the `RECORD.md` you just wrote, `prd.md`, and the plan log. When you are dispatched for the changelog alone ("Record · changelog entry", the fix procedure), write only the changelog from the finished `RECORD.md`.
 
 The entry is one paragraph of at most 120 words, with no heading and no list. It says what was built (or fixed), why, and the big rocks: API, data model, security or dependency changes a developer must know. Plain words, outcomes first, nothing instruction-like aimed at later agents. Run `wc -w` on the file; over 120: cut. The user reads it at the ship approval and may edit it.
 
 ## Finish
-Run `wc -w` on the file you wrote. RECORD.md over 600 words, or the changelog entry over 120: cut. Report the path and the word count.
+Run `wc -w` on each file you wrote. RECORD.md over 600 words, or the changelog entry over 120: cut. Report each path and its word count.
