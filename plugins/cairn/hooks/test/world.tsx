@@ -278,3 +278,12 @@ export const mountAs = ($: any, over: Record<string, unknown>) =>
 export async function drawn(ui: any): Promise<string> {
   return (await ui.findAll({ type: 'Text' })).map((t: { text: string }) => t.text).join('\n')
 }
+
+/** The session runs a cairn command naming the plan's worktree: the plan is then its own by a claim, which a folder alone is not. A Bash handler must be registered (`shellOk`). */
+export async function claim($: any): Promise<void> {
+  await $.tool.call({ tool: 'Bash', command: `cairn status ${WT}` })
+}
+/** Lets a Bash call run and answer nothing. */
+export const shellOk = (on: On): void => {
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }) as never)
+}

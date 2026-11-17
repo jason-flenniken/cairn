@@ -52,7 +52,9 @@ export function namedPlan(rows: readonly OwnRow[], command: string): string | un
 }
 
 // The session's plan for this engine, under the session id it was set for. $.store keeps it across a reload.
-const bound = atom({ plugin: 'cairn', key: 'ownPlan' } as const, null as { key: string; slug: string } | null)
+// `inferred`: taken from the session's folder alone, not claimed by a cairn command or an approval question. The
+// $.store value is the slug, with a trailing `?` for an inferred one (a plain slug, from before, counts as claimed).
+const bound = atom({ plugin: 'cairn', key: 'ownPlan' } as const, null as { key: string; slug: string; inferred?: boolean } | null)
 
 async function storeKey($: EngineInterface): Promise<string> {
   return `own-plan:${await $.session.id().catch(() => 'session')}`
@@ -64,14 +66,34 @@ async function storedPlan($: EngineInterface): Promise<string | undefined> {
   if (held?.key === key) return held.slug
   const v = await $.store.get(key).catch(() => undefined)
   if (typeof v !== 'string') return undefined
-  await update($, bound, () => ({ key, slug: v }))
-  return v
+  const inferred = v.endsWith('?')
+  const slug = inferred ? v.slice(0, -1) : v
+  await update($, bound, () => ({ key, slug, inferred }))
+  return slug
 }
 
-async function store($: EngineInterface, slug: string): Promise<void> {
+/** The session's binding as `storedPlan` left it in the atom. */
+async function storedBinding($: EngineInterface): Promise<{ slug: string; inferred: boolean } | undefined> {
+  const slug = await storedPlan($)
+  const held = await read($, bound)
+  return slug === undefined || held === null ? undefined : { slug, inferred: held.inferred === true }
+}
+
+/** True while the session's plan comes from its folder alone: a cairn command in that folder then makes it a claim. */
+export async function isInferred($: EngineInterface): Promise<boolean> {
+  return (await storedBinding($))?.inferred === true
+}
+
+/** True when the session's own plan is `slug` and a cairn command or an approval question made it so, not the folder alone. */
+export async function isClaimed($: EngineInterface, slug: string): Promise<boolean> {
+  const b = await storedBinding($)
+  return b?.slug === slug && !b.inferred
+}
+
+async function store($: EngineInterface, slug: string, inferred = false): Promise<void> {
   const key = await storeKey($)
-  await update($, bound, () => ({ key, slug }))
-  await $.store.set(key, slug).catch(() => undefined)
+  await update($, bound, () => ({ key, slug, inferred }))
+  await $.store.set(key, inferred ? `${slug}?` : slug).catch(() => undefined)
 }
 
 /** The plan this session last worked on, closed or not: a plan closes before its pull request merges. */
@@ -91,7 +113,7 @@ export async function ownPlan($: EngineInterface, rows: readonly OwnRow[]): Prom
   if (stored !== undefined && isOpen(rows.find(r => r.state?.slug === stored))) return stored
   const here = hereSlug(rows, await $.session.cwd().catch(() => ''))
   if (here !== undefined) {
-    await store($, here)
+    await store($, here, true)
     return here
   }
   const open = rows.filter(r => r.worktree !== undefined && isOpen(r))
@@ -117,5 +139,8 @@ export async function claimPlan($: EngineInterface, slug: string, rows: readonly
     })
     if (isFirst) await $.store.set(key, slug).catch(() => undefined)
   }
-  return ownPlan($, rows)
+  const own = await ownPlan($, rows)
+  // Claiming the plan the session already holds from its folder makes the hold a claim.
+  if (own === slug && (await read($, bound))?.inferred === true) await store($, slug)
+  return own
 }

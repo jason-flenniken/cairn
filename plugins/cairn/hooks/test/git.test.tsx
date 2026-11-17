@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { CairnGit } from '../../types/index.d.ts'
 import { gitLine, parseStatus } from '../mod/git.ts'
-import { mount, plan, row, start, world, WT } from './world.tsx'
+import { claim, shellOk, mount, plan, row, start, world, WT } from './world.tsx'
 
 type El = { type: string; props: Record<string, unknown>; children: (El | string)[] }
 
@@ -84,8 +84,10 @@ describe('git in the pane', () => {
     on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 24_000, window: 200_000, percent: 12 }, rateLimits: [], cost: { usd: 1 } } as never }))
     on('session.model', () => ({ value: 'claude-opus-5-5' as never }))
     w.git = DIRTY
+    shellOk(on)
     w.gitDirs = '/repo/.git/worktrees/sdlc-shop\n/repo/.claude/worktrees/sdlc-shop'
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     await clock.advance(2_000)
     const rows = await barRows(ui)
