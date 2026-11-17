@@ -75,6 +75,7 @@ function toShip(slug: string, epic: string, kids: string[], later: string[] = []
   });
   // The last task done may already have finished the phase.
   if (stageOf(dir) === 'execute') ok(wt, 'phase', 'finish');
+  ok(wt, 'test');
   ok(wt, 'evidence', 'verify', 'pass', '--note', 'ok');
   ok(wt, 'advance');
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
@@ -172,6 +173,7 @@ test('linear walkthrough: every issue, epic included, follows the plan from Buil
   assert.match(build('t2').message, /moved to Check/);
   assert.equal(stageOf(dir), 'verify', 'the last task merged moves the plan to Check');
 
+  ok(wt, 'test');
   ok(wt, 'evidence', 'verify', 'pass', '--note', 'ok');
   ok(wt, 'advance');
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');

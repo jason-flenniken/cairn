@@ -8,7 +8,7 @@ import { levelOf, loadState, log, setStage } from '../state.ts';
 import { STAGES, type Config, type Stage, type State, type Track } from '../types.ts';
 import { CliError, hashText, now, readText, Refusal } from '../util.ts';
 import type { ProofIO } from '../proof.ts';
-import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, runTests, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
+import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProblems, requireHumanProof, reusedRun, runTests, suiteGreenAtHead, testsGate, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { closeMemory } from './memory.ts';
 import { proofApprovalProblems, proofProblems, proofSummary } from './prove.ts';
 import { filesHash } from '../endproofs.ts';
@@ -253,7 +253,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
   // A changed command never runs before this check (an override needs the user's proof first).
   if (closing) configGate(pre, pc.cfg, 'close', opts);
   const record = closing ? recordCheck(pc, 'fix') : undefined;
-  const tests = closing ? runTests(pc.cfg, pc.plan.worktree) : undefined;
+  const tests = closing ? (suiteGreenAtHead(pc) ? reusedRun(pc.cfg) : runTests(pc.cfg, pc.plan.worktree)) : undefined;
   const followups: FollowupInfo[] | undefined = closing && pre.linear ? followupsFor(pc, pre.slug) : undefined;
   let to: Stage | undefined;
   const r = mutate(pc, undefined, (s) => {
@@ -317,7 +317,7 @@ export function cmdClose(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
   configGate(loadState(pc.plan.dir), pc.cfg, 'close', opts);
   const record = recordCheck(pc, 'feature');
-  const tests = runTests(pc.cfg, pc.plan.worktree);
+  const tests = suiteGreenAtHead(pc) ? reusedRun(pc.cfg) : runTests(pc.cfg, pc.plan.worktree);
   const pre = loadState(pc.plan.dir);
   const followups = pre.linear ? followupsFor(pc, pre.slug) : [];
   const r = mutate(pc, 'closed', (s) => {

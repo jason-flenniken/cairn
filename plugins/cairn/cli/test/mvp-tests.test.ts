@@ -30,7 +30,7 @@ before(() => {
   write(join(repo, 'README.md'), 'hi\n');
   // Noisy output first, so the item must keep only the summary line.
   const cmd = `echo "TOKEN=hun""ter2"; if [ -f ${sentinel} ]; then echo "1 failed, 2 passed"; exit 1; fi; echo "3 passed"`;
-  write(join(repo, '.sdlc/config.json'), JSON.stringify({ test: cmd, maxParallel: 3 }));
+  write(join(repo, '.sdlc/config.json'), JSON.stringify({ test: cmd, testQuick: cmd, maxParallel: 3 }));
   g(repo, 'add', '-A');
   g(repo, 'commit', '-q', '-m', 'init');
 });

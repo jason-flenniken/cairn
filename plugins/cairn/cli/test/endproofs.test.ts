@@ -158,6 +158,7 @@ test('proofs: required before the plan approval, seen red, locked, add-only, and
   assert.equal(state().stage, 'verify', 'the last phase finishing moves the plan to check');
 
   // Check can't be left until every proof is green and the screenshots are judged.
+  ok(wt, 'test');
   ok(wt, 'evidence', 'verify', 'pass', '--note', 'green');
   refused(wt, /proofs do not show the end state: total is red/, 'advance');
   assert.match(ok(wt, 'prove').message, /2 of 2 pass/);
@@ -251,6 +252,7 @@ proofs:
   }
   ok(wt, 'phase', 'finish');
   assert.equal(state().stage, 'verify');
+  ok(wt, 'test');
   ok(wt, 'evidence', 'verify', 'pass', '--note', 'green');
   refused(wt, /proofs do not show the end state: wrong is red/, 'advance');
 

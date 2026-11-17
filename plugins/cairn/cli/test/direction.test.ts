@@ -305,6 +305,7 @@ test('in Check, the last phase\'s on-track check is recorded, and a red one stop
   extras(dir, card({ requirements: [{ ...aligned('FR-01'), verdict: 'contradicted' }] }));
   ok(wt, 'evidence', 'phase');
   assert.equal(state().phases[1].verdict.result, 'red');
+  ok(wt, 'test');
   refused(wt, /on-track check for "Extras" is red/, 'evidence', 'verify', 'pass');
   extras(dir, card({ requirements: [aligned('FR-01')] }));
   ok(wt, 'evidence', 'phase');
