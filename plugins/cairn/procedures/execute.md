@@ -93,7 +93,7 @@ Anything else (a refusal, a conflict outside `docs/cairn/`, red tests after the 
 ## 8. Loop
 After every completion, return to step 3. Once per round, run `cd <plan worktree> && cairn status` first, chained with the round's `cairn ready --json`.
 
-When `cairn ready` is empty, no agent is running, and a task is set aside (`blocked`), this is the one stop: ask about every set-aside task and held question together, as `references/autonomy.md` describes, then act on the answers and return to step 3.
+When `cairn ready` is empty, no agent is running, and a task is set aside (`blocked`), this is the one stop: list every set-aside task and held question together, as `references/autonomy.md` describes, and end your turn there. The user's reply arrives as a new message; act on the answers then and return to step 3.
 
 When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks. Run `cd <plan worktree> && cairn next --json`, follow the procedure it names (phase-end for a feature plan, review for a fix plan). When the merge of the last task said the plan moved to Check, it names Check: follow it (its first step tells the user).
 

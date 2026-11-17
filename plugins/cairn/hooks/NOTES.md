@@ -139,6 +139,17 @@ A hot reload drops the old timer. `session.start` fires again for a changed modu
 - A Records entry with no record file never opens the viewer: it shows its short note ("No record for this plan." or "Still in progress: no record yet.") with Back, and no Read all.
 - Changelog tab: the fourth tab, fed by the same `cairn records --json` fetch and poll as Records (its `entry` field), drawn through `frame`. Closed plans only, newest first; date and title bold, the paragraph wrapped; a click opens RECORD.md with `openDoc`, and Back returns to the tab. The pane strips control characters from entry text itself (it never trusts the CLI to have done it).
 
+## Cold wake and the base notice (`mod/coldwake.ts`)
+
+- Why: the prompt cache lasts about an hour. A message sent after a long idle re-sends the whole conversation at cache-write price, while a fresh conversation resumed from the plan's files re-sends about 15K tokens.
+- Turn stamp: each main turn's `turn.complete` (stamped from `pause.ts`'s one unmatched hook, the engine allows one per event per module) writes `$.store` key `cairn:turn-stamp:<session id>` as `<epoch ms> <context tokens>`: two plain decimals, one space, no newline. The time is `$.clock.now()`, the tokens `(await $.session.usage()).context.tokens` (0 when there is no reading). A `/clear` changes the session id, so an old session's stamp is never read.
+- Rule (`coldCheck`): idle since the stamp over 60 minutes, stamped tokens over 120,000, and the pane view's own plan (`view.here`) is listed, not closed, and claimed by this session (`isClaimed`, `own.ts`). Constants `IDLE_MS`, `BIG_CONTEXT_TOKENS`, `BASE_NOTICE_TOKENS` sit at the top of the module; no config keys.
+- A typed prompt (`prompt.submit`, origin composer or bridge, not a slash command): dropped, then `freshStart` runs `clear`, `cairn:resume <slug>` and re-submits the original text with `$.prompt.submit({ text, asUser: true })`. A wake message (`flushWakes` in `pause.ts`, so the existing queue is used): the same, with the wake text as the final message (the resume reads a recorded approval from state; the text costs one short turn and also covers the merged-plan wake).
+- The restart starts from `$.clock.after(0, …)`, after the hook has answered, because `$.command.run` is refused when awaited inside a hook the turn waits on. `starting` holds wakes and further typed prompts until the last message is sent. After the clear the stamp is reset to now with 0 tokens, so nothing is cold again before the new conversation's first turn. A failed clear or resume still sends the message, into whatever conversation there is.
+- One toast: `Idle <N>h: started a fresh conversation from the plan's files instead of re-sending <K>K tokens.`
+- Base notice: the first main turn of a session whose context is over 60,000 tokens toasts once: `Your plugins and MCP servers add ~<K>K tokens to every turn. …`. Kept once per session by a module flag (survives `/clear`) and the `$.store` key `<stamp key>:base-notice` (survives a reload).
+- Not verified without a live session: that `$.command.run` for a skill resolves in the order clear, resume, then the submit, and that `e.origin` kinds match the engine's (tests give no origin, which counts as the user's).
+
 ## Testing
 
 `claude plugin test <dir>` runs every `*.test.ts` under `<dir>`, skipping only `node_modules` and dot-folders. That includes `cli/test`, whose node:test files can't load in the mod environment.

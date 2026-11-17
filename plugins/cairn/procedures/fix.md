@@ -41,6 +41,8 @@ Run `cairn advance`. It creates the single task `fix`, with scope `**`. Follow `
 
 When the implementer or the reviewer names a requirement that the bug report did not state, go to step 5 before merging.
 
+Never send a message to an agent that ran before the user was asked something (the escalation question, say): dispatch a fresh one from its report.
+
 **Done when:** `cairn task done fix` exits 0 and the stage is review.
 
 ## 5. Escalate when the fix grows
@@ -82,8 +84,10 @@ Then write the changelog entry. Dispatch the `recorder` again (`model: sonnet`, 
 **Done when:** `RECORD.md` has the five sections and is at most 200 words, and `changelog.md` exists, is at most 120 words, and is committed.
 
 ## 8. Ship stop
-Run `cd <plan worktree> && cairn step approving && cairn status --json` in one call. Show the user the record in about five lines, the changelog entry, plus the count of open recommended follow-ups when there are any. From that status, if `state.approvals.ship` is already recorded (approved from the pane), skip the question: say it is approved and go on to step 9. Otherwise read `modActive`.
-- True: ask with AskUserQuestion. The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output. Options:
+Run `cd <plan worktree> && cairn step approving && cairn status --json` in one call. Show the user the record in about five lines, the changelog entry, plus the count of open recommended follow-ups when there are any. Then say how to answer, and end your turn: approve with the pane's Approve button or `/cairn-approve`, or reply "approve", "revise: <what to change>" or "hold". Do not hold an AskUserQuestion open for the approval: the answer can take hours, and it arrives as a new message or a pane wake. The step `approving` stays set meanwhile.
+
+When the next message or wake arrives, run `cairn status --json` before anything else. If `state.approvals.ship` is already recorded (approved from the pane or with `/cairn-approve`), say it is approved and go on to step 9. Otherwise a "revise: …" reply takes the Revise path below and "hold" the Hold path, both without the menu; "approve" is handled as follows. Read `modActive`.
+- True: ask with AskUserQuestion, one question (the typed reply is only the intent; the menu answer is what records the human approval). The question text includes `[cairn:approve ship <slug>]`, with the plan slug from the status output. Options:
   - Approve (Recommended): approve the record
   - Revise the record or the entry: run `cd <plan worktree> && cairn step recording`, ask what to change, edit, recheck the word counts, and return to step 8
   - Hold: stop here; the plan stays at ship
@@ -95,6 +99,6 @@ Run `cd <plan worktree> && cairn step approving && cairn status --json` in one c
 Run `cairn status --json` and check that the ship approval is recorded. If it is not, say what the menu or the terminal reported, and return to step 8. Then propose review rules as in step 5 of `procedures/ship.md`, with one more source: the bug itself. When a reviewer reading the change that introduced it could have caught it, draft the rule that would have. Then:
 1. Run `cd <plan worktree> && cairn step opening-pr && git push -u origin <state.branch>` in one call, then open the PR from the plan worktree: `gh pr create --base <base> --head <state.branch> --title "<bug title>" --body-file <file>`, where the body file is built from `RECORD.md` (the title line dropped). Put the PR URL into the record's Links section and commit it on the plan branch.
 2. Run `cairn advance`. It closes the plan (a fix track has no learn stage); `cairn status` and the pane show "Closed · PR open" until the branch is in main.
-3. Merge last, so the closing commits land on main too: follow the "Merge (the last step, after close)" section of `procedures/ship.md` (run `cairn merge-check`, push the plan branch, tell the user once about "PR open", then ask "Merge it now (Recommended)" or "I'll merge it").
+3. Merge last, so the closing commits land on main too: follow the "Merge (the last step, after close)" section of `procedures/ship.md` (run `cairn merge-check`, push the plan branch, tell the user once about "PR open", then say how to answer and end your turn: "Merge it now (Recommended)" or "I'll merge it").
 
 **Done when:** `cairn advance` exits 0, `cairn status --json` shows the plan closed, and the PR is merged or the user said they will merge it.
