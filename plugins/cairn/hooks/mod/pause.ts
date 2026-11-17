@@ -5,6 +5,7 @@ import type { CairnReady as Ready } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
 import { ownPlan } from './own.ts'
 import { markGitStale } from './git.ts'
+import { coldCheck, freshStart, isRestarting, stampTurn } from './coldwake.ts'
 
 type Task = { id: string; status?: string; substep?: string; worktree?: string }
 export type PlanState = {
@@ -54,9 +55,19 @@ export const hasWakes = (): boolean => wakes.length > 0
 
 /** Sends the first waiting message when no main turn runs and no Stop now message is owed; a refused one waits for the next try. */
 export function flushWakes($: EngineInterface): void {
-  if (wakes.length === 0 || mainTurn !== undefined || stopMessageFor !== undefined) return
+  if (wakes.length === 0 || mainTurn !== undefined || stopMessageFor !== undefined || isRestarting()) return
   const next = wakes.shift() as { text: string; tries: number }
-  $.prompt.submit({ text: next.text }).catch(() => {
+  void sendWake($, next)
+}
+
+/** Sends one wake message; after a long idle on a big context, a fresh conversation resumed from disk gets it instead (coldwake.ts). */
+async function sendWake($: EngineInterface, next: { text: string; tries: number }): Promise<void> {
+  const cold = await coldCheck($).catch(() => undefined)
+  if (cold !== undefined) {
+    freshStart($, cold, next.text)
+    return
+  }
+  await $.prompt.submit({ text: next.text }).catch(() => {
     if (++next.tries < WAKE_TRIES && !wakes.some(w => w.text === next.text)) wakes.unshift(next)
   })
 }
@@ -243,6 +254,7 @@ export function install(on: On): void {
     await turnComplete($, e)
     if (e.agentId === undefined) {
       markGitStale()
+      await stampTurn($).catch(() => undefined)
       if (e.turnId === mainTurn) mainTurn = undefined
       if (e.turnId === stopMessageFor) {
         stopMessageFor = undefined

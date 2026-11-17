@@ -59,10 +59,12 @@ Phase 2: Checkout
 
 On a foundational plan, the question names the chosen approach (the summary starts with "Approach: …").
 
-From that status, if `state.approvals.plan` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. If `warnings` says prd.md changed after it was approved, approving the plan also accepts those PRD edits: say so in the question and name what changed in the PRD in plain words. There is no separate PRD re-approval. Otherwise read `modActive`.
-- True: ask with AskUserQuestion, with the tree as the preview on the first option. The question text includes `[cairn:approve plan <slug>]`, with the plan slug from the status output:
+Then say how to answer, and end your turn: approve with the pane's Approve button or `/cairn-approve`, or reply "approve", "revise: <what to change>" or "pause". Do not hold an AskUserQuestion open for the approval: the answer can take hours, and it arrives as a new message or a pane wake. The step `approving` stays set meanwhile.
+
+When the next message or wake arrives, run `cairn status --json` before anything else. If `state.approvals.plan` is already recorded (approved from the pane), skip the question: say it is approved and go on to the next step. If `warnings` says prd.md changed after it was approved, approving the plan also accepts those PRD edits: say so in the question and name what changed in the PRD in plain words. There is no separate PRD re-approval. Otherwise a "revise: …" reply takes the Revise path below and "pause" the Pause path, both without the menu; "approve" is handled as follows. Read `modActive`.
+- True: ask with AskUserQuestion, one question (the typed reply is only the intent; the menu answer is what records the human approval), with the tree as the preview on the first option. The question text includes `[cairn:approve plan <slug>]`, with the plan slug from the status output:
   - Approve (Recommended)
-  - Revise: run `cd <plan worktree> && cairn step drafting`, ask what to change, send it to the writer with SendMessage (or a fresh `plan-writer` when it has ended; it reloads), and return to step 5
+  - Revise: run `cd <plan worktree> && cairn step drafting`, ask what to change, send it to a fresh `plan-writer` with the same paths (it reloads; never resume the writer after the user was asked something), and return to step 5
   - Pause: go to the pause procedure
 - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/cli/bin/cairn approve plan --human` (fill in `planWorktree` from `cairn status --json` and the plugin root, real paths, so it runs as printed; it also accepts any PRD edits), then wait for them to say it's done.
 
