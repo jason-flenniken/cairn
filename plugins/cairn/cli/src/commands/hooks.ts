@@ -14,6 +14,7 @@ import { legacyLayout } from './migrate.ts';
 import { listPlans, warnings } from './status.ts';
 import { awaitsDone, pendingCount } from './linear.ts';
 import { workDirIfUsed } from './brief.ts';
+import { systemLine } from './system.ts';
 import { bashVerdict, pathProtected, WHY } from '../../../hooks/mod/guard-rules.ts';
 
 interface HookInput {
@@ -149,7 +150,7 @@ export function hookSessionStart(input: HookInput): string {
   if (ctx.plan?.dir && existsSync(join(ctx.plan.dir, 'state.json'))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === 'closed') return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : '', owed, indexFor(ctx));
+    if (s.stage === 'closed') return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : '', owed, indexFor(ctx), systemLine(ctx.top));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     const queued = pendingCount(s);
     if (queued) lines.push(`${queued} Linear update${queued === 1 ? '' : 's'} waiting to be sent; /cairn:next sends them first.`);
@@ -159,14 +160,14 @@ export function hookSessionStart(input: HookInput): string {
       const sl = findTask(s, ctx.task);
       if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(', ')}. Never edit ${DOCS_DIRS.find((d) => planRelOf(pc.plan).startsWith(`${d}/`)) ?? DOCS_DIR}/.`);
     }
-    return startOut(lines.join('\n'), owed, indexFor(ctx));
+    return startOut(lines.join('\n'), owed, indexFor(ctx), systemLine(ctx.top));
   }
   const active = listPlans(ctx).filter((r) => r.state.stage !== 'closed');
   if (!active.length) {
     const legacy = legacyLayout(ctx.mainRoot);
-    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(' and ')}; run \`cairn migrate\` on main to move them.` : '', owed, indexFor(ctx));
+    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(' and ')}; run \`cairn migrate\` on main to move them.` : '', owed, indexFor(ctx), systemLine(ctx.top));
   }
-  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), 'The user can resume one with /cairn:resume <slug> or start another with /cairn:new.'].join('\n'), owed, indexFor(ctx));
+  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), 'The user can resume one with /cairn:resume <slug> or start another with /cairn:new.'].join('\n'), owed, indexFor(ctx), systemLine(ctx.top));
 }
 
 /** A reply that says it is about to do the next step: "Next: I'm reading…", "Starting it now", "I'll begin the interview". */

@@ -11754,12 +11754,12 @@ function cmdStatus(ctx, opts) {
   if (opts.all || !ctx.plan) {
     const rows = listPlans(ctx);
     const active = rows.filter((r) => r.state.stage !== "closed");
-    const shown = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, relative3(r.worktree ?? ctx.mainRoot, r.dir)) }));
-    const lines = rows.length ? shown.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state, r.prOpen)}
+    const shown2 = rows.map((r) => ({ ...r, prOpen: waitingOnMerge(ctx, r.state, r.worktree ?? ctx.top, relative3(r.worktree ?? ctx.mainRoot, r.dir)) }));
+    const lines = rows.length ? shown2.map((r) => `${r.state.stage === "closed" ? "\u2713" : r.state.paused ? "\u23F8" : "\u2022"} ${summary(r.state, r.prOpen)}
     next: ${nextFor(r.state).text}${r.worktree ? "" : " (not checked out)"}`) : ["No plans yet. Start one with /cairn:new."];
     const openSuggestions2 = openSuggestionCount(ctx);
     return { message: `${active.length} active plan(s).
-${lines.join("\n")}`, data: { plans: shown.map((r) => ({ ...r, state: opts.full ? r.state : slimRow(r.state), next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), mergedAwaitingDone: awaitsDone(ctx, r.state), openSuggestions: openSuggestions2, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
+${lines.join("\n")}`, data: { plans: shown2.map((r) => ({ ...r, state: opts.full ? r.state : slimRow(r.state), next: nextFor(r.state), stepText: stepText(r.state), level: levelOf(r.state), levelLabel: levelLabel(r.state), timing: stageTimes(r.state), ...linearRowFields(r.state), mergedAwaitingDone: awaitsDone(ctx, r.state), openSuggestions: openSuggestions2, ...readyRow(r, ctx) })), modActive: modIsActive(ctx), openSuggestions: openSuggestions2 } };
   }
   const pc = planCtx(ctx);
   const s = loadState(pc.plan.dir);
@@ -12869,8 +12869,8 @@ function cmdMigrate(ctx) {
   const p = { moves: [], clashes: [], dirs: [] };
   for (const [old, next] of found) plan(root, old, next, p);
   if (p.clashes.length) {
-    const shown = p.clashes.slice(0, 10).join(", ");
-    throw new Refusal(`both layouts have ${shown}${p.clashes.length > 10 ? ` and ${p.clashes.length - 10} more` : ""}`, ["merge or remove the duplicates by hand, then run cairn migrate again"]);
+    const shown2 = p.clashes.slice(0, 10).join(", ");
+    throw new Refusal(`both layouts have ${shown2}${p.clashes.length > 10 ? ` and ${p.clashes.length - 10} more` : ""}`, ["merge or remove the duplicates by hand, then run cairn migrate again"]);
   }
   for (const [from, to] of p.moves) move(root, from, to);
   prune(root, p.dirs);
@@ -12880,6 +12880,101 @@ function cmdMigrate(ctx) {
     if (!gitOk(["diff", "--cached", "--quiet"], root)) git(["commit", "-q", "-m", msg], root);
   }
   return { message: `Moved ${found.map(([o, n]) => `${o}/ to ${n}/`).join(" and ")}.` };
+}
+
+// plugins/cairn/cli/src/commands/system.ts
+import { existsSync as existsSync16 } from "node:fs";
+import { basename as basename6, join as join23, relative as relative4 } from "node:path";
+var SYSTEM_REL = `${DOCS_DIR}/SYSTEM.md`;
+var OTHER_PATHS = ["--", ".", `:(exclude)${SYSTEM_REL}`];
+var STAMP = /<!--\s*cairn-system:\s*([0-9a-f]{7,40})\s+(\d{4}-\d{2}-\d{2})\s*-->/;
+var stampLine = (sha, date) => `<!-- cairn-system: ${sha} ${date} -->`;
+var MAX_COMMITS = 200;
+var MAX_PATHS = 300;
+var SKIP_DIR = /(^|\/)(node_modules|dist|build|coverage|vendor|tests?|__tests__|fixtures|\.[^/]+)(\/|$)|^docs(\/|$)/;
+function readStamp(text) {
+  const m = text?.match(STAMP);
+  return m ? { sha: m[1], date: m[2] } : void 0;
+}
+function systemBehind(top) {
+  try {
+    const stamp = readStamp(readText(join23(top, SYSTEM_REL)));
+    if (!stamp || !gitOk(["merge-base", "--is-ancestor", stamp.sha, "HEAD"], top)) return void 0;
+    return Number(git(["rev-list", "--count", `${stamp.sha}..HEAD`, ...OTHER_PATHS], top));
+  } catch {
+    return void 0;
+  }
+}
+function systemLine(top) {
+  const n = systemBehind(top);
+  return n ? `cairn: the system overview (${SYSTEM_REL}) is ${n} commit${n === 1 ? "" : "s"} behind; /cairn:system refreshes it.` : "";
+}
+function sourceDirs(files) {
+  const count = /* @__PURE__ */ new Map();
+  for (const f of files) {
+    const cut = f.lastIndexOf("/");
+    const dir = f.slice(0, cut);
+    if (cut > 0 && !SKIP_DIR.test(dir)) count.set(dir, (count.get(dir) ?? 0) + 1);
+  }
+  return [...count].filter(([, n]) => n >= 2).map(([d]) => d).sort();
+}
+var readmeHeadings = (md) => [...(md ?? "").matchAll(/^##\s+(.+?)\s*$/gm)].map((m) => stripControl(m[1]));
+var shown = (top, p) => {
+  const r = relative4(top, p);
+  return r.startsWith("..") ? p : r;
+};
+function systemBrief(ctx, wantFull = false) {
+  const top = ctx.top;
+  const text = readText(join23(top, SYSTEM_REL));
+  const stamp = readStamp(text);
+  const head = git(["rev-parse", "--short", "HEAD"], top);
+  const date = (/* @__PURE__ */ new Date()).toLocaleDateString("en-CA");
+  const known = !!stamp && gitOk(["merge-base", "--is-ancestor", stamp.sha, "HEAD"], top);
+  const full = wantFull || !known;
+  const why = wantFull ? "asked for a full rebuild" : !text ? "no overview yet" : !stamp ? "the overview has no stamp" : !known ? `its commit ${stamp.sha} is no longer in this branch's history` : "incremental";
+  const range = full ? "HEAD" : `${stamp.sha}..HEAD`;
+  const behind = full ? 0 : Number(git(["rev-list", "--count", range, ...OTHER_PATHS], top));
+  const allCommits = full ? [] : git(["log", "--no-merges", "--format=%h %s", range, ...OTHER_PATHS], top).split("\n").filter(Boolean);
+  const allChanged = full ? [] : git(["diff", "--name-only", `${stamp.sha}`, "HEAD", ...OTHER_PATHS], top).split("\n").filter(Boolean);
+  const records = planEntries(ctx).filter((p) => p.state.stage === "closed" && (p.record || p.changelog)).filter((p) => full || allChanged.some((f) => f.includes(`/${basename6(p.dir)}/`))).sort((a, b) => b.date.localeCompare(a.date)).map((p) => ({
+    title: stripControl(p.state.title),
+    date: p.date,
+    ...p.record ? { record: shown(top, p.record) } : {},
+    ...p.changelog ? { changelog: shown(top, p.changelog) } : {}
+  }));
+  const files = git(["ls-files"], top).split("\n").filter(Boolean);
+  const mentioned = text ?? "";
+  const gaps = sourceDirs(files).filter((d) => !mentioned.includes(d));
+  const readme = ["README.md", "readme.md"].map((f) => join23(top, f)).find((p) => existsSync16(p));
+  return {
+    path: SYSTEM_REL,
+    exists: !!text,
+    head,
+    date,
+    full,
+    why,
+    ...stamp ? { stamp } : {},
+    behind,
+    commits: allCommits.slice(0, MAX_COMMITS),
+    commitsCut: allCommits.length > MAX_COMMITS,
+    changed: allChanged.slice(0, MAX_PATHS),
+    changedCut: allChanged.length > MAX_PATHS,
+    records,
+    readmeHeadings: readmeHeadings(readme ? readText(readme) : void 0),
+    gaps
+  };
+}
+function cmdSystem(ctx, opts) {
+  const b = systemBrief(ctx, opts.full === true);
+  const current2 = !b.full && b.behind === 0;
+  const lines = current2 ? [`${b.path} is current (built from ${b.stamp.sha}).`] : [
+    `${b.path}: ${b.full ? `full rebuild (${b.why})` : `${b.behind} commit(s) behind ${b.stamp.sha}`}. Stamp the new version: ${stampLine(b.head, b.date)}`,
+    ...b.records.length ? [`Records (${b.records.length}):`, ...b.records.map((r) => `  ${r.date} ${r.title}: ${r.changelog ?? r.record}`)] : [],
+    ...b.commits.length ? [`Commits since the stamp${b.commitsCut ? ` (newest ${b.commits.length})` : ""}:`, ...b.commits.map((c) => `  ${c}`)] : [],
+    ...b.changed.length ? [`Changed paths: ${b.changed.length}${b.changedCut ? "+" : ""}`] : [],
+    ...b.gaps.length ? [`Source folders the overview does not name: ${b.gaps.join(", ")}`] : []
+  ];
+  return { message: lines.join("\n"), data: { ...b, current: current2, stampLine: stampLine(b.head, b.date) } };
 }
 
 // plugins/cairn/cli/src/direction.ts
@@ -12997,7 +13092,7 @@ function cmdDriftAck(ctx, path, opts) {
 }
 
 // plugins/cairn/cli/src/commands/pause.ts
-import { join as join23 } from "node:path";
+import { join as join24 } from "node:path";
 function cmdPause(ctx, opts) {
   const pc = planCtx(ctx);
   const md = readText(planFile(pc, "handoff.md"));
@@ -13021,7 +13116,7 @@ function cmdResume(ctx, slug, opts) {
     const ref = planRef(slug, ctx.worktrees, branch);
     if (!ref.worktree) {
       const cfg = loadConfig(ctx.top, ctx.mainRoot);
-      const wt = join23(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
+      const wt = join24(worktreeRoot(cfg, ctx.mainRoot), worktreeName(branch));
       git(["worktree", "add", "-q", wt, branch], ctx.top);
       ensureExcluded(ctx.mainRoot, ".claude/worktrees/");
       ref.worktree = wt;
@@ -13054,8 +13149,8 @@ function cmdResume(ctx, slug, opts) {
 }
 
 // plugins/cairn/cli/src/commands/hooks.ts
-import { appendFileSync as appendFileSync2, existsSync as existsSync16, readFileSync as readFileSync10, realpathSync } from "node:fs";
-import { dirname as dirname6, isAbsolute as isAbsolute2, join as join24, relative as relative4, resolve as resolve3 } from "node:path";
+import { appendFileSync as appendFileSync2, existsSync as existsSync17, readFileSync as readFileSync10, realpathSync } from "node:fs";
+import { dirname as dirname6, isAbsolute as isAbsolute2, join as join25, relative as relative5, resolve as resolve3 } from "node:path";
 
 // plugins/cairn/hooks/mod/guard-rules.ts
 var WHY = "approvals and plan state come from the user and the CLI, not from tool calls.";
@@ -13421,7 +13516,7 @@ function landing(path, cwd) {
   const parts = abs.split("/");
   for (let cut = parts.length; cut >= 1; cut--) {
     const head = parts.slice(0, cut).join("/") || "/";
-    if (!existsSync16(head)) continue;
+    if (!existsSync17(head)) continue;
     const rest = parts.slice(cut).filter((x) => x !== "" && x !== ".");
     if (rest.includes("..")) return void 0;
     return [realpathSync(head).replace(/\/$/, ""), ...rest].join("/");
@@ -13453,16 +13548,16 @@ function indexFor(ctx) {
 }
 var startOut = (...parts) => {
   const root = codexRoot();
-  if (root) parts.push(`cairn CLI here: ${join24(root, "cli", "bin", "cairn")}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join24(root, "references", "hosts.md")}.`);
+  if (root) parts.push(`cairn CLI here: ${join25(root, "cli", "bin", "cairn")}. Run it by that path wherever a cairn step says \`cairn\`; plugin root: ${root}. Host notes: ${join25(root, "references", "hosts.md")}.`);
   const text = parts.filter(Boolean).join("\n");
   return text ? hookOut("SessionStart", text) : "";
 };
 function exportPath(envFile = process.env.CLAUDE_ENV_FILE) {
   if (!envFile || codexRoot()) return;
   try {
-    const line = `export PATH='${join24(pluginRoot(), "cli", "bin").replaceAll("'", "'\\''")}':"$PATH"
+    const line = `export PATH='${join25(pluginRoot(), "cli", "bin").replaceAll("'", "'\\''")}':"$PATH"
 `;
-    if (existsSync16(envFile) && readFileSync10(envFile, "utf8").includes(line)) return;
+    if (existsSync17(envFile) && readFileSync10(envFile, "utf8").includes(line)) return;
     appendFileSync2(envFile, line);
   } catch {
   }
@@ -13472,7 +13567,7 @@ function mergedLines(ctx) {
     const line = (title) => `cairn: ${title}'s pull request is merged; run /cairn:next to mark its Linear issues Done.`;
     if (ctx.plan) {
       const dir = ctx.plan.dir;
-      const s = dir && existsSync16(join24(dir, "state.json")) ? loadState(dir) : void 0;
+      const s = dir && existsSync17(join25(dir, "state.json")) ? loadState(dir) : void 0;
       return s && awaitsDone(ctx, s, true) ? line(s.title) : "";
     }
     return listPlans(ctx).filter((r) => r.worktree && awaitsDone(ctx, r.state, true)).map((r) => line(r.state.title)).join("\n");
@@ -13484,10 +13579,10 @@ function hookSessionStart(input) {
   exportPath();
   const ctx = context(input.cwd ?? process.cwd());
   const owed = mergedLines(ctx);
-  if (ctx.plan?.dir && existsSync16(join24(ctx.plan.dir, "state.json"))) {
+  if (ctx.plan?.dir && existsSync17(join25(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", owed, indexFor(ctx));
+    if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", owed, indexFor(ctx), systemLine(ctx.top));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     const queued = pendingCount(s);
     if (queued) lines.push(`${queued} Linear update${queued === 1 ? "" : "s"} waiting to be sent; /cairn:next sends them first.`);
@@ -13497,14 +13592,14 @@ function hookSessionStart(input) {
       const sl = findTask(s, ctx.task);
       if (sl) lines.push(`This worktree is task "${sl.name}". Touch only: ${sl.scope.join(", ")}. Never edit ${DOCS_DIRS.find((d) => planRelOf(pc.plan).startsWith(`${d}/`)) ?? DOCS_DIR}/.`);
     }
-    return startOut(lines.join("\n"), owed, indexFor(ctx));
+    return startOut(lines.join("\n"), owed, indexFor(ctx), systemLine(ctx.top));
   }
   const active = listPlans(ctx).filter((r) => r.state.stage !== "closed");
   if (!active.length) {
     const legacy = legacyLayout(ctx.mainRoot);
-    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(" and ")}; run \`cairn migrate\` on main to move them.` : "", owed, indexFor(ctx));
+    return startOut(legacy.length ? `cairn: this repo still uses ${legacy.join(" and ")}; run \`cairn migrate\` on main to move them.` : "", owed, indexFor(ctx), systemLine(ctx.top));
   }
-  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), "The user can resume one with /cairn:resume <slug> or start another with /cairn:new."].join("\n"), owed, indexFor(ctx));
+  return startOut([`cairn: ${active.length} active plan(s) in this repo:`, ...active.map((r) => `- ${summary(r.state)}`), "The user can resume one with /cairn:resume <slug> or start another with /cairn:new."].join("\n"), owed, indexFor(ctx), systemLine(ctx.top));
 }
 var ANNOUNCES = [
   /(^|\n)\s*(\*\*)?Next(:\*\*|\*\*:|:)\s*(I|I'm|I'll|I am|I will|we'll|we will|starting|running|reading|dispatching|moving|continuing|beginning|opening)\b/i,
@@ -13513,7 +13608,7 @@ var ANNOUNCES = [
 ];
 function lastAssistantText(input) {
   if (typeof input.last_assistant_message === "string") return input.last_assistant_message;
-  if (!input.transcript_path || !existsSync16(input.transcript_path)) return "";
+  if (!input.transcript_path || !existsSync17(input.transcript_path)) return "";
   const lines = readFileSync10(input.transcript_path, "utf8").trimEnd().split("\n");
   for (let i = lines.length - 1; i >= 0 && i >= lines.length - 50; i--) {
     try {
@@ -13530,7 +13625,7 @@ function lastAssistantText(input) {
 function hookStop(input) {
   if (input.stop_hook_active) return "";
   const ctx = context(input.cwd ?? process.cwd());
-  if (!ctx.plan?.dir || !existsSync16(join24(ctx.plan.dir, "state.json"))) return "";
+  if (!ctx.plan?.dir || !existsSync17(join25(ctx.plan.dir, "state.json"))) return "";
   const s = loadState(ctx.plan.dir);
   if (s.stage === "closed" || s.paused) return "";
   const text = lastAssistantText(input).trim();
@@ -13550,10 +13645,10 @@ function hookPostEdit(input) {
 function driftFor(file, cwd) {
   const abs = isAbsolute2(file) ? file : resolve3(cwd ?? process.cwd(), file);
   let dir = dirname6(abs);
-  while (!existsSync16(dir) && dirname6(dir) !== dir) dir = dirname6(dir);
+  while (!existsSync17(dir) && dirname6(dir) !== dir) dir = dirname6(dir);
   const ctx = context(dir);
-  if (!ctx.plan?.dir || !existsSync16(join24(ctx.plan.dir, "state.json"))) return "";
-  const rel = relative4(ctx.top, abs);
+  if (!ctx.plan?.dir || !existsSync17(join25(ctx.plan.dir, "state.json"))) return "";
+  const rel = relative5(ctx.top, abs);
   if (rel.startsWith("..") || isAbsolute2(rel)) return "";
   if (isCairnPath(rel) || rel === ".cairn/work" || rel.startsWith(".cairn/work/")) return "";
   const pc = planCtx(ctx);
@@ -13632,7 +13727,7 @@ var USAGE5 = `cairn: plan state for the agent-driven lifecycle. See references/c
   prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers \u2026 --run "\u2026" --files \u2026
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
-  index | pause [--now] | resume [<slug>] | close | render | records | migrate
+  index | pause [--now] | resume [<slug>] | close | render | records | migrate | system [--full] (the system overview brief)
   merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
   linear [status] | linear import|pending [--claim]|sent|drop|depends|ack|release|board \u2026 (plans that pull Linear issues in)
@@ -13719,6 +13814,8 @@ function dispatch(argv, cwd, stdin) {
       return cmdIndex(ctx());
     case "close":
       return cmdClose(ctx(), opts);
+    case "system":
+      return cmdSystem(ctx(), opts);
     case "records":
       return cmdRecords(ctx());
     case "migrate":
