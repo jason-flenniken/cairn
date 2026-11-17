@@ -5,7 +5,7 @@ import type { EngineInterface, On, ProcessRunInit } from 'claude-code'
 import type { CairnReadBack, CairnRun } from '../../types/index.d.ts'
 import { cairn } from './cli.ts'
 import { commonDir } from './heartbeat.ts'
-import { claimPlan, namedPlan, ownPlan } from './own.ts'
+import { claimPlan, hereSlug, isInferred, namedPlan, ownPlan } from './own.ts'
 import { wakeChat } from './pause.ts'
 import { pluginVersion } from './util.ts'
 
@@ -315,10 +315,12 @@ async function runOverride($: EngineInterface, argv: string[]): Promise<{ ran?: 
 
 /** Makes the one plan whose worktree a cairn command names the session's own, when it has none yet. */
 async function bindFromCommand($: EngineInterface, command: string): Promise<void> {
-  // A command with no path names no worktree: no status read for it.
-  if (!command.includes('/')) return
+  // A command with no path names no worktree; it runs in the session's folder, which counts only while that is
+  // how the session got its plan: no status read for it otherwise.
+  const isHere = !command.includes('/')
+  if (isHere && !(await isInferred($))) return
   const rows = await planRows($)
-  const slug = namedPlan(rows, command)
+  const slug = isHere ? hereSlug(rows, await $.session.cwd().catch(() => '')) : namedPlan(rows, command)
   if (slug !== undefined) await claimPlan($, slug, rows)
 }
 
