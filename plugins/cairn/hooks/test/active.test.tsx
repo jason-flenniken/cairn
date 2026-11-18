@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { mountAs, plan, row, start, STATE, world, WT } from './world.tsx'
+import { claim, mountAs, plan, row, shellOk, start, STATE, world, WT } from './world.tsx'
 
 type El = { type: string; props: Record<string, unknown>; children: (El | string)[] }
 
@@ -128,7 +128,9 @@ describe('active time', () => {
     const { clock } = world(on, { rows: [row(BUILD, WT)] })
     on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 1_000, window: 200_000, percent: 1 }, rateLimits: [], cost: { usd: 1 } } as never }))
     memStore(on, { [KEY]: 12 * 60_000 })
+    shellOk(on)
     await start($, WT)
+    await claim($)
     await polls(clock, 1)
     const wide = await mountAs($, { placement: 'inline' })
     expect(await barRows(wide)).toEqual(['● Build  $0.00  ⏱ 12m'])

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 import { resetLedger } from '../mod/ledger.ts'
-import { MAIN, mount, mountAs, plan, row, start, world, WT } from './world.tsx'
+import { claim, MAIN, shellOk, mount, mountAs, plan, row, start, world, WT } from './world.tsx'
 
 type El = { type: string; props: Record<string, unknown>; children: (El | string)[] }
 type Limit = { kind: string; percentUsed: number; resetsAt?: string }
@@ -32,6 +32,7 @@ const measure = (cost: number | undefined, over: { percent?: number; tokens?: nu
 /** The session reports `now` as its usage; the tests move it between calls. */
 function session(on: any, initial: ReturnType<typeof measure>, id = 's1') {
   resetLedger()
+  shellOk(on)
   const s = { usage: initial, id }
   on('session.id', () => ({ value: s.id as never }))
   on('session.usage', () => ({ value: { startedAt: 0, ...s.usage } as never }))
@@ -69,6 +70,7 @@ describe('model line (FR-03)', () => {
     world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     const line = (await modelRow(ui))!
     expect(line).toContain('🧠 Opus 5.5')
@@ -86,6 +88,7 @@ describe('plan usage ledger', () => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     const s = session(on, measure(10))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     s.usage = measure(14.1)
     await $.session.measure(measure(14.1) as never)
@@ -94,6 +97,42 @@ describe('plan usage ledger', () => {
     expect(Math.round(ledgerFile(w).usd * 100)).toBe(410)
     await $.session.measure(measure(15.6) as never)
     expect(await planRow(ui)).toMatch(/^💰 \$5\.60 plan/)
+    await ui.unmount()
+  })
+
+  test('a session that only sits in the plan\'s worktree is not bound to it: nothing is credited', async ($, on) => {
+    const { w } = world(on, { rows: [row(BUILD, WT)] })
+    const s = session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    s.usage = measure(14)
+    await $.session.measure(measure(14) as never)
+    expect(ledgerFile(w)).toBeUndefined()
+    await ui.unmount()
+  })
+
+  test('a plain cairn command in the folder turns that into a claim, and spend then counts', async ($, on) => {
+    const { w } = world(on, { rows: [row(BUILD, WT)] })
+    const s = session(on, measure(10))
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    await $.tool.call({ tool: 'Bash', command: 'cairn step' })
+    s.usage = measure(14)
+    await $.session.measure(measure(14) as never)
+    expect(ledgerFile(w)).toMatchObject({ usd: 4 })
+    await ui.unmount()
+  })
+
+  test('a claimed session\'s spend while the plan waits at an approval is not credited', async ($, on) => {
+    const waiting = { ...row(plan({ stage: 'ship' }), WT), needsUser: true }
+    const { w } = world(on, { rows: [waiting] })
+    const s = session(on, measure(10))
+    await start($, WT)
+    await claim($)
+    const ui = await mount($, 'terminal')
+    s.usage = measure(14)
+    await $.session.measure(measure(14) as never)
+    expect(ledgerFile(w)).toBeUndefined()
     await ui.unmount()
   })
 
@@ -112,6 +151,7 @@ describe('plan usage ledger', () => {
     const { w, clock } = world(on, { rows: [row(plan({ stage: 'execute', paused: { at: 'x' } }), WT)] })
     const s = session(on, measure(10))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     s.usage = measure(12)
     await $.session.measure(measure(12) as never)
@@ -129,10 +169,12 @@ describe('plan usage ledger', () => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     const s = session(on, measure(10))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     s.usage = measure(12)
     await $.session.measure(measure(12) as never)
     s.id = 's2'
+    await claim($)
     s.usage = measure(0.5)
     await $.session.measure(measure(0.5) as never)
     s.usage = measure(1.5)
@@ -147,6 +189,7 @@ describe('plan usage ledger', () => {
     session(on, measure(10))
     stepUsage(on, 'claude-sonnet-5-5', { input: 100, output: 200, cacheRead: 1_000_000, cacheWrite: 50_000 })
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     await runStep($)
     await runStep($, 'agent-1')
@@ -162,6 +205,7 @@ describe('plan usage ledger', () => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10, { rateLimits: week(40) }))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     await $.session.measure(measure(11, { rateLimits: week(42.5) }) as never)
     expect(ledgerFile(w).weekPct).toBe(2.5)
@@ -179,6 +223,7 @@ describe('plan usage ledger', () => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10, { rateLimits: week(18) }))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     // Two sources disagreeing, while the session spends: 18, 15, 18, 15, then a real rise to 19.
     let cost = 10
@@ -193,6 +238,7 @@ describe('plan usage ledger', () => {
     const bare = (pct: number): Limit[] => [{ kind: 'seven_day', percentUsed: pct }]
     session(on, measure(10, { rateLimits: bare(80) }))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     await $.session.measure(measure(11, { rateLimits: bare(70) }) as never)
     expect(ledgerFile(w).weekPct).toBe(0)
@@ -205,6 +251,7 @@ describe('plan usage ledger', () => {
     const { w } = world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10, { rateLimits: week(40) }))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     w.files.set('/repo/.git/cairn/usage/week.json', JSON.stringify({ pct: 42, resetsAt: '2026-03-05T09:00:00.000Z' }))
     await $.session.measure(measure(11, { rateLimits: week(43) }) as never)
@@ -218,6 +265,7 @@ describe('plan usage ledger', () => {
     w.files.set(`${LEDGER}/bad.json`, 'not json')
     session(on, measure(10))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     await clock.advance(2_000)
     await $.session.measure(measure(12) as never)
@@ -231,6 +279,7 @@ describe('plan usage ledger', () => {
     const { w, clock } = world(on, { rows: [row(BUILD, WT)] })
     const s = session(on, measure(10))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     s.usage = measure(13)
     await clock.advance(12_000)
@@ -243,6 +292,7 @@ describe('plan usage ledger', () => {
     world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     expect(await planRow(ui)).toMatch(/^💰 \$0\.00 plan/)
     await ui.unmount()
@@ -252,6 +302,7 @@ describe('plan usage ledger', () => {
     world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(undefined))
     await start($, WT)
+    await claim($)
     const ui = await mount($, 'terminal')
     expect((await barRows(ui)).join(' ')).not.toContain('$')
     await ui.unmount()
@@ -264,6 +315,7 @@ describe('limits line (FR-04, NFR-01)', () => {
     world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10, { rateLimits: limits }))
     await start($, WT)
+    await claim($)
     return mountAs($, { bodyColumns: 48 })
   }
 
@@ -307,6 +359,7 @@ describe('inline (FR-06)', () => {
     world(on, { rows: [row(BUILD, WT)] })
     session(on, measure(10, { rateLimits: [{ kind: 'five_hour', percentUsed: 5 }, { kind: 'seven_day', percentUsed: 39 }] }))
     await start($, WT)
+    await claim($)
     const ui = await mountAs($, { placement: 'inline' })
     await $.session.measure(measure(14.1, { rateLimits: [{ kind: 'five_hour', percentUsed: 5 }, { kind: 'seven_day', percentUsed: 39 }] }) as never)
     const rows = await allRows(ui)

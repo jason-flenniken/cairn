@@ -142,7 +142,9 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const checkable = merged && !dirty && !planDirty;
   // A lean Standard task runs `testQuick` on its changed files when one is set; the full suite runs at phase finish.
   const quickFiles = sl.lean && pc.cfg.testQuick && sl.base ? changedFiles(plan.worktree, plan.slug, sl.base, pb) : [];
-  const tests = checkable ? recordTestRun(pc, runQuickTests(pc.cfg, plan.worktree, quickFiles), id) : undefined;
+  // Without `testQuick`, an MVP or Standard merge leaves the suite to the phase end (Polished runs it at every merge).
+  const deferTests = checkable && !!pc.cfg.test && !pc.cfg.testQuick && levelOf(pre) !== 'polished' && !fastLane(pre);
+  const tests = checkable && !deferTests ? recordTestRun(pc, runQuickTests(pc.cfg, plan.worktree, quickFiles), id) : undefined;
   // Only a full-suite run is kept as the tested commit: phase finish reuses it, and a quick run must not stand in for the suite.
   const testedCommit = tests?.quick ? undefined : tests?.head;
   // The fix track adds: the repro now passes, and the fix stays small (FR-25). Both are checked even when an
@@ -167,7 +169,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
     gate(!planDirty, s, 'task done', opts, `the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
     gate(!stray.length, s, 'task done', opts, `commits for task "${cur.name}" were made directly on ${pb}: ${stray.map((c) => c.sha).join(', ')}`, [`move these commits to the task branch (git cherry-pick them onto ${cur.branch}, then reset ${pb} to before them), then merge the task branch with --no-ff`]);
     gate(merged, s, 'task done', opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
-    testsGate(tests ?? (checkable ? undefined : { ok: false, ran: false, cmd: pc.cfg.test ?? '(none)', tail: 'not run' }), s, 'task done', opts, cur.scope);
+    if (!deferTests) testsGate(tests ?? (checkable ? undefined : { ok: false, ran: false, cmd: pc.cfg.test ?? '(none)', tail: 'not run' }), s, 'task done', opts, cur.scope);
     if (fix) {
       gate(repro?.outcome === 'passes', s, 'task done', opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` → ${repro.detail})` : 'the repro was not run: the task is not merged', ['fix the bug so the repro command exits 0']);
       gate(changed <= maxFiles, s, 'task done', opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ['this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work']);
@@ -194,7 +196,7 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
       ? `Every task is built: the plan moved to Check, which runs the full suite next.${outOfScope(s)}`
       : fastLane(s) ? 'The fix is built: `cairn advance` to review.' : currentPhase(s) === phase ? `Phase "${phase.name}" is built: run \`cairn phase finish\`.` : `Phase "${phase.name}" is built; it finishes after the earlier phases.`;
     return {
-      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? 'quick tests' : 'tests'}: ${tests.tail})` : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : built}`,
+      message: `Task "${cur.name}" done${tests ? ` (${tests.quick ? 'quick tests' : 'tests'}: ${tests.tail})` : deferTests ? ' (tests left to the phase end)' : ' (no test command configured: nothing was run)'}. ${left ? `${left} task(s) left in phase "${phase.name}".` : built}`,
       data: { phaseComplete: !left, stage: s.stage },
     };
   });
@@ -259,6 +261,11 @@ function taskMerge(pc: PlanCtx, id: string, opts: Opts): Result {
   const pb = pre.branch;
   if (!branchExists(sl.branch, plan.worktree)) throw new Refusal(`branch ${sl.branch} does not exist`);
   preMergeChecks(pc, pre, sl, opts);
+  if (sl.substep !== 'merging')
+    mutate(pc, undefined, (s) => {
+      findTask(s, id)!.substep = 'merging';
+      log(s, 'task merging', sl.name);
+    });
   let note: string;
   let didMerge = false;
   if (!gitOk(['merge-base', '--is-ancestor', sl.branch, pb], plan.worktree)) {

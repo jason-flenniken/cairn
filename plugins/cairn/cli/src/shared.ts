@@ -2,7 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from './config.ts';
-import { commitPath, commonDir, gitTry } from './git.ts';
+import { commitPath, commonDir, gitOk, gitTry } from './git.ts';
+import { cairnPathspecExcludes } from './paths.ts';
 import { allTasks } from './ready.ts';
 import { PLANS_DIRS, planRelOf, requirePlan, type Ctx, type PlanRef } from './locate.ts';
 import { humanProof, type ProofIO } from './proof.ts';
@@ -139,6 +140,15 @@ function testInput(cwd: string): string | undefined {
   const status = gitTry(['status', '--porcelain', '--untracked-files=no', '--', '.', ...PLANS_DIRS.map((d) => `:!${d}`)], cwd);
   return `${head.out}\n${status.ok ? status.out : '?'}`;
 }
+
+/** True when the last full-suite run was green on this checkout: nothing but cairn's own folders changed since, and no red run since. */
+export function suiteGreenAtHead(pc: PlanCtx): boolean {
+  const s = loadState(pc.plan.dir);
+  return !!s.lastGreen && !s.lastRed && gitOk(['diff', '--quiet', s.lastGreen.commit, 'HEAD', '--', '.', ...cairnPathspecExcludes()], pc.plan.worktree);
+}
+
+/** The run `close` and the merge check record when the suite already passed on this code. */
+export const reusedRun = (cfg: Config): TestRun | undefined => (cfg.test ? { ok: true, ran: true, cmd: cfg.test, tail: 'green on this code already, not re-run' } : undefined);
 
 export function runTests(cfg: Config, cwd: string): TestRun | undefined {
   return cfg.test ? runSuite(cfg.test, cfg, cwd) : undefined;

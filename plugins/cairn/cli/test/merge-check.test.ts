@@ -187,6 +187,31 @@ test('a green check is remembered: plan-folder commits after it skip the tests, 
   assert.match(run(['merge-check'], wt).message, /merged it in cleanly\. The tests pass/);
 });
 
+test('merge-check and close skip the suite when the last green run covers this code, and run it otherwise', () => {
+  // broken.txt makes the suite fail, so a run that happens shows as a refusal.
+  const wt = shipped('reuse', { 'broken.txt': 'x\n' });
+  refused(wt, /tests fail/, 'merge-check');
+  const head = g(wt, 'rev-parse', 'HEAD');
+  // A green run on an older commit does not cover code that changed since.
+  edit(wt, 'reuse', (s) => (s.lastGreen = { commit: g(wt, 'rev-parse', 'HEAD~2'), at: new Date().toISOString() }));
+  commitAll(wt, 'state');
+  refused(wt, /tests fail/, 'merge-check');
+  edit(wt, 'reuse', (s) => {
+    delete s.lastRed;
+    s.lastGreen = { commit: head, at: new Date().toISOString() };
+  });
+  commitAll(wt, 'state');
+  assert.match(run(['merge-check'], wt).message, /Tests passed on this code at the last check/);
+  // close: the same green run covers it; without one the suite runs and fails.
+  edit(wt, 'reuse', (s) => (s.stage = 'learn'));
+  commitAll(wt, 'learn');
+  assert.equal(run(['close'], wt).message.startsWith('Closed'), true);
+  const wt2 = shipped('reuse2', { 'broken.txt': 'x\n' });
+  edit(wt2, 'reuse2', (s) => (s.stage = 'learn'));
+  commitAll(wt2, 'learn');
+  refused(wt2, /tests are not green/, 'close');
+});
+
 test('a conflict only in OVERVIEW.md is settled by regenerating it, and needs no new approval', () => {
   const wt = shipped('overview');
   mkdirSync(join(wt, 'docs/cairn'), { recursive: true });

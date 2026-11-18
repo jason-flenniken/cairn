@@ -151,7 +151,7 @@ test('testSummary falls back to the last line when no line has counts', () => {
 });
 
 test('task done records the pass line when the test output ends with an npm notice', () => {
-  const repo = mkRepo({ test: "printf 'ℹ pass 12\\nnpm notice New version available\\n'", maxParallel: 3 });
+  const repo = mkRepo({ test: "printf 'ℹ pass 12\\nnpm notice New version available\\n'", testQuick: "printf 'ℹ pass 12\\nnpm notice New version available\\n'", maxParallel: 3 });
   const { wt, dir } = featureInExecute(repo, 'summary');
   buildTask(wt, 'summary', 'charge', { 'src/charge/a.ts': '1\n' });
   ok(wt, 'task', 'done', 'charge');

@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import { branchExists, CLOSE_PUBLISHED, currentBranch, git, gitOk, gitTry, safeRef } from '../git.ts';
 import { planRelIn, planRelOf, plansDirsIn, type Ctx } from '../locate.ts';
 import { loadState, log } from '../state.ts';
-import { mutate, planCtx, runTests, type Opts, type Result } from '../shared.ts';
+import { mutate, planCtx, runTests, suiteGreenAtHead, type Opts, type Result } from '../shared.ts';
 import { now, pluginRoot, readText, Refusal } from '../util.ts';
 import { USAGE_REL } from '../usage.ts';
 import { refreshMemory, refreshUsage } from './memory.ts';
@@ -210,7 +210,7 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
 
   // The tests run until a head passes: only plan-folder commits since the last green head skip them.
   const lastGreen = s0.mergeChecked;
-  const untested = !lastGreen || changesSince(wt, lastGreen, rel, []).length > 0;
+  const untested = (!lastGreen || changesSince(wt, lastGreen, rel, []).length > 0) && !suiteGreenAtHead(pc);
   const tests = untested ? recordTestRun(pc, runTests(pc.cfg, wt)) : undefined;
   if (tests && !tests.ok) {
     mutate(pc, 'tests fail at merge check', (s) => log(s, 'merge check failed', `${tests.cmd}: ${tests.tail}`));

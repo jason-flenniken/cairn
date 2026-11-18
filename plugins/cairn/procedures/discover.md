@@ -4,7 +4,7 @@ Interview the user until cairn can predict their next answers: the goal first, t
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
-**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, run `cd <plan worktree> && cairn step clear`; Discover has no other step.
+**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Send that Bash call and the AskUserQuestion in the same message (parallel tool calls, one turn). Once it is answered, chain `cd <plan worktree> && cairn step clear` with the next command in one Bash call; Discover has no other step.
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 

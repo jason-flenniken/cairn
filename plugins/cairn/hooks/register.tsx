@@ -2,6 +2,7 @@
 import type { Register } from 'claude-code'
 import { install as installActivity, onSessionStart as activityStart } from './mod/activity.ts'
 import { install as installApprove } from './mod/approve.ts'
+import { install as installColdWake } from './mod/coldwake.ts'
 import { install as installGuards } from './mod/guards.ts'
 import { onSessionStart as heartbeatStart } from './mod/heartbeat.ts'
 import { ledgerEnd } from './mod/ledger.ts'
@@ -42,6 +43,7 @@ export const register: Register = on => {
   })
   installApprove(on)
   installPause(on)
+  installColdWake(on)
   installPane(on)
   installActivity(on)
 }

@@ -4,7 +4,7 @@ Prove the finished build works: tests and build, the proofs (the end state agree
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
-**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Once it is answered, put the step back: `cd <plan worktree> && cairn step <testing, scanning or fixing, whichever you were on>`.
+**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Send that Bash call and the AskUserQuestion in the same message (parallel tool calls, one turn). Once it is answered, put the step back, chained with the next command in one Bash call (`… && <next command>`): `cd <plan worktree> && cairn step <testing, scanning or fixing, whichever you were on>`.
 
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
@@ -26,17 +26,17 @@ The last phase finished without a suite run or an on-track check: they run here,
 **Done when:** Linear changes are handled, or there is no Linear link.
 
 ## 2. Tests and build
-Run `cd <plan worktree> && cairn step testing`. Then run `cd <plan worktree> && cairn test`. It runs the repo's test command (and the build command when `build` is set) and prints the counts and the failure tail; a red run's full output goes to the log named after "Full output:". With no test command, it says so; continue.
+Run `cd <plan worktree> && cairn step testing && cairn test` in one call. It runs the repo's test command (and the build command when `build` is set) and prints the counts and the failure tail; a red run's full output goes to the log named after "Full output:". With no test command, it says so; continue.
 
 **Done when:** you hold the pass/fail counts from a run made in this step. On failure, fix in place (step 5) before continuing.
 
 ## 2a. The last phase's on-track check (Polished)
-Below Polished, skip this step. Run `cd <plan worktree> && cairn step on-track`, then the on-track check for the last phase: follow `procedures/direction.md` with that phase's id, ending with `cairn evidence phase`. A red result is fixed in step 5 like any other blocking finding, then checked again; `cairn evidence verify pass` refuses while it is red.
+Below Polished, skip this step. Run `cd <plan worktree> && cairn step on-track`, sent in the same message as the first dispatch of the on-track check for the last phase: follow `procedures/direction.md` with that phase's id, ending with `cairn evidence phase`. A red result is fixed in step 5 like any other blocking finding, then checked again; `cairn evidence verify pass` refuses while it is red.
 
 **Done when:** below Polished, or the last phase's on-track check is recorded.
 
 ## 3. Security scan and dependency audit
-Run `cd <plan worktree> && cairn step scanning`. Then read the Secrets section of `references/security-checklist.md`, and the `[deps]` section when the branch touches a manifest or lockfile. Work from the branch diff, `git diff <base>...<plan branch>`, in the plan worktree.
+Run `cd <plan worktree> && cairn step scanning`, sent in the same message as the first command of the scan (for example the `git diff` or the audit command). Read the Secrets section of `references/security-checklist.md`, and the `[deps]` section when the branch touches a manifest or lockfile. Work from the branch diff, `git diff <base>...<plan branch>`, in the plan worktree.
 
 - **Secret scan.** The output of every scan command must contain only the file, the line and the kind, never the matched text. Do not run a bare `grep`, `grep -n` or `git diff | grep` over the diff, and do not open a hit to double-check it: if the kind looks doubtful, report it as found and let the user look.
   1. Count the added lines that look like a secret (a number only):
@@ -72,7 +72,7 @@ Run `cd <plan worktree> && cairn step scanning`. Then read the Secrets section o
 **Done when:** the scan, the audit (or its one-line skip) and the lockfile review each have a result, and every blocking finding is queued for step 5.
 
 ## 3a. Proofs
-Skip when `cairn prove list` says the plan has no proofs. Otherwise run `cd <plan worktree> && cairn step testing`, then `cd <plan worktree> && cairn prove`. It runs every proof on the plan branch and prints one line per proof.
+Skip when `cairn prove list` says the plan has no proofs. Otherwise run `cd <plan worktree> && cairn step testing && cairn prove` in one call. It runs every proof on the plan branch and prints one line per proof.
 - **A red proof:** blocking. The line ends with "Full output: <log>". Queue it for step 5 with its log path.
 - **Screenshots:** for each proof that passed and takes screenshots, the line names the folder and what they must show. Dispatch one `visual-checker` (`model: sonnet`, `description` "Check · screenshots") for all of them, with each proof's id, folder, screenshot names and `look`, and the report path `<work folder>/reports/screenshots.md`. Record each verdict line it ends with: `cd <plan worktree> && cairn prove judge <id> pass|fail --note "<what differs>"`. A fail is blocking: queue it for step 5.
 
@@ -89,7 +89,7 @@ Dispatch the `acceptance-checker` agent (`model: sonnet`, `description` "Check �
 **Done when:** every requirement has a verdict, and every "met but untested" item is logged.
 
 ## 5. Fix what is blocking
-Skip when tests are green, every proof is green and judged, nothing is not met, no secret was found, and no reachable critical or high advisory remains. Otherwise run `cd <plan worktree> && cairn step fixing --count N` (N is the number of failing tests, unmet requirements, secrets and advisories to fix), then dispatch one `implementer` (`model: sonnet`, `description` "Fix · acceptance") on the plan worktree itself. It commits directly on the plan branch; there is no new task, phase, or re-plan. Its prompt names the plugin root, the report path `<work folder>/reports/verify-fix.md`, the acceptance report path for unmet requirements, each red proof's id, command and log path, each failed screenshot verdict with what differs (proof files are locked: the fix changes the code, never a proof), the path after "Full output:" (the full failing test log; implementers never run `cairn`), and in a few lines the failing tests, the secret finding (file and line only) or the advisory; tell it to add a test for the fix. Then rerun step 2 (`cairn test`), step 3's blocking findings, step 3a's red and failed proofs (`cairn prove`, then judge again) and step 4's unmet items once more.
+Skip when tests are green, every proof is green and judged, nothing is not met, no secret was found, and no reachable critical or high advisory remains. Otherwise run `cd <plan worktree> && cairn step fixing --count N` (N is the number of failing tests, unmet requirements, secrets and advisories to fix), sent in the same message as the dispatch of one `implementer` (`model: sonnet`, `description` "Fix · acceptance") on the plan worktree itself. It commits directly on the plan branch; there is no new task, phase, or re-plan. Its prompt names the plugin root, the report path `<work folder>/reports/verify-fix.md`, the acceptance report path for unmet requirements, each red proof's id, command and log path, each failed screenshot verdict with what differs (proof files are locked: the fix changes the code, never a proof), the path after "Full output:" (the full failing test log; implementers never run `cairn`), and in a few lines the failing tests, the secret finding (file and line only) or the advisory; tell it to add a test for the fix. Then rerun step 2 (`cairn test`), step 3's blocking findings, step 3a's red and failed proofs (`cairn prove`, then judge again) and step 4's unmet items once more.
 
 When something is still failing after that attempt, dispatch one more fix, one tier up (`opus`), with the new logs. Only when that one fails too, stop and ask the user with AskUserQuestion, all failures in one question: Fix by hand / Accept as is (noted in the record; leaving the check stage with a red proof then takes the user's override, through an Override menu)  / Pause.
 

@@ -7,12 +7,15 @@ Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run 
 ## 1. Check
 Run `cairn status --json`.
 - On a plan branch: that plan is the target.
+- When the arguments name a plan (the mod restarts a conversation that sat idle for hours with `/cairn:resume <slug>`), that plan is the target: take its worktree from `cairn status --all --json` and move into it with EnterWorktree.
 - On any other branch: run `cairn status --all`. When one plan is paused, take it; when several are, ask with AskUserQuestion which one (the most recently paused first, marked Recommended). Tell the user to `cd <worktree> && claude`, then `/cairn:resume`, and stop; or use EnterWorktree with the path when available and continue.
 
 **Done when:** the session is in the target plan's worktree.
 
 ## 2. Resume
 A pause under `resumeFreshAfterMinutes` (`.cairn/config.json`, default 60) resumes in this session. After a longer pause, or when the pause time is missing, tell the user the context is stale: suggest `/clear`, then `/cairn:resume`, with how long ago it was paused, and ask with AskUserQuestion: Resume here anyway / Not now. Continue only on "Resume here anyway", or in the fresh session.
+
+A plan that is not paused is a restart after a long idle, not a pause: skip the question and `cairn resume`, read `cairn status --json` and `handoff.md` when it exists, and go to step 3 with where the plan stands.
 
 Run `cairn resume`. It clears the pause and prints a recap: status, the handoff, and the next procedure.
 

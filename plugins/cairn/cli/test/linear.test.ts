@@ -367,6 +367,7 @@ test('linear: an epic from import to merged, with every check and queued write',
   ok(wt, 'suggest', 'add', '--area', 'quality', '--where', 'src/pay/**', '--text', 'tidy the pay handler', '--kind', 'hardening');
   build(wt, 'checkout', 'receipt', 'src/receipt/a.ts');
   ok(wt, 'phase', 'finish');
+  ok(wt, 'test');
   ok(wt, 'evidence', 'verify', 'pass', '--note', 'ok');
   ok(wt, 'advance');
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');

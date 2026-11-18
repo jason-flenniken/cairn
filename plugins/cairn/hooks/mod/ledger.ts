@@ -5,6 +5,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 import type { CairnLedgerEntry, CairnView } from '../../types/index.d.ts'
 import { commonDir } from './heartbeat.ts'
+import { isClaimed } from './own.ts'
 
 /** At most one write of this session's files per this long while figures change between measurements. */
 export const FLUSH_EVERY_MS = 30_000
@@ -56,12 +57,16 @@ export function sessionPlan(v: CairnView | null): string | undefined {
   return v?.here
 }
 
-/** The plan this session's spend goes to, with its stage: `sessionPlan`'s, while it is open and not paused. */
+/**
+ * The plan this session's spend goes to, with its stage: `sessionPlan`'s, while the session claimed it (a cairn command
+ * or approval question, not just a folder inside its worktree), and it is open, not paused and not waiting on the person.
+ */
 async function credited($: EngineInterface): Promise<{ slug: string; stage: string } | undefined> {
   const v = await read($, view)
   const slug = sessionPlan(v)
   const row = v?.plans.find(r => r.state.slug === slug)
-  if (slug === undefined || row === undefined || row.state.stage === 'closed' || row.state.paused) return undefined
+  if (slug === undefined || row === undefined || row.state.stage === 'closed' || row.state.paused || row.needsUser === true) return undefined
+  if (!(await isClaimed($, slug))) return undefined
   return { slug, stage: row.state.stage }
 }
 
