@@ -38,7 +38,7 @@ test('discover: the ticket path is taken only on the user\'s choice and skips th
   assert.match(step, /cairn decide "Outside blocker: <KEY>"/);
   assert.match(step, /`## Decisions`/);
   // The full discover is unchanged for every other plan.
-  for (const h of ['## 2. Research first', '## 3. Guess and confidence', '## 4. Goal questions', '## 4b. Fresh-eyes challenge', '## 7. Read-back card']) assert.ok(src.includes(h), h);
+  for (const h of ['## 2. Research first', '## 3. Guess and confidence', '## 4. Goal questions', '## 4b. Fresh-eyes challenge', '## 7. The one round and the read-back card']) assert.ok(src.includes(h), h);
 });
 
 test('prd: specced tickets are rendered by the CLI, the builder check and approval stay', () => {

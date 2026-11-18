@@ -6,10 +6,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
-import { configHash } from '../src/commands/fix.ts';
-import { loadConfig } from '../src/config.ts';
 import { run } from '../src/main.ts';
 import { Refusal } from '../src/util.ts';
+import { setPullRequest } from './handsoff-helpers.ts';
 import { pd } from './plandir.ts';
 
 let repo: string;
@@ -111,17 +110,16 @@ test('a repro that exits 0 refuses and records nothing', () => {
   refused(wt, /this does not reproduce the bug/, 'repro', 'true');
   assert.equal(stateOf(wt, 'passes').repro, undefined);
   refused(wt, /no repro is recorded/, 'advance');
-  refusedByUser(wt, /no repro is recorded/, 'advance', '--override', 'skip the repro');
+  refused(wt, /no repro is recorded/, 'advance', '--not-done', 'skip the repro');
 });
 
-test('a failing repro records the command, its last output line, and the config hash', () => {
+test('a failing repro records the command and its last output line', () => {
   const wt = newFix('records');
   ok(wt, 'repro', `echo first; echo "still broken"; ${REPRO}`);
   const s = stateOf(wt, 'records');
   assert.equal(s.repro.cmd, `echo first; echo "still broken"; ${REPRO}`);
   assert.equal(s.repro.tail, 'still broken');
   assert.ok(s.repro.at);
-  assert.match(s.configHash, /^[0-9a-f]{16}$/);
 });
 
 test('a repro past its timeout refuses, quotes the error, and records nothing', () => {
@@ -183,12 +181,13 @@ test('the full fix track runs repro, execute, review, ship, closed', () => {
   assert.equal(stateOf(wt, 'full').stage, 'ship');
   assert.match(ok(wt, 'next').data!.procedure as string, /procedures\/ship\.md$/);
 
+  refused(wt, /the pull request is not open/, 'advance');
+  setPullRequest(wt, 'full');
   write(join(dirOf(wt, 'full'), 'RECORD.md'), fixRecord(250));
-  refusedByUser(wt, /250 words; the budget is 200/, 'approve', 'ship');
+  refused(wt, /250 words; the budget is 200/, 'advance');
   write(join(dirOf(wt, 'full'), 'RECORD.md'), fixRecord(150).replace('## Cause', '## Why'));
-  refusedByUser(wt, /missing sections: Cause/, 'approve', 'ship');
+  refused(wt, /missing sections: Cause/, 'advance');
   write(join(dirOf(wt, 'full'), 'RECORD.md'), fixRecord(150));
-  byUser(wt, 'approve', 'ship');
   ok(wt, 'advance');
   s = stateOf(wt, 'full');
   assert.equal(s.stage, 'closed');
@@ -245,59 +244,9 @@ function featureInExecute(slug: string): string {
   ok(wt, 'advance');
   write(join(dir, 'plan.md'), PLAN);
   ok(wt, 'plan', 'load');
-  byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   return wt;
 }
-
-test('editing the test command after plan approval refuses task done until the plan is re-approved', () => {
-  const wt = featureInExecute('locked');
-  assert.match(stateOf(wt, 'locked').configHash, /^[0-9a-f]{16}$/);
-  const swt = ok(wt, 'task', 'start', 'one').data!.worktree as string;
-  write(join(swt, 'src/one.ts'), '1\n');
-  commitAll(swt, 'one');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge one', 'task/locked/one');
-  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../edited-ran' }));
-  commitAll(wt, 'edit the test command');
-  refused(wt, /changed since the user approved it[\s\S]*cairn approve plan --human[\s\S]*Override/, 'task', 'done', 'one');
-  assert.ok(!existsSync(join(wt, '../edited-ran')), 'the changed test command did not run');
-
-  // re-approval at execute re-records the hash without moving the stage
-  byUser(wt, 'approve', 'plan');
-  const s = stateOf(wt, 'locked');
-  assert.equal(s.stage, 'execute');
-  assert.ok(s.log.some((l: { event: string }) => l.event === 'commands re-approved'));
-  ok(wt, 'task', 'done', 'one');
-});
-
-test('approve plan outside the plan stage refuses when the commands are unchanged', () => {
-  const wt = featureInExecute('unchanged');
-  refusedByUser(wt, /not plan/, 'approve', 'plan');
-});
-
-test('task start and repro refuse while the commands differ from the approved ones', () => {
-  const other = newFix('drifted-repro');
-  ok(other, 'repro', REPRO);
-  write(join(other, '.sdlc/config.json'), JSON.stringify({ test: 'true', build: 'make' }));
-  commitAll(other, 'add a build command');
-  refused(other, /changed since the user approved it/, 'repro', 'touch ../repro-ran; exit 1');
-  assert.ok(!existsSync(join(other, '../repro-ran')), 'the repro did not run');
-  // put a started fix task back to pending so it can be started again under the changed config
-  const third = fixInExecute('drifted-start');
-  g(third.wt, 'worktree', 'remove', '--force', third.swt);
-  const st = stateOf(third.wt, 'drifted-start');
-  st.phases[0].tasks[0].status = 'pending';
-  writeFileSync(join(dirOf(third.wt, 'drifted-start'), 'state.json'), JSON.stringify(st));
-  write(join(third.wt, '.sdlc/config.json'), JSON.stringify({ test: 'false' }));
-  commitAll(third.wt, 'change the test command');
-  refused(third.wt, /changed since the user approved it/, 'task', 'start', 'fix');
-});
-
-test('a missing config hashes as empty, so adding one later counts as a change', () => {
-  const none = loadConfig();
-  assert.equal(configHash(none), configHash({ maxParallel: 1, autoCommit: false }));
-  assert.notEqual(configHash(none), configHash({ ...none, test: 'npm test' }));
-});
 
 test('escalate turns a fix plan into a feature plan at prd, keeping the task and narrowing its scope', () => {
   const { wt, swt } = fixInExecute('grows');
@@ -380,42 +329,10 @@ test('a v0.1 fix plan without a repro keeps the feature stages', () => {
   ok(wt, 'advance');
   assert.equal(stateOf(wt, 'legacy').stage, 'review');
   const next = stateOf(wt, 'legacy');
-  Object.assign(next, { stage: 'ship', approvals: { ship: { at: st.created, via: 'human' } } });
+  Object.assign(next, { stage: 'ship', pullRequest: { url: 'https://example.test/pull/1', draft: false, at: st.created, head: 'abc' } });
   writeFileSync(file, JSON.stringify(next));
   ok(wt, 'advance');
   assert.equal(stateOf(wt, 'legacy').stage, 'learn');
-});
-
-test('an override without proof never runs a changed command', () => {
-  const wt = featureInExecute('pwned');
-  const swt = ok(wt, 'task', 'start', 'one').data!.worktree as string;
-  write(join(swt, 'src/one.ts'), '1\n');
-  commitAll(swt, 'one');
-  g(wt, 'merge', '-q', '--no-ff', '-m', 'merge one', 'task/pwned/one');
-  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../PWNED-done' }));
-  commitAll(wt, 'edit the test command');
-  refused(wt, /override needs proof/, 'task', 'done', 'one', '--override', 'x');
-  assert.ok(!existsSync(join(wt, '../PWNED-done')));
-  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../PWNED-close' }));
-  commitAll(wt, 'edit the test command again');
-  refused(wt, /override needs proof/, 'close', '--override', 'x');
-  assert.ok(!existsSync(join(wt, '../PWNED-close')));
-});
-
-test('an override without proof never runs a changed command when a fix plan closes from ship', () => {
-  const { wt, swt } = fixInExecute('pwnship');
-  landOnTask(wt, swt, 'pwnship', { 'bug.txt': 'fixed\n' });
-  ok(wt, 'task', 'done', 'fix');
-  ok(wt, 'advance');
-  ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
-  ok(wt, 'advance');
-  write(join(dirOf(wt, 'pwnship'), 'RECORD.md'), fixRecord(100));
-  byUser(wt, 'approve', 'ship');
-  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../PWNED-ship' }));
-  commitAll(wt, 'edit the test command');
-  refused(wt, /override needs proof/, 'advance', '--override', 'x');
-  assert.ok(!existsSync(join(wt, '../PWNED-ship')));
-  assert.equal(stateOf(wt, 'pwnship').stage, 'ship');
 });
 
 test('repro checks the stage before it runs anything', () => {
@@ -424,16 +341,19 @@ test('repro checks the stage before it runs anything', () => {
   assert.ok(!existsSync(join(wt, '../late-ran')));
 });
 
-test('an override of the merge check still checks and logs the fix file limit', () => {
-  const { wt, swt } = fixInExecute('unmerged');
+test('a call passes the fix file limit and is recorded; --override is refused', () => {
+  const { wt, swt } = fixInExecute('bigfix');
   const files: Record<string, string> = { 'bug.txt': 'fixed\n' };
   for (let i = 1; i <= 8; i++) files[`src/f${i}.ts`] = `${i}\n`;
-  for (const [p, c] of Object.entries(files)) write(join(swt, p), c);
-  commitAll(swt, 'not merged');
-  byUser(wt, 'task', 'done', 'fix', '--override', 'user merges later');
-  const overrides = stateOf(wt, 'unmerged').log.filter((l: { override?: string }) => l.override).map((l: { detail: string }) => l.detail);
-  assert.ok(overrides.some((d: string) => /changed 9 files/.test(d)), overrides.join(' | '));
-  assert.ok(overrides.some((d: string) => /repro/.test(d)), 'the unchecked repro is logged, not skipped');
+  landOnTask(wt, swt, 'bigfix', files);
+  refused(wt, /changed 9 files[\s\S]*--call/, 'task', 'done', 'fix');
+  refused(wt, /--override was removed/, 'task', 'done', 'fix', '--override', 'x');
+  ok(wt, 'task', 'done', 'fix', '--call', 'the fix is wide because the rename touches every caller');
+  const s = stateOf(wt, 'bigfix');
+  assert.equal(s.phases[0].tasks[0].status, 'done');
+  assert.equal(s.calls.length, 1);
+  assert.match(s.calls[0].what, /changed 9 files/);
+  assert.match(s.calls[0].why, /every caller/);
 });
 
 test('the fix file limit counts commits on the plan branch outside the plan folder', () => {

@@ -1,7 +1,7 @@
 import { git, gitOk } from '../git.ts';
 import { cairnPathspecExcludes } from '../paths.ts';
 import { planRelOf, type Ctx } from '../locate.ts';
-import { currentPhase } from '../ready.ts';
+import { currentPhase, leftOut } from '../ready.ts';
 import { levelOf, loadState, log, setStage } from '../state.ts';
 import type { LinearConfig, Phase, State, Suggestion } from '../types.ts';
 import { CliError, Refusal } from '../util.ts';
@@ -47,10 +47,10 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
     return { message: 'Every phase is finished and the plan is in Check: continue there (cairn next).', data: { phase: null, next: null, stage: pre.stage } };
   if (pre.stage !== 'execute' || !phase) throw new Refusal(`the plan is in ${pre.stage}, with no phase to finish`, ['cairn next']);
   if (pre.paused) throw new Refusal('the plan is paused', ['cairn resume']);
-  const unfinished = phase.tasks.filter((x) => x.status !== 'done');
+  // Tasks set aside, and the ones waiting behind them, are left out: the phase finishes and the PR lists them as not done.
+  const out = new Set(leftOut(pre).map((x) => x.id));
+  const unfinished = phase.tasks.filter((x) => x.status !== 'done' && !out.has(x.id));
   if (unfinished.length) throw new Refusal(`phase "${phase.name}" still has unfinished tasks: ${unfinished.map((x) => x.name).join(', ')}`, ['cairn ready']);
-  const blocked = phase.tasks.filter((x) => x.substep === 'blocked');
-  if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(', ')}`);
   const dirty = git(['status', '--porcelain', '--', '.', `:!${planRelOf(plan)}`], plan.worktree);
   if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${dirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
 
@@ -64,7 +64,7 @@ export function cmdPhase(ctx: Ctx, action: string | undefined, opts: Opts): Resu
 
   return mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s)!;
-    gate(cur.verdict?.result !== 'red', s, 'phase finish', opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ''}`, ['fix what the report flags, then re-run `cairn evidence phase`']);
+    gate(cur.verdict?.result !== 'red', s, 'phase finish', opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ''}`, ['fix what the report flags, then re-run `cairn evidence phase`'], 'what');
     linearPhaseGate(s, opts);
     if (lastPhase) {
       const drift = s.drift.filter((d) => !d.acked);

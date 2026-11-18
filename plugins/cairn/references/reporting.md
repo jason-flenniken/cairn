@@ -27,23 +27,21 @@ Line 1 is what was decided, in plain language. Then `Why:` with the constraint t
 ## Report outcomes, let the user judge
 State what happened with the evidence: counts, commands, `path:line`. Leave out verdicts on your own work ("correctly caught", "fully proven"). A failing result is stated with its output.
 
-## Real architecture forks: stop and ask
-When a decision is one the user would want to weigh in on, pause. Give both options with the actual tradeoff, give a recommendation and its reason, and wait for the answer. Ask with AskUserQuestion: 2-4 options, the recommended one first and labelled "(Recommended)". Decide nothing silently and mention nothing in passing.
+## Real architecture forks
+Before the PRD is approved, a decision the user would want to weigh in on is a candidate for the one round of questions in discover: give the options with the actual tradeoff, a recommendation and its reason, 2-4 options, the recommended one first and labelled "(Recommended)". After the PRD is approved nothing is asked (`references/autonomy.md`): take the recommendation, record it (`cairn decide "Assumed: …"` or `--call`), and say it in line 1 of the message, as a deviation. The pull request lists it for the user.
 
 ## Relaying subagent results
 Restate every subagent result in this contract's terms. Subagents run on a bounded prompt and do not know this contract, so their wording is raw material. Keep their findings, `path:line` evidence, and counts; drop their ids, process narration, and self-praise.
 
 ## Stops
-The human stops are the PRD, the plan, and ship, plus anything red, blocked, or paused. Present a short summary (about 5 lines) and a menu through AskUserQuestion, then wait for the answer. A finished phase is not a stop: when the tests are green, say one line (what finished, the new-suggestions count) and keep going.
+There are two stops in a run: the PRD approval, and the open pull request. At the PRD, present a short summary (about 5 lines) and the approval menu, then wait for the answer. At the end, send one short message (the PR link, ready or draft, how many calls were made for the user, how many parts are not done) and wait for the merge or for notes. Everything between is hands-off: red, blocked and stuck work is recorded and the run goes on. A finished phase is not a stop: when the tests are green, say one line (what finished, the new-suggestions count) and keep going. A pause is the user's, never yours.
 
 A reply with no tool call ends your turn, so it is a stop. Put every progress line in the same reply as the next tool call. Never end a reply with "Next: …" and no call to do it.
 
 ## Refusals
-When the CLI refuses a command (exit code 2), read what it says is missing, do that, and rerun. An approval refusal is fixed and approved again, never overridden from a procedure.
+When the CLI refuses a command (exit code 2), read what it says is missing, do that, and rerun. When the refusal names `--call` (a choice about how to build) or `--not-done` (part of the goal that is unmet after the allowed fix attempts), rerun with that flag and a plain reason, as `references/autonomy.md` describes. There is no way to override a refusal, and none is needed.
 
-An approval answered in the menu is recorded before the menu's answer reaches you: read `state.approvals` once, right away. When a cairn note says the approval was not recorded, ask the tagged approval menu once more; when the note says the session may run an outdated cairn, tell the user to restart the session. Never end a turn asking the user to press Approve in the pane: an approval from the pane continues the chat by itself. Give the `--human` terminal command only when `modActive` is false.
-
-A refusal that the user may choose to overrule gets an Override menu: AskUserQuestion with `[cairn:override <slug>]` in the question text, and an option labeled exactly "Override". Rerun the command with `--override "<reason>"` only after the user picks Override, and report that an override was used.
+The PRD approval answered in the menu is recorded before the menu's answer reaches you: read `state.approvals` once, right away. When a cairn note says the approval was not recorded, ask the tagged approval menu once more; when the note says the session may run an outdated cairn, tell the user to restart the session. Never end a turn asking the user to press Approve in the pane: an approval from the pane continues the chat by itself. Give the `--human` terminal command (it asks the user to press Enter) only when `modActive` is false.
 
 ## Agent titles
 Every `Agent` call sets `description` to `"<Role> · <task name>"`, where Role is one of Build, Review, Fix, Check, Research, Record. The pane shows it as the card title. Examples: "Build · Cart API", "Review · Cart API", "Fix · Cart API", "Check · acceptance", "Research · payment providers", "Record · completion".

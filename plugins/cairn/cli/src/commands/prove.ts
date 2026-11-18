@@ -262,7 +262,7 @@ function cmdRetire(pc: PlanCtx, id: string | undefined, opts: Opts): Result {
   retireRefusals(pc, loadState(pc.plan.dir), id, by);
   return mutate(pc, `proof ${id} retired`, (s) => {
     retireRefusals(pc, s, id, by);
-    gate(false, s, 'prove retire', opts, `retiring proof ${id} needs the user's choice`, [`proof ${id} is itself wrong and ${by} replaces it: ask the user, then retire it`]);
+    throw new Refusal(`proof ${id} is part of the goal the user approved, so the run does not retire it`, [`leave ${id} as it is and keep ${by} beside it; where ${id}'s red result is checked, go on with --not-done "${id} is wrong: <why>; ${by} checks it correctly"`, 'the user changes the goal by editing the PRD and approving it again']);
     const p = s.endProofs?.list.find((x) => x.id === id) as EndProof;
     p.retired = { at: now(), by, reason: String(opts.override) };
     log(s, 'proof retired', `${id}, replaced by ${by}: ${opts.override}`);

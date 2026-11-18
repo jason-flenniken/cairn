@@ -21,7 +21,7 @@ When the arguments hold `--from-linear <selection>`, do step 2a first and take t
 
 Arguments that are only a Linear selection mean the same thing with no flag: an issue key with the team key from `.cairn/config.json` `linear.team` (`SAV-100`, any case), a comma list of keys, a Linear issue URL (`https://linear.app/<workspace>/issue/SAV-100/…`, use its key), `milestone:"<name>"` or `project:"<name>"`. Treat them as `--from-linear <selection>`: every step below that says `--from-linear` applies. When the repo has no `linear` block yet, a lone `<LETTERS>-<number>` may be a Linear issue or just words (`UTF-8`): ask the user whether it is a Linear issue before treating it as one; step 3 then adds the block. Anything else is a description of the work.
 
-Otherwise ask with AskUserQuestion: "What are we building?" Offer 2-3 short title options derived from the user's request (the first marked "(Recommended)"), each with a kebab-case slug in its description. The user can type their own through "Other".
+Otherwise ask with AskUserQuestion: "What are we building?" Offer 2-3 short title options derived from the user's request (the first marked "(Recommended)"), each with a kebab-case slug in its description. The user can type their own through "Other". When the level (step 4) or the proofs (step 4a) are also still open, put those questions in the same AskUserQuestion call (up to three questions in one call), so the user answers once.
 
 **Done when:** you have a title and a kebab-case slug of at most 40 characters.
 
@@ -75,13 +75,13 @@ Ask once with AskUserQuestion, a plain choice and not an approval: "How much eff
 
 `references/levels.md` has the full table. When the issues fetched in step 2a include one carrying the foundational label (`linear.foundationalLabel` in `.cairn/config.json`, default `foundational`, any case), list Polished first, marked "(Recommended)", with a one-line reason: the ticket is flagged foundational, so the approach deserves the extra rigor. The user still picks; never change the level yourself.
 
-Security review of risky work and the three approvals stay at every level. This answer is applied as given; changing the level later needs the user's own proof. A fix plan (`--track fix`) has no level: skip this step for it.
+Security review of risky work and the PRD approval stay at every level. The run is hands-off after that approval. This answer is applied as given; changing the level later needs the user's own proof. A fix plan (`--track fix`) has no level: skip this step for it.
 
 **Done when:** you hold the level the user picked.
 
 ## 4a. Proofs
 Ask once with AskUserQuestion, a plain choice and not an approval: "Prove the end state with runnable checks?" Recommend Yes at Standard and Polished, No at MVP, unless `.cairn/config.json` sets `"proofs": "off"` (then recommend No) or `"on"` (then recommend Yes at every level). Recommended option first:
-- Yes: before the build, an agent writes each requirement as a check that runs (a test, a command, or a browser flow with screenshots). You see them fail, they lock when you approve the plan, and the build runs on its own until they pass.
+- Yes: before the build, an agent writes each requirement as a check that runs (a test, a command, or a browser flow with screenshots). They are seen failing and locked when the plan loads, and the build runs on its own until they pass.
 - No: the build is checked by tests, reviews and the acceptance pass, as before.
 
 A fix plan (`--track fix`) skips this: its repro is its proof. Proofs can still be added to a plan started without them, at the plan stage, when the user asks.

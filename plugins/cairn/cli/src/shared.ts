@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig } from './config.ts';
+import { loadConfig, noteCommands } from './config.ts';
 import { commitPath, commonDir, gitOk, gitTry } from './git.ts';
 import { cairnPathspecExcludes } from './paths.ts';
 import { allTasks } from './ready.ts';
@@ -14,7 +14,10 @@ import { now, pluginRoot, readText, Refusal, withLock } from './util.ts';
 
 export interface Opts {
   json?: boolean;
+  /** Removed: any use is refused, naming --call and --not-done. */
   override?: string;
+  /** A how-choice made on the run's own authority (see `gate`). */
+  call?: string;
   note?: string;
   [k: string]: string | boolean | undefined;
 }
@@ -82,20 +85,47 @@ export function requireHumanProof(kind: string, opts: Opts, io?: ProofIO, action
   ]);
 }
 
-/** Refuse unless the condition holds; an override with the user's proof lets it through and is logged. */
-export function gate(ok: boolean, s: State, event: string, opts: Opts, message: string, fixes: string[] = []): void {
+/**
+ * How a failed check may be passed once the goal is set (the PRD approved, or a fix plan's repro recorded):
+ * - `must`: never. It is a step cairn can do itself, so the fix is to do it.
+ * - `how`: with `--call "<what you chose and why>"`. A choice about how to build, recorded for the PR.
+ * - `what`: with `--not-done "<why; what was tried; the fix you propose>"`. Part of the goal is unmet: the run goes
+ *   on, and the PR opens as a draft that lists it. It never counts as done.
+ * Nothing here needs the user: the run does not stop, and the user reads the calls and the misses in the PR.
+ */
+export type GateKind = 'must' | 'how' | 'what';
+
+/** True once the goal is fixed and the run is hands-off. */
+export const goalSet = (s: State): boolean => !!s.approvals.prd || !!s.repro;
+
+/** Refuse unless the condition holds. Past the goal, a `how` check passes with --call and a `what` check with --not-done; both are recorded. */
+export function gate(ok: boolean, s: State, event: string, opts: Opts, message: string, fixes: string[] = [], kind: GateKind = 'must'): void {
   if (ok) return;
-  if (opts.override) {
-    const human = humanOnce(opts);
-    if (!human)
-      throw new Refusal(`${message}; an override needs proof that the user chose it`, [
-        `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], and the mod runs the command`,
-        'or the user runs this command, with --override, in their own terminal with --human',
-      ]);
-    log(s, `override: ${event}`, `${message} (source: ${human.source})`, opts.override);
+  if (opts.override !== undefined)
+    throw new Refusal(`${message}; --override was removed`, [
+      ...fixes,
+      'a choice about how to build goes on with --call "<what you chose and why>"; an unmet part of the goal goes on with --not-done "<why; what was tried; the fix you propose>"',
+    ]);
+  const open = goalSet(s);
+  const at = now();
+  if (open && kind === 'how' && typeof opts.call === 'string' && opts.call.trim()) {
+    (s.calls ??= []).push({ at, event, what: message, why: opts.call.trim() });
+    log(s, `call: ${event}`, message, opts.call);
     return;
   }
-  throw new Refusal(message, [...fixes, `or, if the user chose to skip this: add --override "<reason>"`]);
+  const notDone = opts['not-done'];
+  if (open && kind === 'what' && typeof notDone === 'string' && notDone.trim()) {
+    (s.notDone ??= []).push({ at, event, what: message, why: notDone.trim() });
+    log(s, `not done: ${event}`, message, notDone);
+    return;
+  }
+  const way =
+    !open || kind === 'must'
+      ? []
+      : kind === 'how'
+        ? ['or make the call yourself and go on: add --call "<what you chose and why>" (the PR lists it)']
+        : ['or, only when the fix attempts are used up: add --not-done "<why; what was tried; the fix you propose>" (the run goes on and the PR opens as a draft listing it)'];
+  throw new Refusal(message, [...fixes, ...way]);
 }
 
 export function planCtx(ctx: Ctx): PlanCtx {
@@ -108,6 +138,7 @@ export function planCtx(ctx: Ctx): PlanCtx {
 export function mutate<T>(pc: PlanCtx, commitMsg: string | undefined, fn: (s: State) => T): T {
   const r = withLock(pc.plan.dir, () => {
     const s = loadState(pc.plan.dir);
+    noteCommands(s, pc.cfg);
     const out = fn(s);
     // A step belongs to one stage: any change of stage clears it.
     if (s.step && s.step.stage !== s.stage) delete s.step;
@@ -204,7 +235,7 @@ export function knownFailures(s: State): Suggestion[] {
 }
 
 /**
- * Refuse (or log an override) when the tests failed. No test command is a warning, not a refusal. Tests run before the state lock is taken.
+ * Refuse when the tests failed (past the goal, --not-done records it and goes on). No test command is a warning, not a refusal. Tests run before the state lock is taken.
  * At MVP a suite that ran and failed is a warning plus one hardening item per command, scoped to the task or, outside a task, the plan.
  */
 export function testsGate(t: TestRun | undefined, s: State, event: string, opts: Opts, scope?: string[]): TestRun | undefined {
@@ -223,7 +254,7 @@ export function testsGate(t: TestRun | undefined, s: State, event: string, opts:
     log(s, `warning: ${event}`, `tests are not green (\`${t.cmd}\` → ${t.tail}); recorded as a hardening item`);
     return t;
   }
-  gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` → ${t.tail})${t.log ? `. Full output: ${t.log}` : ''}`, ['fix the failing tests, then retry']);
+  gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` → ${t.tail})${t.log ? `. Full output: ${t.log}` : ''}`, ['fix the failing tests, then retry'], 'what');
   return t;
 }
 

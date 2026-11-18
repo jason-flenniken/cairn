@@ -136,7 +136,6 @@ function world(level?: string) {
   run(['advance'], wt);
   writeFileSync(join(dir, 'plan.md'), plan(TASKS));
   const load = run(['plan', 'load'], wt);
-  user(() => run(['approve', 'plan'], wt));
   run(['advance'], wt);
   return { wt, load };
 }

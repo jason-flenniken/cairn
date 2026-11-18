@@ -196,7 +196,7 @@ test('--human proof is taken before the plan lock is held', () => {
     isTTY: () => true,
     readLine: () => {
       lockedDuringProof = existsSync(join(pd(wt, 'lv'), '.lock'));
-      return 'lv';
+      return '';
     },
   };
   cmdLevel(context(wt), 'standard', { human: true }, io);
@@ -208,7 +208,7 @@ test('a refusal comes before the proof is asked for', () => {
   const wt = mkPlan('polished');
   withTasks(wt, [task('a', 'in_progress', { startedAt: 'x', level: 'polished' })]);
   let asked = false;
-  const io = { isTTY: () => true, readLine: () => ((asked = true), 'lv') };
+  const io = { isTTY: () => true, readLine: () => ((asked = true), '') };
   assert.throws(() => cmdLevel(context(wt), 'mvp', { human: true }, io), (e: unknown) => e instanceof Refusal);
   assert.equal(asked, false);
 });

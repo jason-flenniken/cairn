@@ -16,16 +16,16 @@ Per plan, give these lines, using names rather than ids:
 - **Next:** the next action (`cairn next --json` for the current plan).
 - **Blocked:** blocked tasks with their note.
 - **Out-of-scope edits:** edits outside task scopes, by path.
-- **Level:** the plan's level (`levelLabel`) and the time per stage (`timing`) when present. When MVP shortcuts have piled up in `hardeningItems`, offer a raise as `references/levels.md` describes under Changing the level.
+- **Level:** the plan's level (`levelLabel`) and the time per stage (`timing`) when present. When MVP shortcuts have piled up in `hardeningItems`, say so in one line; a raise is the user's to ask for (`references/levels.md`, Changing the level).
 - **Follow-ups:** the open recommended follow-up count (`openSuggestions`) and, separately, the `hardeningItems` count (it counts every plan; `hardeningByArea` is this plan's only); `/cairn:suggestions` lists them.
-- **Pending stops:** the approval waiting on the user (PRD, plan, ship), if any.
+- **Pending stops:** the PRD approval waiting on the user, or the open pull request waiting on a merge or notes, if any.
 
 For several plans, use one compact block per plan, the one needing the user first. Leave out lines with nothing to say.
 
 **Done when:** each plan has its lines and any pending stop is stated first.
 
 ## 3. Offer the way forward (only when not on a plan branch)
-Ask with AskUserQuestion: one option per active plan, "Resume <title>". Put the plan that is waiting on the user first, marked "(Recommended)". Add a last option, "Start a new plan".
+Ask a multiple-choice question: one option per active plan, "Resume <title>". Put the plan that is waiting on the user first, marked "(Recommended)". Add a last option, "Start a new plan".
 - Resume: run `cairn resume <slug>`. It prints the plan's worktree path, creating the worktree if needed. Call the EnterWorktree tool with that path. If EnterWorktree is unavailable, give the user `cd <path> && claude`, then `/cairn:resume`.
 - New: follow `procedures/new.md`.
 

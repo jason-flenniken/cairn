@@ -150,7 +150,7 @@ export function hookSessionStart(input: HookInput): string {
   if (ctx.plan?.dir && existsSync(join(ctx.plan.dir, 'state.json'))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === 'closed') return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : '', owed, indexFor(ctx), systemLine(ctx.top));
+    if (s.stage === 'closed') return startOut('', owed, indexFor(ctx), systemLine(ctx.top));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     const queued = pendingCount(s);
     if (queued) lines.push(`${queued} Linear update${queued === 1 ? '' : 's'} waiting to be sent; /cairn:next sends them first.`);
@@ -208,7 +208,7 @@ export function hookStop(input: HookInput): string {
   if (!text || text.endsWith('?') || !ANNOUNCES.some((re) => re.test(text))) return '';
   return JSON.stringify({
     decision: 'block',
-    reason: 'cairn: your reply said what comes next but ended the turn, and a reply with no tool call is a stop. Do that step now: run `cairn next --json` and follow the procedure it names. If you are waiting on the user, ask with AskUserQuestion instead.',
+    reason: 'cairn: your reply said what comes next but ended the turn, and a reply with no tool call is a stop. Do that step now: run `cairn next --json` and follow the procedure it names. Once the PRD is approved the run does not wait on the user: make the call (--call), or record what is not done (--not-done), and go on to the pull request. Before that, ask with AskUserQuestion.',
   });
 }
 

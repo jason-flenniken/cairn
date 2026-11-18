@@ -1,6 +1,6 @@
 # Proofs: <title>
 
-> Plan: <slug>. The end state, as checks that run. Written before the build, seen failing, then locked at the plan approval: builders may add proofs but never edit or remove one. Every PRD requirement is covered by a proof, listed under Not provable, or deferred in plan.md.
+> Plan: <slug>. The end state, as checks that run. Written before the build, seen failing, then locked when the plan loads: builders may add proofs but never edit or remove one. Every PRD requirement is covered by a proof, listed under Not provable, or deferred in plan.md.
 
 ## How they run
 <One or two lines: the runner, and anything a proof needs first (a seeded database, the dev server). Each `run` is a shell command run from the repo root. Screenshots go to `$CAIRN_SHOTS/<name>.png`.>

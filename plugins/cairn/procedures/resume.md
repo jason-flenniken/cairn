@@ -22,9 +22,9 @@ Run `cairn resume`. It clears the pause and prints a recap: status, the handoff,
 **Done when:** the command exits 0 and you have read the recap and `docs/cairn/plans/<date>-<slug>/handoff.md`.
 
 ## 3. Previously
-Tell the user in 3 lines: where the plan was (stage and phase), what was in flight, and what happens next. Surface open questions from the handoff and ask them with AskUserQuestion (recommended first) before continuing.
+Tell the user in 3 lines: where the plan was (stage and phase), what was in flight, and what happens next. The run is hands-off again from here (`references/autonomy.md`). Settle the handoff's open questions yourself from the documents, record each as `cairn decide "Assumed: <question>" "<answer>" --why "…"`, and continue. Ask the user nothing; only an edit to the PRD is theirs.
 
-**Done when:** the user has the summary and the handoff's open questions are answered. Append any question still open to `handoff.md` under `## Open questions` rather than dropping it.
+**Done when:** the user has the summary and the handoff's open questions are decided.
 
 ## 4. Continue
 Run `cairn next --json` and follow the procedure it names, starting at the sub-step the handoff's Next action gives. In execute, in-progress tasks continue from their recorded sub-step.

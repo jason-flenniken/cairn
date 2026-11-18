@@ -120,7 +120,7 @@ test('Standard task done with a failing suite still refuses', () => {
 });
 
 test('a run that never executed still refuses at MVP', () => {
-  const s = { slug: 'x', level: 'mvp', log: [], suggestions: [], phases: [] } as unknown as State;
+  const s = { slug: 'x', level: 'mvp', log: [], suggestions: [], phases: [], approvals: {} } as unknown as State;
   assert.throws(
     () => testsGate({ ok: false, ran: false, cmd: 'npm test', tail: 'not run' }, s, 'task done', {}),
     (e: unknown) => e instanceof Refusal && /tests are not green/.test(e.message),

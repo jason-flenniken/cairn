@@ -1,6 +1,6 @@
 # Learn
 
-Finish the record, close the plan, then hand off to the merge step. Learn asks the user nothing itself.
+Right after the pull request opens, finish the record, close the plan, and push the closing commits to the same pull request, so the record rides it. The user's merge is the sign-off. Learn asks the user nothing.
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
@@ -30,7 +30,7 @@ Run `cairn close`. It needs a valid `RECORD.md` (every section, Findings include
 
 **Done when:** the stage is `closed`. Commit anything the close wrote on the plan branch.
 
-## 5. Merge
-The plan is closed, but its branch is not in main yet, so `cairn status` and the pane show "Closed · PR open". Follow the "Merge (the last step, after close)" section of `procedures/ship.md`; it holds the question to put to the user. Learn itself still asks nothing.
+## 5. Update the pull request and wait
+Run `cd <plan worktree> && cairn pr open` again: it pushes the closing commits and refreshes the body. It works at learn and closed. Then send one short message and end the turn: the PR link, ready or draft, and the counts (calls made for the user, parts not done). For example: "PR is open and ready: <url>. 4 calls made for you, nothing left undone. Reply merge to merge it, or send notes." `cairn status` shows "PR open" until the branch lands. The user's reply is handled by the "Merge (after the PR is open)" section of `procedures/ship.md`.
 
-**Done when:** the PR is merged, or the user said they will merge it. Tell the user in one line that the plan is closed and where the PR stands.
+**Done when:** the pull request is updated and the message is sent.

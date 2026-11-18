@@ -30,6 +30,10 @@ const SUBCOMMANDS = [
   'migrate',
   'linear',
   'review',
+  'step',
+  'prove',
+  'pr',
+  'merge-check',
   'system',
 ];
 

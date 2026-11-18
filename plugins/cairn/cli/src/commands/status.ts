@@ -77,7 +77,7 @@ const modIsActive = (ctx: Ctx): boolean => modActive(commonDir(ctx.mainRoot));
 export function warnings(pc: PlanCtx, s: State): string[] {
   const w: string[] = [];
   const prd = readText(planFile(pc, 'prd.md'));
-  if (prdEditedSinceApproval(s, prd)) w.push(s.stage === 'plan' ? 'prd.md changed after it was approved: approving the plan accepts the edits' : 'prd.md changed after it was approved');
+  if (prdEditedSinceApproval(s, prd)) w.push('prd.md changed after it was approved: the pull request stays a draft until the user approves the PRD again');
   const plan = readText(planFile(pc, 'plan.md'));
   if (s.planHash && plan && hashText(plan) !== s.planHash) w.push('plan.md changed after it was loaded: run `cairn plan load --replan` or revert it');
   const open = s.drift.filter((d) => !d.acked);

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import { drawn, mount, plan, ready, row, start, STATE, task, until, world, WT } from './world.tsx'
 
-const SHIP = row(plan({ stage: 'ship' }), WT, undefined, ready('ship'))
+const SHIP = row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))
 const VERSION = '0.22.1'
 
 /** The prompts sent to the chat. */
@@ -15,7 +15,7 @@ function chat(on: On) {
   return w
 }
 
-const WAKE = 'cairn: the ship approval for shop is recorded (from the pane). Continue the plan: run cairn next in its worktree.'
+const WAKE = 'cairn: the PRD approval for shop is recorded (from the pane). Continue the plan: run cairn next in its worktree.'
 
 describe('a pane approval wakes the chat', () => {
   test('sends one message when no turn runs', async ($, on) => {
@@ -28,7 +28,7 @@ describe('a pane approval wakes the chat', () => {
     expect(c.sent).toEqual([WAKE])
     await clock.advance(10_000)
     expect(c.sent).toEqual([WAKE])
-    expect(w.toasts.join('\n')).toMatch(/ship approved/)
+    expect(w.toasts.join('\n')).toMatch(/prd approved/)
     await ui.unmount()
   })
 
@@ -53,7 +53,7 @@ describe('a pane approval wakes the chat', () => {
     const c = chat(on)
     await start($, WT)
     await $.command.run({ command: 'cairn-approve', args: '' })
-    expect(ran('approve')).toEqual([['approve', 'ship']])
+    expect(ran('approve')).toEqual([['approve', 'prd']])
     // The engine refuses a submit made from the command's own hook, so it goes out on a later poll, once.
     await clock.advance(6_000)
     expect(c.sent).toEqual([WAKE.replace('the pane', '/cairn-approve')])

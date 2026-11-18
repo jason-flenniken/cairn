@@ -101,7 +101,6 @@ function awaiting(): { wt: string; dir: string; state: () => any } {
   ok(wt, 'advance');
   write(join(dir, 'plan.md'), PLAN);
   ok(wt, 'plan', 'load');
-  byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   for (const id of ['charge', 'refund']) {
     const swt = ok(wt, 'task', 'start', id).data!.worktree as string;
@@ -243,17 +242,23 @@ test('evidence phase refuses a row without path:line evidence', () => {
   refused(wt, /FR-02.*path:line/, 'evidence', 'phase');
 });
 
-test('a red verdict refuses phase finish with proof alone, and an override with proof succeeds and is logged', () => {
+test('a red verdict refuses phase finish; --not-done passes it and the miss is recorded; --override is refused', () => {
   const { wt, dir, state } = awaiting();
   report(dir, card({ requirements: [aligned('FR-01'), { ...aligned('FR-02'), verdict: 'contradicted' }] }));
   ok(wt, 'evidence', 'phase');
   assert.equal(state().phases[0].verdict.result, 'red');
-  refused(wt, /on-track check for "Core" is red/, 'phase', 'finish');
+  assert.throws(
+    () => run(['phase', 'finish'], wt),
+    (e: unknown) => e instanceof Refusal && /on-track check for "Core" is red/.test(e.message) && /--not-done/.test(e.fixes.join('\n')),
+  );
   assert.equal(state().phases[0].status, 'awaiting_approval');
-  refused(wt, /an override needs proof/, 'phase', 'finish', '--override', 'ship it');
-  byUser(wt, 'phase', 'finish', '--override', 'user accepts the gap');
+  refused(wt, /--override was removed/, 'phase', 'finish', '--override', 'ship it');
+  refused(wt, /on-track check for "Core" is red/, 'phase', 'finish', '--call', 'a call does not pass a what check');
+  ok(wt, 'phase', 'finish', '--not-done', 'FR-02 contradicts the code; tried a rewrite; propose a follow-up');
   assert.equal(state().phases[0].status, 'done');
-  assert.ok(state().log.some((l: { override?: string }) => l.override === 'user accepts the gap'));
+  assert.equal(state().notDone.length, 1);
+  assert.match(state().notDone[0].what, /on-track check for "Core" is red/);
+  assert.ok(state().log.some((l: { event: string }) => l.event === 'not done: phase finish'));
 });
 
 test('a re-plan clears every recorded phase verdict, on more than one phase', () => {

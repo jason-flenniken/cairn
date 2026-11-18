@@ -8,12 +8,12 @@ import { openDoc } from './doc.tsx'
 import { isAsking, type Ui } from './header.tsx'
 import { act, clean, viewPress } from './util.ts'
 
-export const DOC_NAME = { prd: 'PRD', plan: 'Plan', ship: 'Ship record' } as const
+export const DOC_NAME = { prd: 'PRD' } as const
 
 const APPROVE = 'Approve'
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
-const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${kind} stop of plan ${slug}?`
+const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${DOC_NAME[kind]} of plan ${slug}?`
 
 /** Confirms with fixed wording, then approves through the shared secret path (FR-05). */
 export async function confirmAndApprove($: EngineInterface, slug: string, kind: Kind, from = 'the pane'): Promise<string | undefined> {
@@ -107,8 +107,6 @@ export function readBackCard(ui: Ui, rb: CairnReadBack, isInline: boolean) {
 /** The most waiting plans the seven-row inline pane lists; the rest are counted in its other-plans line. */
 export const INLINE_WAITING = 2
 
-const WHAT = { prd: 'PRD', plan: 'plan', ship: 'ship' } as const
-
 /**
  * The Waiting on you block: one entry per plan in `rows` (other plans that want the person). It never approves:
  * each plan is approved in its own session, so sessions on different plans never act on each other's. A plan with a
@@ -125,7 +123,7 @@ export function waitingBlock($: EngineInterface, ui: Ui, rows: CairnPlanRow[], i
       const ready = r.ready
       return ready === undefined
         ? <Text key={`waiting:${slug}`} color="yellow" wrap="truncate-end">{`${title}: waiting for you in its session`}</Text>
-        : <Text key={`waiting:${slug}`} color="yellow" wrap="truncate-end">{`${title} · ${WHAT[ready.kind]} approval, in its session`}</Text>
+        : <Text key={`waiting:${slug}`} color="yellow" wrap="truncate-end">{`${title} · ${DOC_NAME[ready.kind]} approval, in its session`}</Text>
     })
   }
   return (
@@ -145,7 +143,7 @@ export function waitingBlock($: EngineInterface, ui: Ui, rows: CairnPlanRow[], i
         }
         return (
           <Box key={`waiting:${slug}`} flexDirection="column">
-            <Text wrap="truncate-end">{`${title} · ${WHAT[ready.kind]} approval, in its session`}</Text>
+            <Text wrap="truncate-end">{`${title} · ${DOC_NAME[ready.kind]} approval, in its session`}</Text>
             <Box flexDirection="row" gap={1}>
               <Button key={`open:${slug}`} label="Open" onPress={() => act($, () => openDoc($, 'cairn', { file: ready.file, title: `${DOC_NAME[ready.kind]}: ${slug}`, kind: ready.kind }))} />
             </Box>

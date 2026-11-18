@@ -4,7 +4,7 @@ import { branchExists, CLOSE_PUBLISHED, currentBranch, git, gitOk, gitTry, safeR
 import { planRelIn, planRelOf, plansDirsIn, type Ctx } from '../locate.ts';
 import { loadState, log } from '../state.ts';
 import { mutate, planCtx, runTests, suiteGreenAtHead, type Opts, type Result } from '../shared.ts';
-import { now, pluginRoot, readText, Refusal } from '../util.ts';
+import { readText, Refusal } from '../util.ts';
 import { USAGE_REL } from '../usage.ts';
 import { refreshMemory, refreshUsage } from './memory.ts';
 import { stackLanded } from './linear.ts';
@@ -14,13 +14,6 @@ import { recordTestRun } from './brief.ts';
 import type { PlanCtx } from '../shared.ts';
 
 const short = (sha: string) => sha.slice(0, 7);
-
-/** The fixes a refusal names when the ship needs the user's approval again. */
-const reapproveFixes = (slug: string, worktree: string) => [
-  `the user approves the ship again in the approval menu tagged [cairn:approve ship ${slug}], or presses Approve in the cairn pane`,
-  `or the user runs, in their own terminal: cd ${worktree} && ${pluginRoot()}/cli/bin/cairn approve ship --human`,
-  'then run cairn merge-check again',
-];
 
 /** A close writes these outside the plan folder, so a conflict in them is cairn's to settle. */
 const isPublished = (f: string) => CLOSE_PUBLISHED.some((p) => f === p || f.startsWith(`${p}/`));
@@ -147,18 +140,17 @@ export function restack(pc: PlanCtx): string | undefined {
 }
 
 /**
- * `cairn merge-check`: run right before merging the plan's pull request. Refuses when code changed after the ship
- * approval (and clears it, so the user approves again), merges the base in when it moved (refusing on a conflict,
- * with the merge aborted), and runs the tests until a head passes. Prints the HEAD it checked.
+ * `cairn merge-check`: run right before merging the plan's pull request, once the user said to merge (their merge is
+ * the sign-off, so there is no approval to protect). Merges the base in when it moved (refusing on a conflict, with
+ * the merge aborted), and runs the tests until a head passes. Prints the HEAD it checked.
  */
 export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
   const pc = planCtx(ctx);
   const wt = pc.plan.worktree;
   const rel = planRelOf(pc.plan);
   const s00 = loadState(pc.plan.dir);
-  if (!['ship', 'learn', 'closed'].includes(s00.stage)) throw new Refusal(`merge-check runs after the ship approval; the plan is in ${s00.stage}`);
-  if (s00.reapprove) throw new Refusal(`the ship needs approving again: ${s00.reapprove.why}`, reapproveFixes(s00.slug, wt));
-  if (!s00.approvals.ship) throw new Refusal('shipping is not approved', ['cairn approve ship']);
+  if (!['ship', 'learn', 'closed'].includes(s00.stage)) throw new Refusal(`merge-check runs once the pull request is open; the plan is in ${s00.stage}`);
+  if (!s00.pullRequest) throw new Refusal('the pull request is not open', ['cairn pr open']);
   // A stacked plan moves onto main first, so the checks below see its real base.
   const restacked = s00.stackedOn ? restack(pc) : undefined;
   const s0 = loadState(pc.plan.dir);
@@ -178,20 +170,6 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
   } else notes.push(`No origin remote: checked against the local ${s0.base}.`);
   if (gitOk(['merge-base', '--is-ancestor', 'HEAD', baseRef], wt)) throw new Refusal(`${s0.branch} is already in ${baseRef}: the pull request has been merged`);
 
-  const approved = s0.approvals.ship?.sha;
-  if (approved) {
-    const reasons = changesSince(wt, approved, rel, s0.baseMerges ?? []);
-    if (reasons.length) {
-      const why = `code changed after you approved shipping (${reasons.join('; ')})`;
-      mutate(pc, 'ship needs approving again', (s) => {
-        delete s.approvals.ship;
-        s.reapprove = { at: now(), why };
-        log(s, 'ship approval cleared', why);
-      });
-      throw new Refusal(`the ship needs approving again: ${why}`, reapproveFixes(s0.slug, wt));
-    }
-  } else notes.push('This plan was approved before cairn pinned approvals to a commit, so changes since then were not checked.');
-
   let merged: { sha: string; behind: number } | undefined;
   if (!gitOk(['merge-base', '--is-ancestor', baseRef, 'HEAD'], wt)) {
     const behind = Number(git(['rev-list', '--count', `HEAD..${baseRef}`], wt));
@@ -199,7 +177,7 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
     if (!m.ok)
       throw new Refusal(
         `${s0.base} has ${behind} new commit${behind === 1 ? '' : 's'} that conflict with this branch${m.conflicted.length ? ` in ${m.conflicted.join(', ')}` : `: ${m.out}`}. The merge was aborted; nothing changed.`,
-        [`merge ${s0.base} into ${s0.branch} in the plan worktree, resolve the conflicts, and run the tests`, 'then run cairn merge-check again: a merge resolved by hand is new code, so it asks for the ship approval again'],
+        [`merge ${s0.base} into ${s0.branch} in the plan worktree, resolve the conflicts, and run the tests`, 'then run cairn pr open (it updates the pull request) and cairn merge-check again'],
       );
     merged = { sha: git(['rev-parse', 'HEAD'], wt), behind };
     mutate(pc, `merge ${s0.base} before merging`, (s) => {
@@ -216,7 +194,7 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
     mutate(pc, 'tests fail at merge check', (s) => log(s, 'merge check failed', `${tests.cmd}: ${tests.tail}`));
     throw new Refusal(`tests fail${merged ? ` with ${s0.base} merged in` : ''}: ${tests.tail}${tests.log ? `. Full output: ${tests.log}` : ''}`, [
       merged ? 'fix it on the plan branch (the clean merge stays)' : 'fix it on the plan branch',
-      'then run cairn merge-check again: the fix is new code, so it asks for the ship approval again',
+      'then run cairn pr open (it updates the pull request) and cairn merge-check again',
     ]);
   }
   if (untested && !tests) notes.push('No test command is configured, so the branch was not tested.');
@@ -227,9 +205,8 @@ export function cmdMergeCheck(ctx: Ctx, _opts: Opts): Result {
   const head = git(['rev-parse', 'HEAD'], wt);
   const said = merged ? `${s0.base} had moved ${merged.behind} commit${merged.behind === 1 ? '' : 's'}: merged it in cleanly.` : `Up to date with ${s0.base}.`;
   const testSaid = tests ? ` The tests pass (${tests.tail}).` : !untested ? ' Tests passed on this code at the last check.' : '';
-  const pinned = approved ? ' Nothing changed since the ship approval that it does not cover.' : '';
   return {
-    message: [`${said}${testSaid}${pinned}`, ...notes, `Checked ${head}. Push the plan branch, then merge with: gh pr merge <PR> --merge --match-head-commit ${head}`].join('\n'),
+    message: [`${said}${testSaid}`, ...notes, `Checked ${head}. Push the plan branch, then merge with: gh pr merge <PR> --merge --match-head-commit ${head}`].join('\n'),
     data: { head, base: baseRef, merged: !!merged, behind: merged?.behind ?? 0, tests: tests ? tests.tail : null, notes },
   };
 }

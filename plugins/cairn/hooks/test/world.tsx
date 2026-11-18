@@ -10,7 +10,7 @@ export const TOKEN_PREFIX = '/repo/.git/cairn/approver-'
 export const NOW = Date.parse('2026-03-01T12:00:00.000Z')
 export const SURFACES = ['terminal', 'desktop'] as const
 
-export type Ready = { kind: 'prd' | 'plan' | 'ship'; file: string; summary: string }
+export type Ready = { kind: 'prd'; file: string; summary: string }
 export type Row = {
   state: Record<string, unknown>; live: boolean; worktree?: string; next: { text: string }; stepText?: string; ready?: Ready
   level?: string; levelLabel?: string; timing?: Record<string, number> | null

@@ -166,19 +166,19 @@ describe('pane content and buttons (FR-09, FR-12)', () => {
 })
 
 const BETA_WT = '/repo/.claude/worktrees/sdlc-beta'
-const betaReady = (kind: 'prd' | 'plan' | 'ship') => ({ kind, file: `${BETA_WT}/docs/cairn/plans/beta/${kind}.md`, summary: `beta ${kind} summary` })
-const betaRow = (kind: 'prd' | 'plan' | 'ship' = 'plan') => row(plan({ slug: 'beta', title: 'Beta Search', stage: kind === 'ship' ? 'ship' : kind }), BETA_WT, 'Approve.', betaReady(kind))
+const betaReady = (kind: 'prd') => ({ kind, file: `${BETA_WT}/docs/cairn/plans/beta/${kind}.md`, summary: `beta ${kind} summary` })
+const betaRow = (kind: 'prd' = 'prd') => row(plan({ slug: 'beta', title: 'Beta Search', stage: kind }), BETA_WT, 'Approve.', betaReady(kind))
 const askingRow = () => row(plan({ slug: 'gamma', title: 'Gamma Pay', stage: 'execute', step: { stage: 'execute', name: 'asking', at: 'x' } }), '/repo/.claude/worktrees/sdlc-gamma', 'Waiting.')
 
 describe('Waiting on you for other plans', () => {
   for (const surface of SURFACES) {
     test(`another plan's approval: its title and what waits, in its session, with Open and no Approve (${surface})`, async ($, on) => {
-      world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('plan')] })
+      world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('prd')] })
       await start($, WT)
       const ui = await mount($, surface)
       const text = await drawn(ui)
       expect(text).toContain('Waiting on you')
-      expect(text).toContain('Beta Search · plan approval, in its session')
+      expect(text).toContain('Beta Search · PRD approval, in its session')
       expect(await buttonKeys(ui)).toContain('open:beta')
       expect(await buttonKeys(ui)).not.toContain('approve:beta')
       await ui.unmount()
@@ -211,7 +211,7 @@ describe('Waiting on you for other plans', () => {
     await start($, WT)
     const ui = await mountAs($, { placement: 'inline' })
     const text = await drawn(ui)
-    expect(text).toContain('Beta Search · plan approval, in its session')
+    expect(text).toContain('Beta Search · PRD approval, in its session')
     expect(text).toContain('Gamma Pay: waiting for you in its session')
     expect(text).toMatch(/\+1 other (active )?plan/)
     expect(await buttonKeys(ui)).toEqual(['pause', 'status'])
@@ -219,8 +219,8 @@ describe('Waiting on you for other plans', () => {
   })
 
   test("there is no way to approve another plan from the pane: no Approve button, and Open's viewer shows none either", async ($, on) => {
-    const { w, ran } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('plan')] })
-    w.files.set(betaReady('plan').file, '# Beta plan\n\nbody')
+    const { w, ran } = world(on, { rows: [row(plan({ stage: 'discover' }), WT), betaRow('prd')] })
+    w.files.set(betaReady('prd').file, '# Beta plan\n\nbody')
     await start($, WT)
     const ui = await mount($, 'terminal')
     expect(await buttonKeys(ui)).not.toContain('approve:beta')
@@ -508,7 +508,7 @@ describe('opening the pane (FR-08)', () => {
   })
 
   test('a repo made after the session started is found on a later poll, and its approval shows', async ($, on) => {
-    const init = { rows: [row(plan({ stage: 'plan' }), WT, undefined, ready('plan'))], cwd: WT, isGitRepo: false }
+    const init = { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))], cwd: WT, isGitRepo: false }
     const { w, clock } = world(on, init)
     await start($, WT)
     await clock.advance(2_000)
@@ -519,13 +519,13 @@ describe('opening the pane (FR-08)', () => {
     await clock.advance(2_000)
     await until(clock, () => w.runs.length > 0)
     const ui = await mount($, 'terminal')
-    expect(await drawn(ui)).toContain('Waiting on you: plan approval')
+    expect(await drawn(ui)).toContain('Waiting on you: prd approval')
     await ui.unmount()
   })
 })
 
-const SHIP_STOP = plan({ stage: 'ship' })
-const shipRow = () => row(SHIP_STOP, WT, undefined, ready('ship'))
+const SHIP_STOP = plan({ stage: 'execute', approvals: { prd: { via: 'human' } } })
+const shipRow = () => row(SHIP_STOP, WT, undefined, ready('prd'))
 
 describe('pane buttons (FR-05, FR-12, FR-17)', () => {
   test('Approve confirms with the mod\'s fixed wording, then approves once through the secret path', async ($, on) => {
@@ -534,21 +534,21 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
     const ui = await mount($, 'terminal')
     await ui.press({ key: 'approve' })
     await until(clock, () => ran('approve').length > 0 && w.toasts.length > 0)
-    expect(w.asked).toEqual([{ question: 'Approve the ship stop of plan shop?', options: ['Cancel', 'Approve'] }])
-    expect(ran('approve')).toEqual([['approve', 'ship']])
+    expect(w.asked).toEqual([{ question: 'Approve the PRD of plan shop?', options: ['Cancel', 'Approve'] }])
+    expect(ran('approve')).toEqual([['approve', 'prd']])
     expect(w.secrets).toHaveLength(1)
-    expect(w.toasts.join('\n')).toMatch(/ship approved/)
+    expect(w.toasts.join('\n')).toMatch(/prd approved/)
     await ui.unmount()
   })
 
-  test('a closed plan waiting on the ship again shows its approval, and Approve runs it', async ($, on) => {
-    const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'closed' }), WT, undefined, ready('ship'))] })
+  test('a PRD edited after its approval shows its approval again, and Approve runs it', async ($, on) => {
+    const { w, ran, clock } = world(on, { rows: [row(plan({ stage: 'execute' }), WT, undefined, ready('prd'))] })
     await start($, WT)
     const ui = await mount($, 'terminal')
     expect(await drawn(ui)).not.toContain('This session is not in a plan')
     await ui.press({ key: 'approve' })
     await until(clock, () => ran('approve').length > 0 && w.toasts.length > 0)
-    expect(ran('approve')).toEqual([['approve', 'ship']])
+    expect(ran('approve')).toEqual([['approve', 'prd']])
     await ui.unmount()
   })
 
@@ -574,16 +574,16 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
       tool: 'AskUserQuestion',
       questions: [{ question: q, header: 'cairn', multiSelect: false, options: [{ label: 'Approve', description: 'ok' }, { label: 'Revise', description: 'no' }] }],
     } as never)
-    // The plan moves on to its ship stop; the pane reads it on its next poll.
+    // The PRD is edited after that approval; the pane reads the waiting plan on its next poll.
     w.rows = [shipRow()]
     w.mtimes.set(STATE, 2)
     await clock.advance(2_000)
     await ui.press({ key: 'approve' })
-    await until(clock, () => ran('approve').length > 1 && w.toasts.some(t => /ship approved/.test(t)))
-    expect(ran('approve')).toEqual([['approve', 'prd'], ['approve', 'ship']])
+    await until(clock, () => ran('approve').length > 1 && w.toasts.some(t => /prd approved/.test(t)))
+    expect(ran('approve')).toEqual([['approve', 'prd'], ['approve', 'prd']])
     expect(new Set(w.secrets).size).toBe(2)
     expect(menu.context?.join()).toMatch(/prd approved/)
-    expect(w.toasts.join('\n')).toMatch(/ship approved/)
+    expect(w.toasts.join('\n')).toMatch(/prd approved/)
     await ui.unmount()
   })
 
@@ -592,16 +592,16 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
     await start($, WT)
     const ui = await mount($, 'terminal')
     w.holdAsks = true
-    const q = 'Approve the record? [cairn:approve ship shop]'
+    const q = 'Approve the record? [cairn:approve prd shop]'
     const menu = $.tool.call({
       tool: 'AskUserQuestion',
       questions: [{ question: q, header: 'cairn', multiSelect: false, options: [{ label: 'Approve', description: 'ok' }, { label: 'Revise', description: 'no' }] }],
     } as never)
     await until(clock, () => w.asked.length > 0)
     await ui.press({ key: 'approve' })
-    await until(clock, () => ran('approve').length > 0 && w.toasts.some(t => /ship approved/.test(t)))
+    await until(clock, () => ran('approve').length > 0 && w.toasts.some(t => /prd approved/.test(t)))
     expect(w.asked.map(a => a.question)).toEqual([q])
-    expect(ran('approve')).toEqual([['approve', 'ship']])
+    expect(ran('approve')).toEqual([['approve', 'prd']])
     expect(((await menu).result as { answers: Record<string, string> }).answers[q]).toBe('Already approved from the pane')
     await ui.unmount()
   })
@@ -627,8 +627,8 @@ describe('pane buttons (FR-05, FR-12, FR-17)', () => {
     await other
     await ui.press({ key: 'approve' })
     await until(clock, () => ran('approve').length > 0)
-    expect(w.asked.at(-1)?.question).toBe('Approve the ship stop of plan shop?')
-    expect(ran('approve')).toEqual([['approve', 'ship']])
+    expect(w.asked.at(-1)?.question).toBe('Approve the PRD of plan shop?')
+    expect(ran('approve')).toEqual([['approve', 'prd']])
     await ui.unmount()
   })
 
@@ -715,27 +715,27 @@ describe('/cairn-approve (FR-05)', () => {
   })
 
   test('with no kind it confirms, then approves the stop waiting on this plan', async ($, on) => {
-    const { w, ran } = world(on, { rows: [row(plan({ stage: 'plan' }), WT, undefined, ready('plan'))] })
+    const { w, ran } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
     await start($, WT)
     const out = await command($, 'cairn-approve')
-    expect(w.asked.map(a => a.question)).toEqual(['Approve the plan stop of plan shop?'])
-    expect(ran('approve')).toEqual([['approve', 'plan']])
-    expect(out.text).toMatch(/plan approved/)
+    expect(w.asked.map(a => a.question)).toEqual(['Approve the PRD of plan shop?'])
+    expect(ran('approve')).toEqual([['approve', 'prd']])
+    expect(out.text).toMatch(/prd approved/)
   })
 
-  test('a kind that is not the waiting stop refuses', async ($, on) => {
-    const { ran } = world(on, { rows: [row(plan({ stage: 'plan' }), WT, undefined, ready('plan'))] })
+  test('a kind other than prd refuses: the PRD is the only approval', async ($, on) => {
+    const { ran } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
     await start($, WT)
-    const out = await command($, 'cairn-approve', 'ship')
-    expect(out.text).toMatch(/waiting for plan approval, not ship/)
+    const out = await command($, 'cairn-approve', 'plan')
+    expect(out.text).toMatch(/"plan" is not an approval/)
     expect(ran('approve')).toEqual([])
   })
 
   test('a word that is not a stop kind refuses', async ($, on) => {
-    const { ran } = world(on, { rows: [row(plan({ stage: 'plan' }), WT, undefined, ready('plan'))] })
+    const { ran } = world(on, { rows: [row(plan({ stage: 'prd' }), WT, undefined, ready('prd'))] })
     await start($, WT)
     const out = await command($, 'cairn-approve', 'everything')
-    expect(out.text).toMatch(/not a stop/)
+    expect(out.text).toMatch(/not an approval/)
     expect(ran('approve')).toEqual([])
   })
 
@@ -1395,6 +1395,87 @@ describe('level and stage time on the header (KTD12, R18)', () => {
     const ui = await mount($, 'terminal')
     await clock.advance(2_000)
     expect((await drawn(ui)).split('\n')).toContain('Acme Storefront · Build · Standard')
+    await ui.unmount()
+  })
+})
+
+describe('hands-off header and pull request', () => {
+  const PRD_OK = { prd: { via: 'human' } }
+  const URL = 'https://github.com/acme/shop/pull/7'
+
+  for (const surface of SURFACES) {
+    test(`after the PRD approval the header says Hands-off with the step (${surface})`, async ($, on) => {
+      world(on, { rows: [row(plan({ stage: 'verify', approvals: PRD_OK, step: { stage: 'verify', name: 'testing', at: 'x' } }), WT)] })
+      await start($, WT)
+      const ui = await mount($, surface)
+      expect((await drawn(ui)).split('\n')).toContain('Hands-off · running tests')
+      await ui.unmount()
+    })
+  }
+
+  test('with no step it says Hands-off alone', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'execute', approvals: PRD_OK }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect((await drawn(ui)).split('\n')).toContain('Hands-off')
+    await ui.unmount()
+  })
+
+  test('before the PRD approval, and once closed, it is not hands-off', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'prd' }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect(await drawn(ui)).not.toContain('Hands-off')
+    await ui.unmount()
+  })
+
+  test('a closed plan is not hands-off', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'closed', approvals: PRD_OK }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect(await drawn(ui)).not.toContain('Hands-off')
+    await ui.unmount()
+  })
+
+  test('a PRD edited after its approval waits on the person: not hands-off', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'execute', approvals: PRD_OK }), WT, undefined, ready('prd'))] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    const text = await drawn(ui)
+    expect(text).not.toContain('Hands-off')
+    expect(text).toContain('Waiting on you: prd approval')
+    await ui.unmount()
+  })
+
+  test('a ready pull request shows PR ready with its link', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'ship', approvals: PRD_OK, pullRequest: { url: URL, draft: false } }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect((await drawn(ui)).split('\n')).toContain(`PR ready: ${URL}`)
+    await ui.unmount()
+  })
+
+  test('a draft pull request shows how many are not done', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'ship', approvals: PRD_OK, pullRequest: { url: URL, draft: true }, notDone: [{ what: 'a', why: 'b' }, { what: 'c', why: 'd' }] }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect((await drawn(ui)).split('\n')).toContain(`PR draft · 2 not done: ${URL}`)
+    await ui.unmount()
+  })
+
+  test('a draft pull request with no recorded not-done entries shows PR draft', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'ship', approvals: PRD_OK, pullRequest: { url: URL, draft: true } }), WT)] })
+    await start($, WT)
+    const ui = await mount($, 'terminal')
+    expect((await drawn(ui)).split('\n')).toContain(`PR draft: ${URL}`)
+    await ui.unmount()
+  })
+
+  test('inline, the hands-off and pull request lines share one row and the pane stays within seven rows', async ($, on) => {
+    world(on, { rows: [row(plan({ stage: 'ship', approvals: PRD_OK, pullRequest: { url: URL, draft: false } }), WT)] })
+    await start($, WT)
+    const ui = await mountAs($, { placement: 'inline' })
+    expect((await drawn(ui)).split('\n')).toContain(`Hands-off · PR ready: ${URL}`)
     await ui.unmount()
   })
 })

@@ -6345,15 +6345,15 @@ var require_parser = __commonJS({
     var node_process = __require("process");
     var cst = require_cst();
     var lexer = require_lexer();
-    function includesToken(list3, type) {
-      for (let i = 0; i < list3.length; ++i)
-        if (list3[i].type === type)
+    function includesToken(list4, type) {
+      for (let i = 0; i < list4.length; ++i)
+        if (list4[i].type === type)
           return true;
       return false;
     }
-    function findNonEmptyIndex(list3) {
-      for (let i = 0; i < list3.length; ++i) {
-        switch (list3[i].type) {
+    function findNonEmptyIndex(list4) {
+      for (let i = 0; i < list4.length; ++i) {
+        switch (list4[i].type) {
           case "space":
           case "comment":
           case "newline":
@@ -7495,14 +7495,14 @@ function gitOk(args, cwd) {
 }
 function worktrees(cwd) {
   const out = execFileSync("git", ["worktree", "list", "--porcelain"], { cwd, encoding: "utf8" });
-  const list3 = [];
+  const list4 = [];
   for (const block of out.split("\n\n")) {
     const path = block.match(/^worktree (.+)$/m)?.[1];
     if (!path) continue;
     const branch = block.match(/^branch refs\/heads\/(.+)$/m)?.[1];
-    list3.push({ path, branch });
+    list4.push({ path, branch });
   }
-  return list3;
+  return list4;
 }
 var currentBranch = (cwd) => git(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
 var topLevel = (cwd) => git(["rev-parse", "--show-toplevel"], cwd);
@@ -7708,6 +7708,24 @@ function loadConfig(...roots) {
   return { ...DEFAULTS };
 }
 var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join3(mainRoot, cfg.worktreeRoot) : join3(mainRoot, ".claude", "worktrees");
+var RUN_COMMANDS = ["setup", "test", "build"];
+var runCommands = (cfg) => ({ setup: cfg.setup, test: cfg.test, build: cfg.build });
+function noteCommands(s, cfg) {
+  const cur = runCommands(cfg);
+  const was = s.approvedCommands;
+  if (!s.approvals.prd && !s.repro) return;
+  if (!was) {
+    s.approvedCommands = cur;
+    return;
+  }
+  const shown2 = (v) => v ? `\`${v}\`` : "(none)";
+  const changed = RUN_COMMANDS.filter((k) => was[k] !== cur[k]);
+  if (!changed.length) return;
+  const what = changed.map((k) => `${k}: ${shown2(was[k])} \u2192 ${shown2(cur[k])}`).join("; ");
+  (s.calls ??= []).push({ at: (/* @__PURE__ */ new Date()).toISOString(), event: "commands", what: `the commands cairn runs changed: ${what}`, why: `edited in ${CONFIG_REL}` });
+  s.log.push({ at: (/* @__PURE__ */ new Date()).toISOString(), event: "call: commands", detail: what });
+  s.approvedCommands = cur;
+}
 
 // plugins/cairn/cli/src/glob.ts
 function globToRegex(glob) {
@@ -7745,11 +7763,26 @@ function scopesOverlap(a, b) {
 var currentPhase = (s) => s.phases.find((p) => p.status !== "done");
 var allTasks = (s) => s.phases.flatMap((p) => p.tasks);
 var findTask = (s, id) => allTasks(s).find((x) => x.id === id);
-var HOLDS_BUILDER = /* @__PURE__ */ new Set([void 0, "implementing", "fixing", "blocked"]);
+var HOLDS_BUILDER = /* @__PURE__ */ new Set([void 0, "implementing", "fixing"]);
+var setAside = (t) => t.status === "in_progress" && t.substep === "blocked";
+function leftOut(s) {
+  const out = new Map(allTasks(s).filter(setAside).map((t) => [t.id, t]));
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const t of allTasks(s)) {
+      if (t.status === "pending" && !out.has(t.id) && t.blockedBy.some((b) => out.has(b))) {
+        out.set(t.id, t);
+        grew = true;
+      }
+    }
+  }
+  return [...out.values()];
+}
 function readySet(s, maxParallel) {
   const phase = currentPhase(s);
   const done = new Set(allTasks(s).filter((x) => x.status === "done").map((x) => x.id));
   const inProgress = allTasks(s).filter((x) => x.status === "in_progress");
+  const out = new Set(leftOut(s).map((t) => t.id));
   const result = { ready: [], inProgress, waiting: [], phase };
   if (!phase || s.stage !== "execute" || s.paused) return result;
   let room = Math.max(0, maxParallel - inProgress.filter((x) => HOLDS_BUILDER.has(x.substep)).length);
@@ -7757,7 +7790,7 @@ function readySet(s, maxParallel) {
   const open = [phase];
   for (let i = s.phases.indexOf(phase) + 1; i < s.phases.length && s.phases[i].overlap; i++) open.push(s.phases[i]);
   for (const sl of open.flatMap((p) => p.tasks)) {
-    if (sl.status !== "pending") continue;
+    if (sl.status !== "pending" || out.has(sl.id)) continue;
     const on = sl.blockedBy.filter((b) => !done.has(b));
     if (on.length) {
       result.waiting.push({ task: sl, on });
@@ -7901,9 +7934,8 @@ function humanProof(ctx, opts, io = terminalIO) {
   if (secretMatches(common, secret)) return { source: "mod" };
   if (!opts.human) return void 0;
   if (!io.isTTY()) throw new Refusal("--human needs an interactive terminal: run this in your own terminal, not through the agent");
-  const slug = ctx.plan?.slug;
-  const typed = io.readLine("Type the plan name to confirm: ").trim();
-  return slug && typed === slug ? { source: "terminal" } : void 0;
+  const typed = io.readLine(`Confirm for plan ${ctx.plan?.slug ?? "?"}: press Enter (Ctrl-C cancels) `).trim();
+  return typed === "" || /^y(es)?$/i.test(typed) ? { source: "terminal" } : void 0;
 }
 function modActive(common) {
   const t = Number(readText(join4(cairnDir(common), "mod-heartbeat"))?.trim());
@@ -7977,11 +8009,12 @@ var STEPS = {
   repro: ["asking"],
   discover: ["asking"],
   prd: ["drafting", "checking", "approving", "asking"],
-  plan: ["drafting", "checking", "approving", "asking"],
-  execute: ["wrapping", "asking"],
-  verify: ["testing", "on-track", "scanning", "fixing", "asking"],
-  review: ["reviewing", "fixing", "rechecking", "asking"],
-  ship: ["recording", "approving", "opening-pr", "asking"]
+  // Past the PRD approval the run is hands-off: no step waits on the user until the pull request is open.
+  plan: ["drafting", "checking"],
+  execute: ["wrapping"],
+  verify: ["testing", "on-track", "scanning", "fixing"],
+  review: ["reviewing", "fixing", "rechecking"],
+  ship: ["recording", "opening-pr"]
 };
 var STEP_CLEAR = "clear";
 var STEP_LABEL = {
@@ -8010,7 +8043,6 @@ var LINEAR_DONE_TYPES = ["completed", "canceled", "duplicate"];
 // plugins/cairn/cli/src/render.ts
 var day = (iso) => iso ? iso.slice(0, 10) : "";
 function nextFor(s) {
-  if (s.reapprove) return { procedure: "ship", text: `Approve shipping again: ${s.reapprove.why}. Then run cairn merge-check and merge.` };
   if (s.stage === "closed") return { procedure: "status", text: "This plan is closed. Its record is in RECORD.md." };
   if (s.paused) return { procedure: "resume", text: `Paused ${day(s.paused.at)}. Resume to pick up where it stopped.` };
   const all = s.phases.flatMap((p) => p.tasks);
@@ -8020,9 +8052,9 @@ function nextFor(s) {
     case "discover":
       return { procedure: "discover", text: "Interview: settle the open decisions, then move on to the PRD." };
     case "prd":
-      return s.approvals.prd ? { procedure: "prd", substep: "advance", text: "PRD approved. Advance to planning." } : { procedure: "prd", text: "Draft the PRD and get it approved." };
+      return s.approvals.prd ? { procedure: "prd", substep: "advance", text: "PRD approved. Advance to planning; from here the run does not stop until the pull request is open." } : { procedure: "prd", text: "Draft the PRD and get it approved." };
     case "plan":
-      return s.approvals.plan ? { procedure: "plan", substep: "advance", text: "Plan approved. Advance to execution." } : { procedure: "plan", text: "Write the phased plan, load it, and get it approved." };
+      return { procedure: "plan", text: "Write the phased plan and the proofs, load them, see the proofs fail, then advance to the build. No approval." };
     case "execute": {
       const phase = s.phases.find((p) => p.status !== "done");
       if (!phase && s.track === "fix" && s.repro) return { procedure: "review", text: "The fix is built. Advance to review." };
@@ -8039,7 +8071,7 @@ function nextFor(s) {
     case "review":
       return { procedure: "review", text: "Review the whole branch and record the result." };
     case "ship":
-      return s.approvals.ship ? { procedure: "ship", substep: "advance", text: "Ship approved. Open the PR and advance." } : { procedure: "ship", text: "Write the completion record and decide whether to ship." };
+      return s.pullRequest ? { procedure: "ship", substep: "advance", text: `The pull request is open${s.pullRequest.draft ? " as a draft" : ""} (${s.pullRequest.url}). Advance, finish the record and close, then run cairn pr open again and end the turn: the user merges or sends it back.` } : { procedure: "ship", text: "Write the completion record, then open the pull request (cairn pr open)." };
     case "learn":
       return { procedure: "learn", text: "Capture anything worth keeping, then close the plan." };
   }
@@ -8123,10 +8155,11 @@ function renderStatus(s) {
   const checkpoints = [];
   const a = s.approvals;
   if (a.prd) checkpoints.push(`PRD approved ${day(a.prd.at)}${approvedBy(a.prd)}`);
-  if (a.plan) checkpoints.push(`Plan approved ${day(a.plan.at)}${approvedBy(a.plan)}`);
+  if (a.plan) checkpoints.push(`Plan locked ${day(a.plan.at)}`);
   if (s.evidence.verify) checkpoints.push(`Verify: ${s.evidence.verify.result}${s.evidence.verify.note ? ` (${s.evidence.verify.note})` : ""}`);
   if (s.evidence.review) checkpoints.push(`Review: ${s.evidence.review.result}${s.evidence.review.note ? ` (${s.evidence.review.note})` : ""}`);
   if (a.ship) checkpoints.push(`Ship approved ${day(a.ship.at)}${approvedBy(a.ship)}`);
+  if (s.pullRequest) checkpoints.push(`Pull request ${s.pullRequest.draft ? "opened as a draft" : "opened"} ${day(s.pullRequest.at)}: ${s.pullRequest.url}`);
   if (checkpoints.length) out.push("", "## Checkpoints", ...checkpoints.map((c) => `- ${c}`));
   const drift = openDrift(s);
   if (drift.length) out.push("", "## Out-of-scope edits to review", ...drift.map((d) => `- \`${d.path}\`: ${d.reason}`));
@@ -8253,19 +8286,29 @@ function requireHumanProof(kind, opts, io, action = "approve") {
     "or the user presses Approve in the cairn pane (or runs /cairn:approve)"
   ]);
 }
-function gate(ok, s, event, opts, message, fixes = []) {
+var goalSet = (s) => !!s.approvals.prd || !!s.repro;
+function gate(ok, s, event, opts, message, fixes = [], kind = "must") {
   if (ok) return;
-  if (opts.override) {
-    const human = humanOnce(opts);
-    if (!human)
-      throw new Refusal(`${message}; an override needs proof that the user chose it`, [
-        `the user answers "Override" in a menu tagged [cairn:override ${s.slug}], and the mod runs the command`,
-        "or the user runs this command, with --override, in their own terminal with --human"
-      ]);
-    log(s, `override: ${event}`, `${message} (source: ${human.source})`, opts.override);
+  if (opts.override !== void 0)
+    throw new Refusal(`${message}; --override was removed`, [
+      ...fixes,
+      'a choice about how to build goes on with --call "<what you chose and why>"; an unmet part of the goal goes on with --not-done "<why; what was tried; the fix you propose>"'
+    ]);
+  const open = goalSet(s);
+  const at = now();
+  if (open && kind === "how" && typeof opts.call === "string" && opts.call.trim()) {
+    (s.calls ??= []).push({ at, event, what: message, why: opts.call.trim() });
+    log(s, `call: ${event}`, message, opts.call);
     return;
   }
-  throw new Refusal(message, [...fixes, `or, if the user chose to skip this: add --override "<reason>"`]);
+  const notDone = opts["not-done"];
+  if (open && kind === "what" && typeof notDone === "string" && notDone.trim()) {
+    (s.notDone ??= []).push({ at, event, what: message, why: notDone.trim() });
+    log(s, `not done: ${event}`, message, notDone);
+    return;
+  }
+  const way = !open || kind === "must" ? [] : kind === "how" ? ['or make the call yourself and go on: add --call "<what you chose and why>" (the PR lists it)'] : ['or, only when the fix attempts are used up: add --not-done "<why; what was tried; the fix you propose>" (the run goes on and the PR opens as a draft listing it)'];
+  throw new Refusal(message, [...fixes, ...way]);
 }
 function planCtx(ctx) {
   const plan2 = requirePlan(ctx);
@@ -8275,6 +8318,7 @@ function planCtx(ctx) {
 function mutate(pc, commitMsg, fn) {
   const r = withLock(pc.plan.dir, () => {
     const s = loadState(pc.plan.dir);
+    noteCommands(s, pc.cfg);
     const out = fn(s);
     if (s.step && s.step.stage !== s.stage) delete s.step;
     saveState(pc.plan.dir, s);
@@ -8358,7 +8402,7 @@ function testsGate(t, s, event, opts, scope) {
     log(s, `warning: ${event}`, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail}); recorded as a hardening item`);
     return t;
   }
-  gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail})${t.log ? `. Full output: ${t.log}` : ""}`, ["fix the failing tests, then retry"]);
+  gate(t.ok, s, event, opts, `tests are not green (\`${t.cmd}\` \u2192 ${t.tail})${t.log ? `. Full output: ${t.log}` : ""}`, ["fix the failing tests, then retry"], "what");
   return t;
 }
 function runSetup(cfg, wt, mainRoot) {
@@ -8793,9 +8837,9 @@ function issueRequirements(prdMd, keys) {
     for (const m of line.matchAll(TAG))
       for (const k of m[1].split(",").map((x) => x.trim()))
         if (wanted.has(k)) {
-          const list3 = out.get(k) ?? [];
-          if (!list3.includes(fr)) list3.push(fr);
-          out.set(k, list3);
+          const list4 = out.get(k) ?? [];
+          if (!list4.includes(fr)) list4.push(fr);
+          out.set(k, list4);
         }
   }
   return out;
@@ -8832,9 +8876,9 @@ function outsideBlockers(l, taken = takenIssues(l)) {
       if (!inPlan.has(b) && !isDone(byKey.get(b)) && !out.some((x) => x.key === i.key && x.blocker === b)) out.push({ key: i.key, blocker: b });
   return out;
 }
-function blockersText(list3, note = () => "") {
+function blockersText(list4, note = () => "") {
   const by = /* @__PURE__ */ new Map();
-  for (const x of list3) by.set(x.blocker, [...by.get(x.blocker) ?? [], x.key]);
+  for (const x of list4) by.set(x.blocker, [...by.get(x.blocker) ?? [], x.key]);
   return [...by].map(([b, ks]) => `${b}${note(b)} (blocks ${ks.join(", ")})`).join("; ");
 }
 function prdLinearProblems(l, prdMd) {
@@ -9800,7 +9844,7 @@ function pending(ctx, opts = {}) {
   const pre = loadState(pc.plan.dir);
   linkOf(pre);
   const s = mergedAwaitingDone(pc, pre) ? mutate(pc, void 0, (x) => (queueDone(pc, x), x)) : pre;
-  const list3 = opts.claim ? mutate(pc, void 0, (x) => {
+  const list4 = opts.claim ? mutate(pc, void 0, (x) => {
     const at = Date.now();
     const mine = unsent(linkOf(x)).filter((w) => !w.needsApproval && !claimedNow(w, at));
     for (const w of mine) {
@@ -9809,8 +9853,8 @@ function pending(ctx, opts = {}) {
     }
     return mine;
   }) : unsent(linkOf(s));
-  const lines = list3.length ? [`${list3.length} Linear update${list3.length === 1 ? "" : "s"} to send${opts.claim ? " (claimed for 10 minutes)" : ""}:`, ...list3.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? " (ask the user first)" : ""}${w.held ? ` (held: ${w.held.note})` : ""}${w.retry ? " (retry: check Linear for it first)" : ""}: ${w.why}`)] : ["Nothing to send to Linear."];
-  return { message: lines.join("\n"), data: { pending: list3.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
+  const lines = list4.length ? [`${list4.length} Linear update${list4.length === 1 ? "" : "s"} to send${opts.claim ? " (claimed for 10 minutes)" : ""}:`, ...list4.map((w) => `  ${w.id} ${WRITE_TOOL[w.kind]} ${w.target}${w.needsApproval ? " (ask the user first)" : ""}${w.held ? ` (held: ${w.held.note})` : ""}${w.retry ? " (retry: check Linear for it first)" : ""}: ${w.why}`)] : ["Nothing to send to Linear."];
+  return { message: lines.join("\n"), data: { pending: list4.map((w) => ({ ...w, tool: WRITE_TOOL[w.kind] })) } };
 }
 function closes(ctx) {
   const pc = planCtx(ctx);
@@ -10123,7 +10167,7 @@ function linearPhaseGate(s, opts) {
     'cairn linear depends <KEY> --on <KEY> --reason "\u2026" (a real dependency)',
     'cairn linear ack <id> --as taken|later|noted [--note "\u2026"]',
     'cairn linear release <KEY> --reason "\u2026" (drop the blocked issue)'
-  ]);
+  ], "how");
 }
 function onPlanLoaded(s) {
   const l = s.linear;
@@ -10399,7 +10443,7 @@ function parseProofs(md, prdMd, planMd, worktree) {
   if (!Array.isArray(raw)) return { list: [], notProvable: [], problems: ["cairn-proofs needs a `proofs:` list"] };
   const reqs = new Set(prdIds(prdMd));
   const seen = /* @__PURE__ */ new Set();
-  const list3 = [];
+  const list4 = [];
   raw.forEach((r, i) => {
     const id = String(r?.id ?? "");
     const where = `proof "${id || `#${i + 1}`}"`;
@@ -10422,7 +10466,7 @@ function parseProofs(md, prdMd, planMd, worktree) {
     const look = typeof r?.look === "string" ? r.look.trim() : "";
     if (shots?.length && !look) problems.push(`${where}: a proof with shots needs \`look\`: what the screenshots must show, or the path of the approved mockup`);
     if (r?.expect !== void 0 && r.expect !== "pass") problems.push(`${where}: \`expect\` can only be "pass" (a guard proof, green from the start)`);
-    list3.push({
+    list4.push({
       id,
       covers: covers ?? [],
       run: run2,
@@ -10438,11 +10482,11 @@ function parseProofs(md, prdMd, planMd, worktree) {
     if (!m[2].trim() || /^<.*>$/.test(m[2].trim())) problems.push(`${m[1]} is listed as not provable with no reason`);
     else notProvable.push({ id: m[1], reason: m[2].trim() });
   }
-  const covered = /* @__PURE__ */ new Set([...list3.flatMap((p) => p.covers), ...notProvable.map((n) => n.id)]);
+  const covered = /* @__PURE__ */ new Set([...list4.flatMap((p) => p.covers), ...notProvable.map((n) => n.id)]);
   const deferred = new Set(ids(sections(planMd).get("deferred requirements")));
   const open = [...reqs].filter((r) => !covered.has(r) && !deferred.has(r));
   if (open.length) problems.push(`no proof covers ${open.join(", ")}: add a proof, or list it under ## Not provable with a reason`);
-  return { list: list3, notProvable, problems };
+  return { list: list4, notProvable, problems };
 }
 function filesHash(worktree, files) {
   const h = createHash3("sha256");
@@ -10803,11 +10847,6 @@ function cmdReview(ctx, action, target, path) {
 
 // plugins/cairn/cli/src/commands/merge.ts
 var short = (sha) => sha.slice(0, 7);
-var reapproveFixes = (slug, worktree) => [
-  `the user approves the ship again in the approval menu tagged [cairn:approve ship ${slug}], or presses Approve in the cairn pane`,
-  `or the user runs, in their own terminal: cd ${worktree} && ${pluginRoot()}/cli/bin/cairn approve ship --human`,
-  "then run cairn merge-check again"
-];
 var isPublished2 = (f) => CLOSE_PUBLISHED.some((p) => f === p || f.startsWith(`${p}/`));
 function changesSince(cwd, sha, planRel2, vouched) {
   if (!gitOk(["merge-base", "--is-ancestor", sha, "HEAD"], cwd)) return [`commit ${short(sha)} is no longer in the branch's history`];
@@ -10906,9 +10945,8 @@ function cmdMergeCheck(ctx, _opts) {
   const wt = pc.plan.worktree;
   const rel = planRelOf(pc.plan);
   const s00 = loadState(pc.plan.dir);
-  if (!["ship", "learn", "closed"].includes(s00.stage)) throw new Refusal(`merge-check runs after the ship approval; the plan is in ${s00.stage}`);
-  if (s00.reapprove) throw new Refusal(`the ship needs approving again: ${s00.reapprove.why}`, reapproveFixes(s00.slug, wt));
-  if (!s00.approvals.ship) throw new Refusal("shipping is not approved", ["cairn approve ship"]);
+  if (!["ship", "learn", "closed"].includes(s00.stage)) throw new Refusal(`merge-check runs once the pull request is open; the plan is in ${s00.stage}`);
+  if (!s00.pullRequest) throw new Refusal("the pull request is not open", ["cairn pr open"]);
   const restacked = s00.stackedOn ? restack(pc) : void 0;
   const s0 = loadState(pc.plan.dir);
   if (!safeRef(wt, s0.base)) throw new Refusal(`the plan's base "${s0.base}" is not a valid branch name`);
@@ -10923,19 +10961,6 @@ function cmdMergeCheck(ctx, _opts) {
     baseRef = `origin/${s0.base}`;
   } else notes.push(`No origin remote: checked against the local ${s0.base}.`);
   if (gitOk(["merge-base", "--is-ancestor", "HEAD", baseRef], wt)) throw new Refusal(`${s0.branch} is already in ${baseRef}: the pull request has been merged`);
-  const approved = s0.approvals.ship?.sha;
-  if (approved) {
-    const reasons = changesSince(wt, approved, rel, s0.baseMerges ?? []);
-    if (reasons.length) {
-      const why = `code changed after you approved shipping (${reasons.join("; ")})`;
-      mutate(pc, "ship needs approving again", (s) => {
-        delete s.approvals.ship;
-        s.reapprove = { at: now(), why };
-        log(s, "ship approval cleared", why);
-      });
-      throw new Refusal(`the ship needs approving again: ${why}`, reapproveFixes(s0.slug, wt));
-    }
-  } else notes.push("This plan was approved before cairn pinned approvals to a commit, so changes since then were not checked.");
   let merged2;
   if (!gitOk(["merge-base", "--is-ancestor", baseRef, "HEAD"], wt)) {
     const behind = Number(git(["rev-list", "--count", `HEAD..${baseRef}`], wt));
@@ -10943,7 +10968,7 @@ function cmdMergeCheck(ctx, _opts) {
     if (!m.ok)
       throw new Refusal(
         `${s0.base} has ${behind} new commit${behind === 1 ? "" : "s"} that conflict with this branch${m.conflicted.length ? ` in ${m.conflicted.join(", ")}` : `: ${m.out}`}. The merge was aborted; nothing changed.`,
-        [`merge ${s0.base} into ${s0.branch} in the plan worktree, resolve the conflicts, and run the tests`, "then run cairn merge-check again: a merge resolved by hand is new code, so it asks for the ship approval again"]
+        [`merge ${s0.base} into ${s0.branch} in the plan worktree, resolve the conflicts, and run the tests`, "then run cairn pr open (it updates the pull request) and cairn merge-check again"]
       );
     merged2 = { sha: git(["rev-parse", "HEAD"], wt), behind };
     mutate(pc, `merge ${s0.base} before merging`, (s) => {
@@ -10958,7 +10983,7 @@ function cmdMergeCheck(ctx, _opts) {
     mutate(pc, "tests fail at merge check", (s) => log(s, "merge check failed", `${tests.cmd}: ${tests.tail}`));
     throw new Refusal(`tests fail${merged2 ? ` with ${s0.base} merged in` : ""}: ${tests.tail}${tests.log ? `. Full output: ${tests.log}` : ""}`, [
       merged2 ? "fix it on the plan branch (the clean merge stays)" : "fix it on the plan branch",
-      "then run cairn merge-check again: the fix is new code, so it asks for the ship approval again"
+      "then run cairn pr open (it updates the pull request) and cairn merge-check again"
     ]);
   }
   if (untested && !tests) notes.push("No test command is configured, so the branch was not tested.");
@@ -10969,9 +10994,8 @@ function cmdMergeCheck(ctx, _opts) {
   const head = git(["rev-parse", "HEAD"], wt);
   const said = merged2 ? `${s0.base} had moved ${merged2.behind} commit${merged2.behind === 1 ? "" : "s"}: merged it in cleanly.` : `Up to date with ${s0.base}.`;
   const testSaid = tests ? ` The tests pass (${tests.tail}).` : !untested ? " Tests passed on this code at the last check." : "";
-  const pinned = approved ? " Nothing changed since the ship approval that it does not cover." : "";
   return {
-    message: [`${said}${testSaid}${pinned}`, ...notes, `Checked ${head}. Push the plan branch, then merge with: gh pr merge <PR> --merge --match-head-commit ${head}`].join("\n"),
+    message: [`${said}${testSaid}`, ...notes, `Checked ${head}. Push the plan branch, then merge with: gh pr merge <PR> --merge --match-head-commit ${head}`].join("\n"),
     data: { head, base: baseRef, merged: !!merged2, behind: merged2?.behind ?? 0, tests: tests ? tests.tail : null, notes }
   };
 }
@@ -11068,30 +11092,14 @@ function proofState(p, wt, planRel2, baseMerges) {
 }
 function proofProblems(pc, s) {
   if (!proofsActive(s)) return [];
-  const list3 = s.endProofs?.list ?? [];
-  if (!list3.length) return ["no proofs are loaded"];
+  const list4 = s.endProofs?.list ?? [];
+  if (!list4.length) return ["no proofs are loaded"];
   const rel = planRelOf(pc.plan);
-  return list3.flatMap((p) => {
+  return list4.flatMap((p) => {
     if (p.retired) return [];
     const st = proofState(p, pc.plan.worktree, rel, s.baseMerges ?? []);
     return st.state === "green" ? [] : [`${p.id} is ${st.state}: ${st.why}`];
   });
-}
-function proofSummary(s) {
-  const ep = s.endProofs;
-  if (!ep?.list.length) return void 0;
-  const retired = ep.list.filter((p) => p.retired);
-  const live = ep.list.filter((p) => !p.retired);
-  const shots = live.filter((p) => p.shots?.length && p.last?.judged?.result === "pass");
-  const added = live.filter((p) => p.added);
-  return [
-    `**Proofs:** ${live.length} green on the shipped code`,
-    shots.length ? `, screenshots judged for ${shots.map((p) => `${p.id} (${p.last?.shotsDir})`).join(", ")}` : "",
-    added.length ? `; added during the build: ${added.map((p) => `${p.id} (${p.covers.join(", ")})${p.added?.note ? ` \u2014 ${p.added.note}` : ""}`).join("; ")}` : "",
-    ep.notProvable.length ? `; not provable by a run: ${ep.notProvable.map((n) => n.id).join(", ")}` : "",
-    retired.length ? `; retired: ${retired.map((p) => `${p.id} (replaced by ${p.retired?.by}) \u2014 ${p.retired?.reason}`).join("; ")}` : "",
-    "."
-  ].join("");
 }
 function proofApprovalProblems(pc, s) {
   if (!proofsActive(s)) return [];
@@ -11145,13 +11153,13 @@ function runOne(pc, s, p, cwd, here) {
 }
 function cmdRun(pc, ctx, pos, opts) {
   const s0 = loadState(pc.plan.dir);
-  const list3 = s0.endProofs?.list ?? [];
-  if (!list3.length) throw new Refusal("this plan has no proofs loaded", ["write proofs.md (the proof-writer agent), then cairn plan load"]);
-  let pick = list3;
+  const list4 = s0.endProofs?.list ?? [];
+  if (!list4.length) throw new Refusal("this plan has no proofs loaded", ["write proofs.md (the proof-writer agent), then cairn plan load"]);
+  let pick = list4;
   if (pos.length) {
-    const unknown = pos.filter((id) => !list3.some((p) => p.id === id));
+    const unknown = pos.filter((id) => !list4.some((p) => p.id === id));
     if (unknown.length) throw new Refusal(`no proof ${unknown.join(", ")} in this plan`, ["cairn prove list"]);
-    pick = list3.filter((p) => pos.includes(p.id));
+    pick = list4.filter((p) => pos.includes(p.id));
   }
   const retiredPicked = pick.filter((p) => p.retired);
   pick = pick.filter((p) => !p.retired);
@@ -11256,13 +11264,13 @@ function cmdAdd(pc, id, opts) {
 }
 function retireRefusals(pc, s, id, by) {
   if (!s.approvals.plan || s.approvals.ship || !["execute", "verify", "review", "ship"].includes(s.stage)) throw new Refusal(`proofs are retired between the plan approval and the ship approval; the plan is in ${s.stage}`);
-  const list3 = s.endProofs?.list ?? [];
-  const old = list3.find((p) => p.id === id);
+  const list4 = s.endProofs?.list ?? [];
+  const old = list4.find((p) => p.id === id);
   if (!old) throw new Refusal(`no proof ${id} in this plan`, ["cairn prove list"]);
   if (!old.lock) throw new Refusal(`proof ${id} is not locked, so it is not retired: fix it in proofs.md and run cairn plan load`);
   if (old.retired) throw new Refusal(`proof ${id} is already retired (replaced by ${old.retired.by})`);
   if (id === by) throw new Refusal("a proof cannot replace itself: --replaced-by names a different proof");
-  const rep = list3.find((p) => p.id === by);
+  const rep = list4.find((p) => p.id === by);
   if (!rep) throw new Refusal(`no proof ${by} in this plan`, ['add the corrected proof first: cairn prove add <new-id> --covers \u2026 --run "\u2026" --files \u2026']);
   if (rep.retired) throw new Refusal(`proof ${by} is retired itself, so it cannot replace ${id}`);
   if (!rep.added) throw new Refusal(`proof ${by} was not added during the build, so it cannot replace ${id}`, ["add the corrected proof with cairn prove add"]);
@@ -11277,7 +11285,7 @@ function cmdRetire(pc, id, opts) {
   retireRefusals(pc, loadState(pc.plan.dir), id, by);
   return mutate(pc, `proof ${id} retired`, (s) => {
     retireRefusals(pc, s, id, by);
-    gate(false, s, "prove retire", opts, `retiring proof ${id} needs the user's choice`, [`proof ${id} is itself wrong and ${by} replaces it: ask the user, then retire it`]);
+    throw new Refusal(`proof ${id} is part of the goal the user approved, so the run does not retire it`, [`leave ${id} as it is and keep ${by} beside it; where ${id}'s red result is checked, go on with --not-done "${id} is wrong: <why>; ${by} checks it correctly"`, "the user changes the goal by editing the PRD and approving it again"]);
     const p = s.endProofs?.list.find((x) => x.id === id);
     p.retired = { at: now(), by, reason: String(opts.override) };
     log(s, "proof retired", `${id}, replaced by ${by}: ${opts.override}`);
@@ -11302,17 +11310,6 @@ import { tmpdir } from "node:os";
 import { join as join14 } from "node:path";
 var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
 var fastLane = (s) => s.track === "fix" && (s.stage === "repro" || !!s.repro);
-var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build, testQuick: cfg.testQuick }));
-function configGate(s, cfg, event, opts) {
-  gate(
-    !s.configHash || s.configHash === configHash(cfg),
-    s,
-    event,
-    opts,
-    `the setup, test, testQuick or build command in ${CONFIG_REL} changed since the user approved it`,
-    ["the user re-approves the commands by running, in their own terminal: cairn approve plan --human", "or the user chooses Override in the menu"]
-  );
-}
 var changedFiles = (cwd, slug, base2, head) => git(["diff", "--name-only", "-z", "-M", base2, head, "--", ".", `:!${planRelIn(slug, cwd)}`], cwd).split("\0").filter(Boolean);
 var GROUP_WRAPPER = 'if command -v setsid >/dev/null 2>&1; then setsid sh -c "$1" & else set -m; sh -c "$1" & set +m; fi; echo $! > "$2"; wait $!';
 var SETPGID_FAILURE = /child setpgid \(.*\): Operation not permitted/;
@@ -11344,16 +11341,13 @@ function cmdRepro(ctx, cmd, opts) {
   const pre = loadState(pc.plan.dir);
   if (pre.track !== "fix") throw new Refusal("cairn repro is for fix plans", ["start one with cairn new <slug> --track fix"]);
   gate(pre.stage === "repro", pre, "repro", opts, `the plan is in ${pre.stage}, not repro`);
-  configGate(pre, pc.cfg, "repro", opts);
   const ran = runRepro(cmd, pc.plan.worktree, pc.cfg);
   return mutate(pc, "repro recorded", (s) => {
-    configGate(s, pc.cfg, "repro", opts);
     gate(s.stage === "repro", s, "repro", opts, `the plan is in ${s.stage}, not repro`);
     if (ran.outcome === "timeout" || ran.outcome === "nostart")
       throw new Refusal(`the repro command ${ran.outcome === "timeout" ? "did not finish" : "could not start"}: ${ran.detail}`, ["write a repro command that runs and finishes"]);
     if (ran.outcome === "passes") throw new Refusal("the command exits 0: this does not reproduce the bug", ["write a command that fails while the bug is present"]);
     s.repro = { cmd, tail: ran.detail, at: now() };
-    s.configHash = configHash(pc.cfg);
     log(s, "repro recorded", `${cmd} \u2192 ${ran.detail}`);
     return { message: `Repro recorded: \`${cmd}\` fails (${ran.detail}). Next: \`cairn advance\` to the fix.`, data: { repro: s.repro } };
   });
@@ -11382,7 +11376,7 @@ function cmdEscalate(ctx, opts) {
     setStage(s, "prd");
     delete s.evidence.review;
     delete s.approvals.ship;
-    delete s.reapprove;
+    delete s.pullRequest;
     log(s, "escalated", "fix \u2192 feature plan at prd");
     return { message: `"${s.title}" is now a feature plan at the PRD stage. The fix task keeps its work, with its scope narrowed to the files it changed. Next: write the PRD.` };
   });
@@ -11406,7 +11400,6 @@ function fixRecordProblems(pc) {
 }
 var recordCheck = (pc, track) => track === "fix" ? { problems: fixRecordProblems(pc), fix: "write RECORD.md from templates/record-fix.md" } : { problems: recordProblems(pc), fix: "write RECORD.md from templates/record.md" };
 function closeGates(pc, s, opts, record, tests) {
-  configGate(s, pc.cfg, "close", opts);
   const open = collectSuggestions(pc.ctx).filter((x) => x.open && !x.hardening && x.slug === s.slug);
   gate(
     open.length <= MAX_OPEN_PER_PLAN,
@@ -11414,7 +11407,8 @@ function closeGates(pc, s, opts, record, tests) {
     "close",
     opts,
     `${open.length} open follow-ups from this plan; at most ${MAX_OPEN_PER_PLAN} may stay open: ${open.map((x) => `${x.key} (${x.text})`).join("; ")}`,
-    ['group related ones: cairn suggest merge <key>... --area <a> --text "<high-level item>"', 'drop trivia: cairn suggest resolve <key> --dismiss --note "<reason>"', "then list what was dropped in the record"]
+    ['group related ones: cairn suggest merge <key>... --area <a> --text "<high-level item>"', 'drop trivia: cairn suggest resolve <key> --dismiss --note "<reason>"', "then list what was dropped in the record"],
+    "how"
   );
   gate(!record.problems.length, s, "close", opts, record.problems.join("; "), [record.fix]);
   testsGate(tests, s, "close", opts);
@@ -11437,32 +11431,10 @@ function prdSummary(md) {
   const reqs = (sec.get("requirements") ?? "").split("\n").filter((l) => /\bFR-\d+\b/.test(l)).map((l) => `- ${l.replace(/^\s*[-*]\s+/, "").replace(/\*\*/g, "").split(/Check:/)[0].trim()}`);
   return [firstSentence(sec.get("problem")), "", "**Requirements**", ...reqs, "", "**Non-goals**", sec.get("non-goals") ?? ""].join("\n").trim();
 }
-var chosenApproach = (planMd) => {
-  const lines = (sections(planMd ?? "").get("approaches considered") ?? "").replace(/<!--[\s\S]*?-->/g, "").split("\n").map((x) => x.replace(/^\s*[-*]\s+/, "").trim()).filter(Boolean);
-  return lines.find((x) => /^chosen\b/i.test(x)) ?? lines[0];
-};
-function planSummary(s, planMd, cfg) {
-  let foundational = false;
-  try {
-    foundational = isFoundational(s.linear, cfg ? linearConfig(cfg) : void 0);
-  } catch {
-  }
-  const approach = foundational ? chosenApproach(planMd) : void 0;
-  return (approach ? `**Approach:** ${approach}
-
-` : "") + doneWhen(s) + s.phases.flatMap((ph, i) => [`${i + 1}. **${ph.name}**`, ...ph.tasks.map((t) => `   - ${t.name} (${t.complexity})${t.risky ? " risky" : ""}`)]).join("\n");
-}
-function doneWhen(s) {
-  const ep = s.endProofs;
-  if (!ep?.list.length) return "";
-  const lines = ep.list.map((p) => `- ${p.id} (${p.covers.join(", ")}): \`${p.run}\`${p.shots?.length ? `; screenshots judged: ${p.look}` : ""}${p.expect === "pass" ? " (guard, already green)" : ""}`);
-  const np = ep.notProvable.map((n) => `- ${n.id}: not provable by a run (${n.reason})`);
-  return ["**Done when these pass** (locked at this approval; the build runs until they do):", ...lines, ...np, "", ""].join("\n");
-}
 function prdEditedSinceApproval(s, prd) {
   return !!s.approvals.prd?.hash && !!prd && hashText(prd) !== s.approvals.prd.hash;
 }
-var PRD_EDITED_NOTE = "**prd.md changed after you approved it; approving the plan also accepts those edits.**";
+var PRD_EDITED_NOTE = "**prd.md changed after you approved it. Until you approve it again, the pull request stays a draft.**";
 var WRITING_STEPS = ["drafting", "checking", "recording", "asking"];
 var readyFor = (pc) => readyCheck(pc).ready;
 function readyCheck(pc) {
@@ -11470,111 +11442,64 @@ function readyCheck(pc) {
     const s = loadState(pc.plan.dir);
     const file = (name) => join15(pc.plan.dir, name);
     const ready = (r) => ({ ready: r });
+    if (s.approvals.prd && s.stage !== "closed") {
+      const md = readText(file("prd.md"));
+      if (!prdEditedSinceApproval(s, md) || !md || prdApprovalProblems(s, md).length) return {};
+      return ready({ kind: "prd", file: file("prd.md"), summary: `${PRD_EDITED_NOTE}
+
+${prdSummary(md)}` });
+    }
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return {};
     if (s.stage === "prd" && !s.approvals.prd) {
       const md = readText(file("prd.md"));
       return ready(md && !prdApprovalProblems(s, md).length ? { kind: "prd", file: file("prd.md"), summary: prdSummary(md) } : void 0);
-    }
-    if (s.stage === "plan" && !s.approvals.plan) {
-      const md = readText(file("plan.md"));
-      if (!s.phases.length || !md || s.planHash !== hashText(md)) return {};
-      const prd = readText(file("prd.md"));
-      if (prdLinearIssues(s, prd).length || proofApprovalProblems(pc, s).length) return {};
-      const note = prdEditedSinceApproval(s, prd) ? `${PRD_EDITED_NOTE}
-
-` : "";
-      return ready({ kind: "plan", file: file("plan.md"), summary: note + planSummary(s, md, pc.cfg) });
-    }
-    if (s.reapprove && !s.approvals.ship) return ready({ kind: "ship", file: file("RECORD.md"), summary: `**Approve shipping again:** ${s.reapprove.why}.` });
-    if (s.stage === "ship" && !s.approvals.ship && s.evidence.review?.result === "pass") {
-      if (recordCheck(pc, fastLane(s) ? "fix" : "feature").problems.length) return {};
-      if (proofProblems(pc, s).length) return {};
-      const md = readText(file("RECORD.md")) ?? "";
-      const proofs = proofSummary(s);
-      return ready({ kind: "ship", file: file("RECORD.md"), summary: [(sections(md).get("what was built") ?? "").trim(), proofs].filter(Boolean).join("\n\n") });
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
   return {};
 }
-var APPROVAL_KINDS = ["prd", "plan", "ship"];
-var APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "\u2026"]';
+var APPROVE_USAGE = 'usage: cairn approve prd [--human] [--note "\u2026"]';
+var REMOVED_KINDS = {
+  plan: "the plan needs no approval: once the PRD is approved cairn writes the plan and the proofs and builds (cairn advance)",
+  ship: "the ship needs no approval: cairn opens the pull request (cairn pr open) and the user merging it is the sign-off",
+  commands: "changed commands need no approval: cairn records the change and the pull request lists it"
+};
 function cmdApprove(ctx, kind, opts, io) {
-  if (!kind || !APPROVAL_KINDS.includes(kind)) throw new CliError(APPROVE_USAGE);
+  if (kind && REMOVED_KINDS[kind]) throw new Refusal(REMOVED_KINDS[kind]);
+  if (kind !== "prd") throw new CliError(APPROVE_USAGE);
   const pc = planCtx(ctx);
   const source = requireHumanProof(kind, opts, io);
-  const approval = () => ({ at: now(), via: "human", source, ...opts.note ? { note: String(opts.note) } : {} });
-  switch (kind) {
-    case "prd": {
-      const md = readText(planFile(pc, "prd.md"));
-      return mutate(pc, "PRD approved", (s) => {
-        gate(s.stage === "prd", s, "approve prd", opts, `the plan is in ${s.stage}, not prd`);
-        const problems = prdProblems(md);
-        gate(!problems.length, s, "approve prd", opts, problems.join("; "), ["finish prd.md, resolving open questions with the user"]);
-        linearPrdGate(s, md, opts);
-        s.approvals.prd = { ...approval(), hash: md ? hashText(md) : void 0 };
-        log(s, "PRD approved", source);
-        if (md) onPrdApproved(pc, s, md);
-        return { message: "PRD approved. Next: `cairn advance` to planning." };
-      });
-    }
-    case "plan": {
-      const md = readText(planFile(pc, "plan.md"));
-      return mutate(pc, "plan approved", (s) => {
-        if (s.stage !== "plan" && s.configHash && s.configHash !== configHash(pc.cfg)) {
-          s.configHash = configHash(pc.cfg);
-          log(s, "commands re-approved", source);
-          return { message: "The changed setup, test, and build commands are approved." };
-        }
-        gate(s.stage === "plan", s, "approve plan", opts, `the plan is in ${s.stage}, not plan`);
-        gate(s.phases.length > 0, s, "approve plan", opts, "no plan is loaded", ["cairn plan load"]);
-        gate(!!md && s.planHash === hashText(md), s, "approve plan", opts, "plan.md changed since it was loaded", ["cairn plan load"]);
-        linearPrdGate(s, readText(planFile(pc, "prd.md")), opts);
-        const unproved = proofApprovalProblems(pc, s);
-        gate(!unproved.length, s, "approve plan", opts, unproved.join("; "), ["write or fix the proofs (procedures/plan.md, the proofs step), cairn plan load, then cairn prove"]);
-        for (const p of s.endProofs?.list ?? []) p.lock = filesHash(pc.plan.worktree, p.files);
-        s.approvals.plan = { ...approval(), hash: s.planHash };
-        s.configHash = configHash(pc.cfg);
-        log(s, "plan approved", source);
-        const prd = readText(planFile(pc, "prd.md"));
-        if (prdEditedSinceApproval(s, prd)) {
-          s.approvals.prd = { ...approval(), hash: hashText(prd) };
-          recordRequirements(s, prd);
-          log(s, "PRD edits accepted with the plan", source);
-          return { message: "Plan approved, and the PRD edits with it. Next: `cairn advance` to execution." };
-        }
-        return { message: "Plan approved. Next: `cairn advance` to execution." };
-      });
-    }
-    case "ship": {
-      const waiting = crossPlanBlockers(pc.ctx, loadState(pc.plan.dir));
-      return mutate(pc, "ship approved", (s) => {
-        const again = !!s.reapprove;
-        gate(s.stage === "ship" || again, s, "approve ship", opts, `the plan is in ${s.stage}, not ship`);
-        gate(s.evidence.review?.result === "pass", s, "approve ship", opts, "review has not passed", ["run the review procedure, then cairn evidence review pass"]);
-        const proofs = proofProblems(pc, s);
-        gate(!proofs.length, s, "approve ship", opts, `the proofs do not show the end state: ${proofs.join("; ")}`, ["cairn prove (and judge any screenshots), fixing until every proof is green"]);
-        const record = recordCheck(pc, fastLane(s) ? "fix" : "feature");
-        gate(!record.problems.length, s, "approve ship", opts, record.problems.join("; "), [record.fix]);
-        gate(!waiting.length, s, "approve ship", opts, `this plan builds on work another plan has not shipped: ${waiting.join("; ")}`, ["ship the other plan first"]);
-        s.approvals.ship = { ...approval(), sha: git(["rev-parse", "HEAD"], pc.plan.worktree) };
-        delete s.reapprove;
-        log(s, again ? "ship approved again" : "ship approved", source);
-        if (again) return { message: "Ship approved again. Next: `cairn merge-check`, then merge." };
-        return { message: "Ship approved. Next: open the PR, then `cairn advance`; offer the merge last." };
-      });
-    }
-    default:
-      throw new CliError(APPROVE_USAGE);
-  }
+  const md = readText(planFile(pc, "prd.md"));
+  return mutate(pc, "PRD approved", (s) => {
+    const again = !!s.approvals.prd;
+    gate(again ? prdEditedSinceApproval(s, md) && s.stage !== "closed" : s.stage === "prd", s, "approve prd", opts, again ? "prd.md has not changed since it was approved" : `the plan is in ${s.stage}, not prd`);
+    const problems = prdProblems(md);
+    gate(!problems.length, s, "approve prd", opts, problems.join("; "), ["finish prd.md, resolving open questions with the user"]);
+    linearPrdGate(s, md, opts);
+    s.approvals.prd = { at: now(), via: "human", source, ...opts.note ? { note: String(opts.note) } : {}, hash: md ? hashText(md) : void 0 };
+    log(s, again ? "PRD edits approved" : "PRD approved", source);
+    if (md) again ? recordRequirements(s, md) : onPrdApproved(pc, s, md);
+    if (again) return { message: "PRD edits approved. Build toward them: re-plan if the tasks changed (cairn plan load --replan), then carry on." };
+    return { message: "PRD approved. From here the run is hands-off: `cairn advance`, then plan, build, check, review and open the pull request without stopping." };
+  });
+}
+function lockPlan(pc, s, opts) {
+  const md = readText(planFile(pc, "plan.md"));
+  gate(s.phases.length > 0, s, "advance", opts, "no plan is loaded", ["cairn plan load"]);
+  gate(!!md && s.planHash === hashText(md), s, "advance", opts, "plan.md changed since it was loaded", ["cairn plan load"]);
+  linearPrdGate(s, readText(planFile(pc, "prd.md")), opts);
+  const unproved = proofApprovalProblems(pc, s);
+  gate(!unproved.length, s, "advance", opts, unproved.join("; "), ["write or fix the proofs (procedures/plan.md, the proofs step), cairn plan load, then cairn prove"]);
+  for (const p of s.endProofs?.list ?? []) p.lock ??= filesHash(pc.plan.worktree, p.files);
+  s.approvals.plan = { at: now(), via: "agent", hash: s.planHash };
+  log(s, "plan locked", `${s.phases.length} phases, ${s.endProofs?.list.length ?? 0} proofs`);
 }
 function cmdAdvance(ctx, opts) {
   const pc = planCtx(ctx);
   const decisions = readText(planFile(pc, "decisions.md")) ?? "";
   const pre = loadState(pc.plan.dir);
   const closing = fastLane(pre) && pre.stage === "ship";
-  if (closing) configGate(pre, pc.cfg, "close", opts);
   const record = closing ? recordCheck(pc, "fix") : void 0;
   const tests = closing ? suiteGreenAtHead(pc) ? reusedRun(pc.cfg) : runTests(pc.cfg, pc.plan.worktree) : void 0;
   const followups = closing && pre.linear ? followupsFor(pc, pre.slug) : void 0;
@@ -11596,7 +11521,7 @@ function cmdAdvance(ctx, opts) {
         gate(!!s.approvals.prd, s, "advance", opts, "the PRD is not approved", ["cairn approve prd"]);
         break;
       case "plan":
-        gate(!!s.approvals.plan && s.phases.length > 0, s, "advance", opts, "the plan is not approved", ["cairn approve plan"]);
+        lockPlan(pc, s, opts);
         break;
       case "execute":
         gate(s.phases.every((p) => p.status === "done"), s, "advance", opts, "not every phase is finished", ["cairn phase finish"]);
@@ -11605,14 +11530,14 @@ function cmdAdvance(ctx, opts) {
         gate(s.evidence.verify?.result === "pass", s, "advance", opts, "verification has not passed", ['cairn evidence verify pass --note "\u2026"']);
         {
           const proofs = proofProblems(pc, s);
-          gate(!proofs.length, s, "advance", opts, `the proofs do not show the end state: ${proofs.join("; ")}`, ["cairn prove (and judge any screenshots), fixing until every proof is green"]);
+          gate(!proofs.length, s, "advance", opts, `the proofs do not show the end state: ${proofs.join("; ")}`, ["cairn prove (and judge any screenshots), fixing until every proof is green"], "what");
         }
         break;
       case "review":
-        gate(s.evidence.review?.result === "pass" && !s.evidence.review.blocking, s, "advance", opts, "review has not passed with zero blocking findings", ["cairn evidence review pass --blocking 0"]);
+        gate(s.evidence.review?.result === "pass" && !s.evidence.review.blocking, s, "advance", opts, "review has not passed with zero blocking findings", ["fix the blocking findings, re-review, then cairn evidence review pass --blocking 0"], "what");
         break;
       case "ship":
-        gate(!!s.approvals.ship, s, "advance", opts, "shipping is not approved", ["cairn approve ship"]);
+        gate(!!s.pullRequest, s, "advance", opts, "the pull request is not open", ["cairn pr open"]);
         if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
@@ -11636,7 +11561,6 @@ function cmdAdvance(ctx, opts) {
 }
 function cmdClose(ctx, opts) {
   const pc = planCtx(ctx);
-  configGate(loadState(pc.plan.dir), pc.cfg, "close", opts);
   const record = recordCheck(pc, "feature");
   const tests = suiteGreenAtHead(pc) ? reusedRun(pc.cfg) : runTests(pc.cfg, pc.plan.worktree);
   const pre = loadState(pc.plan.dir);
@@ -11697,7 +11621,7 @@ var modIsActive = (ctx) => modActive(commonDir(ctx.mainRoot));
 function warnings(pc, s) {
   const w = [];
   const prd = readText(planFile(pc, "prd.md"));
-  if (prdEditedSinceApproval(s, prd)) w.push(s.stage === "plan" ? "prd.md changed after it was approved: approving the plan accepts the edits" : "prd.md changed after it was approved");
+  if (prdEditedSinceApproval(s, prd)) w.push("prd.md changed after it was approved: the pull request stays a draft until the user approves the PRD again");
   const plan2 = readText(planFile(pc, "plan.md"));
   if (s.planHash && plan2 && hashText(plan2) !== s.planHash) w.push("plan.md changed after it was loaded: run `cairn plan load --replan` or revert it");
   const open = s.drift.filter((d) => !d.acked);
@@ -12407,6 +12331,7 @@ function cmdPlanLoad(ctx, opts) {
       delete s.evidence.review;
       for (const p of s.phases) delete p.verdict;
       log(s, "re-plan loaded", `${allTasks(s).length} tasks`);
+      if (s.approvals.prd || s.repro) (s.calls ??= []).push({ at: (/* @__PURE__ */ new Date()).toISOString(), event: "re-plan", what: `the plan was changed mid-build (${allTasks(s).length} tasks now)`, why: typeof opts.call === "string" && opts.call.trim() ? opts.call.trim() : "no reason given" });
     } else log(s, "plan loaded", `${s.phases.length} phases, ${allTasks(s).length} tasks`);
     const chain = criticalPath(s.phases);
     const chainLine = chain.total ? `
@@ -12416,21 +12341,21 @@ Longest chain: ${chain.count} of ${chain.total} tasks (${chainText(chain.tasks)}
     const opusLine = opus.length ? `
 Opus builds: ${opus.map((x) => `${x.name} (${x.modelReason})`).join(", ")}.` : "";
     return {
-      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? " The plan needs approval again." : ""}${chainLine}${opusLine}${clashes.map((c) => `
+      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? " The re-plan is recorded for the pull request (give the reason with --call)." : ""}${chainLine}${opusLine}${clashes.map((c) => `
 Warning: ${c}`).join("")}
-Next: approve the plan with the user.`,
+Next: see every proof fail (cairn prove), then cairn advance. No approval is needed.`,
       data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, tasks: p.tasks.map((x) => x.id) })), chain, warnings: clashes }
     };
   });
 }
 function mergeProofs(prev, next, hash) {
   const old = new Map((prev?.list ?? []).map((p) => [p.id, p]));
-  const list3 = next.list.map((p) => {
+  const list4 = next.list.map((p) => {
     const o = old.get(p.id);
     return o ? { ...p, ...o.lock ? { lock: o.lock } : {}, ...o.seenRed ? { seenRed: o.seenRed } : {}, ...o.last ? { last: o.last } : {}, ...o.added ? { added: o.added } : {}, ...o.retired ? { retired: o.retired } : {} } : p;
   });
-  for (const o of prev?.list ?? []) if (o.added && !list3.some((p) => p.id === o.id)) list3.push(o);
-  return { ...prev?.required ? { required: true } : {}, hash, list: list3, notProvable: next.notProvable };
+  for (const o of prev?.list ?? []) if (o.added && !list4.some((p) => p.id === o.id)) list4.push(o);
+  return { ...prev?.required ? { required: true } : {}, hash, list: list4, notProvable: next.notProvable };
 }
 
 // plugins/cairn/cli/src/commands/tasks.ts
@@ -12464,10 +12389,9 @@ function cmdPhase(ctx, action, opts) {
     return { message: "Every phase is finished and the plan is in Check: continue there (cairn next).", data: { phase: null, next: null, stage: pre.stage } };
   if (pre.stage !== "execute" || !phase) throw new Refusal(`the plan is in ${pre.stage}, with no phase to finish`, ["cairn next"]);
   if (pre.paused) throw new Refusal("the plan is paused", ["cairn resume"]);
-  const unfinished = phase.tasks.filter((x) => x.status !== "done");
+  const out = new Set(leftOut(pre).map((x) => x.id));
+  const unfinished = phase.tasks.filter((x) => x.status !== "done" && !out.has(x.id));
   if (unfinished.length) throw new Refusal(`phase "${phase.name}" still has unfinished tasks: ${unfinished.map((x) => x.name).join(", ")}`, ["cairn ready"]);
-  const blocked = phase.tasks.filter((x) => x.substep === "blocked");
-  if (blocked.length) throw new Refusal(`blocked tasks: ${blocked.map((x) => x.name).join(", ")}`);
   const dirty = git(["status", "--porcelain", "--", ".", `:!${planRelOf(plan2)}`], plan2.worktree);
   if (dirty) throw new Refusal(`the plan worktree has uncommitted changes outside cairn's files: ${dirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
   const lastPhase = isLastPhase(pre, phase);
@@ -12477,7 +12401,7 @@ function cmdPhase(ctx, action, opts) {
   const tests = reused || lastPhase ? void 0 : recordTestRun(pc, runTests(pc.cfg, plan2.worktree));
   return mutate(pc, `phase finished: ${phase.name}`, (s) => {
     const cur = currentPhase(s);
-    gate(cur.verdict?.result !== "red", s, "phase finish", opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"]);
+    gate(cur.verdict?.result !== "red", s, "phase finish", opts, `the on-track check for "${cur.name}" is red${cur.verdict?.note ? ` (${cur.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"], "what");
     linearPhaseGate(s, opts);
     if (lastPhase) {
       const drift2 = s.drift.filter((d) => !d.acked);
@@ -12594,7 +12518,6 @@ function taskStart(pc, id, opts) {
     }
     if (sl.status === "done") throw new Refusal(`task "${sl.name}" is already done`);
     gate(s.stage === "execute" && !s.paused, s, "task start", opts, s.paused ? "the plan is paused" : `the plan is in ${s.stage}, not execute`);
-    configGate(s, cfg, "task start", opts);
     const ready = readySet(s, cfg.maxParallel);
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, "task start", opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(", ")}` : `task "${sl.name}" is not in the current phase`, ["cairn ready"]);
@@ -12628,7 +12551,7 @@ function taskStep(pc, id, step, opts) {
     const sl = findTask(s, id);
     if (!sl || sl.status !== "in_progress") throw new Refusal(`task "${id}" is not running`, ["cairn task start " + id]);
     if (step === "fixing") {
-      gate(sl.fixRound < MAX_FIX_ROUNDS, s, "task fix round", opts, `task "${sl.name}" has used ${MAX_FIX_ROUNDS} fix attempts`, ["stop and ask the user: split the task, re-plan, or take it over"]);
+      gate(sl.fixRound < MAX_FIX_ROUNDS, s, "task fix round", opts, `task "${sl.name}" has used ${MAX_FIX_ROUNDS} fix attempts`, [`set the task aside and build the rest: cairn task step ${id} blocked --note "set aside: <why>; tried: <what>; proposed: <the fix>"`]);
       sl.fixRound++;
     }
     sl.substep = step;
@@ -12645,7 +12568,6 @@ function taskDone(pc, id, opts) {
   if (!sl) throw new Refusal(`no task "${id}" in this plan`);
   if (sl.status !== "in_progress" || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`);
   const pb = pre.branch;
-  configGate(pre, pc.cfg, "task done", opts);
   const merged2 = branchExists(sl.branch, plan2.worktree) && gitOk(["merge-base", "--is-ancestor", sl.branch, pb], plan2.worktree);
   const dirty = sl.worktree && existsSync14(sl.worktree) ? git(["status", "--porcelain"], sl.worktree) : "";
   const tip = branchExists(sl.branch, plan2.worktree) ? git(["rev-parse", "--short", sl.branch], plan2.worktree) : void 0;
@@ -12665,7 +12587,6 @@ function taskDone(pc, id, opts) {
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `task done: ${sl.name}`, (s) => {
     const cur = findTask(s, id);
-    configGate(s, pc.cfg, "task done", opts);
     gate(!dirty, s, "task done", opts, `the task worktree has uncommitted changes`, [`commit or discard them in ${cur.worktree}`]);
     gate(commits > 0, s, "task done", opts, `${cur.branch} has no commits since the task started`, ["the implementer commits its work on the task branch, in the task worktree"]);
     gate(!planDirty, s, "task done", opts, `the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split("\n").slice(0, 5).join(", ")}`, ["work belongs on task branches: move it into a task, or discard it"]);
@@ -12673,8 +12594,8 @@ function taskDone(pc, id, opts) {
     gate(merged2, s, "task done", opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan2.worktree} merge --no-ff ${cur.branch}`]);
     if (!deferTests) testsGate(tests ?? (checkable ? void 0 : { ok: false, ran: false, cmd: pc.cfg.test ?? "(none)", tail: "not run" }), s, "task done", opts, cur.scope);
     if (fix) {
-      gate(repro?.outcome === "passes", s, "task done", opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` \u2192 ${repro.detail})` : "the repro was not run: the task is not merged", ["fix the bug so the repro command exits 0"]);
-      gate(changed <= maxFiles, s, "task done", opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ["this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work"]);
+      gate(repro?.outcome === "passes", s, "task done", opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` \u2192 ${repro.detail})` : "the repro was not run: the task is not merged", ["fix the bug so the repro command exits 0"], "what");
+      gate(changed <= maxFiles, s, "task done", opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ["this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work"], "how");
     }
     for (const path of outside)
       if (!s.drift.some((d) => d.path === path && !d.acked)) {
@@ -12708,19 +12629,17 @@ var DOCS_ROOTS = ["docs/cairn/", "docs/sdlc/"];
 function preMergeChecks(pc, pre, sl, opts) {
   const { plan: plan2 } = pc;
   const pb = pre.branch;
-  configGate(pre, pc.cfg, "task merge", opts);
   if (pre.paused) throw new Refusal("the plan is paused: let running steps finish", ["/cairn:resume continues"]);
-  if (opts.override) return;
   const locked = lockedFiles(pre.endProofs);
   const touched = locked.length && branchExists(sl.branch, plan2.worktree) ? git(["diff", "--name-only", `${pre.branch}...${sl.branch}`, "--", ...locked], plan2.worktree).split("\n").filter(Boolean) : [];
   if (touched.length)
-    throw new Refusal(`task "${sl.name}" changes locked proof files: ${touched.join(", ")}. Proofs are add-only once the plan is approved`, [
+    throw new Refusal(`task "${sl.name}" changes locked proof files: ${touched.join(", ")}. Proofs are add-only once the build starts`, [
       `restore them on the task branch: git -C ${sl.worktree ?? "<task worktree>"} checkout ${pre.branch} -- ${touched.join(" ")}, then commit`,
       "a new check goes in a new file, added after the merge with cairn prove add",
-      "if a proof itself is wrong, that is the user's call: changing it is a re-plan"
+      "if a proof itself is wrong: leave it as it is, add the corrected check beside it (cairn prove add), and name the wrong one with --not-done where its red result is checked; only the user changes the goal"
     ]);
   const owner = pre.lastRed?.task ? findTask(pre, pre.lastRed.task) : void 0;
-  if (pre.lastRed && owner && owner.id !== sl.id && owner.status !== "done") {
+  if (pre.lastRed && owner && owner.id !== sl.id && owner.status !== "done" && owner.substep !== "blocked") {
     const other = owner.name;
     throw new Refusal(`the plan branch is red from task ${other}'s merge: fix that first`, [`finish "${other}" (its fix brief carries the failing run), then merge this task`, `Full output: ${pre.lastRed.log}`]);
   }
@@ -12805,15 +12724,15 @@ function cmdStep(ctx, name, opts) {
   return mutate(pc, void 0, (s) => {
     const valid = STEPS[s.stage];
     if (!valid) throw new Refusal(`there are no steps at ${s.stage}; steps exist at ${Object.keys(STEPS).join(", ")}`);
-    const list3 = [...valid, STEP_CLEAR].join(", ");
+    const list4 = [...valid, STEP_CLEAR].join(", ");
     if (name === STEP_CLEAR) {
       delete s.step;
       log(s, "step", "cleared");
       return { message: `Step at ${s.stage} cleared.`, data: { step: null } };
     }
-    if (!name) throw new Refusal(`usage: cairn step <name> [--count N]; at ${s.stage}: ${list3}`);
+    if (!name) throw new Refusal(`usage: cairn step <name> [--count N]; at ${s.stage}: ${list4}`);
     if (!NAME.test(name) || !valid.includes(name))
-      throw new Refusal(`${NAME.test(name) ? `"${name}"` : "that name"} is not a step at ${s.stage}; valid steps: ${list3}`);
+      throw new Refusal(`${NAME.test(name) ? `"${name}"` : "that name"} is not a step at ${s.stage}; valid steps: ${list4}`);
     if (s.stage === "prd" && name === "approving" && !s.approvals.prd) {
       const problems = prdApprovalProblems(s, readText(planFile(pc, "prd.md")));
       if (problems.length) throw new Refusal(`prd.md is not ready to approve: ${problems.join("; ")}`, ["fix prd.md, then run `cairn step approving` again"]);
@@ -12821,6 +12740,122 @@ function cmdStep(ctx, name, opts) {
     s.step = { stage: s.stage, name, ...count !== void 0 ? { count: Number(count) } : {}, at: now() };
     log(s, "step", `${name}${count !== void 0 ? ` (${count})` : ""}`);
     return { message: `Step at ${s.stage}: ${name}${count !== void 0 ? ` (${count})` : ""}.`, data: { step: s.step } };
+  });
+}
+
+// plugins/cairn/cli/src/commands/pr.ts
+import { spawnSync as spawnSync4 } from "node:child_process";
+function assumed(decisions) {
+  const out = [];
+  const re = /^### \d+\. Assumed: (.+)\n\*\*Decision:\*\* (.+)$/gm;
+  for (let m = re.exec(decisions ?? ""); m; m = re.exec(decisions ?? "")) out.push(`${m[1].trim()} \u2192 ${m[2].trim()}`);
+  return out;
+}
+function prReport(pc, s) {
+  const tasks = allTasks(s);
+  const built = tasks.filter((t) => t.status === "done");
+  const notDone = [];
+  const out = leftOut(s);
+  for (const t of out) notDone.push(setAside(t) ? `Task "${t.name}" was set aside${t.note ? `: ${t.note}` : ""}` : `Task "${t.name}" was not started: it waits on a task that was set aside`);
+  for (const t of tasks) if (t.status !== "done" && !out.includes(t)) notDone.push(`Task "${t.name}" is not finished`);
+  const proofs = proofProblems(pc, s);
+  for (const p of proofs) notDone.push(`Proof: ${p}`);
+  const suite = !pc.cfg.test ? "no test command is configured" : suiteGreenAtHead(pc) ? "green on this commit" : void 0;
+  if (!suite) notDone.push(`The full test suite is not green on this commit${s.lastRed?.failing?.length ? ` (${s.lastRed.failing[0]})` : ""}`);
+  const fix = fastLane(s);
+  if (!fix && s.evidence.verify?.result !== "pass") notDone.push("The check stage did not pass");
+  const review = s.evidence.review;
+  if (review?.result !== "pass") notDone.push("The review did not pass");
+  else if (review.blocking) notDone.push(`${review.blocking} blocking review finding${review.blocking === 1 ? "" : "s"} still open`);
+  if (prdEditedSinceApproval(s, readText(planFile(pc, "prd.md")))) notDone.push("prd.md changed after it was approved, and the edits are not approved");
+  for (const n of s.notDone ?? []) notDone.push(`${n.what} \u2014 ${n.why}`);
+  const total = s.endProofs?.list.filter((p) => !p.retired).length ?? 0;
+  const done = [
+    `Tasks: ${built.length} of ${tasks.length} merged`,
+    `Full test suite: ${suite ?? "not green"}`,
+    ...total ? [`Proofs: ${proofs.length ? `${proofs.length} problem${proofs.length === 1 ? "" : "s"} (see Not done)` : `all ${total} green`}`] : [],
+    `Review: ${review?.result === "pass" ? `passed${review.blocking ? `, ${review.blocking} blocking open` : ", nothing blocking"}` : "not passed"}`
+  ];
+  const calls = [...(s.calls ?? []).map((c) => `${c.what} \u2014 ${c.why}`), ...assumed(readText(planFile(pc, "decisions.md"))).map((a) => `Assumed: ${a}`)];
+  return { done, calls, notDone, draft: notDone.length > 0 };
+}
+var list3 = (xs) => xs.length ? xs.map((x) => `- ${x.replace(/\s*\n\s*/g, " ")}`) : ["- None"];
+function prBody(pc, s) {
+  const r = prReport(pc, s);
+  let after = [];
+  try {
+    after = crossPlanBlockers(pc.ctx, s);
+  } catch {
+  }
+  const built = (sections(readText(planFile(pc, "RECORD.md")) ?? "").get("what was built") ?? "").trim();
+  const body = [
+    ...built ? [built, ""] : [],
+    "## Done",
+    ...list3(r.done),
+    "",
+    `## Calls made for you (${r.calls.length})`,
+    ...list3(r.calls),
+    "",
+    `## Not done (${r.notDone.length})`,
+    ...list3(r.notDone),
+    "",
+    ...after.length ? [`**Merge after:** ${after.join("; ")}`, ""] : [],
+    r.draft ? "This is a draft because something above is not done. Merge it as it is, or send it back with notes." : "Everything the PRD asked for is done and green. Merging is your sign-off.",
+    "",
+    `Plan: \`${s.slug}\` \xB7 record: \`RECORD.md\` in the plan folder`
+  ].join("\n");
+  return { title: s.title, body, report: r };
+}
+var gh = (args, cwd) => {
+  const r = spawnSync4("gh", args, { cwd, encoding: "utf8", timeout: 6e4 });
+  return { ok: r.status === 0, out: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() };
+};
+function cmdPr(ctx, action, opts, what) {
+  if (action !== "body" && action !== "open" && action !== "not-done") throw new CliError('usage: cairn pr body | cairn pr open | cairn pr not-done "<what is not done>" --why "<why; what was tried; the fix you propose>"');
+  const pc = planCtx(ctx);
+  if (action === "not-done") {
+    const why = typeof opts.why === "string" ? opts.why.trim() : "";
+    if (!what?.trim() || !why) throw new CliError('usage: cairn pr not-done "<what is not done>" --why "<why; what was tried; the fix you propose>"');
+    return mutate(pc, "not done recorded", (s) => {
+      (s.notDone ??= []).push({ at: now(), event: "reported", what: what.trim(), why });
+      log(s, "not done: reported", what.trim(), why);
+      return { message: `Recorded as not done: ${what.trim()}. The pull request will list it and open as a draft.` };
+    });
+  }
+  const wt = pc.plan.worktree;
+  const s0 = loadState(pc.plan.dir);
+  const { title, body, report } = prBody(pc, s0);
+  if (action === "body") return { message: body, data: { title, body, ...report } };
+  if (!["ship", "learn", "closed"].includes(s0.stage)) throw new Refusal(`the pull request opens at ship; the plan is in ${s0.stage}`, ["cairn next"]);
+  const record = fastLane(s0) ? [] : recordProblems(pc);
+  if (record.length) throw new Refusal(record.join("; "), ["write RECORD.md from templates/record.md"]);
+  const pushed = gitTry(["push", "-u", "origin", s0.branch], wt);
+  if (!pushed.ok) throw new Refusal(`could not push ${s0.branch}: ${pushed.out}`, ["check the remote and credentials, then run cairn pr open again"]);
+  const head = git(["rev-parse", "HEAD"], wt);
+  const seen = gh(["pr", "view", s0.branch, "--json", "url,isDraft,state", "-q", '[.url, (.isDraft|tostring), .state] | join(" ")'], wt);
+  const [seenUrl, seenDraft, seenState] = seen.ok ? seen.out.split(" ") : [];
+  let url = seenUrl;
+  if (seen.ok && seenState === "OPEN") {
+    const edited = gh(["pr", "edit", s0.branch, "--title", title, "--body", body], wt);
+    if (!edited.ok) throw new Refusal(`could not update the pull request: ${edited.out}`);
+    if (String(report.draft) !== seenDraft) {
+      const flipped = gh(["pr", "ready", s0.branch, ...report.draft ? ["--undo"] : []], wt);
+      if (!flipped.ok) throw new Refusal(`could not mark the pull request ${report.draft ? "as a draft" : "ready"}: ${flipped.out}`);
+    }
+  } else {
+    const made = gh(["pr", "create", "--base", s0.base, "--head", s0.branch, "--title", title, "--body", body, ...report.draft ? ["--draft"] : []], wt);
+    if (!made.ok) throw new Refusal(`could not open the pull request: ${made.out}`, ["check that gh is installed and signed in (gh auth status), then run cairn pr open again"]);
+    url = made.out.split("\n").filter((l) => /^https?:\/\//.test(l)).pop() ?? made.out;
+  }
+  return mutate(pc, "pull request opened", (s) => {
+    s.pullRequest = { url, draft: report.draft, notDone: report.notDone.length, at: now(), head };
+    log(s, s0.pullRequest ? "pull request updated" : "pull request opened", `${report.draft ? "draft" : "ready"}: ${url}`);
+    const state = report.draft ? `a draft: ${report.notDone.length} not done` : "ready to merge";
+    return {
+      message: `Pull request ${s0.pullRequest ? "updated" : "opened"} (${state}): ${url}
+The user merging it is the sign-off.${s.stage === "ship" ? " Next: cairn advance, then finish the record and close (procedures/learn.md)." : " End the turn with the link."}`,
+      data: { url, head, ...report }
+    };
   });
 }
 
@@ -13006,7 +13041,7 @@ function parseScorecard(md) {
     return { rows: empty(), problems: [`cairn-direction YAML does not parse: ${e.message}`] };
   }
   const problems = [];
-  const list3 = (key2) => {
+  const list4 = (key2) => {
     const v = doc?.[key2] ?? [];
     if (!Array.isArray(v)) {
       problems.push(`\`${key2}\` must be a list`);
@@ -13019,14 +13054,14 @@ function parseScorecard(md) {
   };
   const rows = empty();
   for (const key2 of ["requirements", "nfr"])
-    for (const r of list3(key2)) {
+    for (const r of list4(key2)) {
       const label = `${key2} row ${r?.id ?? "(no id)"}`;
       if (typeof r?.id !== "string" || !r.id) problems.push(`${label}: needs an id`);
       if (!VERDICTS.includes(r?.verdict)) problems.push(`${label}: verdict must be one of ${VERDICTS.join("|")}`);
       evidence(label, r);
       rows[key2].push(r);
     }
-  for (const r of list3("unplanned")) {
+  for (const r of list4("unplanned")) {
     const label = `unplanned row "${r?.what ?? "(no description)"}"`;
     if (typeof r?.what !== "string" || !r.what) problems.push(`${label}: needs \`what\``);
     if (!CLASSES.includes(r?.class)) problems.push(`${label}: class must be one of ${CLASSES.join("|")}`);
@@ -13079,11 +13114,11 @@ function cmdEvidence(ctx, kind, result, opts) {
     if (result === "pass" && blocking) throw new Refusal(`a review with ${blocking} blocking finding(s) can't pass`, ["fix them in place, then record the review with --blocking 0"]);
     if (kind === "verify" && result === "pass") {
       if (pc.cfg.test && levelOf(s) !== "mvp")
-        gate(suiteCovers && !s.lastRed, s, "evidence verify", opts, "the full suite has not passed on the current code", ["cairn test (procedures/verify.md step 2), fixing until it is green"]);
+        gate(suiteCovers && !s.lastRed, s, "evidence verify", opts, "the full suite has not passed on the current code", ["cairn test (procedures/verify.md step 2), fixing until it is green"], "what");
       const last = s.phases.at(-1);
-      gate(last?.verdict?.result !== "red", s, "evidence verify", opts, `the on-track check for "${last?.name}" is red${last?.verdict?.note ? ` (${last.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"]);
+      gate(last?.verdict?.result !== "red", s, "evidence verify", opts, `the on-track check for "${last?.name}" is red${last?.verdict?.note ? ` (${last.verdict.note})` : ""}`, ["fix what the report flags, then re-run `cairn evidence phase`"], "what");
       const open = (s.linear?.changes ?? []).filter((c) => !c.handled);
-      gate(!open.length, s, "evidence verify", opts, `changes in Linear are not handled yet: ${open.map((c) => c.id).join(", ")}`, ["handle each as procedures/phase-end.md says (cairn linear depends | ack | release)"]);
+      gate(!open.length, s, "evidence verify", opts, `changes in Linear are not handled yet: ${open.map((c) => c.id).join(", ")}`, ["handle each as procedures/phase-end.md says (cairn linear depends | ack | release)"], "how");
     }
     s.evidence[kind] = { result, at: now(), ...opts.note ? { note: String(opts.note) } : {}, ...blocking !== void 0 ? { blocking } : {} };
     log(s, `${kind} ${result}`, opts.note ? String(opts.note) : void 0);
@@ -13166,7 +13201,7 @@ import { dirname as dirname6, isAbsolute as isAbsolute2, join as join25, relativ
 // plugins/cairn/hooks/mod/guard-rules.ts
 var WHY = "approvals and plan state come from the user and the CLI, not from tool calls.";
 var REASON = `cairn: ${WHY}`;
-var ASK_REASON = `${REASON} Ask the user: read modActive from cairn status --json. When it is true, ask with AskUserQuestion tagged [cairn:approve <kind> <slug>] (or [cairn:level <slug>]); the mod records the answer. When it is false, give them the full --human command to run in their own terminal.`;
+var ASK_REASON = `${REASON} Ask the user: read modActive from cairn status --json. When it is true, ask with AskUserQuestion tagged [cairn:approve prd <slug>] (the PRD is the only approval; or [cairn:level <slug>] for a level change); the mod records the answer. When it is false, give them the full --human command to run in their own terminal.`;
 var PREFIXES = /* @__PURE__ */ new Set(["env", "exec", "command", "nohup", "nice", "time", "sudo", "xargs", "timeout"]);
 var SHELLS = /* @__PURE__ */ new Set(["sh", "bash", "zsh", "dash", "ksh"]);
 var RUNTIMES = /* @__PURE__ */ new Set(["node", "nodejs", "bun", "deno"]);
@@ -13182,15 +13217,15 @@ function bashVerdict(cmd) {
   return { deny: commands(cmd).some((c) => approves(c) || changesLevel(c)) ? ASK_REASON : REASON };
 }
 function isDenied(cmd) {
-  const list3 = commands(cmd);
-  const code = withoutInertProse(cmd, list3);
+  const list4 = commands(cmd);
+  const code = withoutInertProse(cmd, list4);
   for (const [, dollar, backtick] of code.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)) {
     if (isDenied(dollar ?? backtick ?? "")) return true;
   }
   if (/(\$\(|`)[^)`]*--(git-common-dir|git-dir|absolute-git-dir)/.test(code)) return true;
   const mentionsCairn = /cairn/i.test(cmd);
-  return list3.some(
-    (command, at) => readsDeniedInput(list3, at) || approves(command) || changesLevel(command) || setsApprover(command) || writes(command, isStateFile) || runsCodeNamingStateFile(command) || writes(command, (word) => HEARTBEAT_WORD.test(word)) || reachesCairnFolder(command) || mentionsCairn && wrapsInPty(command)
+  return list4.some(
+    (command, at) => readsDeniedInput(list4, at) || approves(command) || changesLevel(command) || setsApprover(command) || writes(command, isStateFile) || runsCodeNamingStateFile(command) || writes(command, (word) => HEARTBEAT_WORD.test(word)) || reachesCairnFolder(command) || mentionsCairn && wrapsInPty(command) || launchesTerminal(command)
   );
 }
 function commands(cmd) {
@@ -13353,9 +13388,9 @@ function proseWords(command) {
   }
   return prose;
 }
-function withoutInertProse(cmd, list3) {
+function withoutInertProse(cmd, list4) {
   const chars = cmd.split("");
-  for (const command of list3) {
+  for (const command of list4) {
     for (const [from, to] of command.inert) {
       for (let i = from; i < to; i++) if (chars[i] === "`" || chars[i] === "$") chars[i] = " ";
     }
@@ -13464,9 +13499,9 @@ function runsCodeNamingStateFile(command) {
   const [name, args] = split(command);
   return INTERPRETERS.test(name) && args.some((arg) => /^-\w*[ce]$|^--eval$/.test(arg)) && writesStateFile(args.join(" "));
 }
-function readsDeniedInput(list3, at) {
-  const command = list3[at];
-  const reader = command.pipesOut && list3[at + 1] !== void 0 ? list3[at + 1] : command;
+function readsDeniedInput(list4, at) {
+  const command = list4[at];
+  const reader = command.pipesOut && list4[at + 1] !== void 0 ? list4[at + 1] : command;
   const [name, args] = split(reader);
   const isData = reader === command && DATA_READERS.has(name);
   if (command.bodies.length > 0 && !isData) {
@@ -13497,6 +13532,11 @@ function globRegex(glob) {
   } catch {
     return /^\.git$/i;
   }
+}
+function launchesTerminal(command) {
+  const [name, args] = split(command);
+  if (name === "open") return args.some((word) => /\.command$/i.test(word) || /^Terminal(\.app)?$/i.test(word));
+  return name === "osascript" && [...command.words, ...command.bodies].some((word) => /Terminal/i.test(word));
 }
 function wrapsInPty(command) {
   const [name] = split(command);
@@ -13593,7 +13633,7 @@ function hookSessionStart(input) {
   if (ctx.plan?.dir && existsSync17(join25(ctx.plan.dir, "state.json"))) {
     const pc = planCtx(ctx);
     const s = loadState(pc.plan.dir);
-    if (s.stage === "closed") return startOut(s.reapprove ? `cairn: ${s.title} is closed, but its ship needs approving again before it merges. Next: ${nextFor(s).text}` : "", owed, indexFor(ctx), systemLine(ctx.top));
+    if (s.stage === "closed") return startOut("", owed, indexFor(ctx), systemLine(ctx.top));
     const lines = [`cairn: ${summary(s)}`, `Next: ${nextFor(s).text} The user runs /cairn:next to continue.`, ...warnings(pc, s).map((w) => `Warning: ${w}`)];
     const queued = pendingCount(s);
     if (queued) lines.push(`${queued} Linear update${queued === 1 ? "" : "s"} waiting to be sent; /cairn:next sends them first.`);
@@ -13643,7 +13683,7 @@ function hookStop(input) {
   if (!text || text.endsWith("?") || !ANNOUNCES.some((re) => re.test(text))) return "";
   return JSON.stringify({
     decision: "block",
-    reason: "cairn: your reply said what comes next but ended the turn, and a reply with no tool call is a stop. Do that step now: run `cairn next --json` and follow the procedure it names. If you are waiting on the user, ask with AskUserQuestion instead."
+    reason: "cairn: your reply said what comes next but ended the turn, and a reply with no tool call is a stop. Do that step now: run `cairn next --json` and follow the procedure it names. Once the PRD is approved the run does not wait on the user: make the call (--call), or record what is not done (--not-done), and go on to the pull request. Before that, ask with AskUserQuestion."
   });
 }
 function hookPostEdit(input) {
@@ -13734,7 +13774,7 @@ ${v}` : v;
 }
 var USAGE5 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] [--json [--full]] | new <slug> --title "\u2026" [--level \u2026] [--proofs | --no-proofs] [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
+  approve prd | pr body|open|not-done | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers \u2026 --run "\u2026" --files \u2026
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
@@ -13742,7 +13782,7 @@ var USAGE5 = `cairn: plan state for the agent-driven lifecycle. See references/c
   merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
   linear [status] | linear import|pending [--claim]|sent|drop|depends|ack|release|board \u2026 (plans that pull Linear issues in)
-Flags: --json, --note "\u2026", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
+Flags: --json, --note "\u2026", --note-file <path>, --call "what you chose and why" (a how-choice past a check), --not-done "why; tried; proposed fix" (an unmet part of the goal; the PR becomes a draft)`;
 var MOVES = /* @__PURE__ */ new Set(["task", "phase", "ready", "advance", "approve", "plan"]);
 function withLinearDue(cmd, cwd, r) {
   if (!cmd || !MOVES.has(cmd)) return r;
@@ -13833,6 +13873,8 @@ function dispatch(argv, cwd, stdin) {
       return cmdMigrate(ctx());
     case "merge-check":
       return cmdMergeCheck(ctx(), opts);
+    case "pr":
+      return cmdPr(ctx(), a, opts, b);
     case "trace":
       return cmdTrace(ctx(), a, opts);
     case "render":

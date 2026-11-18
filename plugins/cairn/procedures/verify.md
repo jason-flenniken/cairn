@@ -4,8 +4,6 @@ Prove the finished build works: tests and build, the proofs (the end state agree
 
 Templates live in `templates/`, next to this `procedures/` folder. Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
-**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Send that Bash call and the AskUserQuestion in the same message (parallel tool calls, one turn). Once it is answered, put the step back, chained with the next command in one Bash call (`… && <next command>`): `cd <plan worktree> && cairn step <testing, scanning or fixing, whichever you were on>`.
-
 ## At this level
 Read `level` from `cairn status --json`; `references/levels.md` has the full table. 
 - MVP: step 2 runs `cairn test`. A red suite is not a blocker: it goes to step 6 with its hardening item (which `cairn test` files) and the note lists it as a known failure, not to the fix loop in step 5. Steps 3 and 4 run as written; the scan and audit are floors.
@@ -18,9 +16,9 @@ Run `cairn status --json`. The stage must be `verify`. Any other stage: say whic
 **Done when:** the stage is `verify`.
 
 ## 1a. The last phase's wrap-up
-The last phase finished without a suite run or an on-track check: they run here, once. When you arrive from the build, tell the user in one line: every task is merged and the plan is in Check, running the full suite first.
+The last phase finished without a suite run or an on-track check: they run here, once. When you arrive from the build, say in one line that every task is merged and the plan is in Check, running the full suite first.
 
-- When `cairn status --json` shows `state.linear`, re-read the plan's issues first, exactly as `procedures/phase-end.md` step 1 describes, unless the plan reached Check through `cairn phase finish` after that refresh just ran (the `linear-sender` "phase-end refresh" in the foreground, then each change decided with the user). `cairn evidence verify pass` refuses while a change is not handled.
+- When `cairn status --json` shows `state.linear`, re-read the plan's issues first, exactly as `procedures/phase-end.md` step 1 describes, unless the plan reached Check through `cairn phase finish` after that refresh just ran (the `linear-sender` "phase-end refresh" in the foreground, then each change decided by you, as that step says). `cairn evidence verify pass` refuses while a change is not handled; when you have chosen for each, run it with `--call "<what you chose, and why>"`.
 - Polished: the last phase's on-track check runs after the tests, in step 2a.
 
 **Done when:** Linear changes are handled, or there is no Linear link.
@@ -62,12 +60,12 @@ Run `cd <plan worktree> && cairn step scanning`, sent in the same message as the
        n++}'
      ```
   3. Added `.env` files, by path only: `git diff --name-only --diff-filter=A <base>...<plan branch> | grep -E '(^|/)\.env($|\.)'`.
-  A secret in the diff blocks: remove it in step 5. A committed secret counts as leaked, so tell the user to revoke it.
+  A secret in the diff blocks: remove it in step 5. A committed secret counts as leaked: remove it in step 5, then record it so the pull request says so: `cd <plan worktree> && cairn pr not-done "A secret was committed and counts as leaked: <file:line:kind>" --why "removed from the diff; revoke it"`, and `cairn suggest add --area security --from check --text "Revoke the <kind> secret committed at <file:line>"`. Do not ask.
 - **Dependency audit.** Run the `audit` command from `.cairn/config.json` when it is set. Otherwise detect it from the lockfile: `package-lock.json` runs `npm audit --omit=dev --audit-level=high`, `pnpm-lock.yaml` runs `pnpm audit`, `yarn.lock` runs `yarn npm audit` (berry) or `yarn audit` (v1), `Cargo.lock` runs `cargo audit` when installed, and a pinned `requirements*.txt` runs `pip-audit --no-deps --disable-pip -r <file>` when installed (that form installs nothing; it needs every requirement pinned with `==`, so skip an unpinned file with a one-line note). `poetry.lock` is not audited unless the config sets a command. Run the audit command only: never an install, never an audit fix (no `npm audit fix --force`), and never `pip-audit` without `--no-deps --disable-pip` (it builds the packages in a temp environment, which can run their build scripts).
 - **Triage by reachability.** A critical or high advisory in code the build reaches blocks: fix it in step 5. Everything else is logged: `cairn suggest add --area security --from check --where <lockfile> --text "<advisory and package>"`.
 - **Lockfile diff.** When the branch changes a lockfile, list the new and bumped packages. Flag install scripts and names that look like a typosquat.
 - **No audit tool.** With no configured command and no known audit for the stack, say in one line that the audit was skipped and why, then go on.
-- **Registry unreachable.** When the audit can't reach the registry, stop and ask with AskUserQuestion: Retry / Skip with a note / Pause.
+- **Registry unreachable.** Retry the audit once. When it still can't reach the registry, record it (`cairn pr not-done "The dependency audit could not run" --why "registry unreachable after one retry; run the audit by hand"`) and go on.
 
 **Done when:** the scan, the audit (or its one-line skip) and the lockfile review each have a result, and every blocking finding is queued for step 5.
 
@@ -91,13 +89,13 @@ Dispatch the `acceptance-checker` agent (`model: sonnet`, `description` "Check �
 ## 5. Fix what is blocking
 Skip when tests are green, every proof is green and judged, nothing is not met, no secret was found, and no reachable critical or high advisory remains. Otherwise run `cd <plan worktree> && cairn step fixing --count N` (N is the number of failing tests, unmet requirements, secrets and advisories to fix), sent in the same message as the dispatch of one `implementer` (`model: sonnet`, `description` "Fix · acceptance") on the plan worktree itself. It commits directly on the plan branch; there is no new task, phase, or re-plan. Its prompt names the plugin root, the report path `<work folder>/reports/verify-fix.md`, the acceptance report path for unmet requirements, each red proof's id, command and log path, each failed screenshot verdict with what differs (proof files are locked: the fix changes the code, never a proof), the path after "Full output:" (the full failing test log; implementers never run `cairn`), and in a few lines the failing tests, the secret finding (file and line only) or the advisory; tell it to add a test for the fix. Then rerun step 2 (`cairn test`), step 3's blocking findings, step 3a's red and failed proofs (`cairn prove`, then judge again) and step 4's unmet items once more.
 
-When something is still failing after that attempt, dispatch one more fix, one tier up (`opus`), with the new logs. Only when that one fails too, stop and ask the user with AskUserQuestion, all failures in one question: Fix by hand / Accept as is (noted in the record; leaving the check stage with a red proof then takes the user's override, through an Override menu)  / Pause.
+When something is still failing after that attempt, dispatch one more fix, one tier up (`opus`), with the new logs. Two attempts is the limit. When something still fails after the second, record it and go on (`references/autonomy.md`): a red suite or a red proof goes through with `--not-done "<why; what was tried; the fix you propose>"` on the command that checks it (`cairn evidence verify pass`, `cairn advance`); a requirement still not met, or a screenshot still failing, is recorded with `cairn pr not-done "<the requirement or screenshot>" --why "<why; what was tried; the fix you propose>"`, and also goes in the note of step 6 and the record's Findings.
 
-**A locked proof that is itself wrong.** When the code is right and the locked proof is what is wrong, do not weaken it. Add a corrected copy with `cd <plan worktree> && cairn prove add <new-id> --covers <FR ids> --run "<command>" --files <paths> --note "<what was wrong>"` (it must cover every requirement the old one covers), run it green, then ask the user with AskUserQuestion, a menu tagged `[cairn:override <slug>]`, with the options "Override" and a keep-it option, saying which proof is wrong and why. Only after Override, run `cairn prove retire <old-id> --replaced-by <new-id> --override "<reason>"` alone: no cd, no &&, the reason in plain words with none of ; | & $ ` > < \ # * ? ~ ( ) { } [ ]. The retired proof stops running and blocking, and the ship card lists it.
+**A locked proof that is itself wrong.** When the code is right and the locked proof is what is wrong, do not weaken it. Add a corrected copy with `cd <plan worktree> && cairn prove add <new-id> --covers <FR ids> --run "<command>" --files <paths> --note "<what was wrong>"` (it must cover every requirement the old one covers), and run it green. Never retire the old one: it stays red. Pass it with `--not-done "<which proof is wrong, why, and that <new-id> replaces it>"` on the command that checks it, so the pull request lists it and the user retires it after the merge.
 
-**Done when:** tests are green and no requirement is not met, or the user chose how to proceed.
+**Done when:** tests are green and no requirement is not met, or what is left is recorded as not done.
 
 ## 6. Record the result
-Run `cairn evidence verify pass --note "<tests: N passing; proofs: N green; M requirements met, K untested; secret scan: clean or N found; audit: result or skipped>"`, or `cairn evidence verify fail --note "<one line>"` when the user stops here. Then run `cairn advance`.
+Run `cairn evidence verify pass --note "<tests: N passing; proofs: N green; M requirements met, K untested; secret scan: clean or N found; audit: result or skipped>"`. List any requirement still not met in the note, by id (each already recorded with `cairn pr not-done`). Then run `cairn advance`; a red proof makes it refuse, and the fix attempts of step 5 are used up, pass it with `--not-done`.
 
 **Done when:** the stage is `review`. Then run `cairn next --json`. Follow the procedure it names.

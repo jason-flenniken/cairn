@@ -40,6 +40,29 @@ export function lateTail(row: CairnPlanRow, running: number): string {
   return `${step !== undefined ? ` · ${step}` : ''}${running > 0 ? ` · ${running} running` : ''}`
 }
 
+/**
+ * The hands-off lines under the plan title: "Hands-off · <step>" once the PRD is approved and the plan is not closed
+ * (a PRD edited since waits on the person, so it is not hands-off), and the pull request as the CLI recorded it:
+ * "PR ready: <url>", or "PR draft · 2 not done: <url>" (the count is the recorded not-done entries; "PR draft: <url>" when none).
+ */
+export function handsOffLines(row: CairnPlanRow): string[] {
+  const s = row.state
+  const lines: string[] = []
+  const isFixing = s.track === 'fix' && s.stage !== 'discover' && s.stage !== 'repro'
+  if (s.stage !== 'closed' && row.ready?.kind !== 'prd' && (Boolean(s.approvals?.prd) || isFixing)) {
+    lines.push(row.stepText !== undefined && row.stepText !== '' ? `Hands-off · ${row.stepText}` : 'Hands-off')
+  }
+  const pr = s.pullRequest
+  if (pr !== undefined && pr !== null && typeof pr.url === 'string') {
+    const n = typeof pr.notDone === 'number' ? pr.notDone : Array.isArray(s.notDone) ? s.notDone.length : 0
+    lines.push(pr.draft === true ? `PR draft${n > 0 ? ` · ${n} not done` : ''}: ${pr.url}` : `PR ready: ${pr.url}`)
+  }
+  return lines
+}
+
+/** How many rows those lines take: inline they share one. */
+export const handsOffRows = (row: CairnPlanRow, isInline: boolean) => (isInline ? Math.min(1, handsOffLines(row).length) : handsOffLines(row).length)
+
 /** In Build: " · wrapping up phase", the CLI's step for the stage, after the phase text. */
 function buildStep(row: CairnPlanRow): string {
   return row.state.stage === 'execute' && row.stepText !== undefined && row.stepText !== '' ? ` · ${row.stepText}` : ''
@@ -87,7 +110,7 @@ export async function statusLine($: EngineInterface, v: CairnView): Promise<stri
 /**
  * The plan's title, stage and phase over its progress bar, in one Box so a gap never splits them.
  */
-export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumns: number, nowMs: number, running = 0) {
+export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumns: number, nowMs: number, running = 0, isInline = false) {
   const { Box, Text } = ui
   const s = row.state
   const phases = phasesOf(s)
@@ -103,6 +126,9 @@ export function planHeader(ui: Ui, row: CairnPlanRow, accent: string, bodyColumn
   return (
     <Box key="header" flexDirection="column">
       <Text key="head" bold color={accent} wrap="truncate-end">{`${row.epic === undefined || row.epic === '' ? '' : `${clean(row.epic)} `}${s.title ?? s.slug} · ${stageOf(s, row.prOpen)}${where}${levelTail(row)}`}</Text>
+      {isInline
+        ? handsOffLines(row).length > 0 && <Text key="handsoff" color={accent} wrap="truncate-end">{clean(handsOffLines(row).join(' · '))}</Text>
+        : handsOffLines(row).map((l, i) => <Text key={`handsoff:${i}`} color={accent} wrap="truncate-end">{clean(l)}</Text>)}
       {!!s.paused && <Text key="paused" color="yellow">{`Paused since ${(s.paused?.at ?? '?').slice(0, 10)}`}</Text>}
       {tasks.length > 0 ? <Text key="bar" color={accent} wrap="truncate-end">{`${'█'.repeat(filled)}${'░'.repeat(bar - filled)} ${label}`}</Text> : <Text key="bar" dimColor color={accent} wrap="truncate-end">{label}</Text>}
     </Box>

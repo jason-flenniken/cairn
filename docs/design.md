@@ -1,5 +1,7 @@
 # cairn: a personal agent-driven SDLC plugin
 
+> **2026-11-18:** This is design history. Since 0.25.0 the flow is hands-off: one sitting to approve the PRD, then cairn runs to a pull request and the merge is the sign-off. The plan approval, ship approval, Override menu and command re-approval described below no longer exist. See "How a plan runs" and "Hands-off runs" in the README.
+
 ## Context
 Jason uses Compound Engineering (CE) and previously Superpowers (SP). Both fall short on:
 - long-running plans

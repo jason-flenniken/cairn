@@ -9,6 +9,7 @@ import { after, before, test } from 'node:test';
 import { hookSessionStart } from '../src/commands.ts';
 import { run } from '../src/main.ts';
 import type { State } from '../src/types.ts';
+import { setPullRequest } from './handsoff-helpers.ts';
 import { pd } from './plandir.ts';
 
 // What a plan with Linear issues queues at ship, what the PR body says, and how a merge nobody ran cairn after is noticed.
@@ -62,7 +63,6 @@ function toShip(slug: string, epic: string, kids: string[], later: string[] = []
   ok(wt, 'advance');
   write(join(dir, 'plan.md'), plan(kids.length));
   ok(wt, 'plan', 'load');
-  byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   kids.forEach((_, i) => {
     const id = `t${i + 1}`;
@@ -81,7 +81,7 @@ function toShip(slug: string, epic: string, kids: string[], later: string[] = []
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
   ok(wt, 'advance');
   write(join(dir, 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
-  byUser(wt, 'approve', 'ship');
+  setPullRequest(wt, slug);
   return { wt, dir };
 }
 
@@ -155,7 +155,6 @@ test('linear walkthrough: every issue, epic included, follows the plan from Buil
   ok(wt, 'advance');
   write(join(dir, 'plan.md'), plan(2));
   ok(wt, 'plan', 'load');
-  byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   assert.equal(shown(dir)['SAV-400'], 'started', 'Build starts: the epic is In Progress');
 
@@ -179,7 +178,7 @@ test('linear walkthrough: every issue, epic included, follows the plan from Buil
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
   ok(wt, 'advance');
   write(join(dir, 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
-  byUser(wt, 'approve', 'ship');
+  setPullRequest(wt, slug);
   ok(wt, 'advance', '--pr', 'https://github.com/o/r/pull/9');
   assert.deepEqual([shown(dir)['SAV-400'], shown(dir)['SAV-401'], shown(dir)['SAV-402']], ['In Review', 'In Review', 'In Review'], 'the PR opens: epic and sub-issues in review');
 

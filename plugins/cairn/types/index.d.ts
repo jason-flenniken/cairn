@@ -23,13 +23,19 @@ export type CairnPlanState = {
   updated?: string
   paused?: { at?: string } | null
   approvals?: Record<string, unknown>
+  /** The pull request `cairn pr open` made or updated; absent until then. `draft` is true while anything is not done. */
+  pullRequest?: { url: string; draft: boolean; notDone?: number; at?: string; head?: string } | null
+  /** The calls cairn made for the person once the goal was set (how checks passed with --call). */
+  calls?: { at?: string; event?: string; what: string; why?: string }[]
+  /** What the plan did not do (what checks passed with --not-done); any entry makes the pull request a draft. */
+  notDone?: { at?: string; event?: string; what: string; why?: string }[]
   phases?: unknown
   drift?: unknown
   log?: unknown
 }
 
 /** The stop a plan waits on a human for, when the CLI says it is ready: the file to read and a short markdown summary. */
-export type CairnReady = { kind: 'prd' | 'plan' | 'ship'; file: string; summary: string }
+export type CairnReady = { kind: 'prd'; file: string; summary: string }
 
 /** One row of `cairn status --all --json`. */
 export type CairnPlanRow = {

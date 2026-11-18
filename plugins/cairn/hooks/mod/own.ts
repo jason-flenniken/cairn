@@ -1,4 +1,4 @@
-// The one plan this session works on. A session approves, changes the level of, overrides, pauses and shows
+// The one plan this session works on. A session approves the PRD of, changes the level of, pauses and shows
 // as its own only this plan, so sessions running different plans in one repo never act on each other's.
 // A session's folder is often not the plan's worktree (an Orca workspace, the repo root), so the mod
 // remembers the plan per session in $.store, which outlives a /reload-plugins.

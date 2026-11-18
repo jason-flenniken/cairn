@@ -57,17 +57,17 @@ test('the branch review gets an already-reported list and fixes by class', () =>
   assert.match(src, /MVP:[^\n]*every pre-existing finding as hardening items/);
 });
 
-test('ship drafts review rules after the approval, from the plan log, and asks apart from it', () => {
+test('ship drafts review rules from the plan log and lists them in the record, without asking', () => {
   const src = read('procedures/ship.md');
-  const confirm = section(src, '## 5. Confirm', '## 6.');
-  assert.match(confirm, /Draft at most 3/);
-  assert.match(confirm, /`fixing classes:`/);
-  assert.match(confirm, /not the ones you dismissed while tidying in step 2/);
-  assert.match(confirm, /never inside the approval question/);
-  assert.match(confirm, /`multiSelect: true`/);
-  assert.match(confirm, /## Rules learned/);
-  assert.match(confirm, /templates\/review\.md/);
-  assert.match(read('procedures/fix.md'), /step 5 of `procedures\/ship\.md`, with one more source: the bug itself/);
+  const rules = section(src, '## 2a. Propose review rules', '## 3.');
+  assert.match(rules, /Draft at most 3/);
+  assert.match(rules, /`fixing classes:`/);
+  assert.match(rules, /not the ones you dismissed while tidying in step 2/);
+  assert.match(rules, /Do not ask about them and do not edit `REVIEW\.md`/);
+  assert.match(rules, /Proposed review rule:/);
+  assert.match(rules, /## Rules learned/);
+  assert.doesNotMatch(rules, /AskUserQuestion|multiSelect/);
+  assert.match(read('procedures/fix.md'), /step 2a of `procedures\/ship\.md`, with one more source: the bug itself/);
   assert.match(read('procedures/fix.md'), /other than pre-existing ones/);
 });
 

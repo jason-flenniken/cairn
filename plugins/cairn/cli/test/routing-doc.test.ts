@@ -52,10 +52,10 @@ test('fix.md reviews every fix, names the wider risky list, merges before close,
   assert.match(step, /Optional, Nit and pre-existing findings as follow-ups itself/);
   assert.doesNotMatch(src, /If it is not, run the repo's tests and record/);
   assert.match(src, /untrusted input, personal data/);
-  assert.match(src, /state\.approvals\.ship[^\n]*already recorded/);
-  assert.match(src, /gh pr create/);
-  assert.match(src, /Merge it now \(Recommended\)/);
-  assert.ok(src.indexOf('Merge it now') < src.lastIndexOf('`cairn advance`'), 'merge question comes before the closing advance');
+  assert.doesNotMatch(src, /state\.approvals\.ship|gh pr create|Merge it now/);
+  assert.match(src, /cairn pr open/);
+  assert.match(src, /Merge \(after the PR is open\)/);
+  assert.ok(src.indexOf('cairn pr open') < src.lastIndexOf('cairn advance'), 'the pull request opens before the closing advance');
   assert.match(src, /task\/<slug>\/fix/);
   assert.match(src, /old branch names/);
   assert.match(src, /--no-worktree[^\n]*<repo folder>--fix/);

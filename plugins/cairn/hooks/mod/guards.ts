@@ -1,4 +1,4 @@
-// FR-03 and FR-04: the model may not approve, override, or edit plan state.
+// FR-03 and FR-04: the model may not approve or edit plan state.
 // Approvals and plan state come from the user (through the mod) and the CLI.
 // The Bash guard is a best-effort deny-list on spellings; the CLI's proof is the real control.
 import type { EngineInterface, On } from 'claude-code'

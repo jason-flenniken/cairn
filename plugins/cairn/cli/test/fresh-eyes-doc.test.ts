@@ -42,8 +42,8 @@ test('discover runs the challenger after the goal questions without cairn\'s gue
   assert.match(step, /cairn decide "Set aside: <item>" "<reason>"/);
   assert.match(block(src, '## At this level'), /MVP:[^\n]*Skip step 4b/);
   assert.match(step, /cairn decide "Fresh-eyes challenge skipped" "<reason>"/);
-  assert.match(block(src, '## 7. Read-back card'), /Fresh-eyes challenge skipped: <reason>/);
-  assert.match(block(src, '## 7. Read-back card'), /Set aside \(N\):/);
+  assert.match(block(src, '## 7. The one round and the read-back card'), /Fresh-eyes challenge skipped: <reason>/);
+  assert.match(block(src, '## 7. The one round and the read-back card'), /Set aside \(N\):/);
 });
 
 test('prd runs the builder check on prd.md alone before the stop, and lists set-asides at the stop', () => {

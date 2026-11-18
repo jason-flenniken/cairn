@@ -12,10 +12,10 @@ import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProbl
 import { closeMemory } from './memory.ts';
 import { proofApprovalProblems, proofProblems, proofSummary } from './prove.ts';
 import { filesHash } from '../endproofs.ts';
-import { configGate, configHash, fastLane } from './fix.ts';
+import { fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
 import { isFoundational, isPublished, linearConfig, prdLinearProblems } from '../linear.ts';
-import { crossPlanBlockers, followupsFor, linearPrdGate, onAdvance, onPrdApproved, recordRequirements, type FollowupInfo } from './linear.ts';
+import { followupsFor, linearPrdGate, onAdvance, onPrdApproved, recordRequirements, type FollowupInfo } from './linear.ts';
 
 const STAGE_ORDER: Record<Track, Stage[]> = {
   feature: STAGES.filter((x) => x !== 'repro'),
@@ -40,9 +40,8 @@ const recordCheck = (pc: PlanCtx, track: Track) =>
     ? { problems: fixRecordProblems(pc), fix: 'write RECORD.md from templates/record-fix.md' }
     : { problems: recordProblems(pc), fix: 'write RECORD.md from templates/record.md' };
 
-/** The checks for closing a plan: the record, green tests, and the approved commands. */
+/** The checks for closing a plan: the record and green tests. */
 function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: string[]; fix: string }, tests: TestRun | undefined): void {
-  configGate(s, pc.cfg, 'close', opts);
   const open = collectSuggestions(pc.ctx).filter((x) => x.open && !x.hardening && x.slug === s.slug);
   gate(
     open.length <= MAX_OPEN_PER_PLAN,
@@ -51,6 +50,7 @@ function closeGates(pc: PlanCtx, s: State, opts: Opts, record: { problems: strin
     opts,
     `${open.length} open follow-ups from this plan; at most ${MAX_OPEN_PER_PLAN} may stay open: ${open.map((x) => `${x.key} (${x.text})`).join('; ')}`,
     ['group related ones: cairn suggest merge <key>... --area <a> --text "<high-level item>"', 'drop trivia: cairn suggest resolve <key> --dismiss --note "<reason>"', 'then list what was dropped in the record'],
+    'how',
   );
   gate(!record.problems.length, s, 'close', opts, record.problems.join('; '), [record.fix]);
   testsGate(tests, s, 'close', opts);
@@ -74,7 +74,7 @@ export function prdApprovalProblems(s: State, md: string | undefined): string[] 
 }
 
 export interface Ready {
-  kind: 'prd' | 'plan' | 'ship';
+  kind: 'prd';
   file: string;
   summary: string;
 }
@@ -121,7 +121,7 @@ export function prdEditedSinceApproval(s: State, prd: string | undefined): boole
   return !!s.approvals.prd?.hash && !!prd && hashText(prd) !== s.approvals.prd.hash;
 }
 
-const PRD_EDITED_NOTE = '**prd.md changed after you approved it; approving the plan also accepts those edits.**';
+const PRD_EDITED_NOTE = '**prd.md changed after you approved it. Until you approve it again, the pull request stays a draft.**';
 
 // Steps during which the stop's document is still being written or checked (or the plan waits on a question about it), so it is not ready yet.
 const WRITING_STEPS = ['drafting', 'checking', 'recording', 'asking'];
@@ -138,26 +138,16 @@ export function readyCheck(pc: PlanCtx): { ready?: Ready; error?: string } {
     const s = loadState(pc.plan.dir);
     const file = (name: string) => join(pc.plan.dir, name);
     const ready = (r: Ready | undefined) => ({ ready: r });
+    // An edited PRD waits on the user at any stage: it is the only way the goal changes.
+    if (s.approvals.prd && s.stage !== 'closed') {
+      const md = readText(file('prd.md'));
+      if (!prdEditedSinceApproval(s, md) || !md || prdApprovalProblems(s, md).length) return {};
+      return ready({ kind: 'prd', file: file('prd.md'), summary: `${PRD_EDITED_NOTE}\n\n${prdSummary(md)}` });
+    }
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return {};
     if (s.stage === 'prd' && !s.approvals.prd) {
       const md = readText(file('prd.md'));
       return ready(md && !prdApprovalProblems(s, md).length ? { kind: 'prd', file: file('prd.md'), summary: prdSummary(md) } : undefined);
-    }
-    if (s.stage === 'plan' && !s.approvals.plan) {
-      const md = readText(file('plan.md'));
-      if (!s.phases.length || !md || s.planHash !== hashText(md)) return {};
-      const prd = readText(file('prd.md'));
-      if (prdLinearIssues(s, prd).length || proofApprovalProblems(pc, s).length) return {};
-      const note = prdEditedSinceApproval(s, prd) ? `${PRD_EDITED_NOTE}\n\n` : '';
-      return ready({ kind: 'plan', file: file('plan.md'), summary: note + planSummary(s, md, pc.cfg) });
-    }
-    if (s.reapprove && !s.approvals.ship) return ready({ kind: 'ship', file: file('RECORD.md'), summary: `**Approve shipping again:** ${s.reapprove.why}.` });
-    if (s.stage === 'ship' && !s.approvals.ship && s.evidence.review?.result === 'pass') {
-      if (recordCheck(pc, fastLane(s) ? 'fix' : 'feature').problems.length) return {};
-      if (proofProblems(pc, s).length) return {};
-      const md = readText(file('RECORD.md')) ?? '';
-      const proofs = proofSummary(s);
-      return ready({ kind: 'ship', file: file('RECORD.md'), summary: [(sections(md).get('what was built') ?? '').trim(), proofs].filter(Boolean).join('\n\n') });
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
@@ -165,83 +155,50 @@ export function readyCheck(pc: PlanCtx): { ready?: Ready; error?: string } {
   return {};
 }
 
-const APPROVAL_KINDS = ['prd', 'plan', 'ship'];
-const APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "…"]';
+const APPROVE_USAGE = 'usage: cairn approve prd [--human] [--note "…"]';
+const REMOVED_KINDS: Record<string, string> = {
+  plan: 'the plan needs no approval: once the PRD is approved cairn writes the plan and the proofs and builds (cairn advance)',
+  ship: 'the ship needs no approval: cairn opens the pull request (cairn pr open) and the user merging it is the sign-off',
+  commands: 'changed commands need no approval: cairn records the change and the pull request lists it',
+};
 
+/** The one approval: the PRD, which fixes the goal. Given again at any later stage when prd.md was edited since. */
 export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: ProofIO): Result {
-  if (!kind || !APPROVAL_KINDS.includes(kind)) throw new CliError(APPROVE_USAGE);
+  if (kind && REMOVED_KINDS[kind]) throw new Refusal(REMOVED_KINDS[kind]);
+  if (kind !== 'prd') throw new CliError(APPROVE_USAGE);
   const pc = planCtx(ctx);
   const source = requireHumanProof(kind, opts, io);
-  const approval = () => ({ at: now(), via: 'human' as const, source, ...(opts.note ? { note: String(opts.note) } : {}) });
-  switch (kind) {
-    case 'prd': {
-      const md = readText(planFile(pc, 'prd.md'));
-      return mutate(pc, 'PRD approved', (s) => {
-        gate(s.stage === 'prd', s, 'approve prd', opts, `the plan is in ${s.stage}, not prd`);
-        const problems = prdProblems(md);
-        gate(!problems.length, s, 'approve prd', opts, problems.join('; '), ['finish prd.md, resolving open questions with the user']);
-        linearPrdGate(s, md, opts);
-        s.approvals.prd = { ...approval(), hash: md ? hashText(md) : undefined };
-        log(s, 'PRD approved', source);
-        if (md) onPrdApproved(pc, s, md);
-        return { message: 'PRD approved. Next: `cairn advance` to planning.' };
-      });
-    }
-    case 'plan': {
-      const md = readText(planFile(pc, 'plan.md'));
-      return mutate(pc, 'plan approved', (s) => {
-        // Outside the plan stage, approving the plan re-approves changed commands (FR-32) and moves nothing.
-        if (s.stage !== 'plan' && s.configHash && s.configHash !== configHash(pc.cfg)) {
-          s.configHash = configHash(pc.cfg);
-          log(s, 'commands re-approved', source);
-          return { message: 'The changed setup, test, and build commands are approved.' };
-        }
-        gate(s.stage === 'plan', s, 'approve plan', opts, `the plan is in ${s.stage}, not plan`);
-        gate(s.phases.length > 0, s, 'approve plan', opts, 'no plan is loaded', ['cairn plan load']);
-        gate(!!md && s.planHash === hashText(md), s, 'approve plan', opts, 'plan.md changed since it was loaded', ['cairn plan load']);
-        // Issues pulled in or released since the PRD was approved are held to the same rules.
-        linearPrdGate(s, readText(planFile(pc, 'prd.md')), opts);
-        const unproved = proofApprovalProblems(pc, s);
-        gate(!unproved.length, s, 'approve plan', opts, unproved.join('; '), ['write or fix the proofs (procedures/plan.md, the proofs step), cairn plan load, then cairn prove']);
-        // The proofs are the end state: from here builders may add proofs, never edit or remove one.
-        for (const p of s.endProofs?.list ?? []) p.lock = filesHash(pc.plan.worktree, p.files);
-        s.approvals.plan = { ...approval(), hash: s.planHash };
-        s.configHash = configHash(pc.cfg);
-        log(s, 'plan approved', source);
-        // PRD edits made while planning ride this approval: the user sees the note on the card and in the question.
-        const prd = readText(planFile(pc, 'prd.md'));
-        if (prdEditedSinceApproval(s, prd)) {
-          s.approvals.prd = { ...approval(), hash: hashText(prd as string) };
-          recordRequirements(s, prd as string);
-          log(s, 'PRD edits accepted with the plan', source);
-          return { message: 'Plan approved, and the PRD edits with it. Next: `cairn advance` to execution.' };
-        }
-        return { message: 'Plan approved. Next: `cairn advance` to execution.' };
-      });
-    }
-    case 'ship': {
-      // Blockers in other plans are read before the lock: listing plans reads other branches.
-      const waiting = crossPlanBlockers(pc.ctx, loadState(pc.plan.dir));
-      return mutate(pc, 'ship approved', (s) => {
-        // After the ship stage, only a cleared approval (code changed since it) can be given again.
-        const again = !!s.reapprove;
-        gate(s.stage === 'ship' || again, s, 'approve ship', opts, `the plan is in ${s.stage}, not ship`);
-        gate(s.evidence.review?.result === 'pass', s, 'approve ship', opts, 'review has not passed', ['run the review procedure, then cairn evidence review pass']);
-        const proofs = proofProblems(pc, s);
-        gate(!proofs.length, s, 'approve ship', opts, `the proofs do not show the end state: ${proofs.join('; ')}`, ['cairn prove (and judge any screenshots), fixing until every proof is green']);
-        const record = recordCheck(pc, fastLane(s) ? 'fix' : 'feature');
-        gate(!record.problems.length, s, 'approve ship', opts, record.problems.join('; '), [record.fix]);
-        gate(!waiting.length, s, 'approve ship', opts, `this plan builds on work another plan has not shipped: ${waiting.join('; ')}`, ['ship the other plan first']);
-        s.approvals.ship = { ...approval(), sha: git(['rev-parse', 'HEAD'], pc.plan.worktree) };
-        delete s.reapprove;
-        log(s, again ? 'ship approved again' : 'ship approved', source);
-        if (again) return { message: 'Ship approved again. Next: `cairn merge-check`, then merge.' };
-        return { message: 'Ship approved. Next: open the PR, then `cairn advance`; offer the merge last.' };
-      });
-    }
-    default:
-      throw new CliError(APPROVE_USAGE);
-  }
+  const md = readText(planFile(pc, 'prd.md'));
+  return mutate(pc, 'PRD approved', (s) => {
+    const again = !!s.approvals.prd;
+    gate(again ? prdEditedSinceApproval(s, md) && s.stage !== 'closed' : s.stage === 'prd', s, 'approve prd', opts, again ? 'prd.md has not changed since it was approved' : `the plan is in ${s.stage}, not prd`);
+    const problems = prdProblems(md);
+    gate(!problems.length, s, 'approve prd', opts, problems.join('; '), ['finish prd.md, resolving open questions with the user']);
+    linearPrdGate(s, md, opts);
+    s.approvals.prd = { at: now(), via: 'human' as const, source, ...(opts.note ? { note: String(opts.note) } : {}), hash: md ? hashText(md) : undefined };
+    log(s, again ? 'PRD edits approved' : 'PRD approved', source);
+    if (md) (again ? recordRequirements(s, md) : onPrdApproved(pc, s, md));
+    if (again) return { message: 'PRD edits approved. Build toward them: re-plan if the tasks changed (cairn plan load --replan), then carry on.' };
+    return { message: 'PRD approved. From here the run is hands-off: `cairn advance`, then plan, build, check, review and open the pull request without stopping.' };
+  });
+}
+
+const PROOF_FIX = 'cairn prove (and judge any screenshots), fixing until every proof is green';
+
+/**
+ * Plan to build, with no approval: the plan and proofs are cairn's. The proofs lock here: they are the end state, so
+ * from now builders may add proofs, never edit or remove one.
+ */
+function lockPlan(pc: PlanCtx, s: State, opts: Opts): void {
+  const md = readText(planFile(pc, 'plan.md'));
+  gate(s.phases.length > 0, s, 'advance', opts, 'no plan is loaded', ['cairn plan load']);
+  gate(!!md && s.planHash === hashText(md), s, 'advance', opts, 'plan.md changed since it was loaded', ['cairn plan load']);
+  linearPrdGate(s, readText(planFile(pc, 'prd.md')), opts);
+  const unproved = proofApprovalProblems(pc, s);
+  gate(!unproved.length, s, 'advance', opts, unproved.join('; '), ['write or fix the proofs (procedures/plan.md, the proofs step), cairn plan load, then cairn prove']);
+  for (const p of s.endProofs?.list ?? []) p.lock ??= filesHash(pc.plan.worktree, p.files);
+  s.approvals.plan = { at: now(), via: 'agent', hash: s.planHash };
+  log(s, 'plan locked', `${s.phases.length} phases, ${s.endProofs?.list.length ?? 0} proofs`);
 }
 
 export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
@@ -250,8 +207,6 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
   const pre = loadState(pc.plan.dir);
   // Advancing a fix plan from ship closes it, with the close checks. Tests run before the lock: they can be slow.
   const closing = fastLane(pre) && pre.stage === 'ship';
-  // A changed command never runs before this check (an override needs the user's proof first).
-  if (closing) configGate(pre, pc.cfg, 'close', opts);
   const record = closing ? recordCheck(pc, 'fix') : undefined;
   const tests = closing ? (suiteGreenAtHead(pc) ? reusedRun(pc.cfg) : runTests(pc.cfg, pc.plan.worktree)) : undefined;
   const followups: FollowupInfo[] | undefined = closing && pre.linear ? followupsFor(pc, pre.slug) : undefined;
@@ -274,7 +229,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         gate(!!s.approvals.prd, s, 'advance', opts, 'the PRD is not approved', ['cairn approve prd']);
         break;
       case 'plan':
-        gate(!!s.approvals.plan && s.phases.length > 0, s, 'advance', opts, 'the plan is not approved', ['cairn approve plan']);
+        lockPlan(pc, s, opts);
         break;
       case 'execute':
         gate(s.phases.every((p) => p.status === 'done'), s, 'advance', opts, 'not every phase is finished', ['cairn phase finish']);
@@ -283,14 +238,14 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         gate(s.evidence.verify?.result === 'pass', s, 'advance', opts, 'verification has not passed', ['cairn evidence verify pass --note "…"']);
         {
           const proofs = proofProblems(pc, s);
-          gate(!proofs.length, s, 'advance', opts, `the proofs do not show the end state: ${proofs.join('; ')}`, ['cairn prove (and judge any screenshots), fixing until every proof is green']);
+          gate(!proofs.length, s, 'advance', opts, `the proofs do not show the end state: ${proofs.join('; ')}`, ['cairn prove (and judge any screenshots), fixing until every proof is green'], 'what');
         }
         break;
       case 'review':
-        gate(s.evidence.review?.result === 'pass' && !s.evidence.review.blocking, s, 'advance', opts, 'review has not passed with zero blocking findings', ['cairn evidence review pass --blocking 0']);
+        gate(s.evidence.review?.result === 'pass' && !s.evidence.review.blocking, s, 'advance', opts, 'review has not passed with zero blocking findings', ['fix the blocking findings, re-review, then cairn evidence review pass --blocking 0'], 'what');
         break;
       case 'ship':
-        gate(!!s.approvals.ship, s, 'advance', opts, 'shipping is not approved', ['cairn approve ship']);
+        gate(!!s.pullRequest, s, 'advance', opts, 'the pull request is not open', ['cairn pr open']);
         if (record) closeGates(pc, s, opts, record, tests);
         break;
     }
@@ -315,7 +270,6 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
 
 export function cmdClose(ctx: Ctx, opts: Opts): Result {
   const pc = planCtx(ctx);
-  configGate(loadState(pc.plan.dir), pc.cfg, 'close', opts);
   const record = recordCheck(pc, 'feature');
   const tests = suiteGreenAtHead(pc) ? reusedRun(pc.cfg) : runTests(pc.cfg, pc.plan.worktree);
   const pre = loadState(pc.plan.dir);

@@ -124,7 +124,6 @@ function world({ level = 'standard', ...config }: Record<string, unknown> = {}):
   ok(wt, 'advance');
   write(join(dir, 'plan.md'), PLAN);
   ok(wt, 'plan', 'load');
-  user(() => ok(wt, 'approve', 'plan'));
   ok(wt, 'advance');
   const state = () => JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8')) as State;
   assert.equal(state().stage, 'execute');

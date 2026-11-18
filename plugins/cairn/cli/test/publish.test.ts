@@ -52,7 +52,7 @@ const words = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join('
 /** A fix plan at ship with a repro, an approved ship, a valid fix record and a code change. */
 function shipFix(slug: string, root = repo): string {
   const wt = run(['new', slug, '--track', 'fix', '--title', `Fix ${slug}`], root).data!.worktree as string;
-  edit(wt, slug, (s) => Object.assign(s, { stage: 'ship', repro: { cmd: 'true', tail: '', at: s.created }, approvals: { ship: { at: s.created, via: 'human' } } }));
+  edit(wt, slug, (s) => Object.assign(s, { stage: 'ship', repro: { cmd: 'true', tail: '', at: s.created }, pullRequest: { url: 'https://example.test/pull/1', draft: false, at: s.created, head: 'abc' } }));
   write(join(pd(wt, slug), 'RECORD.md'), ['Links', 'Bug', 'Cause', 'Fix', 'Evidence'].map((h) => `## ${h}\n${words(10)}\n`).join('\n'));
   write(join(wt, 'src/core/b.ts'), '1\n');
   commitAll(wt, 'work');

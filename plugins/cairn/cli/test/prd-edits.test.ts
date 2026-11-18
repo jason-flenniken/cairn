@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { run } from '../src/main.ts';
-import { hashText } from '../src/util.ts';
+import { hashText, Refusal } from '../src/util.ts';
 import { pd } from './plandir.ts';
 
 const repos: string[] = [];
@@ -56,7 +56,7 @@ function asUser<T>(fn: () => T): T {
   }
 }
 
-/** A fresh repository with one plan whose PRD is approved and whose plan is loaded; returns the plan worktree. */
+/** A fresh repository with one plan whose PRD is approved and whose plan is loaded (the plan stage); returns the plan worktree. */
 function atPlanStop(): string {
   repo = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-prd-edits-')));
   repos.push(repo);
@@ -76,33 +76,41 @@ function atPlanStop(): string {
 }
 const stateOf = (wt: string) => JSON.parse(readFileSync(join(pd(wt, 'billing'), 'state.json'), 'utf8'));
 const statusOf = (wt: string) => run(['status'], wt).data as { ready?: { kind: string; summary: string }; warnings: string[] };
-const PRD_NOTE = /prd\.md changed after you approved it; approving the plan also accepts those edits/;
+const PRD_NOTE = /prd\.md changed after you approved it\. Until you approve it again, the pull request stays a draft/;
 
-test('a PRD edited while planning is named on the plan stop, and approving the plan accepts the edits', () => {
+test('a PRD edited after the approval is offered again at any stage, and approving it again accepts the edits', () => {
   const wt = atPlanStop();
   const edited = PRD.replace('charge. Check', 'charge by card. Check');
   writeFileSync(join(pd(wt, 'billing'), 'prd.md'), edited);
 
   const before = statusOf(wt);
-  assert.equal(before.ready?.kind, 'plan');
+  assert.equal(before.ready?.kind, 'prd');
   assert.match(before.ready!.summary, PRD_NOTE);
-  assert.ok(before.warnings.includes('prd.md changed after it was approved: approving the plan accepts the edits'));
 
-  const out = asUser(() => run(['approve', 'plan'], wt));
-  assert.match(out.message, /PRD edits with it/);
+  // The build is not held up: the plan still advances while the edit waits.
+  run(['advance'], wt);
+  assert.equal(stateOf(wt).stage, 'execute');
+  assert.equal(statusOf(wt).ready?.kind, 'prd', 'the offer outlives the stage');
+
+  const out = asUser(() => run(['approve', 'prd'], wt));
+  assert.match(out.message, /approved/i);
   const s = stateOf(wt);
   assert.equal(s.approvals.prd.hash, hashText(edited));
   assert.equal(s.approvals.prd.source, 'mod');
-  assert.ok(s.log.some((l: { event: string }) => l.event === 'PRD edits accepted with the plan'));
-  assert.ok(!statusOf(wt).warnings.some((w) => /prd\.md changed/.test(w)), 'the warning clears');
+  assert.equal(statusOf(wt).ready, undefined, 'approved again: nothing waits');
 });
 
-test('with no PRD edit, the plan stop has no PRD note and plan approval leaves the PRD approval alone', () => {
+test('with no PRD edit there is no stop, and approving the PRD again is refused', () => {
   const wt = atPlanStop();
   const prdBefore = stateOf(wt).approvals.prd;
-  assert.doesNotMatch(statusOf(wt).ready!.summary, PRD_NOTE);
-  asUser(() => run(['approve', 'plan'], wt));
-  const s = stateOf(wt);
-  assert.deepEqual(s.approvals.prd, prdBefore);
-  assert.ok(!s.log.some((l: { event: string }) => l.event === 'PRD edits accepted with the plan'));
+  assert.equal(statusOf(wt).ready, undefined);
+  assert.throws(() => asUser(() => run(['approve', 'prd'], wt)), (e: unknown) => e instanceof Refusal && /has not changed since it was approved/.test(e.message));
+  assert.deepEqual(stateOf(wt).approvals.prd, prdBefore);
+});
+
+test('approve plan, approve ship and approve commands are refused: nothing past the PRD needs the user', () => {
+  const wt = atPlanStop();
+  for (const [kind, text] of [['plan', /the plan needs no approval/], ['ship', /the ship needs no approval/], ['commands', /need no approval/]] as const)
+    assert.throws(() => asUser(() => run(['approve', kind], wt)), (e: unknown) => e instanceof Refusal && text.test(e.message), kind);
+  assert.equal(stateOf(wt).approvals.plan, undefined);
 });

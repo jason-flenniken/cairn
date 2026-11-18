@@ -1,6 +1,6 @@
 ---
 name: plan-writer
-description: "Writes plan.md for a plan from the approved PRD and the explore notes it is pointed at, runs cairn plan load and fixes its refusals. Applies the reviewer's answered and minor items when resumed; returns only what is for the user."
+description: "Writes plan.md for a plan from the approved PRD and the explore notes it is pointed at, runs cairn plan load and fixes its refusals. Applies the reviewer's answered and minor items when resumed; returns the choices it made for the user, to be recorded as assumptions."
 model: opus
 tools: Read, Grep, Glob, Bash, Write
 ---
@@ -41,7 +41,7 @@ Run `cd <plan worktree> && cairn plan load`. On refusal, read what it names (a c
 The message gives the path of the plan-reviewer's report. Read it and apply:
 - **Answered by the plan:** put the answer where a builder looks, and edit `plan.md`.
 - **Minor:** pick one, or leave it to the builder.
-- **For the user:** do not decide. Return them as questions, each with the reviewer's why.
+- **For the user:** nobody is asked (the run is hands-off). Pick the default that is easiest to undo, apply it to `plan.md`, and list it in your answer as `Assumed: <question> -> <answer>` with the reviewer's why, for the main session to record.
 - The longest-chain split, when it names one worth taking.
 
 Then rerun `cairn plan load`.
@@ -50,4 +50,4 @@ Then rerun `cairn plan load`.
 Apply it to `plan.md`, rerun `cairn plan load`, and answer as below.
 
 ## Final message
-At most 10 lines: the phases and task count in two lines, the longest-chain line `cairn plan load` printed (verbatim), the `Opus builds:` line verbatim when it printed one, any warning it printed about other plans, the open questions for the user (one line each, or "none"), and `Path: <abs path to plan.md>`. Nothing else.
+At most 10 lines: the phases and task count in two lines, the longest-chain line `cairn plan load` printed (verbatim), the `Opus builds:` line verbatim when it printed one, any warning it printed about other plans, the `Assumed:` lines you added (one line each, or "none"), and `Path: <abs path to plan.md>`. Nothing else.

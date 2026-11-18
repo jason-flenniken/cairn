@@ -15,7 +15,7 @@ async function sha256(text: string): Promise<string> {
 
 /**
  * The world beneath the mod: git names /repo/.git, `cairn status --all --json` lists
- * `plans`, and `cairn approve`/`--override` act as the CLI's proof does: the env's
+ * `plans`, and `cairn approve` acts as the CLI's proof does: the env's
  * CAIRN_APPROVER must hash to the last hash written, and a match spends it.
  */
 /** `elsewhere`: with `refuse`, the stop is approved by another path just before the refused run. */
@@ -44,7 +44,7 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
       // A plan at an unapproved stop is ready unless the fixture says `ready: undefined`.
       const rows = plans.map(p => {
         const { worktree, ready, readyError, ...rest } = p
-        const atStop = ['prd', 'plan', 'ship'].includes(p.stage) && !p.approvals?.[p.stage]
+        const atStop = p.stage === 'prd' && !p.approvals?.prd
         return {
           state: { approvals: {}, phases: [], ...rest },
           live: worktree !== undefined,
@@ -73,7 +73,7 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
       return answer(2, '✗ Refused: no human proof\n')
     }
     if (given !== undefined && live.delete(await sha256(given))) {
-      return answer(0, args[0] === 'approve' ? `${args[1]} approved.\n` : 'Advanced (override recorded).\n')
+      return answer(0, `${args[1]} approved.\n`)
     }
     return answer(2, '✗ Refused: no human proof\n')
   })
@@ -119,22 +119,20 @@ function ask(...questions: string[]) {
 }
 
 describe('parseTags', () => {
-  test('reads approve and override tags, with the question text they came from', () => {
+  test('reads a PRD approval tag, with the question text it came from', () => {
     const questions = [
       { question: 'Approve the PRD? [cairn:approve prd alpha]' },
-      { question: 'Skip the failing review? [cairn:override beta-2]' },
       { question: 'Which library?' },
     ]
     expect(parseTags(questions)).toEqual([
       { kind: 'prd', slug: 'alpha', question: 'Approve the PRD? [cairn:approve prd alpha]' },
-      { slug: 'beta-2', question: 'Skip the failing review? [cairn:override beta-2]', override: true },
     ])
   })
 
-  test('takes each of the three kinds and nothing else', () => {
+  test('takes the PRD kind and nothing else: plan, ship, commands and override tags are not cairn tags', () => {
     const tag = (kind: string) => ({ question: `ok? [cairn:approve ${kind} x]` })
-    expect(parseTags(['prd', 'plan', 'ship'].map(tag)).map(t => t.kind)).toEqual(['prd', 'plan', 'ship'])
-    expect(parseTags([tag('deploy'), tag('phase'), tag('PRD'), { question: '[cairn:approve prd]' }])).toEqual([])
+    expect(parseTags([tag('prd')]).map(t => t.kind)).toEqual(['prd'])
+    expect(parseTags([tag('plan'), tag('ship'), tag('commands'), tag('deploy'), tag('phase'), tag('PRD'), { question: '[cairn:approve prd]' }, { question: 'Skip? [cairn:override x]' }])).toEqual([])
   })
 
   test('ignores questions that are not strings', () => {
@@ -231,12 +229,12 @@ describe('menu approval (FR-02)', () => {
   })
 
   test('a stop whose ready check failed approves nothing and says the reason', async ($, on) => {
-    const { approveRuns, toasts } = world(on, [{ slug: 'shop', stage: 'plan', worktree: '/wt/shop', ready: undefined, readyError: 'git ls-files failed' }])
-    const q = 'Approve? [cairn:approve plan shop]'
+    const { approveRuns, toasts } = world(on, [{ slug: 'shop', stage: 'prd', worktree: '/wt/shop', ready: undefined, readyError: 'git ls-files failed' }])
+    const q = 'Approve? [cairn:approve prd shop]'
     dialog(on, { [q]: 'Approve' })
     const got = await $.tool.call(ask(q))
     expect(approveRuns()).toEqual([])
-    expect(got.context?.join('\n')).toMatch(/could not be checked for plan approval \(git ls-files failed\)/)
+    expect(got.context?.join('\n')).toMatch(/could not be checked for prd approval \(git ls-files failed\)/)
     expect(toasts.join('\n')).toMatch(/git ls-files failed/)
   })
 
@@ -259,10 +257,10 @@ describe('menu approval (FR-02)', () => {
   })
 
   test('a refusal from cairn approve is carried in context and a toast', async ($, on) => {
-    const { approveRuns, toasts } = world(on, [{ slug: 'refused', stage: 'ship', worktree: '/wt/refused' }], {
+    const { approveRuns, toasts } = world(on, [{ slug: 'refused', stage: 'prd', worktree: '/wt/refused' }], {
       refuse: 'review has not passed',
     })
-    const q = 'Ship it? [cairn:approve ship refused]'
+    const q = 'Approve? [cairn:approve prd refused]'
     dialog(on, { [q]: 'Approve' })
     const got = await $.tool.call(ask(q))
     expect(approveRuns()).toHaveLength(1)
@@ -271,15 +269,15 @@ describe('menu approval (FR-02)', () => {
   })
 
   test('a refusal for lack of proof says the session runs an outdated cairn and never points at the terminal', async ($, on) => {
-    const { toasts } = world(on, [{ slug: 'old', stage: 'ship', worktree: '/wt/old' }], {
+    const { toasts } = world(on, [{ slug: 'old', stage: 'prd', worktree: '/wt/old' }], {
       refuse: 'approvals come from the user, and this command has no proof that one did',
     })
     on('fs.read', (_$, e) => (e.path.endsWith('/.claude-plugin/plugin.json') ? { value: JSON.stringify({ name: 'cairn', version: '0.22.1' }) as never } : { deny: 'ENOENT' }))
-    const q = 'Ship it? [cairn:approve ship old]'
+    const q = 'Approve? [cairn:approve prd old]'
     dialog(on, { [q]: 'Approve' })
     const got = await $.tool.call(ask(q))
     const said = got.context?.join('\n') ?? ''
-    expect(said).toContain("cairn: old ship approval was not recorded: the CLI got no proof from this session's cairn (version 0.22.1). This usually means the session runs an outdated cairn: restart the session, then ask the approval menu again. Do not send the user to the terminal.")
+    expect(said).toContain("cairn: old prd approval was not recorded: the CLI got no proof from this session's cairn (version 0.22.1). This usually means the session runs an outdated cairn: restart the session, then ask the approval menu again. Do not send the user to the terminal.")
     expect(said).not.toContain('refused')
     expect(toasts.join('\n')).toContain('was not recorded')
   })
@@ -508,7 +506,40 @@ describe('ready gates approval (FR-11)', () => {
     expect(got.context?.join()).toMatch(/not waiting for prd approval/)
   })
 
-  test('ready for another stop does not approve this one', async ($, on) => {
+  test('a PRD edited after its approval waits again: a prd tag approves it, though approvals.prd exists', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'edited', stage: 'execute', worktree: '/wt/edited', approvals: { prd: { via: 'human' } }, ready: { kind: 'prd' } }])
+    const q = 'Approve the edited PRD? [cairn:approve prd edited]'
+    const shown = { n: 0 }
+    on('tool.call', { tool: 'AskUserQuestion' }, (_$, e) => {
+      shown.n++
+      return { result: { questions: e.questions, answers: { [q]: 'Approve (Recommended)' } } as never }
+    })
+    const got = await $.tool.call(ask(q))
+    // Not "already approved": the dialog is shown, and the answer runs the approval.
+    expect(shown.n).toBe(1)
+    expect(approveRuns().map(r => r.argv.slice(1))).toEqual([['approve', 'prd']])
+    expect(got.context?.join('\n')).toMatch(/prd approved/)
+  })
+
+  for (const tag of ['[cairn:approve plan x]', '[cairn:approve ship x]', '[cairn:approve commands x]', '[cairn:override x]']) {
+    test(`${tag} is not a cairn tag: the question passes through with no CLI run`, async ($, on) => {
+      const { cliRuns, toasts } = world(on, [{ slug: 'x', stage: 'execute', worktree: '/wt/x', approvals: { prd: { via: 'human' } } }])
+      const q = `Go ahead? ${tag}`
+      const shown = { n: 0 }
+      on('tool.call', { tool: 'AskUserQuestion' }, (_$, e) => {
+        shown.n++
+        return { result: { questions: e.questions, answers: { [q]: 'Approve' } } as never }
+      })
+      const got = await $.tool.call(ask(q))
+      expect(shown.n).toBe(1)
+      expect(got.result).toEqual({ questions: ask(q).questions, answers: { [q]: 'Approve' } })
+      expect(got.context).toBeUndefined()
+      expect(cliRuns()).toEqual([])
+      expect(toasts).toEqual([])
+    })
+  }
+
+  test('ready for something else does not approve this plan', async ($, on) => {
     const { approveRuns } = world(on, [{ slug: 'other', stage: 'prd', worktree: '/wt/other', ready: { kind: 'plan' } }])
     const q = 'Approve? [cairn:approve prd other]'
     dialog(on, { [q]: 'Approve' })
@@ -531,7 +562,7 @@ describe('already approved from the pane (FR-13, FR-15)', () => {
   }
 
   test('a tagged question for an approved stop is answered by the mod and never shown', async ($, on) => {
-    const { approveRuns, toasts } = world(on, [{ slug: 'done', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/done', ready: { kind: 'plan' } }])
+    const { approveRuns, toasts } = world(on, [{ slug: 'done', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/done' }])
     const shown = counted(on, () => ({}))
     const q = 'Approve the PRD? [cairn:approve prd done]'
     const got = await $.tool.call(ask(q))
@@ -543,10 +574,10 @@ describe('already approved from the pane (FR-13, FR-15)', () => {
   })
 
   test('several tagged questions, all approved, are all answered', async ($, on) => {
-    world(on, [{ slug: 'done', stage: 'ship', approvals: { prd: DONE, plan: DONE }, worktree: '/wt/done', ready: { kind: 'ship' } }])
+    world(on, [{ slug: 'done', stage: 'ship', approvals: { prd: DONE }, worktree: '/wt/done' }])
     const shown = counted(on, () => ({}))
     const a = 'PRD? [cairn:approve prd done]'
-    const b = 'Plan? [cairn:approve plan done]'
+    const b = 'PRD again? [cairn:approve prd done]'
     const got = await $.tool.call(ask(a, b))
     expect(shown.n).toBe(0)
     expect((got.result as { answers: object }).answers).toEqual({ [a]: 'Already approved from the pane', [b]: 'Already approved from the pane' })
@@ -561,9 +592,12 @@ describe('already approved from the pane (FR-13, FR-15)', () => {
   })
 
   test('one approved tag among an unapproved one is shown', async ($, on) => {
-    world(on, [{ slug: 'half', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/half' }])
+    world(on, [
+      { slug: 'half', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/half' },
+      { slug: 'unhalf', stage: 'prd', worktree: '/wt/unhalf' },
+    ])
     const a = 'PRD? [cairn:approve prd half]'
-    const b = 'Plan? [cairn:approve plan half]'
+    const b = 'PRD? [cairn:approve prd unhalf]'
     const shown = counted(on, () => ({ [a]: 'Revise', [b]: 'Revise' }))
     await $.tool.call(ask(a, b))
     expect(shown.n).toBe(1)
@@ -575,14 +609,6 @@ describe('already approved from the pane (FR-13, FR-15)', () => {
     const b = 'Which library?'
     const shown = counted(on, () => ({ [a]: 'Revise', [b]: 'Revise' }))
     await $.tool.call(ask(a, b))
-    expect(shown.n).toBe(1)
-  })
-
-  test('an override question is never auto-answered', async ($, on) => {
-    world(on, [{ slug: 'ov', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/ov' }])
-    const q = 'Skip? [cairn:override ov]'
-    const shown = counted(on, () => ({ [q]: 'No' }))
-    await $.tool.call(ask(q))
     expect(shown.n).toBe(1)
   })
 
@@ -633,28 +659,16 @@ describe('already approved from the pane (FR-13, FR-15)', () => {
   test('two stops of two plans in one dialog: only the session\'s own plan is approved', async ($, on) => {
     const { approveRuns, toasts } = world(on, [
       { slug: 'one', stage: 'prd', worktree: '/wt/one' },
-      { slug: 'two', stage: 'plan', worktree: '/wt/two' },
+      { slug: 'two', stage: 'prd', worktree: '/wt/two' },
     ])
     const a = 'Approve the PRD? [cairn:approve prd one]'
-    const b = 'Approve the plan? [cairn:approve plan two]'
+    const b = 'Approve the PRD? [cairn:approve prd two]'
     counted(on, () => ({ [a]: 'Approve (Recommended)', [b]: 'Approve (Recommended)' }))
     const got = await $.tool.call(ask(a, b))
     // The session had no plan, so the first tag made `one` its own; `two` belongs to another session.
     expect(approveRuns().map(r => [r.init?.cwd, ...r.argv.slice(1)])).toEqual([['/wt/one', 'approve', 'prd']])
-    expect(got.context?.join('\n')).toMatch(/one: prd approved[\s\S]*this session works on one, so the plan approval on two was not done/)
+    expect(got.context?.join('\n')).toMatch(/one: prd approved[\s\S]*this session works on one, so the prd approval on two was not done/)
     expect(toasts).toHaveLength(2)
-  })
-
-  test('FR-16: a second stop of the same plan, answered Approve, approves only the stop still waiting', async ($, on) => {
-    const { approveRuns, toasts } = world(on, [{ slug: 'same', stage: 'plan', approvals: { prd: DONE }, worktree: '/wt/same' }])
-    const prd = 'PRD? [cairn:approve prd same]'
-    const plan = 'Plan? [cairn:approve plan same]'
-    counted(on, () => ({ [prd]: 'Approve', [plan]: 'Approve' }))
-    const got = await $.tool.call(ask(prd, plan))
-    expect(approveRuns().map(r => r.argv.slice(1))).toEqual([['approve', 'plan']])
-    expect(got.context).toHaveLength(1)
-    expect(got.context?.[0]).toMatch(/same: plan approved/)
-    expect(toasts).toHaveLength(1)
   })
 
   test('an approval that is already recorded, answered Approve in a shown dialog, says nothing', async ($, on) => {
@@ -691,14 +705,16 @@ describe('the secret (FR-01, Review focus 1 and 2)', () => {
     const plans: Plan[] = [{ slug: 'mine', stage: 'prd', worktree: '/wt/mine' }]
     const { approveRuns, live } = world(on, plans)
     const first = 'Approve? [cairn:approve prd mine]'
-    const second = 'Approve? [cairn:approve plan mine]'
+    const second = 'Approve the edited PRD? [cairn:approve prd mine]'
     dialog(on, { [first]: 'Approve', [second]: 'Approve' })
     await $.tool.call(ask(first))
     expect(live.size).toBe(0)
-    plans[0]!.stage = 'plan'
+    // The PRD is edited after its approval: it waits for the person again.
+    plans[0]!.approvals = { prd: { via: 'human' } }
+    plans[0]!.ready = { kind: 'prd' }
     live.add(await sha256('another session\'s secret'))
     const got = await $.tool.call(ask(second))
-    expect(got.context?.join()).toMatch(/plan approved/)
+    expect(got.context?.join()).toMatch(/prd approved/)
     expect(approveRuns()).toHaveLength(2)
     expect(live).toEqual(new Set([await sha256('another session\'s secret')]))
   })
@@ -728,30 +744,31 @@ describe('the secret (FR-01, Review focus 1 and 2)', () => {
     const plans: Plan[] = [{ slug: 'one', stage: 'prd', worktree: '/wt/one' }]
     const { approveRuns, hashes } = world(on, plans)
     const one = 'Approve? [cairn:approve prd one]'
-    const two = 'Approve? [cairn:approve plan one]'
+    const two = 'Approve the edited PRD? [cairn:approve prd one]'
     dialog(on, { [one]: 'Approve', [two]: 'Approve' })
     const first = await $.tool.call(ask(one))
-    plans[0]!.stage = 'plan'
+    plans[0]!.approvals = { prd: { via: 'human' } }
+    plans[0]!.ready = { kind: 'prd' }
     const second = await $.tool.call(ask(two))
     const [a, b] = approveRuns().map(r => r.init?.env?.CAIRN_APPROVER ?? '')
     expect(a).not.toBe(b)
     expect(hashes).toContain(await sha256(a ?? ''))
     expect(hashes).toContain(await sha256(b ?? ''))
     expect(first.context?.join()).toMatch(/prd approved/)
-    expect(second.context?.join()).toMatch(/plan approved/)
+    expect(second.context?.join()).toMatch(/prd approved/)
   })
 
   test('two plans\' questions answered at once in a session with no plan: exactly one plan becomes its own', async ($, on) => {
     const { approveRuns } = world(on, [
       { slug: 'c1', stage: 'prd', worktree: '/wt/c1' },
-      { slug: 'c2', stage: 'ship', worktree: '/wt/c2' },
+      { slug: 'c2', stage: 'prd', worktree: '/wt/c2' },
     ])
     const one = 'Approve? [cairn:approve prd c1]'
-    const two = 'Ship? [cairn:approve ship c2]'
+    const two = 'Approve? [cairn:approve prd c2]'
     dialog(on, { [one]: 'Approve', [two]: 'Approve' })
     const said = (await Promise.all([$.tool.call(ask(one)), $.tool.call(ask(two))])).map(r => r.context?.join() ?? '')
     expect(approveRuns()).toHaveLength(1)
-    expect(said.filter(t => /c[12]: (prd|ship) approved/.test(t))).toHaveLength(1)
+    expect(said.filter(t => /c[12]: prd approved/.test(t))).toHaveLength(1)
     expect(said.filter(t => /this session works on c[12]/.test(t))).toHaveLength(1)
   })
 })
@@ -846,299 +863,6 @@ describe('one plan per session', () => {
     dialog(on, { [q]: 'MVP' })
     expect((await $.tool.call(ask(q))).context?.join()).toMatch(/this session works on a, so the level change on b was not done/)
     expect(levelRuns()).toEqual([])
-  })
-})
-
-describe('mod-run overrides (FR-34)', () => {
-  const ADVANCE = 'cairn advance --override "r"'
-
-  /** The Bash tool beneath the mod: records what it ran. */
-  function shell(on: On) {
-    const ran: string[] = []
-    on('tool.call', { tool: 'Bash' }, (_$, e) => {
-      ran.push(e.command)
-      return { result: { stdout: 'shell ran it', stderr: '', interrupted: false } }
-    })
-    return ran
-  }
-
-  async function grantOverride($: Engine, on: On, slug: string, answer = 'Override') {
-    const q = `Override the review? [cairn:override ${slug}]`
-    dialog(on, { [q]: answer })
-    return $.tool.call(ask(q))
-  }
-
-  test('after an exact "Override", the next plain cairn --override is run by the mod with the secret', async ($, on) => {
-    mock.clock(on, { now: 1_000 })
-    const { cliRuns, hashes } = world(on, [{ slug: 'ov', stage: 'review', worktree: '/wt/ov' }])
-    const ran = shell(on)
-    const granted = await grantOverride($, on, 'ov')
-    expect(granted.context?.join()).toMatch(/override for "ov" is ready/)
-
-    const got = await $.tool.call({ tool: 'Bash', command: ADVANCE })
-
-    expect(ran).toEqual([])
-    const [run] = cliRuns()
-    expect(cliRuns()).toHaveLength(1)
-    expect(run?.argv.slice(1)).toEqual(['advance', '--override', 'r'])
-    expect(run?.init?.cwd).toBe('/wt/ov')
-    expect(hashes).toContain(await sha256(run?.init?.env?.CAIRN_APPROVER ?? ''))
-    expect(got.result).toEqual({ stdout: 'Advanced (override recorded).\n', stderr: '', interrupted: false })
-
-    // Spent: the next one runs as the model wrote it, and the CLI refuses it there.
-    await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(ran).toEqual([ADVANCE])
-    expect(cliRuns()).toHaveLength(1)
-  })
-
-  for (const answer of ['Override?', 'override']) {
-    test(`"${answer}" leaves no override pending`, async ($, on) => {
-      mock.clock(on)
-      const { cliRuns } = world(on, [{ slug: `ov-${answer.length}`, stage: 'review', worktree: '/wt/x' }])
-      const ran = shell(on)
-      await grantOverride($, on, `ov-${answer.length}`, answer)
-      await $.tool.call({ tool: 'Bash', command: ADVANCE })
-      expect(cliRuns()).toEqual([])
-      expect(ran).toEqual([ADVANCE])
-    })
-  }
-
-  const unplain = [
-    'cairn advance --override "r"; rm -rf x',
-    'cairn advance --override r && echo ok',
-    'cairn advance --override r | tee log',
-    'cairn advance --override r > log',
-    'cairn advance --override "r',
-    'cd /wt/x && cairn advance --override r',
-  ]
-  for (const command of unplain) {
-    test(`not run by the mod: ${command}`, async ($, on) => {
-      mock.clock(on)
-      const slug = `unplain-${unplain.indexOf(command)}`
-      const { cliRuns } = world(on, [{ slug, stage: 'review', worktree: '/wt/u' }])
-      const ran = shell(on)
-      await grantOverride($, on, slug)
-      const got = await $.tool.call({ tool: 'Bash', command })
-      expect(cliRuns()).toEqual([])
-      expect(ran).toEqual([command])
-      expect(got.context?.join()).toMatch(/not a plain cairn --override command/)
-    })
-  }
-
-  test('any character inside quotes is one argument: the mod runs argv, never a shell', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns } = world(on, [{ slug: 'quoted', stage: 'review', worktree: '/wt/quoted' }])
-    shell(on)
-    await grantOverride($, on, 'quoted')
-    await $.tool.call({ tool: 'Bash', command: 'cairn advance --override "r; $(whoami) `x`\nnext" --note \'a | b > c\'' })
-    expect(cliRuns().map(r => r.argv.slice(1))).toEqual([['advance', '--override', 'r; $(whoami) `x`\nnext', '--note', 'a | b > c']])
-  })
-
-  test('a quoted reason glued to --override= is one argument, as a shell reads it', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns } = world(on, [{ slug: 'glued', stage: 'review', worktree: '/wt/glued' }])
-    shell(on)
-    await grantOverride($, on, 'glued')
-    await $.tool.call({ tool: 'Bash', command: `cairn advance --override="user's call" --note 'two words'` })
-    expect(cliRuns().map(r => r.argv.slice(1))).toEqual([['advance', "--override=user's call", '--note', 'two words']])
-  })
-
-  test('an override pending more than 10 minutes is not used', async ($, on) => {
-    const clock = mock.clock(on, { now: 0 })
-    const { cliRuns } = world(on, [{ slug: 'stale', stage: 'review', worktree: '/wt/stale' }])
-    const ran = shell(on)
-    await grantOverride($, on, 'stale')
-    await clock.advance(10 * 60_000 + 1)
-    await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(cliRuns()).toEqual([])
-    expect(ran).toEqual([ADVANCE])
-  })
-
-  test('a pending override does not turn cairn approve into an approval', async ($, on) => {
-    mock.clock(on)
-    const { approveRuns } = world(on, [{ slug: 'sneak', stage: 'prd', worktree: '/wt/sneak' }])
-    const ran = shell(on)
-    await grantOverride($, on, 'sneak')
-    const got = await $.tool.call({ tool: 'Bash', command: 'cairn approve prd --override "r"' })
-    expect(approveRuns()).toEqual([])
-    expect(ran).toEqual([])
-    expect(got.deny).toMatch(/approvals and plan state come from the user/)
-  })
-
-  test('a pending override does not run cairn level with the secret', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns } = world(on, [{ slug: 'lv', stage: 'review', worktree: '/wt/lv' }])
-    const ran = shell(on)
-    await grantOverride($, on, 'lv')
-    const got = await $.tool.call({ tool: 'Bash', command: 'cairn level mvp --override "x"' })
-    expect(cliRuns()).toEqual([])
-    expect(ran).toEqual([])
-    expect(got.deny).toMatch(/approvals and plan state come from the user/)
-  })
-
-  test('a note that says level or approve does not stop an override from running', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns } = world(on, [{ slug: 'nt', stage: 'review', worktree: '/wt/nt' }])
-    shell(on)
-    await grantOverride($, on, 'nt')
-    await $.tool.call({ tool: 'Bash', command: 'cairn advance --override "r" --note "level of approve"' })
-    expect(cliRuns().map(r => r.argv.slice(1))).toEqual([['advance', '--override', 'r', '--note', 'level of approve']])
-  })
-
-  test('a session inside another plan\'s worktree runs the command normally', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns } = world(on, [
-      { slug: 'granted', stage: 'review', worktree: '/wt/granted' },
-      { slug: 'other', stage: 'review', worktree: '/wt/other' },
-    ], { cwd: '/wt/other/src' })
-    const ran = shell(on)
-    await grantOverride($, on, 'granted')
-    await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(cliRuns()).toEqual([])
-    expect(ran).toEqual([ADVANCE])
-  })
-
-  const strange = ['*', '?', '~', '#', '(', ')', '{', '}', '[', ']']
-  for (const c of strange) {
-    test(`not run by the mod: an unquoted ${c}`, async ($, on) => {
-      mock.clock(on)
-      const slug = `strange-${strange.indexOf(c)}`
-      const { cliRuns } = world(on, [{ slug, stage: 'review', worktree: '/wt/s' }])
-      const ran = shell(on)
-      await grantOverride($, on, slug)
-      const command = `cairn advance --override r${c}x`
-      const got = await $.tool.call({ tool: 'Bash', command })
-      expect(cliRuns()).toEqual([])
-      expect(ran).toEqual([command])
-      expect(got.context?.join()).toMatch(/not a plain cairn --override command/)
-    })
-  }
-
-  test('the same characters inside quotes are part of the reason', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns } = world(on, [{ slug: 'quoted', stage: 'review', worktree: '/wt/quoted' }])
-    shell(on)
-    await grantOverride($, on, 'quoted')
-    await $.tool.call({ tool: 'Bash', command: `cairn advance --override "fix (later) [#3] ~ok* {a,b}?"` })
-    expect(cliRuns().map(r => r.argv.slice(1))).toEqual([['advance', '--override', 'fix (later) [#3] ~ok* {a,b}?']])
-  })
-
-  // A hook can't set a Bash result's is_error (core ignores it, and a string result fails the
-  // output schema), so a failure leads stdout with "Exit code N", as the Bash tool's own does.
-  test('a non-zero exit leads the result with the exit code and the CLI output', async ($, on) => {
-    mock.clock(on)
-    world(on, [{ slug: 'fails', stage: 'review', worktree: '/wt/fails' }], { refuse: 'review has not passed' })
-    shell(on)
-    await grantOverride($, on, 'fails')
-    const got = await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    const result = got.result as { stdout: string }
-    expect(result.stdout).toMatch(/^Exit code 2\n[\s\S]*review has not passed/)
-    expect(got.context?.join()).toMatch(/exit code 2/)
-  })
-
-  test('override runs carry timeouts, and one that times out is reported and frees the secret', async ($, on) => {
-    mock.clock(on)
-    const plans: Plan[] = [{ slug: 'ov', stage: 'review', worktree: '/wt/ov' }]
-    const { cliRuns, approveRuns } = world(on, plans, { hangIn: '/wt/ov' })
-    const ran = shell(on)
-    const o = 'Override the review? [cairn:override ov]'
-    const q = 'Approve? [cairn:approve ship ov]'
-    dialog(on, { [o]: 'Override', [q]: 'Approve' })
-    await $.tool.call(ask(o))
-    const got = await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(cliRuns().map(r => r.init?.timeoutMs)).toEqual([600_000])
-    expect((got.result as { stdout: string }).stdout).toMatch(/^cairn: the override run failed: .*timed out/)
-    expect(ran).toEqual([])
-    plans[0]!.stage = 'ship'
-    expect((await $.tool.call(ask(q))).context?.join()).toMatch(/ship approved/)
-    expect(approveRuns()).toHaveLength(1)
-  })
-
-  test('an "Override" the model pre-filled leaves nothing pending', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns } = world(on, [{ slug: 'pre', stage: 'review', worktree: '/wt/pre' }])
-    const ran = shell(on)
-    const q = 'Override? [cairn:override pre]'
-    dialog(on, { [q]: 'Override' })
-    await $.tool.call({ ...ask(q), answers: { [q]: 'Override' } })
-    await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(cliRuns()).toEqual([])
-    expect(ran).toEqual([ADVANCE])
-  })
-
-  test('an "Override" the dialog gave while the user was away leaves nothing pending', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns } = world(on, [{ slug: 'away', stage: 'review', worktree: '/wt/away' }])
-    const ran = shell(on)
-    const q = 'Override? [cairn:override away]'
-    dialog(on, { [q]: 'Override' }, { afkTimeoutMs: 60_000 })
-    await $.tool.call(ask(q))
-    await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(cliRuns()).toEqual([])
-    expect(ran).toEqual([ADVANCE])
-  })
-
-  test('a subagent\'s Override answer and a subagent\'s override command are left alone', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns } = world(on, [{ slug: 'agent', stage: 'review', worktree: '/wt/agent' }])
-    const ran = shell(on)
-    const q = 'Override the review? [cairn:override agent]'
-    dialog(on, { [q]: 'Override' })
-    await $.tool.call({ ...ask(q), agentId: 'a1' } as never)
-    await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(cliRuns()).toEqual([])
-    await $.tool.call(ask(q))
-    await $.tool.call({ tool: 'Bash', command: ADVANCE, agentId: 'a1' } as never)
-    expect(cliRuns()).toEqual([])
-    expect(ran).toEqual([ADVANCE, ADVANCE])
-  })
-
-  test('with two plans holding overrides, each command runs only for the session\'s own plan', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns, where } = world(on, [
-      { slug: 'pa', stage: 'review', worktree: '/wt/pa' },
-      { slug: 'pb', stage: 'review', worktree: '/wt/pb' },
-    ])
-    const ran = shell(on)
-    const a = 'Override? [cairn:override pa]'
-    const b = 'Override? [cairn:override pb]'
-    dialog(on, { [a]: 'Override', [b]: 'Override' })
-    await $.tool.call(ask(a, b))
-    // From the repo root the session's plan is the one its first tag named: pa.
-    await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    const again = await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(again.context?.join()).toMatch(/works on plan "pa", and your override is for another plan/)
-    // Moving into pb's worktree does not make the session pb's: it keeps its own plan.
-    where.cwd = '/wt/pb/src'
-    const moved = await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(moved.context?.join()).toMatch(/works on plan "pa", and your override is for another plan/)
-    expect(cliRuns().map(r => r.init?.cwd)).toEqual(['/wt/pa'])
-    expect(ran).toEqual([ADVANCE, ADVANCE])
-  })
-
-  test('the secret never reaches the model or the user', async ($, on) => {
-    mock.clock(on)
-    const { cliRuns, toasts } = world(on, [{ slug: 'leak', stage: 'prd', worktree: '/wt/leak' }])
-    shell(on)
-    const q = 'Approve? [cairn:approve prd leak]'
-    const o = 'Override? [cairn:override leak]'
-    dialog(on, { [q]: 'Approve', [o]: 'Override' })
-    const seen = [JSON.stringify(await $.tool.call(ask(q, o))), JSON.stringify(await $.tool.call({ tool: 'Bash', command: ADVANCE }))]
-    const secrets = cliRuns().map(r => r.init?.env?.CAIRN_APPROVER ?? '')
-    expect(secrets).toHaveLength(2)
-    for (const secret of secrets) {
-      expect(secret).not.toBe('')
-      for (const text of [...seen, ...toasts]) expect(text.includes(secret)).toBe(false)
-    }
-  })
-
-  test('with nothing pending, a Bash call goes straight through', async ($, on) => {
-    const { runs } = world(on, [])
-    const ran = shell(on)
-    const got = await $.tool.call({ tool: 'Bash', command: ADVANCE })
-    expect(ran).toEqual([ADVANCE])
-    expect(runs).toEqual([])
-    expect(got.context).toBeUndefined()
   })
 })
 
