@@ -54,7 +54,7 @@ test('levels.md states the security floors at every level', () => {
   assert.match(floors, /secret scan and the dependency audit/);
   assert.match(floors, /touches a trust boundary gets a security review at every level, including MVP/);
   assert.match(floors, /whole-branch security review runs at every level/);
-  assert.match(floors, /PRD, plan and ship approvals stay/);
+  assert.match(floors, /PRD approval stays, and it is the only one/);
   for (const signal of ['auth', 'money', 'deletes', 'migrations', 'public API', 'untrusted input', 'personal data', 'new dependency', 'model output', 'shell commands']) {
     assert.ok(floors.includes(signal), `levels.md names ${signal}`);
   }

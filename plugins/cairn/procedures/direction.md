@@ -67,7 +67,7 @@ nfr:
 ## 4. Record the verdict (phase id only)
 Run `cairn evidence phase`. The CLI parses the block, checks every covered requirement has a row with evidence, computes the color, and records it with the current commit.
 
-When it refuses (exit code 2), read the reason and fix the report, never override:
+When it refuses (exit code 2), read the reason and fix the report, never work around it:
 - "no phase is built and waiting to finish": the phase is not built yet. Finish its tasks first; the check is not available after `cairn phase finish`.
 - "direction/<id>.md does not exist": write the report (step 3), then rerun.
 - A missing row: find the requirement, have a `direction-checker` agent check it, add the row.

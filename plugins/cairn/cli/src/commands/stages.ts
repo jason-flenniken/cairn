@@ -15,7 +15,7 @@ import { filesHash } from '../endproofs.ts';
 import { fastLane } from './fix.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
 import { isFoundational, isPublished, linearConfig, prdLinearProblems } from '../linear.ts';
-import { crossPlanBlockers, followupsFor, linearPrdGate, onAdvance, onPrdApproved, recordRequirements, type FollowupInfo } from './linear.ts';
+import { followupsFor, linearPrdGate, onAdvance, onPrdApproved, recordRequirements, type FollowupInfo } from './linear.ts';
 
 const STAGE_ORDER: Record<Track, Stage[]> = {
   feature: STAGES.filter((x) => x !== 'repro'),
@@ -238,7 +238,7 @@ export function cmdAdvance(ctx: Ctx, opts: Opts): Result {
         gate(s.evidence.verify?.result === 'pass', s, 'advance', opts, 'verification has not passed', ['cairn evidence verify pass --note "…"']);
         {
           const proofs = proofProblems(pc, s);
-          gate(!proofs.length, s, 'advance', opts, `the proofs do not show the end state: ${proofs.join('; ')}`, ['cairn prove (and judge any screenshots), fixing until every proof is green']);
+          gate(!proofs.length, s, 'advance', opts, `the proofs do not show the end state: ${proofs.join('; ')}`, ['cairn prove (and judge any screenshots), fixing until every proof is green'], 'what');
         }
         break;
       case 'review':

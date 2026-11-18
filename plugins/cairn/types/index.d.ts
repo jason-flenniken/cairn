@@ -23,13 +23,19 @@ export type CairnPlanState = {
   updated?: string
   paused?: { at?: string } | null
   approvals?: Record<string, unknown>
+  /** The pull request `cairn pr open` made or updated; absent until then. `draft` is true while anything is not done. */
+  pullRequest?: { url: string; draft: boolean; notDone?: number; at?: string; head?: string } | null
+  /** The calls cairn made for the person once the goal was set (how checks passed with --call). */
+  calls?: { at?: string; event?: string; what: string; why?: string }[]
+  /** What the plan did not do (what checks passed with --not-done); any entry makes the pull request a draft. */
+  notDone?: { at?: string; event?: string; what: string; why?: string }[]
   phases?: unknown
   drift?: unknown
   log?: unknown
 }
 
 /** The stop a plan waits on a human for, when the CLI says it is ready: the file to read and a short markdown summary. */
-export type CairnReady = { kind: 'prd' | 'plan' | 'ship' | 'commands'; file: string; summary: string }
+export type CairnReady = { kind: 'prd'; file: string; summary: string }
 
 /** One row of `cairn status --all --json`. */
 export type CairnPlanRow = {
@@ -52,8 +58,6 @@ export type CairnPlanRow = {
   maxParallel?: number
   /** Set only while the plan's document is ready for the human; absent while it is still being drafted. */
   ready?: CairnReady
-  /** True while the setup, test or build command differs from the ones the user approved; absent when the plan is not checked out. */
-  commandsChanged?: boolean
   /** True when the plan wants the person: a document is ready, or its step is `approving` or `asking`; the CLI works it out. */
   needsUser?: boolean
   /** The Linear issue keys each task of the plan builds, by task name; absent until the plan is linked to Linear. */

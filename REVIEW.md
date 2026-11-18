@@ -16,7 +16,7 @@ Keep it short: what failure looks like here, what to skip, and the rules learned
 - `plugins/cairn/types/index.d.ts` has no `import`, and declares every `$.state` key the mod uses; `claude plugin validate plugins/cairn` rejects it otherwise.
 - A procedure or reference wording change keeps the doc-assertion tests (`*-doc.test.ts`, `procedures.test.ts`, `skills.test.ts`, `templates.test.ts`) passing, and any assertion it changes was changed on purpose.
 - Changes under `plugins/cairn/hooks/` respect the engine limits and guard formats in `plugins/cairn/hooks/NOTES.md`.
-- New approval stops: PRD, plan and ship are the only three. A change that adds a fourth, or a repeated re-review round, is Required.
+- Stops for the user: the PRD approval is the only one, and the merge is the sign-off. A change that makes a run stop or ask after the PRD approval (instead of recording a call or a not-done entry and going on), or adds a repeated re-review round, is Required.
 - Plan folders use the local date, not UTC.
 
 ## Skip

@@ -46,7 +46,7 @@ export function nextFor(s: State): Next {
       return { procedure: 'review', text: 'Review the whole branch and record the result.' };
     case 'ship':
       return s.pullRequest
-        ? { procedure: 'ship', substep: 'advance', text: `The pull request is open${s.pullRequest.draft ? ' as a draft' : ''} (${s.pullRequest.url}). Advance, then end the turn: the user merges or sends it back.` }
+        ? { procedure: 'ship', substep: 'advance', text: `The pull request is open${s.pullRequest.draft ? ' as a draft' : ''} (${s.pullRequest.url}). Advance, finish the record and close, then run cairn pr open again and end the turn: the user merges or sends it back.` }
         : { procedure: 'ship', text: 'Write the completion record, then open the pull request (cairn pr open).' };
     case 'learn':
       return { procedure: 'learn', text: 'Capture anything worth keeping, then close the plan.' };

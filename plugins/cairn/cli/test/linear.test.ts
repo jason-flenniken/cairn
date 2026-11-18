@@ -28,6 +28,7 @@ import { run } from '../src/main.ts';
 import { parsePlan } from '../src/plan-parse.ts';
 import type { LinearIssue, LinearLink, State, Task } from '../src/types.ts';
 import { CliError, Refusal } from '../src/util.ts';
+import { setPullRequest } from './handsoff-helpers.ts';
 import { pd } from './plandir.ts';
 
 // ---------- Pure rules ----------
@@ -312,7 +313,6 @@ test('linear: an epic from import to merged, with every check and queued write',
   write(join(dir, 'plan.md'), PLAN(true));
   ok(wt, 'plan', 'load');
   assert.deepEqual(state().phases.flatMap((p) => p.tasks.map((t) => [t.id, t.issue])), [['form', 'SAV-101'], ['pay', 'SAV-102'], ['receipt', 'SAV-103']], 'each task knows its ticket');
-  byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   const started = outbox().filter((w) => w.kind === 'status');
   assert.deepEqual(started.map((w) => w.payload), ['SAV-100', 'SAV-102'].map((id) => ({ id, state: 'started' })), 'only the epics move at the start, by status type');
@@ -373,7 +373,7 @@ test('linear: an epic from import to merged, with every check and queued write',
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
   ok(wt, 'advance');
   write(join(dir, 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
-  byUser(wt, 'approve', 'ship');
+  setPullRequest(wt, 'checkout');
   ok(wt, 'advance', '--pr', 'https://github.com/o/r/pull/7');
   assert.ok(!outbox().some((w) => w.dedupe.endsWith(':inReview')), 'no review status type and none configured: a comment only');
   assert.match(outbox().find((w) => w.dedupe === 'comment:SAV-101:pr')!.payload.body as string, /pull\/7/);
@@ -609,8 +609,8 @@ test('linear: a foundational issue makes the plan name its approach', () => {
   refused(wt, /no ## Approaches considered/, 'plan', 'load', '--replan');
   write(join(dir, 'plan.md'), `${plan}\n## Approaches considered\n- Chosen: SQLite, one file and no server.\n- Rejected: Postgres, a server to run for one user.\n`);
   ok(wt, 'plan', 'load');
-  ok(wt, 'step', 'approving');
-  assert.match((ok(wt, 'status').data!.ready as { summary: string }).summary, /^\*\*Approach:\*\* Chosen: SQLite, one file and no server\./);
+  assert.equal(ok(wt, 'status').data!.ready, undefined, 'a loaded plan is no stop for the user');
+  ok(wt, 'advance');
 });
 
 test('linear relink: lists both sides of an epic link, refuses what cannot be narrowed', () => {
@@ -729,7 +729,6 @@ test('linear publish: a plan without tickets files an epic, then one ticket per 
   assert.equal(state().phases[0].tasks[1].issue, 'SAV-302');
   sync(wt);
   // From here it moves like an imported plan: the epic at the start, each ticket with its own tasks.
-  byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   assert.deepEqual(outbox().filter((w) => w.kind === 'status').map((w) => w.target), ['SAV-300']);
   ok(wt, 'task', 'start', 'schema');

@@ -1,6 +1,6 @@
 ---
 name: plan
-description: "Break the approved PRD into phases of parallel tasks, then approve the plan."
+description: "Break the approved PRD into proofs and phases of parallel tasks, then lock the plan, with no approval step."
 disable-model-invocation: true
 allowed-tools:
   - "Bash(cairn next:*)"
@@ -16,6 +16,10 @@ allowed-tools:
   - "Bash(cairn phase:*)"
   - "Bash(cairn suggest:*)"
   - "Bash(cairn review:*)"
+  - "Bash(cairn step:*)"
+  - "Bash(cairn prove:*)"
+  - "Bash(cairn pr:*)"
+  - "Bash(cairn merge-check:*)"
   - "Bash(cairn index:*)"
   - "Bash(cairn evidence:*)"
   - "Bash(cairn drift:*)"
@@ -31,7 +35,7 @@ allowed-tools:
   - "Bash(cairn system:*)"
 ---
 
-Plugin root: `${CLAUDE_PLUGIN_ROOT}`. If that shows a `${…}` placeholder instead of a real path, you are not in Claude Code (in Codex, for example). Then the plugin root is the folder two levels above this SKILL.md, the arguments are what the user asked for along with this skill, and every `cairn` command means `<plugin root>/cli/bin/cairn`: run it by that full path, since a `cairn` on PATH may be another host's older copy. Read `<plugin root>/references/hosts.md` before the procedure: it says how to ask the user, run agents, and get approvals on this host, and that approvals always go through the user's own terminal there.
+Plugin root: `${CLAUDE_PLUGIN_ROOT}`. If that shows a `${…}` placeholder instead of a real path, you are not in Claude Code (in Codex, for example). Then the plugin root is the folder two levels above this SKILL.md, the arguments are what the user asked for along with this skill, and every `cairn` command means `<plugin root>/cli/bin/cairn`: run it by that full path, since a `cairn` on PATH may be another host's older copy. Read `<plugin root>/references/hosts.md` before the procedure: it says how to ask the user, run agents, and get the PRD approval on this host, and that it always goes through the user's own terminal there.
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/reporting.md` before talking to the user.
 

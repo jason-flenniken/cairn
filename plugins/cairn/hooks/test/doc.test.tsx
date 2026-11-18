@@ -109,7 +109,7 @@ describe('doc viewer (FR-13..FR-15)', () => {
     await ui.press({ key: 'readall' })
     await ui.press({ key: 'approve' })
     await until(clock, () => ran('approve').length > 0 && w.toasts.length > 0)
-    expect(w.asked.map(a => a.question)).toEqual(['Approve the prd stop of plan shop?'])
+    expect(w.asked.map(a => a.question)).toEqual(['Approve the PRD of plan shop?'])
     expect(ran('approve')).toEqual([['approve', 'prd']])
     await clock.settle()
     expect(await markdown(ui)).toEqual(['- **FR-01** the prd summary'])

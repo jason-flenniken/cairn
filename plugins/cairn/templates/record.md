@@ -26,6 +26,6 @@ From the plan log: tasks that escalated, review findings that repeated, checks t
 - <finding>
 
 ## Follow-ups
-Deferred requirements, anything accepted as is, the follow-ups dropped while tidying (grouped or dismissed, listed once), and the count of open recommended follow-ups (see `/cairn:suggestions`).
+Deferred requirements, anything the run could not do (it is listed in the pull request under Not done), proposed review rules (listed, not added: the user adds them to `REVIEW.md` after the merge), the follow-ups dropped while tidying (grouped or dismissed, listed once), and the count of open recommended follow-ups (see `/cairn:suggestions`).
 
 - <item>

@@ -45,7 +45,7 @@ test('verify.md scans for secrets without printing values, audits, and reviews t
     'Lockfile diff',
     'revoke',
     'skipped',
-    'Retry / Skip with a note / Pause',
+    'Retry the audit once',
   ]) {
     assert.ok(src.includes(needle), needle);
   }

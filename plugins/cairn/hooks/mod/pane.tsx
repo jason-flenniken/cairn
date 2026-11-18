@@ -13,7 +13,7 @@ import { cairn } from './cli.ts'
 import { closeDoc, docViewer, openDoc, readDoc, scrollToStart } from './doc.tsx'
 import { gitLine, readGit, startGit, trackGit } from './git.ts'
 import { linearRows, stripControl } from './linear.tsx'
-import { isActive, list, waitingOn, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task, type Ui } from './header.tsx'
+import { handsOffRows, isActive, list, waitingOn, phaseAt, phasesOf, planHeader, STAGE_COLOR, stageOf, statusLine, tasksOf, type Task, type Ui } from './header.tsx'
 import { commonDir } from './heartbeat.ts'
 import { act, cells, clean, message, pluginVersion, shownVersion } from './util.ts'
 import { flushWakes, hasWakes, pause, plan, resume, stopNow, turnRunning, wakeChat } from './pause.ts'
@@ -42,7 +42,7 @@ const PANE = 'cairn'
 const PANE_PREF = 'pane'
 const EVERY_MS = 2_000
 const DRIFT_SHOWN = 5
-const KINDS: readonly string[] = ['prd', 'plan', 'ship', 'commands']
+const KINDS: readonly string[] = ['prd']
 const DOCK_COLUMNS = 48
 const INLINE_ROWS = 7
 const UP_NEXT_SHOWN = 4
@@ -52,8 +52,8 @@ const COMMANDS = [
   { name: 'cairn-pane', description: 'Show or hide the cairn pane: on, off, or with no word, toggle. The choice sticks across sessions.' },
   {
     name: 'cairn-approve',
-    description: 'Approve the stop this cairn plan is waiting on, after a confirm.',
-    argumentHint: '[prd|plan|ship|commands]',
+    description: 'Approve this cairn plan\'s PRD, after a confirm.',
+    argumentHint: '[prd]',
   },
   { name: 'cairn-level', description: 'Change this cairn plan\'s depth level (MVP, Standard or Polished), after a menu.' },
 ] as const
@@ -319,7 +319,7 @@ async function togglePane($: EngineInterface, arg: string): Promise<string> {
 
 /** /cairn-approve [kind]: the stop waiting on the session's plan, resolved by `cairn status --json`. */
 async function approveCommand($: EngineInterface, arg: string): Promise<string> {
-  if (arg !== '' && !KINDS.includes(arg)) return `cairn: "${arg}" is not a stop; use prd, plan, ship or commands.`
+  if (arg !== '' && !KINDS.includes(arg)) return `cairn: "${arg}" is not an approval; the PRD is the only one (use prd, or no word).`
   const found = await plan($)
   if (typeof found === 'string') return 'cairn: this session is not in a plan, so nothing was approved.'
   const state = found.state as CairnPlanState
@@ -513,14 +513,14 @@ export function install(on: On): void {
         // One budget over the seven inline rows. Title and progress, paused note, approval, buttons and bar are
         // fixed. The agents take what is left; with no room for even one agent line, the other-plans line merges
         // into the agents' fold line.
-        const fixedRows = 2 + (isPaused ? 1 : 0) + (approve ? 1 : 0) + 1 + barLines.length + waitingRows
+        const fixedRows = 2 + handsOffRows(row, true) + (isPaused ? 1 : 0) + (approve ? 1 : 0) + 1 + barLines.length + waitingRows
         const room = INLINE_ROWS - fixedRows - othersRows
         othersFolded = room < 1
         const folded = othersFolded ? foldedLine(cx, cards, othersCount) : undefined
         const lines = folded === undefined ? agentLines(cx, main, cards, room) : []
         const rows = fixedRows + (othersFolded ? 0 : othersRows) + lines.length + (folded === undefined ? 0 : 1)
         const tip = rows < INLINE_ROWS && <Text key="tip" dimColor wrap="truncate-end">Full-height side pane: run /tui fullscreen</Text>
-        const header = planHeader(ui, row, accent, e.props.bodyColumns, t, working)
+        const header = planHeader(ui, row, accent, e.props.bodyColumns, t, working, true)
         // The merged count line sits below the buttons, where the lone other-plans line is drawn.
         return [header, approve, ...lines, tip, buttons, folded]
       }

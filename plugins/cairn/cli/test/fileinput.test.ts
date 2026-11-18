@@ -9,6 +9,7 @@ import { after, afterEach, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { CliError } from '../src/util.ts';
 import { parseArgs, run } from '../src/main.ts';
+import { loadState, saveState } from '../src/state.ts';
 import { pd } from './plandir.ts';
 
 const MAIN = fileURLToPath(new URL('../src/main.ts', import.meta.url));
@@ -81,13 +82,15 @@ test('--note-file on approve records the file contents as the approval note', ()
 });
 
 test('--note-file on evidence records the file contents as the evidence note', () => {
-  // The plan is not at the verify stage, so the user's proof is also the override that lets this through.
-  setSecret('again');
+  const dir = pd(wt, 'billing');
+  const s = loadState(dir);
+  s.stage = 'review';
+  saveState(dir, s);
   const file = join(inputs, 'evidence-note.txt');
   const note = "Tests pass; the user's manual check passed too.\n";
   writeFileSync(file, note);
-  run(['evidence', 'verify', 'pass', '--override', 'user checked it', '--note-file', file], wt);
-  assert.equal(planState().evidence.verify.note, note);
+  run(['evidence', 'review', 'pass', '--blocking', '0', '--note-file', file], wt);
+  assert.equal(planState().evidence.review.note, note);
 });
 
 test('a missing --note-file exits 1 and names the file', () => {

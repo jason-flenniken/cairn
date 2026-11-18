@@ -19,7 +19,7 @@ For each link, decide the narrowest true dependency:
 
 Show a table: epic sub-issue, the blocker issue it will wait on (or "no link"), and the reason.
 
-Ask with AskUserQuestion:
+Ask a multiple-choice question:
 - Apply (Recommended): add the links as shown.
 - Edit: ask what to change, update the table, and ask again.
 - Skip: leave this link alone and go to the next one.

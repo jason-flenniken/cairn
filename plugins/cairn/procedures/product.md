@@ -10,7 +10,7 @@ Run `cairn status --json`. Run this on main or the repo's default branch, outsid
 **Done when:** the branch is not a plan branch.
 
 ## 2. Initialize
-Run `cairn product init`. Read `docs/cairn/product/PRD.md` (created from `${CLAUDE_PLUGIN_ROOT}/templates/product-prd.md`). If it already has real content, ask with AskUserQuestion: Revise it / Start over / Cancel.
+Run `cairn product init`. Read `docs/cairn/product/PRD.md` (created from `${CLAUDE_PLUGIN_ROOT}/templates/product-prd.md`). If it already has real content, ask a multiple-choice question: Revise it / Start over / Cancel.
 
 **Done when:** the file exists and the user chose how to treat any existing content.
 
@@ -23,7 +23,7 @@ Facts are your job. Dispatch Explore agents (`model: sonnet`) in parallel for: t
 Walk the design tree in this order, resolving each branch before the next: vision, users and their jobs, non-goals, non-functional requirements (numbers), must-not-trade-off, roadmap with priorities.
 
 For each decision:
-- Ask one AskUserQuestion with 2-4 options. The recommended option is first and ends with "(Recommended)". Put a preview on options that are structural or visual.
+- Ask one multiple-choice question with 2-4 options. The recommended option is first and ends with "(Recommended)". Put a preview on options that are structural or visual.
 - Record the answer straight away in the PRD file's matching section.
 - If the codebase or the research answers a question, state the answer and move on without asking.
 - Follow the answer's consequences before leaving a branch: a stated user type means asking for its job; a stated NFR means asking for its number.
@@ -31,7 +31,7 @@ For each decision:
 **Done when:** every section of the PRD has real content from the user's answers, and no branch has an open dependency.
 
 ## 5. Read back
-Show the PRD in a compact summary (about 8 lines) and ask with AskUserQuestion: Approve and commit / Revise (what?) / Cancel. Revise loops to step 4 for the named section.
+Show the PRD in a compact summary (about 8 lines) and ask a multiple-choice question: Approve and commit / Revise (what?) / Cancel. Revise loops to step 4 for the named section.
 
 **Done when:** the user chose Approve.
 

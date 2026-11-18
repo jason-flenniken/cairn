@@ -19,7 +19,7 @@ In Claude Code, nothing here changes anything: follow the procedures as written.
 
 ## Asking the user
 
-A procedure says "ask with AskUserQuestion", sometimes with a recommended option and a preview.
+A procedure says "ask with AskUserQuestion" only in discover (the one round of questions) and a few commands the user starts. It sometimes has a recommended option and a preview. After the PRD approval nothing is asked.
 
 - **Claude Code:** use AskUserQuestion, with up to 4 options.
 - **Codex:** use `request_user_input` when you have it. It takes 2 or 3 options. Keep the recommended option first. When a procedure lists 4 options, merge the two least likely into one, or leave one out and name it in the question text. Put a preview in the question text.
@@ -27,15 +27,14 @@ A procedure says "ask with AskUserQuestion", sometimes with a recommended option
 
 ## Approvals
 
-Approvals of the PRD, the plan, a level change and the ship always come from the user, never from you.
+The approval of the PRD, and a level change, always come from the user, never from you. They are the only ones: the plan, the proofs and the ship need no approval, and the merge is the sign-off.
 
-- **Claude Code with the cairn mod running** (`modActive: true` in `cairn status --json`): the procedures' tagged questions (`[cairn:approve <kind> <slug>]`, `[cairn:level <slug>]`, `[cairn:override <slug>]`) work as written. The mod records the user's answer.
+- **Claude Code with the cairn mod running** (`modActive: true` in `cairn status --json`): the procedures' tagged questions (`[cairn:approve prd <slug>]`, `[cairn:level <slug>]`) work as written. The mod records the user's answer.
 - **Codex, always.** Ignore `modActive` here: it can read true because a Claude Code session on the same repo is running the mod, but that mod never sees your questions. Take the branch the procedures give for `modActive: false`. The same applies in Claude Code when `modActive` is false.
 
   There is no menu approval. Give the user the full command, with real paths, to run in their own terminal:
-  - approval: `cd <plan worktree> && "<plugin root>/cli/bin/cairn" approve <prd|plan|ship|commands> --human`
+  - PRD approval: `cd <plan worktree> && "<plugin root>/cli/bin/cairn" approve prd --human` (it asks the user to press Enter)
   - level change: `cd <plan worktree> && "<plugin root>/cli/bin/cairn" level <mvp|standard|polished> --human`
-  - override the user chose: the refused command with `--override "<their reason>" --human` added
 
   Wait for them to say it's done, then run `cairn status` to confirm.
 

@@ -8,9 +8,9 @@ Every feature plan has one level: MVP, Standard or Polished. It is the plan's `l
 |---|---|---|---|
 | Discover | A short interview: goal, the one flow that must work, trust boundaries. No implications multi-select, no fresh-eyes challenge. | The full interview, plus a fresh-eyes challenge: an agent that never saw cairn's guess offers two or three approaches, the strongest objection, and unstated assumptions | The full interview, plus the challenge comparing three approaches with their cost and risk |
 | PRD | Thin: Problem, Solution, Requirements with one-line checks, Non-goals. Security only when a trust boundary was recorded. No builder check. | The full PRD, plus a builder check: an agent that sees only the PRD restates it and lists what a builder would have to guess | Adds acceptance examples for conditional requirements |
-| Plan | Few, large vertical tasks, usually one phase. No test cases. Risky tasks are still flagged. | The full plan; Test cases only on risky tasks | Test cases for every task, the failure modes each test pins, and a fresh-agent review of the plan before approval |
+| Plan | Few, large vertical tasks, usually one phase. No test cases. Risky tasks are still flagged. | The full plan; Test cases only on risky tasks | Test cases for every task, the failure modes each test pins, and a fresh-agent review of the plan |
 | Build | No per-task review except the security review the floor requires. Implementers run one tier lower. Red tests warn. | A task review only for risky or complex tasks, plus the security review for risky ones; the branch review covers the rest. A merge runs `testQuick` on the task's changed files when one is set, and no tests when it is not; the full suite runs at each phase end (the last phase's runs in Check). A re-review after a fix checks only the cited findings | Every task reviewed; the full suite at every task merge; test-first for every task; the on-track check runs automatically at each phase end (the last phase's runs in Check) |
-| Proofs | Chosen when the plan starts; No is recommended | Chosen when the plan starts; Yes is recommended. With proofs on, they are written and seen failing before the plan approval, and locked at it | As Standard, with an Opus proof-writer |
+| Proofs | Chosen when the plan starts; No is recommended | Chosen when the plan starts; Yes is recommended. With proofs on, they are written and seen failing when the plan loads, and locked when the plan advances | As Standard, with an Opus proof-writer |
 | Check | The floor scans. Red tests warn. | Tests, build, scans, every proof green (screenshots judged), acceptance checker | As Standard; every requirement must be met and tested |
 | Review | One light whole-branch review on a mid-tier model, plus the whole-branch security review | One branch review that reads unreviewed tasks in full, plus the security review. Sonnet, or Opus when a task is complex or the plan has 10 or more tasks (`branchReviewer` in `cairn status --json`) | Opus branch review plus the security review |
 | Ship and Learn | A short record plus the hardening list; no learn step | The current ship and learn | Adds a captured learning that later plans read |
@@ -24,22 +24,22 @@ Lean Standard arrived in 0.20.0. A task started before then keeps the per-task r
 - Check runs the secret scan and the dependency audit.
 - A task that touches a trust boundary gets a security review at every level, including MVP. The signals are auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, and shell commands or paths built from data. The plan flags such tasks as risky at every level.
 - The whole-branch security review runs at every level.
-- The PRD, plan and ship approvals stay.
+- The PRD approval stays, and it is the only one. The run is hands-off after it, and the merge is the sign-off.
 
 ## MVP and the hardening list
 
-At MVP, red tests warn and never block. Anything MVP skips goes on the hardening list, not the ordinary follow-ups: untested areas, skipped reviews, failing test commands, and Optional and Nit review findings. File one with `cairn suggest add --kind hardening --where <glob> ...`. The list does not count toward the 5 open follow-ups a plan may close with. A Standard or Polished plan that starts on the same area is offered those items as scope.
+At MVP, red tests warn and never block. Anything MVP skips goes on the hardening list, not the ordinary follow-ups: untested areas, skipped reviews, failing test commands, and Optional and Nit review findings. File one with `cairn suggest add --kind hardening --where <glob> ...`. The list does not count toward the 5 open follow-ups a plan may close with. A Standard or Polished plan that starts on the same area can take those items as scope.
 
 ## Fresh eyes and set-asides
 
-The fresh-eyes challenge and the builder check feed the existing interview and the PRD stop; they add no stop of their own. Whatever cairn does not take to the user from either one is logged with `cairn decide "Set aside: ..."` and a one-line reason, and shown under the read-back card or at the PRD stop, so the user can pull it back.
+The fresh-eyes challenge and the builder check feed the one round of questions and the PRD approval; they add no stop of their own. Whatever cairn does not take to the user from either one is logged with `cairn decide "Set aside: ..."` and a one-line reason, and shown under the read-back card or at the PRD approval, so the user can pull it back.
 
 ## Changing the level
 
-The level can go up at any stage before ship, and down only before any task has started. After the plan is created, only the user changes it. The model never runs `cairn level` on its own.
+The level can go up at any stage before ship, and down only before any task has started. After the plan is created, only the user changes it. The model never runs `cairn level` on its own, and never suggests a change mid-run: the run is hands-off after the PRD approval (`references/autonomy.md`). When the user asks for a change, this is how it goes.
 
-- When a raise would help (the MVP shortcuts are costing more than they save, or the user asks for more depth), suggest it. Read `modActive` from `cairn status --json`.
+- When the user asks for more depth, or for a different level, read `modActive` from `cairn status --json`.
   - True: ask with AskUserQuestion. The question text includes `[cairn:level <slug>]`, with the plan slug from the status output. Options are exactly `MVP`, `Standard`, `Polished`, and optionally `Cancel`. The mod applies the pick.
   - False: the mod can't record a menu answer. Tell the user to run, in their own terminal, the full command `cd <planWorktree> && <plugin root>/cli/bin/cairn level <level> --human` (real paths, so it runs as printed), then wait for them to say it's done.
-- Check `cairn status --json` that `level` changed. A raise before any task starts clears the plan approval, so the plan is approved again. A raise later clears the Check and review results, so those stages run again at the new level.
-- After a raise, list them with `cairn suggest list --open --json` and work on the entries with `hardening: true` whose `where` overlaps this plan's tasks (or use `--for <path>`); offer to work through them as a pass over the already-merged tasks, per the new level's rules.
+- Check `cairn status --json` that `level` changed. A raise before any task starts clears the plan lock, so `cairn advance` locks the plan again with no approval. A raise later clears the Check and review results, so those stages run again at the new level.
+- After a raise, list them with `cairn suggest list --open --json` and work on the entries with `hardening: true` whose `where` overlaps this plan's tasks (or use `--for <path>`); work through them as a pass over the already-merged tasks, per the new level's rules.

@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { run } from '../src/main.ts';
 import { parsePlan } from '../src/plan-parse.ts';
-import { chainText, criticalPath, readySet } from '../src/ready.ts';
+import { chainText, criticalPath, leftOut, readySet } from '../src/ready.ts';
 import type { Complexity, Phase, State, Task } from '../src/types.ts';
 import { pd } from './plandir.ts';
 
@@ -84,15 +84,19 @@ test('readySet: an overlap phase starts a task early; a plain phase does not', (
   assert.deepEqual(readySet(three, 5).ready.map((t) => t.id), ['a', 'b', 'c']);
 });
 
-test('readySet: reviewing and merging tasks free a builder slot; implementing, fixing and blocked do not', () => {
+test('readySet: reviewing, merging and set-aside tasks free a builder slot; implementing and fixing do not', () => {
   const state = (substep?: Task['substep']) => stateOf([phase('p', [task('busy', [], { status: 'in_progress', substep }), task('next')])]);
   assert.deepEqual(readySet(state('implementing'), 1).ready, []);
   assert.deepEqual(readySet(state('fixing'), 1).ready, []);
-  assert.deepEqual(readySet(state('blocked'), 1).ready, [], 'a blocked task still holds its builder');
+  assert.deepEqual(readySet(state('blocked'), 1).ready.map((t) => t.id), ['next'], 'a set-aside task holds no builder');
   assert.deepEqual(readySet(state(undefined), 1).ready, []);
   assert.deepEqual(readySet(state('reviewing'), 1).ready.map((t) => t.id), ['next']);
   assert.deepEqual(readySet(state('merging'), 1).ready.map((t) => t.id), ['next']);
   assert.deepEqual(readySet(state('implementing'), 1).waiting.map((w) => w.on), [['parallel cap']]);
+  // A task waiting behind a set-aside one is not offered, and the set-aside task itself is not either.
+  const behind = stateOf([phase('p', [task('aside', [], { status: 'in_progress', substep: 'blocked', scope: ['src/a/**'] }), task('after', ['aside'], { scope: ['src/b/**'] }), task('free', [], { scope: ['src/c/**'] })])]);
+  assert.deepEqual(readySet(behind, 3).ready.map((t) => t.id), ['free']);
+  assert.deepEqual(leftOut(behind).map((t) => t.id).sort(), ['after', 'aside']);
   // A review still holds its files: the scope check keeps counting it.
   const clash = stateOf([phase('p', [task('busy', [], { status: 'in_progress', substep: 'reviewing', scope: ['src/shared/**'] }), task('next', [], { scope: ['src/shared/**'] })])]);
   assert.deepEqual(readySet(clash, 3).waiting.map((w) => w.on), [['scope overlap with running work']]);

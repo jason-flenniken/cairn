@@ -22,12 +22,10 @@ test('board offers to narrow wide epic links with the relink procedure', () => {
 // Each procedure with an approval menu, and the kinds its tags may name.
 const APPROVALS: Record<string, string[]> = {
   prd: ['prd'],
-  plan: ['plan'],
-  ship: ['ship'],
 };
 
 // Option labels that must not sit between an approval tag and its "Approve (Recommended)".
-const OTHER_LABELS = ['Revise', 'Hold', 'Pause', 'Fix', 'Continue', 'Override'];
+const OTHER_LABELS = ['Revise', 'Hold', 'Pause', 'Fix', 'Continue'];
 
 test('each approval procedure has its tagged menu, Approve (Recommended) first, and the --human fallback', () => {
   for (const [name, kinds] of Object.entries(APPROVALS)) {
@@ -60,13 +58,39 @@ test('no procedure runs cairn approve outside the --human fallback', () => {
   }
 });
 
-test('every step that passes --override also has an Override menu', () => {
+// After the PRD approval the run is hands-off: only the sitting procedures and the user's own commands ask anything.
+const MAY_ASK = ['new', 'spec', 'board', 'discover', 'prd', 'resume', 'pause', 'system'];
+
+test('no procedure after the PRD approval asks with AskUserQuestion', () => {
   for (const name of allProcedures) {
-    // A step is a block of text between blank lines.
-    for (const step of read(name).split(/\n\s*\n/)) {
-      if (!step.includes('--override')) continue;
-      assert.ok(step.includes('[cairn:override '), `${name}: "${step.trim().slice(0, 60)}" needs a [cairn:override <slug>] menu`);
-      assert.ok(step.includes('"Override"'), `${name}: the menu needs an option labeled "Override"`);
-    }
+    if (MAY_ASK.includes(name)) continue;
+    assert.doesNotMatch(read(name), /AskUserQuestion/, `${name} mentions AskUserQuestion`);
   }
+});
+
+function markdownUnder(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) out.push(...markdownUnder(p));
+    else if (e.name.endsWith('.md') || e.name === 'SKILL.md') out.push(p);
+  }
+  return out;
+}
+
+test('the removed approvals and the override are gone from procedures, references, agents and skills', () => {
+  const files = ['procedures', 'references', 'agents', 'skills'].flatMap(markdownUnder).filter((f) => f !== join('references', 'cli.md'));
+  assert.ok(files.length > 20, 'found the markdown files');
+  for (const f of files) {
+    const src = readFileSync(join(root, f), 'utf8');
+    for (const banned of ['[cairn:override', '[cairn:approve plan', '[cairn:approve ship', '--override'])
+      assert.ok(!src.includes(banned), `${f} contains ${banned}`);
+  }
+});
+
+test('autonomy.md says what to decide, what to record as not done, and what is the user\'s', () => {
+  const src = read('../references/autonomy').toString();
+  for (const needle of ['cairn decide "Assumed:', '--call "', '--not-done "', 'blocked --note "set aside:', 'cairn prove add', 'PRD approval', 'The merge'])
+    assert.ok(src.includes(needle), needle);
+  assert.doesNotMatch(src, /The one stop|Still a stop/);
 });

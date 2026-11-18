@@ -92,7 +92,6 @@ test('task done refuses plan-branch commits inside the task scope, and only thos
   ok(wt, 'advance');
   write(join(dir, 'plan.md'), PLAN);
   ok(wt, 'plan', 'load');
-  byUser(wt, 'approve', 'plan');
   ok(wt, 'advance');
   const wa = ok(wt, 'task', 'start', 'a').data!.worktree as string;
   const wb = ok(wt, 'task', 'start', 'b').data!.worktree as string;

@@ -8,6 +8,7 @@ import type { State } from '../types.ts';
 import { CliError, now, readText, Refusal } from '../util.ts';
 import { mutate, planCtx, planFile, recordProblems, suiteGreenAtHead, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { fastLane } from './fix.ts';
+import { crossPlanBlockers } from './linear.ts';
 import { proofProblems } from './prove.ts';
 import { prdEditedSinceApproval } from './stages.ts';
 
@@ -66,6 +67,13 @@ const list = (xs: string[]) => (xs.length ? xs.map((x) => `- ${x.replace(/\s*\n\
 /** The pull request body: what was built, then Done, Calls made for you, and Not done. */
 export function prBody(pc: PlanCtx, s: State): { title: string; body: string; report: PrReport } {
   const r = prReport(pc, s);
+  // Work in another plan this one builds on: an order to merge in, not something left undone.
+  let after: string[] = [];
+  try {
+    after = crossPlanBlockers(pc.ctx, s);
+  } catch {
+    // Other plans that can't be read never block a pull request.
+  }
   const built = (sections(readText(planFile(pc, 'RECORD.md')) ?? '').get('what was built') ?? '').trim();
   const body = [
     ...(built ? [built, ''] : []),
@@ -78,6 +86,7 @@ export function prBody(pc: PlanCtx, s: State): { title: string; body: string; re
     `## Not done (${r.notDone.length})`,
     ...list(r.notDone),
     '',
+    ...(after.length ? [`**Merge after:** ${after.join('; ')}`, ''] : []),
     r.draft ? 'This is a draft because something above is not done. Merge it as it is, or send it back with notes.' : 'Everything the PRD asked for is done and green. Merging is your sign-off.',
     '',
     `Plan: \`${s.slug}\` · record: \`RECORD.md\` in the plan folder`,
@@ -91,12 +100,22 @@ const gh = (args: string[], cwd: string) => {
 };
 
 /**
- * `cairn pr body` prints the pull request body. `cairn pr open` pushes the plan branch and opens the pull request, or
+ * `cairn pr not-done` records an unmet part of the goal that no check covers. `cairn pr body` prints the pull request body. `cairn pr open` pushes the plan branch and opens the pull request, or
  * updates the one that is open: its body and whether it is a draft both come from `prReport`, never from a flag.
  */
-export function cmdPr(ctx: Ctx, action: string | undefined, _opts: Opts): Result {
-  if (action !== 'body' && action !== 'open') throw new CliError('usage: cairn pr body | cairn pr open');
+export function cmdPr(ctx: Ctx, action: string | undefined, opts: Opts, what?: string): Result {
+  if (action !== 'body' && action !== 'open' && action !== 'not-done') throw new CliError('usage: cairn pr body | cairn pr open | cairn pr not-done "<what is not done>" --why "<why; what was tried; the fix you propose>"');
   const pc = planCtx(ctx);
+  // A part of the goal no check covers (a requirement the checker found unmet, a leaked secret): said here, so the PR lists it.
+  if (action === 'not-done') {
+    const why = typeof opts.why === 'string' ? opts.why.trim() : '';
+    if (!what?.trim() || !why) throw new CliError('usage: cairn pr not-done "<what is not done>" --why "<why; what was tried; the fix you propose>"');
+    return mutate(pc, 'not done recorded', (s) => {
+      (s.notDone ??= []).push({ at: now(), event: 'reported', what: what.trim(), why });
+      log(s, 'not done: reported', what.trim(), why);
+      return { message: `Recorded as not done: ${what.trim()}. The pull request will list it and open as a draft.` };
+    });
+  }
   const wt = pc.plan.worktree;
   const s0 = loadState(pc.plan.dir);
   const { title, body, report } = prBody(pc, s0);
@@ -124,11 +143,11 @@ export function cmdPr(ctx: Ctx, action: string | undefined, _opts: Opts): Result
     url = made.out.split('\n').filter((l) => /^https?:\/\//.test(l)).pop() ?? made.out;
   }
   return mutate(pc, 'pull request opened', (s) => {
-    s.pullRequest = { url: url as string, draft: report.draft, at: now(), head };
+    s.pullRequest = { url: url as string, draft: report.draft, notDone: report.notDone.length, at: now(), head };
     log(s, s0.pullRequest ? 'pull request updated' : 'pull request opened', `${report.draft ? 'draft' : 'ready'}: ${url}`);
     const state = report.draft ? `a draft: ${report.notDone.length} not done` : 'ready to merge';
     return {
-      message: `Pull request ${s0.pullRequest ? 'updated' : 'opened'} (${state}): ${url}\nThe user merging it is the sign-off. Next: cairn advance, then end the turn.`,
+      message: `Pull request ${s0.pullRequest ? 'updated' : 'opened'} (${state}): ${url}\nThe user merging it is the sign-off.${s.stage === 'ship' ? ' Next: cairn advance, then finish the record and close (procedures/learn.md).' : ' End the turn with the link.'}`,
       data: { url, head, ...report },
     };
   });

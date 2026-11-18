@@ -245,16 +245,23 @@ test('approve with CAIRN_APPROVER matching the stored hash records source mod an
   assert.ok(!existsSync(hashFile()));
 });
 
+/** Edit prd.md so approving it again is allowed: an approved PRD is approved again only when it changed. */
+let edits = 0;
+const editPrd = () => writeFileSync(join(pd(wt, 'billing'), 'prd.md'), `${PRD}<!-- edit ${++edits} -->\n`);
+
 test('approve with a used secret is refused', () => {
+  editPrd();
   setSecret('first');
   run(['approve', 'prd'], wt);
   const at = planState('billing').approvals.prd.at;
+  editPrd();
   process.env.CAIRN_APPROVER = 'first';
   refusedWith(() => run(['approve', 'prd'], wt), /cairn approve prd --human/);
   assert.equal(planState('billing').approvals.prd.at, at);
 });
 
 test('approve --human at a terminal records source terminal', () => {
+  editPrd();
   cmdApprove(context(wt), 'prd', { human: true }, tty());
   assert.equal(planState('billing').approvals.prd.source, 'terminal');
 });
@@ -263,24 +270,14 @@ test('approve --human without a TTY says "run this in your own terminal"', () =>
   refusedWith(() => cmdApprove(context(wt), 'prd', { human: true }, tty(false)), /run this in your own terminal/);
 });
 
-test('--override with no proof is refused and changes nothing', () => {
+test('--override is refused whoever passes it: the error names --call and --not-done, and nothing changes', () => {
   const swt = run(['new', 'spike', '--level', 'standard', '--no-proofs', '--title', 'Spike'], main).data!.worktree as string;
-  refusedWith(() => run(['advance', '--override', 'model says skip'], swt), /override[\s\S]*needs proof/);
+  refusedWith(() => run(['advance', '--override', 'model says skip'], swt), /--override was removed[\s\S]*--call[\s\S]*--not-done/);
+  setSecret('even-with-proof');
+  refusedWith(() => run(['advance', '--override', 'the user says skip'], swt), /--override was removed/);
+  assert.ok(existsSync(hashFile()), 'the refusal did not spend the secret');
   assert.equal(planState('spike').stage, 'discover');
-});
-
-test('one proof covers every overridden check in a command', () => {
-  // spike is in prd with no prd.md: approving plan fails on the stage, the loaded plan, and the hash.
-  setSecret('once');
-  run(['approve', 'plan', '--override', 'user said go'], planWt('spike'));
-  const s = planState('spike');
-  assert.equal(s.approvals.plan.source, 'mod');
-  const overrides = s.log.filter((l: { event: string }) => l.event === 'override: approve plan');
-  assert.equal(overrides.length, 3);
-  for (const o of overrides) {
-    assert.equal(o.override, 'user said go');
-    assert.match(o.detail, /source: mod/);
-  }
+  assert.equal(planState('spike').log.filter((l: { override?: string }) => l.override).length, 0);
 });
 
 test('status --json and next --json report modActive from the heartbeat', () => {
@@ -302,63 +299,4 @@ test('--human parses as a flag', () => {
 
 test('approve --via human with no proof is refused', () => {
   refusedWith(() => run(['approve', 'prd', '--via', 'human'], wt), /cairn approve prd --human/);
-});
-
-/** Run `cairn close --override … --human` at a faked terminal with `typed` as the answer; collects the prompts shown. */
-function closeAtTerminal(typed: string, prompts: string[]): void {
-  const bytes = Buffer.from(`${typed}\n`);
-  let pos = 0;
-  const setTTY = (v: boolean | undefined) => {
-    Object.defineProperty(process.stdin, 'isTTY', { value: v, configurable: true });
-    Object.defineProperty(process.stdout, 'isTTY', { value: v, configurable: true });
-  };
-  const wasTTY = [process.stdin.isTTY, process.stdout.isTTY];
-  mock.method(fs, 'readSync', (_fd: number, buf: Buffer) => (pos < bytes.length ? ((buf[0] = bytes[pos++]), 1) : 0));
-  mock.method(process.stderr, 'write', (chunk: string) => (prompts.push(String(chunk)), true));
-  syncBuiltinESMExports();
-  setTTY(true);
-  try {
-    run(['close', '--override', 'user said close', '--human'], planWt('fresh'));
-  } finally {
-    mock.restoreAll();
-    syncBuiltinESMExports();
-    Object.defineProperty(process.stdin, 'isTTY', { value: wasTTY[0], configurable: true });
-    Object.defineProperty(process.stdout, 'isTTY', { value: wasTTY[1], configurable: true });
-  }
-}
-
-// fresh is in plan with no RECORD.md: close fails two checks (the stage and the record); a missing test command only warns.
-test('a declined --human prompt is asked once per command, and the override is refused', () => {
-  const fwt = run(['new', 'fresh', '--level', 'standard', '--no-proofs', '--title', 'Fresh'], main).data!.worktree as string;
-  run(['decide', 'q', 'a'], fwt);
-  run(['advance'], fwt);
-  writeFileSync(join(pd(fwt, 'fresh'), 'prd.md'), PRD);
-  const prompts: string[] = [];
-  const stage = planState('fresh').stage;
-  assert.throws(
-    () => closeAtTerminal('no', prompts),
-    (e: unknown) => e instanceof Refusal && /override needs proof/.test(e.message),
-  );
-  assert.equal(prompts.filter((p) => p.includes('press Enter')).length, 1);
-  assert.equal(planState('fresh').stage, stage);
-});
-
-test('one --human Enter covers every overridden check in a command', () => {
-  const prompts: string[] = [];
-  closeAtTerminal('', prompts);
-  assert.equal(prompts.filter((p) => p.includes('press Enter')).length, 1);
-  const s = planState('fresh');
-  assert.equal(s.stage, 'closed');
-  const overrides = s.log.filter((l: { event: string }) => l.event === 'override: close');
-  assert.equal(overrides.length, 2);
-  for (const o of overrides) assert.match(o.detail, /source: terminal/);
-});
-
-test('a grant file is not proof for --override', () => {
-  const swt = planWt('spike');
-  mkdirSync(join(mainCairn(), 'grants'), { recursive: true });
-  writeFileSync(join(mainCairn(), 'grants', 'spike.json'), JSON.stringify({ reason: 'r', createdAt: Date.now(), slug: 'spike' }));
-  const before = planState('spike').stage;
-  refusedWith(() => run(['advance', '--override', 'x'], swt), /needs proof/);
-  assert.equal(planState('spike').stage, before);
 });

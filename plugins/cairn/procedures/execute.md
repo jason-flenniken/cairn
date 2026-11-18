@@ -2,15 +2,13 @@
 
 Orchestrate the current phase: start every ready task, build it, review it, merge it, repeat until the phase has no remaining tasks.
 
-Talk to the user per `references/reporting.md`; model choices follow `references/model-tiers.md`. The build runs without asking: read `references/autonomy.md` once. It says what you decide alone, when a task is set aside, and the one stop. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
-
-**Questions that block the plan.** Before an AskUserQuestion only the user can answer (not the approval question: the step `approving` already says that one waits), run `cd <plan worktree> && cairn step asking`, so the pane of a session in another plan shows that this plan waits for the user in its session. Send that Bash call and the AskUserQuestion in the same message (parallel tool calls, one turn). Once it is answered, chain `cd <plan worktree> && cairn step clear` in front of the next command (`cairn step clear && cairn ready --json`, say); while tasks run, Build has no other step.
+Talk to the user per `references/reporting.md`; model choices follow `references/model-tiers.md`. The build runs without asking and without stopping: read `references/autonomy.md` once. It says what you decide alone, what you record as not done, and what you never change. `cairn` is on PATH; if not, run `node "${CLAUDE_PLUGIN_ROOT}/dist/cairn.mjs"`.
 
 You stay at the repo root. The session is not locked to a worktree, so your subagents can edit and commit in task worktrees. The plan lives in its own worktree on the plan branch (from `cairn status --json`, `state.branch`). You and the steward agents (the writers and the `linear-sender`) run `cairn`; implementers and reviewers never do, and never touch `docs/cairn/`. You are the only one who merges. Every `Agent` call sets `description` to "<Role> · <task name>" (Build, Review, Fix, Check, Record), per `references/reporting.md`.
 
 Keep your own context small. Agents get a path, not text: `cairn task brief` writes each brief to disk, agents write their full report to disk, and you read only their last few lines. Do not read a report or a brief file yourself; `cairn task report` and `cairn review record` read them for you.
 
-**Running cairn.** Every `cairn` command below runs from the plan worktree: `cd <plan worktree> && cairn <command>`. Each model turn re-reads the whole conversation, so do the bookkeeping in as few turns as possible: when two commands follow each other, chain them in one Bash call with `&&`; when a command precedes an agent dispatch or a question, send the Bash call and that tool call in the same message. The one exception is an override command (a `cairn` command the user chose to override). It runs alone, with no `cd` and no `&&`, because the mod refuses compound commands and resolves the plan itself. Keep its reason plain text, as `procedures/review.md` describes.
+**Running cairn.** Every `cairn` command below runs from the plan worktree: `cd <plan worktree> && cairn <command>`. Each model turn re-reads the whole conversation, so do the bookkeeping in as few turns as possible: when two commands follow each other, chain them in one Bash call with `&&`; when a command precedes an agent dispatch or a question, send the Bash call and that tool call in the same message.
 
 **When a stage or phase ends.** Carry on into the next step. Never stop to suggest `/clear` or a new session: long sessions are compacted automatically, and the user decides when to clear.
 
@@ -21,7 +19,7 @@ Read `level` from `cairn status --json` (once, at the start); `references/levels
 - Polished: every task gets the task-reviewer (the `Task review:` line says yes). Test-first for every task. Add a line to each build brief's prompt telling the implementer to write the failing test before the code, and have the task-reviewer check that it did.
 
 ## Changing the level
-`references/levels.md` explains how a raise works. Only suggest one when the MVP shortcuts are visibly costing more than they save; the user decides. After a raise, run `cairn suggest list --open --json`, take the entries with `hardening: true` whose `where` overlaps this plan's tasks (or use `--for <path>`), and ask whether to work through them now.
+`references/levels.md` explains how a raise works. The level is the user's: do not change it during the run. When the MVP shortcuts visibly cost more than they save, say so in the pull request (`cairn suggest add`), not to the user mid-run.
 
 ## 1. Check
 Run `cd <plan worktree> && cairn status --json` once. The stage must be `execute`. Any other stage: say which and run `cairn next --json`. Stop this procedure.
@@ -75,7 +73,7 @@ An implementer's final message is five lines: `Status`, `Commits`, `Tests`, `Con
 Only Critical and Required findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing --note "fixing classes: <class>, <class>"` (the classes come from the `FIX` line), so the plan log keeps which kinds of mistake needed fixing. Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
 - Run `cd <plan worktree> && cairn task brief <id> --role fix` chained after the `fixing` step call above, in one Bash call. Its `Builder:` line names the model for the fix (the last attempt is one tier up). It writes the must-fix findings, grouped by class, with their proposed fixes (and the last red test run, when there is one). Send the brief path to the same implementer with SendMessage (run `cairn status` first, per the pause rule above), or dispatch a fresh implementer on the same worktree when the old one has ended, when the user was asked something since it started (a resumed agent would carry that conversation), or when the `Builder:` line names a different model than the original build (a running agent cannot change model), `description` "Fix · <task name>". Tell it in one line to fix each class everywhere in the task's scope, not only at the lines cited, and to list the other places it fixed.
 - When it ends, run `cd <plan worktree> && cairn task report <id> <report path> && cairn task brief <id> --role review --again` (or `--role security`) in one call, then re-review once with the reviewer that raised the findings (both when both did). The brief lists the earlier must-fix findings and writes to the same report path as the first review. The re-review is always a fresh reviewer agent given only that brief (the fix diff and the earlier must-fix findings): never resume an earlier reviewer or send it a message, because a resumed reviewer drags its whole earlier context along. Dispatch it with the brief path (when the brief output has a `Reviewer:` line, pass its `effort` on the Agent call), then `cd <plan worktree> && cairn review record <id> <report path>`; recording replaces the old must-fix findings.
-- When a Critical or Required finding is still open after that attempt (or the CLI refuses another), set the task aside (`references/autonomy.md`): `cd <plan worktree> && cairn task step <id> blocked --note "set aside: <finding>; tried: <fixes>; question: <recommended next step>"`. Keep building the other tasks. The question waits for the one stop in step 8.
+- When a Critical or Required finding is still open after that attempt (or the CLI refuses another), set the task aside (`references/autonomy.md`): `cd <plan worktree> && cairn task step <id> blocked --note "set aside: <finding>; tried: <fixes>; proposed: <next step>"`. Keep building the other tasks. The pull request lists it under Not done.
 
 **Done when:** the task passed, or it is set aside.
 
@@ -86,20 +84,18 @@ Anything else (a refusal, a conflict outside `docs/cairn/`, red tests after the 
 
 **Proposed proofs.** When the implementer's report proposes a proof (its Concerns line names one: an id, the requirements, the command, the files), and the merge brought the files onto the plan branch, add it: `cd <plan worktree> && cairn prove add <id> --covers <FR ids> --run "<command>" --files <paths> --note "<the case it checks>"`. It is locked at once and listed at ship. Never use this to replace a proof.
 
-**A locked proof that is itself wrong.** Never edit or replace it by adding the same id. When the code is right and the proof is what is wrong, add a corrected copy with `cairn prove add`, run it green, then ask the user with an AskUserQuestion menu tagged `[cairn:override <slug>]` (options "Override" and a keep-it option). Only after Override, run `cairn prove retire <old-id> --replaced-by <new-id> --override "<reason>"` alone (no cd, no &&, a plain-words reason with none of ; | & $ ` > < \ # * ? ~ ( ) { } [ ]).
+**A locked proof that is itself wrong.** Never edit, replace or retire it. When the code is right and the proof is what is wrong, add a corrected one beside it with `cairn prove add` and run it green. The old one stays red: pass it with `--not-done "<why this proof is wrong; the corrected one is <new-id>>"` when a check asks, so the pull request lists it for the user to retire after the merge.
 
 **Done when:** `cairn task merge <id>` exits 0. Report in 1-3 lines: the task, the test count, what starts next.
 
 ## 8. Loop
 After every completion, return to step 3. Once per round, run `cd <plan worktree> && cairn status` first, chained with the round's `cairn ready --json`.
 
-When `cairn ready` is empty, no agent is running, and a task is set aside (`blocked`), this is the one stop: list every set-aside task and held question together, as `references/autonomy.md` describes, and end your turn there. The user's reply arrives as a new message; act on the answers then and return to step 3.
+A set-aside task never stops the loop: build every task that does not wait on it. The tasks that wait behind it are left out, and the pull request lists them.
 
 When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks. Run `cd <plan worktree> && cairn next --json`, follow the procedure it names (phase-end for a feature plan, review for a fix plan). When the merge of the last task said the plan moved to Check, it names Check: follow it (its first step tells the user).
 
 ## Rare cases
-**The commands changed.** When a task command refuses because the setup, test or build command changed since the user approved it, run `cairn step asking` and ask once with AskUserQuestion tagged `[cairn:approve commands <slug>]`, showing each `old → new` from the refusal: "Approve (Recommended)" or "Revert the command". Never use Override for this: it holds for one command and the next task start refuses again. With `modActive` false, give the user the `cairn approve commands --human` command the refusal names. Changing `testQuick` needs no approval.
-
 Read `procedures/execute-cases.md` only when one of these happens: an implementer returns `NEEDS_CONTEXT` or `BLOCKED`, `cairn task merge` refuses or conflicts, tests are red after the merge, a task is blocked, or the plan is paused.
 
 **Done when:** the phase has no remaining tasks and the next procedure started.

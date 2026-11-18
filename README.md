@@ -8,13 +8,13 @@ cairn takes a feature from an idea to a shipped, recorded change in the same fix
 Discover → PRD → Plan → Build → Check → Review → Ship → Learn
 ```
 
-Agents do the work. You make the calls that matter: approving the PRD, the plan, and the ship.
+Agents do the work. You make the calls that matter: you approve the PRD, and later you merge the pull request.
 
 A small CLI owns each plan's state, so you always know three things: where a plan stands, what's done, and what's next. You can stop at any point and pick up exactly where you left off, in a new session if you like.
 
 ## Why it exists
 
-Workflow plugins such as Compound Engineering and Superpowers describe their stages in prose that the model may or may not follow. Both now run fresh reviewers, but nothing in them stops a skipped step, and the approvals in them are things the model can type for itself. Workflows that run on prose alone lead to six problems:
+Workflow plugins such as Compound Engineering and Superpowers describe their stages in prose that the model may or may not follow. Both now run fresh reviewers, but nothing in them stops a skipped step, and the approvals in them are things the model can type for itself. Workflows that run on prose alone lead to seven problems:
 
 - Long plans drift.
 - Steps get skipped.
@@ -22,19 +22,21 @@ Workflow plugins such as Compound Engineering and Superpowers describe their sta
 - Every run costs a lot of tests, reviews, and gates, whether or not the change needs them.
 - The session that shaped a plan is the one judging it, so a wrong direction goes unchallenged.
 - "Done" is whatever the builder says it is, so you get pulled back mid-build to answer questions you'd always answer the same way.
+- Every plan costs you about ten visits, each one blocking a session, so you can't run several in parallel.
 
-cairn fixes this in six ways:
+cairn fixes this in seven ways:
 
-- **A script owns the state.** The stage, phases, tasks, approvals, and test results live in a `state.json` that only the `cairn` CLI writes. The CLI refuses a move when something it needs is missing, and it names the fix.
+- **Two visits per plan.** One sitting, then hands-off. You answer one batch of questions and approve the PRD. cairn then plans, builds, checks and reviews on its own and opens a pull request. You merge it or send it back. See [Hands-off runs](#hands-off-runs).
+- **A script owns the state.** The stage, phases, tasks, approvals, and test results live in a `state.json` that only the `cairn` CLI writes. The CLI refuses a move when something it needs is missing, and it names the fix. It also writes the pull request's status from what it recorded, so the model's word never decides whether something counts as done.
 - **Effort you choose.** Each plan starts at a **level**: MVP to prototype fast, Standard for normal work, or Polished for the deepest checks. At Standard every task gets tests for its core logic. **Risky** tasks (auth, money, deleting data, migrations, public APIs) also get thorough tests, their own reviewer and a security review; complex tasks get their own reviewer too. One branch review covers the rest, and the full suite runs when each phase wraps up, and for the last phase in Check. Polished reviews every task and runs the full suite before each merge. Everything else worth doing later goes into a list of **recommended follow-ups**, and cairn offers them back when you next touch the same code.
 - **You can see it working.** A live pane beside the chat shows a card for every running agent: what it's doing, how long it's taken, and roughly how long is left.
 - **Parallel, isolated work.** Each plan runs on its own branch and worktree, and each task on its own branch and worktree. Tasks that don't touch the same files run in parallel, up to 3 at a time.
 - **Fresh eyes before you commit.** Before you approve the PRD, agents that never saw the interview challenge the direction and check that the PRD stands on its own. See Fresh eyes.
-- **A done you agree on up front.** You can choose to have each requirement written as a check that runs before anything is built. You see the checks fail, they lock when you approve the plan, and the build runs on its own until they pass. See Proofs.
+- **A done you agree on up front.** You can choose to have each requirement written as a check that runs before anything is built. You see the checks fail, they lock when the plan is made, and the build runs on its own until they pass. See Proofs.
 
 ## Requirements
 
-- Claude Code v2.1.287 or later, for the mod that powers the pane, menu approvals, and pause. Or Codex CLI 0.167 or later; see [In Codex](#in-codex).
+- Claude Code v2.1.287 or later, for the mod that powers the pane, the PRD approval menu, and pause. Or Codex CLI 0.167 or later; see [In Codex](#in-codex).
 - Node.js **20+**. The CLI is a single bundled file with no dependencies. Working on cairn itself needs Node **22.18+**, since the tests run the TypeScript sources directly.
 - Git. Plans live on branches and worktrees.
 - For the full-height side pane: Claude Code's fullscreen layout, `"tui": "fullscreen"` in `~/.claude/settings.json`, or run `/tui fullscreen` once. In the normal layout the pane sits above the prompt as a compact summary.
@@ -59,7 +61,7 @@ Then run `/reload-plugins`, or start a new session. The `cairn` CLI comes with t
 
 Adding the marketplace clones this repository with your own `git`. It tries SSH first and falls back to HTTPS; on a machine with no GitHub SSH key, set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` to go straight to HTTPS.
 
-cairn includes a **mod**, Claude Code code that runs inside the app: the pane, menu approvals, pause, and the guards that stop the model approving its own work. Like any mod it runs with your permissions. To see every event it handles and every call it makes before you install, clone the repo and run `claude plugin validate plugins/cairn`. See [Decide whether to trust a mod](https://code.claude.com/docs/en/plugins/mods/overview#decide-whether-to-trust-a-mod).
+cairn includes a **mod**, Claude Code code that runs inside the app: the pane, the PRD approval menu, pause, and the guards that stop the model approving its own work. Like any mod it runs with your permissions. To see every event it handles and every call it makes before you install, clone the repo and run `claude plugin validate plugins/cairn`. See [Decide whether to trust a mod](https://code.claude.com/docs/en/plugins/mods/overview#decide-whether-to-trust-a-mod).
 
 In any repo where you use cairn, turn off Superpowers and Compound Engineering. Their skills trigger on their own and compete with cairn's. A project-level `.claude/settings.json` can do it:
 
@@ -97,7 +99,7 @@ The skills are the same: `cairn:new`, `cairn:next`, `cairn:status` and the rest.
 
 | | Claude Code | Codex |
 |---|---|---|
-| Approvals | a menu in the session | you run `cairn approve <prd\|plan\|ship> --human` in your own terminal; cairn prints the full command |
+| The PRD approval | a menu in the session, or the pane | you run `cairn approve prd --human` in your own terminal and press Enter; cairn prints the full command |
 | The pane | live, beside the chat | none; `cairn:status` shows the same state as text |
 | Agents | cairn's own agent types | Codex subagents, given each agent's instructions and a reasoning effort per tier ([hosts](plugins/cairn/references/hosts.md)) |
 | Guards | the mod checks shell commands and file tools | a PreToolUse hook checks shell commands and `apply_patch` |
@@ -117,11 +119,11 @@ To choose models for Codex subagents, set `codex.models` in `.cairn/config.json`
    /cairn:new add a CSV export to the reports page
    ```
 
-   cairn creates a branch (`feature/<slug>`) and a worktree for the plan. If the repo has no `.cairn/config.json`, cairn detects your test and build commands from `package.json`, a `Makefile`, `pyproject.toml` and the like, asks you to confirm them, and commits the file. Then the discovery interview starts.
-2. **Answer the interview.** It asks one question at a time, each with a recommended answer. Every answer is written to the plan's `decisions.md`.
-3. **Approve the PRD**, then **approve the plan**, from the menu.
-4. **Let it build.** Phases run on their own. Tasks run in parallel, get merged, and are tested. A phase that finishes with passing tests rolls straight into the next one; a plan can mark a later phase `overlap: true` so its tasks start once their own blockers are done. When a reply announces the next step and ends the turn, a stop hook sends the plan on.
-5. **Approve the ship.** cairn writes a one-page record of what was built and why.
+   cairn creates a branch (`feature/<slug>`) and a worktree for the plan. If the repo has no `.cairn/config.json`, cairn detects your test and build commands from `package.json`, a `Makefile`, `pyproject.toml` and the like, asks you to confirm them, and commits the file. Then discovery starts.
+2. **Answer one batch of questions.** cairn asks at most four at once, each with a recommended answer. Everything else it would have asked becomes an `Assumed:` line in the PRD, where you can change it. Every answer is written to the plan's `decisions.md`.
+3. **Approve the PRD.** It's the one approval, from the menu or the pane. That ends the sitting.
+4. **Let it run.** cairn plans, writes the proofs, builds, checks and reviews without asking you anything. Tasks run in parallel, get merged, and are tested. A phase that finishes with passing tests rolls straight into the next one; a plan can mark a later phase `overlap: true` so its tasks start once their own blockers are done. When a reply announces the next step and ends the turn, a stop hook sends the plan on.
+5. **Read the pull request, then merge it or send it back.** cairn writes a one-page record of what was built and why, opens the pull request, and waits. Its body says what's done, what cairn decided for you, and what isn't done. Merging is your sign-off. See [Hands-off runs](#hands-off-runs).
 
 When you're unsure what to do, run **`/cairn:next`**. It does the one correct next thing for the plan you're in, and it's the only command you need to remember.
 
@@ -148,28 +150,37 @@ The mod adds these commands, which run instantly without a Claude turn:
 | Command | What it does |
 |---|---|
 | `/cairn-pane [on\|off]` | Shows or hides the live pane. With no word it toggles. Your choice sticks across sessions, and closing the pane by hand also turns it off. |
-| `/cairn-approve [prd\|plan\|ship]` | Approves the stop the current plan is waiting on. |
+| `/cairn-approve` | Approves the PRD the current plan is waiting on. |
 | `/cairn-level` | Changes the current plan's level. Offers only the levels the plan can move to. |
 | `/cairn-pause-mod` | Pauses once in-flight work reaches a safe point. |
 | `/cairn-pause-now` | Stops the running turn and pauses right away. |
 | `/cairn-resume-mod [plan]` | Resumes a paused plan, even after `/clear`. |
 
+## How a plan runs
+
+A plan takes two visits from you.
+
+1. **The sitting.** You answer one batch of questions and approve the PRD. This is the only time cairn asks you for anything.
+2. **The pull request.** cairn plans, builds, checks and reviews on its own and opens a pull request. You merge it, or you send it back with notes. Merging is your sign-off.
+
+Nothing in between waits on you. That is what lets you run several plans at once.
+
 ## The lifecycle
 
-| Stage | What happens | Stops for you? |
+| Stage | What happens | Are you asked? |
 |---|---|---|
-| **Discover** | An interview, one decision at a time, covering users, the core flow, non-goals, and anything risky. Facts come from the codebase first, so the questions are only real decisions. A fresh agent that never saw cairn's guess offers other approaches and the strongest objection, and anything it raises that's yours to decide becomes a question. | No |
+| **Discover** | One batch of at most four questions, covering users, the core flow, non-goals, and anything risky. Facts come from the codebase first, so the questions are only real decisions. A fresh agent that never saw cairn's guess offers other approaches and the strongest objection; anything it raises that cairn can't settle becomes one of the batch's questions. Every other open point becomes an `Assumed:` line in the PRD. | Yes: the one batch |
 | **PRD** | A short PRD: Problem, Solution, Requirements (each with a one-line check), Non-goals, Open questions. Unhappy paths, security, and performance sections appear only when they matter. Before you see it, a fresh agent reads only the PRD and lists what a builder would have to guess. | **Yes: approve the PRD** |
-| **Plan** | First the end state, when you chose proofs at the start: a proof-writer turns each requirement into a **proof**, a check that runs (a test, a command, or a browser flow with screenshots). You see each one fail before anything is built. Then the PRD is broken into phases of small vertical **tasks**. Each task lists its files, what it waits on, its size (which picks the model), and whether it's risky. Recommended follow-ups that touch the same files are offered as extra tasks. | **Yes: approve the plan** |
-| **Build** | Runs on its own until the proofs pass. Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic. Risky and complex tasks get their own reviewer, and risky tasks also get thorough tests and a security review, with at most two fix attempts. A task still stuck after that is set aside while the rest keep building, and you get one question about everything set aside, not one per problem. Small calls the documents almost answer are made and logged, and listed at ship. The rest are reviewed once, at Review. Every task is merged; at MVP and Standard its quick tests run on the changed files when `testQuick` is set, and otherwise tests wait for the phase end. The full suite always runs when a phase wraps up. A finished phase continues on its own when tests pass. Merging the last task moves the plan straight to Check, which runs the full suite for the last phase. | Once, only if a task is stuck |
-| **Check** | Tests and build, then every proof must be green on the final code, with UI screenshots judged by a fresh agent against the look you agreed. Then one pass over the PRD's checks. A requirement that isn't met gets fixed. One that works but has no test becomes a recommended follow-up. | Only if something is broken |
-| **Review** | One review of the whole branch. It reads the tasks that had no review of their own in full. It runs on Sonnet, or Opus when a task is complex or the plan has 10 or more tasks. Blocking means a bug, a security hole, data loss, or an unmet requirement, and those are fixed in place. Problems in code the plan didn't touch, and everything else, become recommended follow-ups. | Only if something is blocking |
-| **Ship** | The approval card shows the proofs that passed, the screenshot folders, any proofs added during the build, and the calls the build made alone. A one-page `RECORD.md`: links (including how to revert it), why, what was built, how it works, follow-ups. When reviews kept flagging the same kind of mistake, cairn offers up to three rules for `REVIEW.md`, and adds only the ones you tick. | **Yes: approve the ship** |
-| **Learn** | Checks the follow-ups are tidied, then closes the plan. It asks you nothing. | No |
+| **Plan** | First the end state, when you chose proofs at the start: a proof-writer turns each requirement into a **proof**, a check that runs (a test, a command, or a browser flow with screenshots). cairn sees each one fail before anything is built, then locks them. Then the PRD is broken into phases of small vertical **tasks**. Each task lists its files, what it waits on, its size (which picks the model), and whether it's risky. Recommended follow-ups that touch the same files are offered as extra tasks. | No |
+| **Build** | Runs on its own until the proofs pass. Ready tasks start in parallel, each in its own worktree with a fresh agent. Each one writes tests for its core logic. Risky and complex tasks get their own reviewer, and risky tasks also get thorough tests and a security review, with at most two fix attempts. A task still stuck after that is set aside while the rest keep building, and a set-aside task no longer holds up later phases. It is listed in the pull request. Small calls the documents almost answer are made and recorded. Every task is merged; at MVP and Standard its quick tests run on the changed files when `testQuick` is set, and otherwise tests wait for the phase end. The full suite always runs when a phase wraps up. A finished phase continues on its own when tests pass. Merging the last task moves the plan straight to Check, which runs the full suite for the last phase. | No |
+| **Check** | Tests and build, then every proof must be green on the final code, with UI screenshots judged by a fresh agent against the look you agreed. Then one pass over the PRD's checks. A requirement that isn't met gets fixed. One that works but has no test becomes a recommended follow-up. What can't be fixed is recorded as not done. | No |
+| **Review** | One review of the whole branch. It reads the tasks that had no review of their own in full. It runs on Sonnet, or Opus when a task is complex or the plan has 10 or more tasks. Blocking means a bug, a security hole, data loss, or an unmet requirement, and those are fixed in place. Problems in code the plan didn't touch, and everything else, become recommended follow-ups. A blocking finding that can't be fixed is recorded as not done. | No |
+| **Ship** | cairn writes a one-page `RECORD.md`: links (including how to revert it), why, what was built, how it works, follow-ups. It opens the pull request, closes the plan (so `cairn status` shows "PR open"), pushes the close commits and refreshes the pull request body. The plan is already closed while the pull request waits for the merge. cairn never adds a rule to `REVIEW.md` without you. | No: you merge it, or send it back |
+| **Learn** | Checks the follow-ups are tidied and closes the plan. It runs before the pull request waits for you, and asks you nothing. | No |
 
-**Proofs.** When you choose them at the start, the plan approval locks the proofs. From then on, builders can add a proof (for an edge case they found) but never edit or remove one: a task merge that touches a locked proof file is refused. Leaving Check and approving the ship both need every proof green on the current code. `/cairn:new` asks whether to use proofs when the work starts (recommended at Standard and Polished, and at every level when the config sets `"proofs": "on"`). See [Proofs](#proofs) for the full picture.
+**Proofs.** When you choose them at the start, the plan's proofs lock as soon as cairn has seen each one fail, which is when the build starts. From then on, builders can add a proof (for an edge case they found) but never edit or remove one: a task merge that touches a locked proof file is refused. A proof that is red when the run ends is listed in the pull request as not done. `/cairn:new` asks whether to use proofs when the work starts (recommended at Standard and Polished, and at every level when the config sets `"proofs": "on"`). See [Proofs](#proofs) for the full picture.
 
-The `cairn` CLI checks each move between stages. If something is missing, such as an approval, a required PRD section, or a passing test run, it refuses and prints the exact fix. You can overrule a refusal from an **Override** menu, and every override is logged with its reason.
+The `cairn` CLI checks each move between stages. If a step cairn can do itself is missing, such as a required PRD section or a test run, it refuses and prints the exact fix. A choice about *how* to build passes with `--call "<what and why>"`, and a part of the goal that can't be met passes with `--not-done "<why>"`. Both are recorded and shown in the pull request. See [Hands-off runs](#hands-off-runs).
 
 The table above is the Standard level. See Depth levels for how MVP and Polished change each stage.
 
@@ -195,7 +206,7 @@ A long plan used to grow the session you talk to by hundreds of thousands of tok
 
 `/cairn:new` also asks whether the plan proves its end state (see [Proofs](#proofs)): yes is recommended at Standard and Polished, no at MVP, and any level can say yes. At Polished an Opus agent writes the proofs.
 
-Some things never change with the level: Check always runs the secret scan and dependency audit, any task touching a trust boundary gets a security review, the whole-branch security review always runs, and you still approve the PRD, the plan, and the ship.
+Some things never change with the level: Check always runs the secret scan and dependency audit, any task touching a trust boundary gets a security review, the whole-branch security review always runs, and you still approve the PRD and merge the pull request.
 
 The hardening list doesn't count toward the 5 follow-ups a plan may close with. When a later Standard or Polished plan touches the same code, cairn offers those items as scope, so moving past an MVP is one deliberate run.
 
@@ -228,7 +239,7 @@ So at Standard and Polished, two agents that start with no memory of the convers
 
 Both return a list, not a pass or fail, because a reviewer asked for a verdict tends to talk itself into approving. Both are told to skip style and anything already decided, and to rank what they find by whether it would change what gets built, because a reviewer asked to find problems always finds something. At Polished the challenger compares three approaches, each with its cost and risk.
 
-**What you see.** Neither adds a stop. What's yours to decide comes to you as ordinary interview questions, or as questions while the PRD is drafted. Everything cairn sets aside (already answered, or a minor call it made itself) gets a one-line reason in `decisions.md` and is listed under the read-back card or at the PRD approval, so you can pull any of it back. cairn may skip the challenger when a plan has one obvious approach (a one-line change), but the card then says so and why, and you can ask for it. That rule is what makes this work: the main session sorts the findings, and without it, the bias the fresh agent was there to counter could quietly drop the inconvenient ones.
+**What you see.** Neither adds a stop. What's yours to decide comes to you in the batch of questions, or as questions while the PRD is drafted, before you approve it. Everything cairn sets aside (already answered, or a minor call it made itself) gets a one-line reason in `decisions.md` and is listed under the read-back card or at the PRD approval, so you can pull any of it back. cairn may skip the challenger when a plan has one obvious approach (a one-line change), but the card then says so and why, and you can ask for it. That rule is what makes this work: the main session sorts the findings, and without it, the bias the fresh agent was there to counter could quietly drop the inconvenient ones.
 
 **Cost and limits.** About two Sonnet passes per plan; MVP skips both. A fresh agent gives you a second view, not a smarter one: it's the same kind of model without your backstory. Fresh eyes on the finished code (a reader that sees the diff but not the PRD) are planned next.
 
@@ -265,18 +276,14 @@ proofs:
 | When | What happens |
 |---|---|
 | Plan | After the PRD, a `proof-writer` agent writes the proofs and commits them. Each one must fail before the build, and for the right reason: the feature is missing, not the proof broken. A proof that passes before anything is built proves nothing. |
-| Plan approval | The card leads with "Done when these pass" and lists every proof. Approving locks them: a hash of each proof's files. |
-| Build | Each task's brief lists the proofs it answers for. Builders run them in their own worktree (`cairn prove --here`) and build until they pass. Proofs are **add-only**: a merge that edits or deletes a locked proof file is refused. A builder who finds an unchecked case writes a new proof, which is locked when it's added and listed at ship. |
-| Check | Every proof must be green on the final code, with its screenshots judged pass. Red ones go straight to a fix. |
-| Ship | The approval needs every proof green on the shipped code, so a review fix means running them again. The card shows how many passed, the screenshot folders, any proofs added during the build, and the calls the build made on its own. |
+| Lock | When every proof has been seen failing and the plan is loaded, the build starts and the proofs lock: a hash of each proof's files. No approval is needed. |
+| Build | Each task's brief lists the proofs it answers for. Builders run them in their own worktree (`cairn prove --here`) and build until they pass. Proofs are **add-only**: a merge that edits or deletes a locked proof file is refused, and `cairn prove retire` is always refused. A builder who finds an unchecked case, or a proof that is wrong, writes a new proof beside it, which is locked when it's added. |
+| Check | Every proof must be green on the final code, with its screenshots judged pass. Red ones go straight to a fix. A proof that still can't pass is recorded as not done. |
+| Ship | The pull request's Done list shows how many proofs passed. Any proof that is red goes under Not done, and the pull request opens as a draft. |
 
-**A build that runs without asking.** Once the plan is approved, the build doesn't stop to ask what you'd always answer the same way (`references/autonomy.md`):
-- **Decided alone and logged:** a question the documents almost answer, when the answer is easy to undo. It's recorded as an `Assumed:` decision and listed at ship, so you can reverse it.
-- **Fixed without a menu:** red tests, red proofs, unmet requirements and review findings go straight to a fix.
-- **Set aside, not stopped:** a task still stuck after its two fix attempts is set aside while every task that doesn't depend on it keeps building. When nothing else can run, you get one question covering everything set aside. Because a stuck task holds its phase open, that usually lands at the end of the phase.
-- **Still a stop:** your approvals; a change of scope, including changing or removing a proof; accepting an open finding or a red proof; and a leaked secret.
+**A build that runs without asking.** Once the PRD is approved, the build doesn't stop to ask anything. See [Hands-off runs](#hands-off-runs) for what cairn may decide alone, what it never changes, and how you see it in the pull request (`references/autonomy.md`).
 
-**Cost and limits.** One extra agent before the build, plus a visual check per UI run. A proof is only as strong as it is written, which is why the plan approval shows them to you and why the proof-writer has to rule out stubs and hard-coded values. Proofs are separate from the **approval proof** under Approvals and overrides: that one shows an approval came from you, while these show the work is done. The two are unrelated.
+**Cost and limits.** One extra agent before the build, plus a visual check per UI run. A proof is only as strong as it is written, which is why the proof-writer has to rule out stubs and hard-coded values, and why the PRD is where you set what "done" means. Proofs are separate from the **approval proof** under Approvals: that one shows the PRD approval came from you, while these show the work is done. The two are unrelated.
 
 ## Review rules
 
@@ -304,9 +311,10 @@ It has four tabs, **Now**, **History**, **Records**, and **Changelog**, plus a *
 
 - **Header:** the plan, its stage and phase, its level, and how long the current stage has run. Below it, a progress bar of tasks done and a rough time left, estimated from how long tasks of each size have taken so far, split across the parallel slots.
 - **Waiting on you:** a yellow box, only when something needs you.
-  - At the PRD, plan, and ship stops it shows the document's summary with **Read all**, which opens the full document in the pane, and **Approve**. Approve asks you to confirm, then records the approval the same way answering in the chat does. The model can't approve for you: the mod blocks it from running the approval itself.
+  - At the PRD it shows the document's summary with **Read all**, which opens the full document in the pane, and **Approve**. Approve asks you to confirm, then records the approval the same way answering in the chat does. The model can't approve for you: the mod blocks it from running the approval itself.
+  - After the PRD, a run shows **Hands-off** and its current step instead. When the pull request is open, the pane says **PR ready** or **PR draft** with a link.
   - During discovery it shows the read-back card while "Is this right?" is open in the chat, with buttons that answer it.
-  - Below this plan's content it also lists every other plan that waits on you. A plan with a PRD, plan or ship document ready shows its title, what waits, and **Open** (the document in the pane, read only). It is approved in its own session, never from this one, so sessions running different plans never approve each other's. A plan whose agent asked a question in its own session shows "waiting for you in its session" and the folder to go to, with no buttons: the question can only be answered there. The status line counts them ("2 plans wait on you"). Plans with nothing waiting stay in the plain other-plans list.
+  - Below this plan's content it also lists every other plan that waits on you. A plan with a PRD ready shows its title and **Open** (the document in the pane, read only). It is approved in its own session, never from this one, so sessions running different plans never approve each other's. A plan whose agent asked a question in its own session shows "waiting for you in its session" and the folder to go to, with no buttons: the question can only be answered there. The status line counts them ("2 plans wait on you"). Plans with nothing waiting stay in the plain other-plans list.
 - **Main session:** what the orchestrating session is doing (running tests, merging, starting agents) and for how long. It turns yellow and says **waiting for you** only while it has asked you something in the chat; between turns it reads **idle**, with how many agents are still working.
 - **Agent cards:** one per running agent: its role and task (Build, Review, Fix, Check, Record), model, time, tokens and estimated cost, current action, and step count. A finished card turns green (red if it stopped early) and stays a few seconds with its totals.
 - **UP NEXT** lists the next tasks in the phase, marking those still waiting on another task. Files edited outside every task's scope show as **out-of-scope edits**.
@@ -340,7 +348,7 @@ Along the bottom of every tab:
 | Command | What it does |
 |---|---|
 | `/cairn-pane [on\|off]` | Show, hide, or toggle the pane |
-| `/cairn-approve [prd\|plan\|ship]` | Approve the stop the plan is waiting on, after a confirm |
+| `/cairn-approve` | Approve the PRD the plan is waiting on, after a confirm |
 | `/cairn-level` | Change the plan's depth level from a menu |
 | `/cairn-pause-mod` | Pause once running work reaches a safe point |
 | `/cairn-pause-now` | Stop the running turn and pause now |
@@ -363,39 +371,105 @@ They never block anything. They come back to you at these points:
 - **In the pane,** as a count.
 - **On demand,** with `/cairn:suggestions`.
 
-## Approvals and overrides
+## Approvals
 
-Approvals have to come from you, not from the model. Only you can provide either form of proof:
+You give one approval: the PRD. It fixes the goal. Everything after it runs without asking you, and merging the pull request is your sign-off. There is no plan approval, no ship approval, no Override menu, and no re-approval when a command changes.
 
-- **Menu (the usual way).** cairn asks with a menu, and the mod records the approval when *you* choose an option starting with "Approve", or type something like "approve", "yes", or "lgtm". Answers the model fills in itself, dialogs that time out while you're away, and menus inside subagents never count. The pane's Approve button and `/cairn-approve` work the same way.
-- **Stops you may walk away from end the turn.** At the plan approval, the ship approval, the merge choice and the question about set-aside tasks, cairn shows its summary and the answers it takes, then stops talking. Approve in the pane (or `/cairn-approve`) and the run carries on; reply instead (for example "approve", "revise: ...", "merge", "not yet") and cairn asks the one approval menu then, so the approval still comes from your pick. Nothing is held open while you're away, which is what makes the fresh start below possible.
-- **Terminal (fallback).** When the mod isn't running, run `cairn approve <prd|plan|ship|commands> --human` in your own terminal and press Enter. You no longer type the plan's name.
-- **Changed commands.** The setup, test and build commands are part of what you approve with the plan. If one changes mid-build, task starts wait until you approve the new ones: the pane shows each old → new, and one press lets the build go on. `testQuick` is not locked, since a quick run never counts as the full suite.
+The approval has to come from you, not from the model. Only you can provide either form of proof:
+
+- **Menu, pane or `/cairn-approve` (the usual way).** cairn asks with a menu, and the mod records the approval when *you* choose an option starting with "Approve", or type something like "approve", "yes", or "lgtm". Answers the model fills in itself, dialogs that time out while you're away, and menus inside subagents never count. The pane's Approve button and `/cairn-approve` work the same way.
+- **Stops you may walk away from end the turn.** At the PRD approval, cairn shows its summary and the answers it takes, then stops talking. Approve in the pane (or `/cairn-approve`) and the run carries on; reply instead (for example "approve" or "revise: ...") and cairn asks the one approval menu then, so the approval still comes from your pick. Nothing is held open while you're away, which is what makes the fresh start below possible.
+- **Terminal (fallback).** When the mod isn't running, run `cairn approve prd --human` in your own terminal and press Enter. You don't type the plan's name.
+
+Changing a requirement later means editing `prd.md` (or asking cairn to) and approving the PRD again: `cairn approve prd` works at any stage when `prd.md` has changed since you approved it. Until you do, the pull request stays a draft and says so.
 
 Behind the scenes, the mod makes a one-time secret for each approval and the CLI checks it against a file on disk named by its hash, so a used secret can't be replayed and parallel sessions never spend each other's. Guards also stop the model from running `cairn approve` or editing plan state directly.
 
-**Your ship approval covers one commit.** cairn records the commit you approved. Right before the PR merges, `cairn merge-check` makes sure nothing changed since then that your approval doesn't cover. The record, the PR link and review rules you ticked are covered. So is a clean merge of main that cairn made itself, when main moved while the PR waited: cairn merges main in, reruns the tests, and the merge goes through with `--match-head-commit`, so GitHub merges exactly what was checked. A code commit after your approval, or a merge conflict someone resolved by hand, is new code: cairn asks you to approve the ship again before it merges. This matters most with several plans in flight, where two branches can each pass on their own and break main together.
+**Before a merge, cairn checks the branch against main.** Right before the PR merges, `cairn merge-check` merges main in when it moved, reruns the tests, and gives you the exact commit it checked. The merge then goes through with `--match-head-commit`, so GitHub merges exactly what was checked. A conflict that cairn can't settle on its own, or a red test run, is reported and the merge waits. This matters most with several plans in flight, where two branches can each pass on their own and break main together.
 
-**One plan per session.** A session approves, changes the level of, overrides, pauses and shows as its own only one plan: the first it works on, either by running in that plan's worktree or, when it runs elsewhere (the repo root, another workspace), through a `cd <plan worktree> && cairn …` command or an approval question. It keeps that plan until the plan closes, even if it later moves into another plan's worktree; to work on another plan, use a new session. An approval for any other plan is refused with the reason, so do it from that plan's session. With several plans running and no plan of its own yet, a session never guesses one.
+**One plan per session.** A session approves, changes the level of, pauses and shows as its own only one plan: the first it works on, either by running in that plan's worktree or, when it runs elsewhere (the repo root, another workspace), through a `cd <plan worktree> && cairn …` command or an approval question. It keeps that plan until the plan closes, even if it later moves into another plan's worktree; to work on another plan, use a new session. An approval for any other plan is refused with the reason, so do it from that plan's session. With several plans running and no plan of its own yet, a session never guesses one.
 
-**Trust model.** The approval proof and the guards keep an agent from approving its own work by accident or by habit. They are not a security boundary against an agent that sets out to get around them. The guards match command spellings, so they are best effort. Codex never re-checks input sent to a command that is already running. And a process that can write cairn's folder under `.git` can make its own proof. Treat cairn's approvals as a reliable record of what you approved, inside a session you supervise.
+**Trust model.** The approval proof and the guards keep an agent from approving its own work by accident or by habit. They are not a security boundary against an agent that sets out to get around them. The guards match command spellings, so they are best effort. Codex never re-checks input sent to a command that is already running. And a process that can write cairn's folder under `.git` can make its own proof. Treat the PRD approval as a reliable record of what you approved, inside a session you supervise.
 
-## Running a build without you
+## Hands-off runs
 
-After you approve the plan, the build runs until the ship approval without asking you anything. cairn decides what it does, but your session's settings decide what it's *allowed* to do. Before you leave a build running:
+After you approve the PRD, cairn writes the plan and the proofs, builds, checks, reviews, fixes what it finds, writes the record, and opens a pull request. It never stops to ask. When a choice comes up, it makes the choice, records it, and goes on. You read all of it in the pull request.
 
-- **Use auto mode, not bypass.** Add deny rules for `git push --force`, deploy commands and anything that touches production. cairn merges only after your ship approval, but a deny rule holds even when a prompt doesn't.
+### What cairn may decide on its own
+
+These are choices about *how* to build. Each one is recorded with what cairn chose and why, and listed in the pull request:
+
+- re-plan, split or reorder tasks
+- change the setup, test or build command (the change is recorded the next time cairn writes plan state, and listed)
+- stub out a dependency outside the plan
+- leave minor findings as recommended follow-ups
+- settle a small question the documents almost answer (an `Assumed:` decision)
+- set a stuck task aside after its two fix attempts
+
+### What cairn never changes
+
+These are the *what*, and they are yours:
+
+- **Locked proofs.** They can't be edited or removed. A wrong one stays, a corrected one goes in beside it, and the wrong one is reported as not done.
+- **Requirements.** Only you change them, by editing the PRD and approving it again.
+- **A red suite is never called green.** A failing suite, a red proof, an unmet requirement, or a blocking review finding goes in the pull request as not done.
+
+### When something can't be met
+
+cairn records it, with why, what it tried, and the fix it proposes. The run goes on, and the pull request opens as a **draft**. A task that was set aside no longer holds up the later phases: they build without it, and the tasks that wait on it are left out with it. All of these are listed under Not done. A miss that no check catches is recorded with `cairn pr not-done "<what>" --why "<why; what was tried; the fix>"`; the pull request lists it and becomes a draft.
+
+### Reading the pull request
+
+The body has three lists, written by the CLI from what it recorded:
+
+- **Done:** how many tasks merged, whether the full suite is green on this commit, how many proofs pass, and whether the review passed.
+- **Calls made for you:** each choice cairn made on its own, with its reason, and each `Assumed:` decision.
+- **Not done:** set-aside tasks, red proofs, a red suite, an unfinished check or review, blocking findings still open, and each recorded miss with its reason.
+
+A short example:
+
+```
+Adds a CSV export to the reports page.
+
+## Done
+- Tasks: 5 of 7 merged
+- Full test suite: green on this commit
+- Proofs: all 4 green
+- Review: passed, nothing blocking
+
+## Calls made for you (2)
+- the commands cairn runs changed: test: `npm test` → `npm run test:ci` — edited in .cairn/config.json
+- Assumed: Export file name → reports-<date>.csv
+
+## Not done (2)
+- Task "Schedule weekly export" was set aside: the mail service has no sandbox
+- Task "Export history page" was not started: it waits on a task that was set aside
+
+This is a draft because something above is not done. Merge it as it is, or send it back with notes.
+```
+
+**Draft or ready is the CLI's call.** `cairn pr open` opens the pull request as a draft whenever anything is under Not done, and as ready when nothing is. The model can't pass a flag to change it. If the pull request is already open, `cairn pr open` updates its body and flips draft or ready to match. A plan built on another plan's work carries a **Merge after** line naming it; nothing blocks the pull request.
+
+### Merge it or send it back
+
+- **Merge.** Merge on GitHub, or tell cairn to merge: it runs `cairn merge-check`, marks a draft ready with `gh pr ready`, and then runs `gh pr merge … --match-head-commit`. Merging is the sign-off.
+- **Send back.** Reply with "send back: <notes>". The notes are fixed on the plan branch, the suite is rerun, and `cairn pr open` updates the same pull request.
+- **A bigger change.** After the pull request is open the plan is closed: it can't be re-planned, and its PRD can't be approved again. A changed requirement, or anything more than a fix, is a follow-on plan: start one with `/cairn:new`, and add `--after <slug>` to build on the same branch. Before the pull request opens, you change a requirement by editing the PRD and approving it again, as under [Approvals](#approvals).
+
+### What to expect
+
+- Hands-off assumes Claude Code's **auto** permission mode. cairn decides what it does, but your session's settings decide what it's *allowed* to do. A permission prompt from Claude Code itself is outside cairn and will still stop a run waiting on you.
+- A plan you would have shaped differently is seen at the pull request, not before. The cost is a send-back round. The PRD and its `Assumed:` lines are where you steer.
+
+### Before you leave a run
+
+- **Use auto mode, not bypass.** Add deny rules for `git push --force`, deploy commands and anything that touches production. A deny rule holds even when a prompt doesn't.
 - **Turn on Claude Code's sandbox** for Bash, and limit network access to the hosts your build needs: your package registry, GitHub, and Linear if you use it.
 - **Keep production credentials out of the worktree.** Agents read `.env` files the same way they read code.
-- **Know what stops the build.** These stop it:
-  - proofs going green;
-  - a task still stuck after two fixes, which is set aside;
-  - the next approval;
-  - **Pause** or **Stop now**.
+- **Know what stops a run.** Only these: **Pause** or **Stop now**, and a Claude Code permission prompt. Failing checks do not stop it.
+- **Cost is shown but not yet capped.** The pane shows each agent's cost and the plan's total, and nothing stops a plan that runs long.
 
-  **Cost is shown but not yet capped.** The pane shows each agent's cost and the plan's total, and nothing stops a plan that runs long.
-
-The guards and approval proofs aren't a sandbox (see Trust model above). The sandbox and your permission rules are the hard boundary.
+The guards and approval proof aren't a sandbox (see Trust model above). The sandbox and your permission rules are the hard boundary. cairn merges only when you do.
 
 ## Pause and resume
 
@@ -434,11 +508,11 @@ Linear owns the backlog; cairn owns the execution. A plan pulls in a selection o
 2. Each issue becomes PRD requirements tagged with its key (`[SAV-102]`), and each requirement belongs to one ticket. The PRD can't be approved while an issue is neither tagged nor listed under `## Issues not taken` with a reason, while a requirement carries two tickets, or while a blocker outside the plan has no decision under `## Outside blockers`.
 3. Every task builds one ticket: cairn may split a big ticket into several tasks, but `cairn plan load` refuses a task that spans two tickets, and work tagged to no ticket goes under the epic. The cards show the ticket key (`8 · SAV-66 Move the app…`). Issue dependencies turn into task order. `cairn plan load` refuses a task for a blocked issue that doesn't come after its blocker's tasks, unless `## Issue order` in the plan explains why. A dependency found while building is recorded with `cairn linear depends`.
 4. Each ticket moves on its own: In Progress when its first task starts, In Review (with a comment) once all of its tasks have reached cairn's task review, and Done after the merge. Only the epic moves when the plan starts building. cairn queues these and the other updates that are due (comments with the PR link, follow-ups as new issues, a project status update you approve first). By default only ordinary follow-ups become Linear issues; hardening items stay in cairn, where a later plan on the same files is offered them (`linear.fileFollowUps`: `ordinary`, `all` or `none` and the agent sends them through the Linear MCP. A failed send waits; it never blocks the plan. Every command that leaves updates waiting says so, and the pane shows the count, so none sit unsent.
-5. At the end of each phase cairn re-reads the issues. A blocker someone added in Linear meanwhile has to be settled before the phase finishes. Shipping a plan whose blocker sits in another unshipped plan needs your override.
+5. At the end of each phase cairn re-reads the issues. A blocker someone added in Linear meanwhile has to be settled before the phase finishes. 
 
-**A plan written without tickets** (the full discover → PRD → plan workflow) can still go to Linear: at plan approval cairn offers to put it there (off unless you say yes). `cairn linear publish --project "<name>"` files an epic, one ticket per group of tasks (each task's `ticket:` in plan.md, else its phase), and the blocked-by links between tickets. From then on the plan moves its tickets like one pulled in from Linear.
+**A plan written without tickets** (the full discover → PRD → plan workflow) can still go to Linear: when the plan is made cairn offers to put it there (off unless you say yes). `cairn linear publish --project "<name>"` files an epic, one ticket per group of tasks (each task's `ticket:` in plan.md, else its phase), and the blocked-by links between tickets. From then on the plan moves its tickets like one pulled in from Linear.
 
-A ticket carrying the foundational label makes the plan foundational: `/cairn:new` recommends Polished, the fresh-eyes challenge cannot be skipped, and `plan.md` needs an `## Approaches considered` section (the chosen approach, then each rejected one) that the plan approval names.
+A ticket carrying the foundational label makes the plan foundational: `/cairn:new` recommends Polished, the fresh-eyes challenge cannot be skipped, and `plan.md` needs an `## Approaches considered` section (the chosen approach, then each rejected one).
 
 **The board.** `/cairn:board <project>` (run on main) reads the project's milestones and issues and prints them by status, in this order:
 - **Milestones:** the first unfinished one with its done count, and a ✓ line for each finished one.
@@ -456,7 +530,7 @@ A blocked-by link set on an epic makes every one of its sub-issues wait. When su
 
 ### Several plans at once
 
-When the work you want next is blocked only by work another open plan has built (it is in verify or later, or every task is done) and has in review, `/cairn:board` lists it under "Can start alongside". `/cairn:new --from-linear <KEY>` then offers to start the new plan on that plan's branch (`cairn new <slug> --after <plan>`), so you don't wait for the merge. The new plan shows `Stacked on <plan>`. Each time you run `/cairn:next`, it merges in whatever the other plan added. It cannot ship before that plan has merged. Once it has, `cairn next` (or `cairn merge-check`) merges main in and moves the plan onto main; a conflict stops it with the files named.
+When the work you want next is blocked only by work another open plan has built (it is in verify or later, or every task is done) and has in review, `/cairn:board` lists it under "Can start alongside". `/cairn:new --from-linear <KEY>` then offers to start the new plan on that plan's branch (`cairn new <slug> --after <plan>`), so you don't wait for the merge. The new plan shows `Stacked on <plan>`. Each time you run `/cairn:next`, it merges in whatever the other plan added. Merge the plan it stacks on first. Once that plan has merged, `cairn next` (or `cairn merge-check`) merges main in and moves the plan onto main; a conflict stops it with the files named.
 
 
 ### Specced tickets
@@ -492,7 +566,7 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 |---|---|
 | `setup` | Runs in every new plan or task worktree, for example to install dependencies. |
 | `test` | The full test command. It runs when each phase but the last wraps up and at Check. At Polished it also runs before each task is marked done. Close and the merge check skip it when the same code already passed. |
-| `testQuick` | Optional. At Standard it runs instead of `test` when a task is marked done, with `$CAIRN_CHANGED_FILES` set to the task's changed files (for example `npx vitest related --run $CAIRN_CHANGED_FILES`). Changing it mid-build needs no approval. |
+| `testQuick` | Optional. At Standard it runs instead of `test` when a task is marked done, with `$CAIRN_CHANGED_FILES` set to the task's changed files (for example `npx vitest related --run $CAIRN_CHANGED_FILES`). Changing it mid-build is recorded and needs no approval. |
 | `build` | The build command, run at Check. |
 | `start`, `seed`, `appTypes` | How to run the app, seed its data, and what kind of app it is (`web`, `expo`, `api`). These are recorded for checks that drive the running app; the lean defaults don't use them yet. |
 | `maxParallel` | How many tasks run at once (default 3). A task in review does not count, and a fix round after review is never held back, so the cap can briefly be exceeded by the tasks returning from review. |
@@ -507,7 +581,7 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 | `codex.models` | Codex only: a model name for each tier (`haiku`, `sonnet`, `opus`) for subagents. A tier left unset uses the session's model. |
 | `linear` | Turns on the [Linear](#linear) integration: `team`, and optional `statuses`, `foundationalLabel` (default `foundational`) and `fileFollowUps` (`ordinary` by default, `all` or `none`). |
 
-The `setup`, `test`, and `build` commands are locked when you approve the plan. If they change mid-plan, cairn asks you to re-approve.
+Nothing locks the `setup`, `test`, and `build` commands. If one changes mid-plan, cairn records the change and lists it under Calls made for you in the pull request.
 
 ## Where things live
 
@@ -532,8 +606,20 @@ cairn status --all          # every plan, at a glance
 cairn next                  # what to do now
 cairn suggest list --open   # open recommended follow-ups
 cairn prove list            # the plan's proofs: green, red, stale, or waiting on a task
-cairn approve plan --human  # approve from your own terminal
+cairn approve prd --human   # approve the PRD from your own terminal
+cairn pr body               # the pull request body, as it would be written now
 ```
+
+Two commands and two flags came with the hands-off flow:
+
+| | What it does |
+|---|---|
+| `cairn pr body` | Prints the pull request body: Done, Calls made for you, Not done. |
+| `cairn pr open` | Pushes the branch and opens the pull request, or updates the open one. It is a draft when anything is not done. |
+| `--call "<what and why>"` | Passes a check about *how* to build, and records the choice. |
+| `--not-done "<why; what was tried; the fix>"` | Passes a check about the *what* that can't be met, and records it. The pull request then opens as a draft. |
+
+Removed in 0.25.0: `cairn approve plan`, `cairn approve ship`, `cairn approve commands` (each is refused with a pointer to the new flow), `--override` (refused with a pointer to `--call` and `--not-done`), and the Override menu. `cairn prove retire` is always refused.
 
 `cairn help` lists every command. The full contract is in `plugins/cairn/references/cli.md`: commands, what each move between stages requires, and JSON shapes.
 
@@ -561,7 +647,7 @@ claude plugin validate plugins/cairn
 ```
 plugins/cairn/
   cli/src/          the CLI (TypeScript), the only writer of plan state
-  hooks/            the mod: register.tsx, plus mod/ (pane, agent tracking, approvals, pause, guards)
+  hooks/            the mod: register.tsx, plus mod/ (pane, agent tracking, PRD approval, pause, guards)
   procedures/       the step-by-step instructions for each stage; `cairn next` names the one to follow
   skills/           thin slash-command wrappers around the procedures
   agents/           implementer, researcher, prd-writer, plan-writer, proof-writer, task-, branch-, security- and plan-reviewer, challenger, prd-checker, acceptance-, direction- and visual-checker, recorder, linear-sender

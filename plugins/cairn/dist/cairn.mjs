@@ -8014,7 +8014,7 @@ var STEPS = {
   execute: ["wrapping"],
   verify: ["testing", "on-track", "scanning", "fixing"],
   review: ["reviewing", "fixing", "rechecking"],
-  ship: ["recording", "opening-pr", "waiting"]
+  ship: ["recording", "opening-pr"]
 };
 var STEP_CLEAR = "clear";
 var STEP_LABEL = {
@@ -8030,8 +8030,7 @@ var STEP_LABEL = {
   rechecking: "re-checking",
   approving: "waiting on approval",
   asking: "waiting for your answer",
-  "opening-pr": "opening the PR",
-  waiting: "PR open, waiting on your merge"
+  "opening-pr": "opening the PR"
 };
 var LEVELS = ["mvp", "standard", "polished"];
 var isLevel = (v) => LEVELS.includes(v);
@@ -8072,7 +8071,7 @@ function nextFor(s) {
     case "review":
       return { procedure: "review", text: "Review the whole branch and record the result." };
     case "ship":
-      return s.pullRequest ? { procedure: "ship", substep: "advance", text: `The pull request is open${s.pullRequest.draft ? " as a draft" : ""} (${s.pullRequest.url}). Advance, then end the turn: the user merges or sends it back.` } : { procedure: "ship", text: "Write the completion record, then open the pull request (cairn pr open)." };
+      return s.pullRequest ? { procedure: "ship", substep: "advance", text: `The pull request is open${s.pullRequest.draft ? " as a draft" : ""} (${s.pullRequest.url}). Advance, finish the record and close, then run cairn pr open again and end the turn: the user merges or sends it back.` } : { procedure: "ship", text: "Write the completion record, then open the pull request (cairn pr open)." };
     case "learn":
       return { procedure: "learn", text: "Capture anything worth keeping, then close the plan." };
   }
@@ -10176,6 +10175,30 @@ function onPlanLoaded(s) {
   const inPlan = new Set(takenIssues(l).map((i) => i.key));
   for (const c of l.changes) if (!c.handled && c.kind === "link" && inPlan.has(c.key) && inPlan.has(c.on)) c.handled = { at: now(), how: "replan" };
 }
+function crossPlanBlockers(ctx, s) {
+  const stack = stackedOnBlocker(ctx, s);
+  const l = s.linear;
+  if (!l) return stack;
+  const others = otherPlans(ctx, s.slug);
+  const byKey = new Map([...l.known, ...l.issues].map((i) => [i.key, i]));
+  const inPlan = new Set(takenIssues(l).map((i) => i.key));
+  const out = [];
+  for (const i of takenIssues(l))
+    for (const b of effectiveBlockers(i, byKey, l.depends)) {
+      if (inPlan.has(b) || isDone(byKey.get(b))) continue;
+      const o = ownerOf(others, b);
+      if (!o) continue;
+      if (o.stage !== "learn" && o.stage !== "closed") out.push(`${i.key} needs ${b}, which plan ${o.slug} has not shipped (it is in ${o.stage})`);
+      else if (!merged(ctx, o.state)) out.push(`${i.key} needs ${b}, which plan ${o.slug} has not merged yet`);
+    }
+  return [.../* @__PURE__ */ new Set([...stack, ...out])];
+}
+function stackedOnBlocker(ctx, s) {
+  if (!s.stackedOn) return [];
+  const row = stackBase(ctx, s.stackedOn.slug);
+  if (stackLanded(ctx, s.stackedOn, row, ctx.top)) return [];
+  return [row ? `it is stacked on plan ${row.state.slug}, which has not merged yet (it is in ${row.state.stage})` : `it is stacked on plan ${s.stackedOn.slug}, whose branch cannot be read and whose work is not on the main branch, so it is not known to have merged`];
+}
 function stackLanded(ctx, st, row, cwd) {
   if (row && merged(ctx, row.state)) return true;
   const target = row?.state.base ?? ctx.worktrees[0]?.branch ?? "main";
@@ -11507,7 +11530,7 @@ function cmdAdvance(ctx, opts) {
         gate(s.evidence.verify?.result === "pass", s, "advance", opts, "verification has not passed", ['cairn evidence verify pass --note "\u2026"']);
         {
           const proofs = proofProblems(pc, s);
-          gate(!proofs.length, s, "advance", opts, `the proofs do not show the end state: ${proofs.join("; ")}`, ["cairn prove (and judge any screenshots), fixing until every proof is green"]);
+          gate(!proofs.length, s, "advance", opts, `the proofs do not show the end state: ${proofs.join("; ")}`, ["cairn prove (and judge any screenshots), fixing until every proof is green"], "what");
         }
         break;
       case "review":
@@ -11643,7 +11666,7 @@ function readyRow(r, ctx) {
   const pc = r.worktree ? { ctx, plan: { slug: r.state.slug, worktree: r.worktree, dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) } : void 0;
   const { ready, error } = pc ? readyCheck(pc) : {};
   const st = r.state.step;
-  const asked = st !== void 0 && st.stage === r.state.stage && (st.name === "approving" || st.name === "asking" || st.name === "waiting");
+  const asked = st !== void 0 && st.stage === r.state.stage && (st.name === "approving" || st.name === "asking");
   return { ready, ...error ? { readyError: error } : {}, needsUser: ready !== void 0 || asked };
 }
 var slimState = (s, keepLog = false) => {
@@ -12308,6 +12331,7 @@ function cmdPlanLoad(ctx, opts) {
       delete s.evidence.review;
       for (const p of s.phases) delete p.verdict;
       log(s, "re-plan loaded", `${allTasks(s).length} tasks`);
+      if (s.approvals.prd || s.repro) (s.calls ??= []).push({ at: (/* @__PURE__ */ new Date()).toISOString(), event: "re-plan", what: `the plan was changed mid-build (${allTasks(s).length} tasks now)`, why: typeof opts.call === "string" && opts.call.trim() ? opts.call.trim() : "no reason given" });
     } else log(s, "plan loaded", `${s.phases.length} phases, ${allTasks(s).length} tasks`);
     const chain = criticalPath(s.phases);
     const chainLine = chain.total ? `
@@ -12317,9 +12341,9 @@ Longest chain: ${chain.count} of ${chain.total} tasks (${chainText(chain.tasks)}
     const opusLine = opus.length ? `
 Opus builds: ${opus.map((x) => `${x.name} (${x.modelReason})`).join(", ")}.` : "";
     return {
-      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? " The plan needs approval again." : ""}${chainLine}${opusLine}${clashes.map((c) => `
+      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? " The re-plan is recorded for the pull request (give the reason with --call)." : ""}${chainLine}${opusLine}${clashes.map((c) => `
 Warning: ${c}`).join("")}
-Next: approve the plan with the user.`,
+Next: see every proof fail (cairn prove), then cairn advance. No approval is needed.`,
       data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, tasks: p.tasks.map((x) => x.id) })), chain, warnings: clashes }
     };
   });
@@ -12758,6 +12782,11 @@ function prReport(pc, s) {
 var list3 = (xs) => xs.length ? xs.map((x) => `- ${x.replace(/\s*\n\s*/g, " ")}`) : ["- None"];
 function prBody(pc, s) {
   const r = prReport(pc, s);
+  let after = [];
+  try {
+    after = crossPlanBlockers(pc.ctx, s);
+  } catch {
+  }
   const built = (sections(readText(planFile(pc, "RECORD.md")) ?? "").get("what was built") ?? "").trim();
   const body = [
     ...built ? [built, ""] : [],
@@ -12770,6 +12799,7 @@ function prBody(pc, s) {
     `## Not done (${r.notDone.length})`,
     ...list3(r.notDone),
     "",
+    ...after.length ? [`**Merge after:** ${after.join("; ")}`, ""] : [],
     r.draft ? "This is a draft because something above is not done. Merge it as it is, or send it back with notes." : "Everything the PRD asked for is done and green. Merging is your sign-off.",
     "",
     `Plan: \`${s.slug}\` \xB7 record: \`RECORD.md\` in the plan folder`
@@ -12780,9 +12810,18 @@ var gh = (args, cwd) => {
   const r = spawnSync4("gh", args, { cwd, encoding: "utf8", timeout: 6e4 });
   return { ok: r.status === 0, out: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() };
 };
-function cmdPr(ctx, action, _opts) {
-  if (action !== "body" && action !== "open") throw new CliError("usage: cairn pr body | cairn pr open");
+function cmdPr(ctx, action, opts, what) {
+  if (action !== "body" && action !== "open" && action !== "not-done") throw new CliError('usage: cairn pr body | cairn pr open | cairn pr not-done "<what is not done>" --why "<why; what was tried; the fix you propose>"');
   const pc = planCtx(ctx);
+  if (action === "not-done") {
+    const why = typeof opts.why === "string" ? opts.why.trim() : "";
+    if (!what?.trim() || !why) throw new CliError('usage: cairn pr not-done "<what is not done>" --why "<why; what was tried; the fix you propose>"');
+    return mutate(pc, "not done recorded", (s) => {
+      (s.notDone ??= []).push({ at: now(), event: "reported", what: what.trim(), why });
+      log(s, "not done: reported", what.trim(), why);
+      return { message: `Recorded as not done: ${what.trim()}. The pull request will list it and open as a draft.` };
+    });
+  }
   const wt = pc.plan.worktree;
   const s0 = loadState(pc.plan.dir);
   const { title, body, report } = prBody(pc, s0);
@@ -12809,12 +12848,12 @@ function cmdPr(ctx, action, _opts) {
     url = made.out.split("\n").filter((l) => /^https?:\/\//.test(l)).pop() ?? made.out;
   }
   return mutate(pc, "pull request opened", (s) => {
-    s.pullRequest = { url, draft: report.draft, at: now(), head };
+    s.pullRequest = { url, draft: report.draft, notDone: report.notDone.length, at: now(), head };
     log(s, s0.pullRequest ? "pull request updated" : "pull request opened", `${report.draft ? "draft" : "ready"}: ${url}`);
     const state = report.draft ? `a draft: ${report.notDone.length} not done` : "ready to merge";
     return {
       message: `Pull request ${s0.pullRequest ? "updated" : "opened"} (${state}): ${url}
-The user merging it is the sign-off. Next: cairn advance, then end the turn.`,
+The user merging it is the sign-off.${s.stage === "ship" ? " Next: cairn advance, then finish the record and close (procedures/learn.md)." : " End the turn with the link."}`,
       data: { url, head, ...report }
     };
   });
@@ -13162,7 +13201,7 @@ import { dirname as dirname6, isAbsolute as isAbsolute2, join as join25, relativ
 // plugins/cairn/hooks/mod/guard-rules.ts
 var WHY = "approvals and plan state come from the user and the CLI, not from tool calls.";
 var REASON = `cairn: ${WHY}`;
-var ASK_REASON = `${REASON} Ask the user: read modActive from cairn status --json. When it is true, ask with AskUserQuestion tagged [cairn:approve <kind> <slug>] (or [cairn:level <slug>]); the mod records the answer. When it is false, give them the full --human command to run in their own terminal.`;
+var ASK_REASON = `${REASON} Ask the user: read modActive from cairn status --json. When it is true, ask with AskUserQuestion tagged [cairn:approve prd <slug>] (the PRD is the only approval; or [cairn:level <slug>] for a level change); the mod records the answer. When it is false, give them the full --human command to run in their own terminal.`;
 var PREFIXES = /* @__PURE__ */ new Set(["env", "exec", "command", "nohup", "nice", "time", "sudo", "xargs", "timeout"]);
 var SHELLS = /* @__PURE__ */ new Set(["sh", "bash", "zsh", "dash", "ksh"]);
 var RUNTIMES = /* @__PURE__ */ new Set(["node", "nodejs", "bun", "deno"]);
@@ -13186,7 +13225,7 @@ function isDenied(cmd) {
   if (/(\$\(|`)[^)`]*--(git-common-dir|git-dir|absolute-git-dir)/.test(code)) return true;
   const mentionsCairn = /cairn/i.test(cmd);
   return list4.some(
-    (command, at) => readsDeniedInput(list4, at) || approves(command) || changesLevel(command) || setsApprover(command) || writes(command, isStateFile) || runsCodeNamingStateFile(command) || writes(command, (word) => HEARTBEAT_WORD.test(word)) || reachesCairnFolder(command) || mentionsCairn && wrapsInPty(command)
+    (command, at) => readsDeniedInput(list4, at) || approves(command) || changesLevel(command) || setsApprover(command) || writes(command, isStateFile) || runsCodeNamingStateFile(command) || writes(command, (word) => HEARTBEAT_WORD.test(word)) || reachesCairnFolder(command) || mentionsCairn && wrapsInPty(command) || launchesTerminal(command)
   );
 }
 function commands(cmd) {
@@ -13494,6 +13533,11 @@ function globRegex(glob) {
     return /^\.git$/i;
   }
 }
+function launchesTerminal(command) {
+  const [name, args] = split(command);
+  if (name === "open") return args.some((word) => /\.command$/i.test(word) || /^Terminal(\.app)?$/i.test(word));
+  return name === "osascript" && [...command.words, ...command.bodies].some((word) => /Terminal/i.test(word));
+}
 function wrapsInPty(command) {
   const [name] = split(command);
   return PTY_WRAPPERS.has(name) || /^(python[\d.]*|perl)$/.test(name) && command.words.some((word) => /pty/.test(word));
@@ -13730,7 +13774,7 @@ ${v}` : v;
 }
 var USAGE5 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] [--json [--full]] | new <slug> --title "\u2026" [--level \u2026] [--proofs | --no-proofs] [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd | pr body|open | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
+  approve prd | pr body|open|not-done | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers \u2026 --run "\u2026" --files \u2026
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026
@@ -13830,7 +13874,7 @@ function dispatch(argv, cwd, stdin) {
     case "merge-check":
       return cmdMergeCheck(ctx(), opts);
     case "pr":
-      return cmdPr(ctx(), a, opts);
+      return cmdPr(ctx(), a, opts, b);
     case "trace":
       return cmdTrace(ctx(), a, opts);
     case "render":

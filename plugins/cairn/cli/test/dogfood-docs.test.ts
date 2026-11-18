@@ -18,20 +18,13 @@ test('execute.md runs cairn from the plan worktree with cd', () => {
   assert.match(src, /cd <plan worktree> && cairn/);
 });
 
-test('execute.md and review.md run the override command alone', () => {
+test('execute.md and review.md record what is left with --call and --not-done, never an override', () => {
   for (const f of ['procedures/execute.md', 'procedures/review.md']) {
     const src = read(f);
-    assert.match(src, /override[^\n]*(alone|on its own)/i, f);
-    assert.doesNotMatch(src, /cd [^\n]*&&[^\n]*--override/, f);
+    assert.doesNotMatch(src, /--override|override menu/i, f);
   }
-});
-
-test('review.md gives the override reason as plain text without shell metacharacters', () => {
-  const src = read('procedures/review.md');
-  const line = src.split('\n').find((l) => l.includes('cairn advance --override'));
-  assert.ok(line, 'has the override command');
-  const reason = line.match(/--override "([^"]*)"/)?.[1] ?? '';
-  assert.doesNotMatch(reason, /[;|&$`><\\#*?~(){}[\]]/);
+  assert.match(read('procedures/review.md'), /advance --not-done "/);
+  assert.match(read('procedures/execute.md'), /--not-done "/);
 });
 
 test('cli.md documents the per-use secret file and never mentions grants or rotation', () => {
@@ -55,7 +48,11 @@ test('cli.md documents the heartbeat, the fix track, evidence phase, config keys
     'resumeFreshAfterMinutes',
     'fixMaxFiles',
     'reproTimeoutMinutes',
-    'FR-32',
+    'Removed in 0.25.0',
+    '--call',
+    '--not-done',
+    'cairn pr open',
+    'cairn pr body',
     'cairn-pane',
     'cairn-approve',
     'cairn-pause-now',
@@ -66,13 +63,12 @@ test('cli.md documents the heartbeat, the fix track, evidence phase, config keys
   assert.match(src, /`setup`/);
 });
 
-test('fix.md offers the in-place reopen first, then escalate, then hold, and has no Follow-ups reference', () => {
+test('fix.md reopens the fix in place with two attempts, records what is left as not done, and has no Follow-ups reference', () => {
   const src = read('procedures/fix.md');
-  const fixIn = src.indexOf('Fix in place (Recommended when small)');
-  const esc = src.indexOf('Escalate to a feature plan', fixIn);
-  const hold = src.indexOf('Hold', esc);
-  assert.ok(fixIn >= 0 && esc > fixIn && hold > esc, 'options in order');
   assert.match(src, /cairn task start fix/);
+  assert.match(src, /two fix attempts/);
+  assert.match(src, /cairn advance --not-done "/);
+  assert.doesNotMatch(src, /Hold|Escalate to a feature plan/);
   assert.doesNotMatch(src, /Follow-ups/);
 });
 

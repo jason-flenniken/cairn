@@ -9,6 +9,7 @@ import { after, before, test } from 'node:test';
 import { hookPostEdit, hookSessionStart, hookStop } from '../src/commands.ts';
 import { run } from '../src/main.ts';
 import { Refusal } from '../src/util.ts';
+import { addOrigin, fakeGh } from './handsoff-helpers.ts';
 import { pd } from './plandir.ts';
 
 let repo: string;
@@ -164,15 +165,15 @@ test('full lifecycle with every checkpoint', () => {
   write(join(planDir(), 'plan.md'), PLAN);
   ok(wt, 'plan', 'load');
   write(join(planDir(), 'plan.md'), PLAN + '\nedit\n');
-  refusedByUser(wt, /changed since it was loaded/, 'approve', 'plan');
+  refused(wt, /changed since it was loaded/, 'advance');
   ok(wt, 'plan', 'load');
   ok(wt, 'step', 'checking');
-  assert.equal(ok(wt, 'status').data!.ready, undefined, 'a loaded plan is not ready during the builder check');
-  ok(wt, 'step', 'approving');
-  assert.equal(offered('billing'), 'plan');
-  byUser(wt, 'approve', 'plan');
+  assert.equal(ok(wt, 'status').data!.ready, undefined, 'a loaded plan is never a stop for the user');
+  refused(wt, /not a step at plan/, 'step', 'approving');
+  refused(wt, /the plan needs no approval/, 'approve', 'plan');
   ok(wt, 'advance');
   assert.equal(state().stage, 'execute');
+  assert.equal(state().approvals.plan.via, 'agent');
 
   // ready set and task start
   const ready = ok(wt, 'ready').data!.ready as { id: string; model: string }[];
@@ -282,13 +283,22 @@ test('full lifecycle with every checkpoint', () => {
   refused(wt, /blocking/, 'evidence', 'review', 'pass', '--blocking', '2');
   ok(wt, 'evidence', 'review', 'pass', '--blocking', '0');
   ok(wt, 'advance');
-  refusedByUser(wt, /RECORD\.md does not exist/, 'approve', 'ship');
-  write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
-  ok(wt, 'step', 'recording');
-  assert.equal(ok(wt, 'status').data!.ready, undefined, 'a valid RECORD.md is not ready while it is being written');
-  ok(wt, 'step', 'approving');
-  assert.equal(offered('billing'), 'ship');
-  byUser(wt, 'approve', 'ship');
+  refused(wt, /the pull request is not open/, 'advance');
+  const origin = addOrigin(repo);
+  const gh = fakeGh();
+  try {
+    refused(wt, /RECORD\.md does not exist/, 'pr', 'open');
+    write(join(planDir(), 'RECORD.md'), '## Links\nprd\n## Why\nw\n## What was built\nb\n## How it works\nh\n## Findings\nNone.\n## Follow-ups\nnone\n');
+    ok(wt, 'step', 'recording');
+    assert.equal(ok(wt, 'status').data!.ready, undefined, 'a valid RECORD.md is not a stop for the user');
+    refused(wt, /the ship needs no approval/, 'approve', 'ship');
+    ok(wt, 'step', 'opening-pr');
+    ok(wt, 'pr', 'open');
+    assert.equal(state().pullRequest.url, 'https://example.test/pull/7');
+    assert.match(g(origin, 'branch', '--list', 'feature/billing'), /feature\/billing/);
+  } finally {
+    gh.restore();
+  }
   ok(wt, 'advance');
   ok(wt, 'close');
   assert.equal(state().stage, 'closed');
@@ -300,14 +310,17 @@ test('full lifecycle with every checkpoint', () => {
   assert.equal(g(wt, 'status', '--porcelain', '--', 'docs/cairn'), '');
 });
 
-test('override lets a refused step through and logs the reason', () => {
+test('--override is refused, and a decision-less discover advances once one is recorded', () => {
   const r = ok(repo, 'new', 'spike', '--level', 'standard', '--no-proofs', '--title', 'Spike');
   const swt = r.data!.worktree as string;
-  byUser(swt, 'advance', '--override', 'user wants to skip the interview');
+  assert.throws(
+    () => run(['advance', '--override', 'user wants to skip the interview'], swt),
+    (e: unknown) => e instanceof Refusal && /--override was removed/.test(e.message) && /--call/.test(e.fixes.join('\n')) && /--not-done/.test(e.fixes.join('\n')),
+  );
+  ok(swt, 'decide', 'Skip?', 'yes', '--why', 'a spike');
+  ok(swt, 'advance');
   const s = JSON.parse(readFileSync(join(pd(swt, 'spike'), 'state.json'), 'utf8'));
   assert.equal(s.stage, 'prd');
-  assert.ok(s.log.some((l: { override?: string }) => l.override === 'user wants to skip the interview'));
-  assert.match(readFileSync(join(pd(swt, 'spike'), 'STATUS.md'), 'utf8'), /## Overrides/);
 });
 
 test('edits before the plan is approved are drift', () => {
@@ -359,7 +372,6 @@ test('re-plan from verify adds fix tasks, keeps progress, and re-runs verificati
   const one = (extra = '') => PLAN.replace(/  - id: core[\s\S]*```/, `  - id: core\n    name: Core\n    tasks:\n      - { id: charge, name: Charge, covers: [FR-01], scope: ["src/charge/**"] }\n${extra}\`\`\``);
   write(join(dir, 'plan.md'), one());
   ok(fwt, 'plan', 'load');
-  byUser(fwt, 'approve', 'plan');
   ok(fwt, 'advance');
   const swt = ok(fwt, 'task', 'start', 'charge').data!.worktree as string;
   write(join(swt, 'src/charge/a.ts'), '1\n');
@@ -379,7 +391,6 @@ test('re-plan from verify adds fix tasks, keeps progress, and re-runs verificati
   assert.equal(s.phases[0].status, 'done');
   assert.equal(s.phases[0].tasks[0].status, 'done');
   assert.equal(s.phases[1].status, 'pending');
-  byUser(fwt, 'approve', 'plan');
   ok(fwt, 'advance');
   assert.deepEqual((ok(fwt, 'ready').data!.ready as { id: string }[]).map((x) => x.id), ['idempotency']);
 });

@@ -66,14 +66,14 @@ describe('inline view fits seven rows', () => {
       cwd: MAIN,
       rows: [
         row(plan({ stage: 'prd' }), WT, undefined, ready('prd')),
-        row(plan({ slug: 'other', title: 'Other', stage: 'plan' }), OTHER, undefined, { kind: 'plan', file: `${OTHER}/docs/cairn/plans/other/plan.md`, summary: 'other plan summary' }),
+        row(plan({ slug: 'other', title: 'Other', stage: 'prd' }), OTHER, undefined, { kind: 'prd', file: `${OTHER}/docs/cairn/plans/other/prd.md`, summary: 'other prd summary' }),
       ],
     })
     await start($, MAIN)
     const ui = await mountAs($, { placement: 'inline' })
     const lines = await texts(ui)
     expect(lines).toContain('Acme Storefront · PRD approval, in its session')
-    expect(lines).toContain('Other · plan approval, in its session')
+    expect(lines).toContain('Other · PRD approval, in its session')
     const keys = (await ui.findAll({ type: 'Button' })).map((b: { key: string }) => b.key)
     expect(keys.some((k: string) => k.startsWith('approve'))).toBe(false)
     expect(await paneRows(ui)).toBeLessThanOrEqual(7)

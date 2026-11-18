@@ -22,7 +22,7 @@ export const STEPS: Partial<Record<Stage, readonly string[]>> = {
   execute: ['wrapping'],
   verify: ['testing', 'on-track', 'scanning', 'fixing'],
   review: ['reviewing', 'fixing', 'rechecking'],
-  ship: ['recording', 'opening-pr', 'waiting'],
+  ship: ['recording', 'opening-pr'],
 };
 /** `cairn step clear` drops the recorded step: the way out of `asking` at a stage with no other step. */
 export const STEP_CLEAR = 'clear';
@@ -40,7 +40,6 @@ export const STEP_LABEL: Record<string, string> = {
   approving: 'waiting on approval',
   asking: 'waiting for your answer',
   'opening-pr': 'opening the PR',
-  waiting: 'PR open, waiting on your merge',
 };
 export interface Step {
   stage: Stage;
@@ -256,7 +255,7 @@ export interface State {
   paused: { at: string; mode: 'drain' | 'now'; handoffHash?: string } | null;
   approvals: { prd?: Approval; plan?: Approval; ship?: Approval };
   /** The plan's pull request, set by `cairn pr open`: `draft` while anything is not done. */
-  pullRequest?: { url: string; draft: boolean; at: string; head: string };
+  pullRequest?: { url: string; draft: boolean; /** How many things the pull request lists as not done. */ notDone?: number; at: string; head: string };
   /** Merges of the base that `cairn merge-check` made itself, cleanly: commits it can vouch for after the approval. */
   baseMerges?: string[];
   /**

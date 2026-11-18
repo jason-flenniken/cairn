@@ -19,8 +19,13 @@ What this plan will not do, each with a one-line reason.
 
 - <thing> because <reason>
 
+## Assumptions
+Only when the plan took a choice the user did not make. One line each, starting `Assumed:`, with what was chosen and why it is easy to undo. The user sees these when they approve the PRD, and may change any of them. Delete the section when there are none.
+
+- Assumed: <question> -> <answer>. <why it is easy to undo>
+
 ## Open questions
-Every item is a checkbox. Approval requires all of them checked.
+Every item is a checkbox. Approval requires all of them checked. Leave none open after the interview: a guess belongs under Assumptions.
 
 - [ ] <question that blocks the build>
 - [x] <resolved question> (answer: ...)

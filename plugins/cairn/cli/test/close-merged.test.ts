@@ -117,7 +117,7 @@ test('a fix plan closes at advance without the PR merged, then shows "Closed · 
   edit(wt, 'fixopen', (s) => {
     s.stage = 'ship';
     s.repro = { cmd: 'true', at: new Date().toISOString() };
-    s.approvals.ship = { at: new Date().toISOString(), via: 'human', source: 'terminal' };
+    s.pullRequest = { url: 'https://example.test/pull/1', draft: false, at: new Date().toISOString(), head: 'abc' };
     s.evidence.review = { result: 'pass', at: new Date().toISOString() };
   });
   const body = Array.from({ length: 30 }, (_, i) => `w${i}`).join(' ');

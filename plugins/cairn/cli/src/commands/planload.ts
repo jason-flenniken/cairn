@@ -68,6 +68,8 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
       delete s.evidence.review;
       for (const p of s.phases) delete p.verdict;
       log(s, 're-plan loaded', `${allTasks(s).length} tasks`);
+      // A re-plan changes how the goal is reached, not the goal: recorded for the pull request, never asked.
+      if (s.approvals.prd || s.repro) (s.calls ??= []).push({ at: new Date().toISOString(), event: 're-plan', what: `the plan was changed mid-build (${allTasks(s).length} tasks now)`, why: typeof opts.call === 'string' && opts.call.trim() ? opts.call.trim() : 'no reason given' });
     } else log(s, 'plan loaded', `${s.phases.length} phases, ${allTasks(s).length} tasks`);
     // Reports only: a serial plan or a shared file is the user's call, never a refusal.
     const chain = criticalPath(s.phases);
@@ -76,7 +78,7 @@ export function cmdPlanLoad(ctx: Ctx, opts: Opts): Result {
     const opus = allTasks(s).filter((x) => x.model === 'opus');
     const opusLine = opus.length ? `\nOpus builds: ${opus.map((x) => `${x.name} (${x.modelReason})`).join(', ')}.` : '';
     return {
-      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? ' The plan needs approval again.' : ''}${chainLine}${opusLine}${clashes.map((c) => `\nWarning: ${c}`).join('')}\nNext: approve the plan with the user.`,
+      message: `Loaded ${s.phases.length} phases and ${allTasks(s).length} tasks.${replanning ? ' The re-plan is recorded for the pull request (give the reason with --call).' : ''}${chainLine}${opusLine}${clashes.map((c) => `\nWarning: ${c}`).join('')}\nNext: see every proof fail (cairn prove), then cairn advance. No approval is needed.`,
       data: { phases: s.phases.map((p) => ({ id: p.id, name: p.name, tasks: p.tasks.map((x) => x.id) })), chain, warnings: clashes },
     };
   });

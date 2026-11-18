@@ -119,7 +119,6 @@ function featureInExecute(repo: string, slug: string, plan = PLAN): { wt: string
   ok(wt, 'advance');
   write(join(dir, 'plan.md'), plan);
   ok(wt, 'plan', 'load');
-  asUser(repo, () => ok(wt, 'approve', 'plan'));
   ok(wt, 'advance');
   return { wt, dir };
 }
@@ -160,15 +159,16 @@ test('task done records the pass line when the test output ends with an npm noti
 
 // FR-37
 
-test('STATUS.md names who approved: the menu, the terminal', () => {
+test('STATUS.md names who approved the PRD, and says the plan was locked and the pull request opened', () => {
   const s = newState('x', 'X', 'feature', 'sdlc/x', 'main');
-  s.approvals.prd = { at: '2026-10-21T10:00:00Z', via: 'human', source: 'mod' };
-  s.approvals.plan = { at: '2026-10-21T10:00:00Z', via: 'human', source: 'terminal' };
-  s.approvals.ship = { at: '2026-10-21T10:00:00Z', via: 'human', source: 'mod' };
+  s.approvals.prd = { at: '2026-10-21T10:00:00Z', via: 'human', source: 'terminal' };
+  s.approvals.plan = { at: '2026-10-21T10:00:00Z', via: 'agent' };
+  s.pullRequest = { url: 'https://example.test/pull/3', draft: true, at: '2026-10-21T12:00:00Z', head: 'abc' };
   const md = renderStatus(s);
-  assert.match(md, /PRD approved 2026-10-21 \(you, in the menu\)/);
-  assert.match(md, /Plan approved 2026-10-21 \(you, in the terminal\)/);
-  assert.match(md, /Ship approved 2026-10-21 \(you, in the menu\)/);
+  assert.match(md, /PRD approved 2026-10-21 \(you, in the terminal\)/);
+  assert.match(md, /Plan locked 2026-10-21/);
+  assert.doesNotMatch(md, /Plan approved|Ship approved/);
+  assert.match(md, /Pull request opened as a draft 2026-10-21: https:\/\/example\.test\/pull\/3/);
 });
 
 test('STATUS.md shows the source of each override', () => {
@@ -237,7 +237,6 @@ test('a task started before a re-plan can be marked done after it, with no overr
   write(join(dir, 'plan.md'), planWith(`${CHARGE}\n${REFUND}\n      - { id: audit, name: Audit, covers: [], kind: prefactor, scope: ["src/audit/**"] }`));
   ok(wt, 'plan', 'load', '--replan');
   assert.equal(stateOf(dir).phases[0].tasks[0].base, before, 're-plan keeps the base');
-  asUser(repo, () => ok(wt, 'approve', 'plan'));
   ok(wt, 'advance');
   write(join(swt, 'src/charge/a.ts'), '1\n');
   g(swt, 'add', '-A');

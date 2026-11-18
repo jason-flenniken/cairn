@@ -1,4 +1,4 @@
-// FR-02 menu approval and FR-34 mod-run overrides. The secret that proves the user to
+// FR-02 menu approval of the PRD, the one approval there is, and level changes. The secret that proves the user to
 // the CLI lives only here, in memory; only its SHA-256 is on disk, and each use spends it.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, ProcessRunInit } from 'claude-code'
@@ -9,8 +9,8 @@ import { claimPlan, hereSlug, isInferred, namedPlan, ownPlan } from './own.ts'
 import { wakeChat } from './pause.ts'
 import { pluginVersion } from './util.ts'
 
-export type Kind = 'prd' | 'plan' | 'ship' | 'commands'
-export type Tag = { kind?: Kind; slug: string; question: string; override?: true; level?: true }
+export type Kind = 'prd'
+export type Tag = { kind?: Kind; slug: string; question: string; level?: true }
 export const LEVELS = ['mvp', 'standard', 'polished'] as const
 export type Level = (typeof LEVELS)[number]
 
@@ -22,10 +22,8 @@ export const LEVEL_OF_LABEL: Record<string, Level> = Object.fromEntries(LEVELS.m
 /** A plan's stored level as one of the three, `standard` when absent or unrecognised. */
 export const levelOrStandard = (v: unknown): Level => LEVELS.find(l => l === v) ?? 'standard'
 
-/** How a wake message names each stop. */
-const WAKE_NAME: Record<Kind, string> = { prd: 'PRD', plan: 'plan', ship: 'ship', commands: 'changed commands' }
-const APPROVE_TAG = /\[cairn:approve (prd|plan|ship|commands) ([^\s\]]+)\]/
-const OVERRIDE_TAG = /\[cairn:override ([^\s\]]+)\]/
+// Only a PRD tag is a cairn approval tag: `[cairn:approve plan x]` and `[cairn:override x]` pass through untouched.
+const APPROVE_TAG = /\[cairn:approve prd ([^\s\]]+)\]/
 const LEVEL_TAG = /\[cairn:level ([^\s\]]+)\]/
 const READBACK_TAG = /\[cairn:readback ([^\s\]]+)\]/
 // How long a child may run: quick reads, and the commands that hold the secret.
@@ -38,9 +36,7 @@ export function parseTags(questions: readonly { question?: unknown }[]): Tag[] {
   for (const { question } of questions) {
     if (typeof question !== 'string') continue
     const approve = APPROVE_TAG.exec(question)
-    if (approve) tags.push({ kind: approve[1] as Kind, slug: approve[2] as string, question })
-    const override = OVERRIDE_TAG.exec(question)
-    if (override) tags.push({ slug: override[1] as string, question, override: true })
+    if (approve) tags.push({ kind: 'prd', slug: approve[1] as string, question })
     const level = LEVEL_TAG.exec(question)
     if (level) tags.push({ slug: level[1] as string, question, level: true })
   }
@@ -132,7 +128,7 @@ function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promi
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 export type PlanState = { slug?: string; stage?: string; approvals?: Record<string, unknown> }
-type PlanRow = { state?: PlanState; worktree?: string; ready?: { kind?: string }; readyError?: string; commandsChanged?: boolean }
+type PlanRow = { state?: PlanState; worktree?: string; ready?: { kind?: string }; readyError?: string }
 
 /** Every plan, from `cairn status --all --json` run where the session is. */
 async function planRows($: EngineInterface): Promise<PlanRow[]> {
@@ -149,17 +145,13 @@ async function notOwn($: EngineInterface, rows: PlanRow[], slug: string, what: s
 }
 
 /**
- * True when the CLI's status shows `kind` approved on plan `slug`. Changed commands have no approval entry of their own
- * (the plan was approved long before): they count as approved once the row says they no longer differ.
+ * True when the CLI's status shows the PRD approved on plan `slug`. A PRD edited after its approval keeps its
+ * approval entry but waits again (its row is ready for 'prd'), so it does not count as approved.
  */
 function isApproved(rows: PlanRow[], slug: string, kind: Kind): boolean {
   const row = rows.find(p => p.state?.slug === slug)
-  if (meant(row, kind) === 'commands') return row?.commandsChanged === false
-  return Boolean(row?.state?.approvals?.[kind])
+  return Boolean(row?.state?.approvals?.[kind]) && row?.ready?.kind !== kind
 }
-
-/** A plan approval asked after the plan stage, while changed commands wait, means them (the CLI's older spelling did). */
-const meant = (row: PlanRow | undefined, kind: Kind): Kind => (kind === 'plan' && row?.ready?.kind === 'commands' ? 'commands' : kind)
 
 // Open tagged dialogs, by `${kind} ${slug}`: each entry is told when its stop is approved from elsewhere.
 const watchers = new Map<string, Set<() => void>>()
@@ -188,7 +180,7 @@ export async function approveAs($: EngineInterface, slug: string, asked: Kind, f
   const rows = await planRows($)
   const row = rows.find(p => p.state?.slug === slug)
   if (row?.state === undefined) return `cairn: no plan "${slug}", so nothing was approved.`
-  const kind = meant(row, asked)
+  const kind = asked
   const other = await notOwn($, rows, slug, `the ${kind} approval`)
   if (other !== undefined) return other
   if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so nothing was approved.`
@@ -221,7 +213,7 @@ export async function approveAs($: EngineInterface, slug: string, asked: Kind, f
   }
   fireApproved(kind, slug)
   if (from !== undefined) {
-    wakeChat($, `cairn: the ${WAKE_NAME[kind]} approval for ${slug} is recorded (from ${from}). Continue the plan: run cairn next in its worktree.`)
+    wakeChat($, `cairn: the PRD approval for ${slug} is recorded (from ${from}). Continue the plan: run cairn next in its worktree.`)
   }
   return `cairn: ${slug}: ${said}`
 }
@@ -245,84 +237,8 @@ export async function levelAs($: EngineInterface, slug: string, level: Level): P
 
 export const ALREADY_APPROVED = 'Already approved from the pane'
 
-// FR-34: plan slug -> when the user answered "Override". Memory only: no file stands for one.
-const OVERRIDE_MS = 10 * 60_000
-const pendingOverrides = new Map<string, number>()
-const NOT_PLAIN =
-  'it is not a plain cairn --override command (outside quotes: no ; | & $ ` > < newline or backslash, and no # * ? ~ ( ) { } [ ]; quotes closed)'
-
-/**
- * A command's words, quotes joined as a shell joins them; undefined when a shell would read anything more into it.
- * Quoted text may hold any character: the mod runs the words as argv, never through a shell.
- */
-function plainArgv(cmd: string): string[] | undefined {
-  const words: string[] = []
-  let word: string | undefined
-  let quote = ''
-  for (const c of cmd) {
-    if (quote !== '') {
-      if (c === quote) quote = ''
-      else word += c
-    } else if (c === '"' || c === "'") {
-      quote = c
-      word ??= ''
-    } else if (/[;|&$`<>\n\r\\#*?~(){}[\]]/.test(c)) {
-      return undefined
-    } else if (/\s/.test(c)) {
-      if (word !== undefined) words.push(word)
-      word = undefined
-    } else {
-      word = (word ?? '') + c
-    }
-  }
-  if (quote !== '') return undefined
-  if (word !== undefined) words.push(word)
-  return words
-}
-
-/** True when the argv carries `--override <reason>` or `--override=<reason>` with a reason. */
-function hasOverride(argv: string[]): boolean {
-  return argv.some((arg, i) => (arg === '--override' && (argv[i + 1] ?? '') !== '') || /^--override=./.test(arg))
-}
-
-/**
- * True when the argv names `approve` or `level` outside prose. Prose is `--note`/`--why`/`--override`
- * values and everything after `decide`, so a reason that says "level" or "approve" doesn't trip it.
- */
-function namesUserOnlyCommand(argv: string[]): boolean {
-  let isDeciding = false
-  for (let at = 1; at < argv.length; at++) {
-    const word = argv[at] as string
-    if (isDeciding || /^--(note|why|override)=/.test(word)) continue
-    if (/^--(note|why|override)$/.test(word)) at++
-    else if (word === 'approve' || word === 'level') return true
-    else if (word === 'decide') isDeciding = true
-  }
-  return false
-}
-
 // The cairn program as a command word (`cairn …`, `…/bin/cairn …`), not a folder named cairn in a path.
 const RUNS_CAIRN = /(^|[\s;&|(])(\S*\/)?cairn(\s|$)/
-
-const USER_ONLY = 'approvals and level changes come from the user, so they never run on an override'
-
-/**
- * Runs a plain `cairn … --override` for the session's own plan when the user's Override named it, spending it.
- * `{}` when none is pending; `{ why }` when the override can't be used.
- */
-async function runOverride($: EngineInterface, argv: string[]): Promise<{ ran?: CairnRun | string; why?: string }> {
-  const now = await $.clock.now()
-  for (const [slug, at] of pendingOverrides) if (now - at > OVERRIDE_MS) pendingOverrides.delete(slug)
-  if (pendingOverrides.size === 0) return {}
-  const plans = await planRows($)
-  const slug = await ownPlan($, plans)
-  if (slug === undefined) return { why: 'this session has no plan of its own yet, so the override is not used here' }
-  if (!pendingOverrides.has(slug)) return { why: `this session works on plan "${slug}", and your override is for another plan` }
-  const worktree = plans.find(p => p.state?.slug === slug)?.worktree
-  if (worktree === undefined) return { why: `plan "${slug}" is not checked out` }
-  pendingOverrides.delete(slug)
-  return { ran: await cairnWithSecret($, argv.slice(1), worktree).catch((err: unknown) => message(err)) }
-}
 
 /** Makes the one plan whose worktree a cairn command names the session's own, when it has none yet. */
 async function bindFromCommand($: EngineInterface, command: string): Promise<void> {
@@ -336,42 +252,11 @@ async function bindFromCommand($: EngineInterface, command: string): Promise<voi
 }
 
 export function install(on: On): void {
-  // FR-34: with an Override pending, the mod runs the model's plain `cairn … --override` itself,
-  // with the secret, in place of the shell. Everything else goes on as written.
+  // A cairn command the session runs in a plan's worktree makes that plan the session's own, if it has none yet.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
-    const ran = await overrideOrRun()
-    // A cairn command the session runs in a plan's worktree makes that plan the session's own, if it has none yet.
+    const ran = await next(e)
     if (e.agentId === undefined && (ran as { deny?: unknown }).deny === undefined && RUNS_CAIRN.test(e.command)) await bindFromCommand($, e.command).catch(() => undefined)
     return ran
-
-    /** With an Override pending, runs the model's plain `cairn … --override` with the secret in place of the shell. */
-    async function overrideOrRun() {
-      const { command } = e
-      if (pendingOverrides.size === 0 || e.agentId !== undefined || !/cairn/.test(command) || !/--override/.test(command)) {
-        return next(e)
-      }
-      const argv = plainArgv(command)
-      if (argv !== undefined && argv[0] !== 'cairn') return next(e)
-      // Neither `approve` nor `level` ever rides an override: approvals and level changes come from the
-      // user (the menu, or /cairn-level). The Bash guard denies both too. Only words outside prose count.
-      const isUserOnly = argv !== undefined && namesUserOnlyCommand(argv)
-      const isPlain = argv !== undefined && !isUserOnly && hasOverride(argv)
-      const out = isPlain ? await runOverride($, argv) : { why: isUserOnly ? USER_ONLY : NOT_PLAIN }
-      if (out.ran !== undefined) {
-        // Core keeps no is_error from a hook's Bash result, so a failure reads as the Bash tool's does.
-        const proof = 'cairn ran this --override itself, with your Override answer as proof'
-        if (typeof out.ran === 'string') {
-          return { result: { stdout: `cairn: the override run failed: ${out.ran}`, stderr: '', interrupted: false }, context: [`${proof}.`] }
-        }
-        const { stdout, stderr, exitCode } = out.ran
-        const lead = exitCode === 0 ? '' : `Exit code ${exitCode}\n`
-        const said = exitCode === 0 ? `${proof}.` : `${proof}; it failed with exit code ${exitCode}.`
-        return { result: { stdout: `${lead}${stdout}`, stderr, interrupted: false }, context: [said] }
-      }
-      const ran = await next(e)
-      if (out.why === undefined || ran.deny !== undefined) return ran
-      return { ...ran, context: [...(ran.context ?? []), `cairn: the pending override was not used: ${out.why}.`] }
-    }
   })
 
   // No deny catch (NFR-02): a hook that fails is skipped, and the user's answer goes on as it was.
@@ -469,13 +354,6 @@ export function install(on: On): void {
     const judged = new Set<string>()
     const skips = new Map<string, string>()
     for (const tag of tags) {
-      if (tag.override) {
-        if (answers[tag.question] === 'Override' && !(tag.question in prefilled) && result?.afkTimeoutMs === undefined) {
-          pendingOverrides.set(tag.slug, await $.clock.now())
-          notes.push(`cairn: your override for "${tag.slug}" is ready for 10 minutes: run the cairn --override command alone, with no cd or &&.`)
-        }
-        continue
-      }
       if (tag.level) {
         // A level menu is the user's answer only: the same checks as an approval, and only the three labels.
         const asked = (e.questions as readonly Asked[]).find(q => q.question === tag.question)

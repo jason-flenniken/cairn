@@ -12,11 +12,15 @@ test('discover.md opens with a guess and a confidence number, naming gaps below 
   assert.match(src, /Below about 70%/);
 });
 
-test('discover.md asks goal questions one at a time with a guess attached and probes vague answers', () => {
+test('discover.md asks one batched round with a guess attached, and records everything else as Assumed', () => {
   assert.match(src, /why, why now, what success looks like, the binding constraint/);
   assert.match(src, /first and labelled "\(Recommended\)"/);
-  assert.match(src, /If you didn't have to justify it, what would you actually want\?/);
-  assert.match(src, /two-option choice/);
+  assert.match(src, /top four at most, together, in one AskUserQuestion call/);
+  assert.match(src, /cairn decide "Assumed: <question>"/);
+  assert.match(src, /Nothing is asked before or after it/);
+  // Exactly one place asks the user: the one round.
+  assert.equal([...src.matchAll(/in one AskUserQuestion call/g)].length, 1);
+  assert.doesNotMatch(src, /one at a time with AskUserQuestion|Ask one at a time/);
   assert.doesNotMatch(src, /recommend one and record it/);
 });
 
@@ -31,18 +35,14 @@ test('discover.md requires trust boundaries as a decision topic', () => {
     assert.ok(src.includes(t), t);
 });
 
-test('discover.md ends with a read-back card recorded only after an explicit yes, plus a stop rule', () => {
-  for (const f of ['Outcome:', 'User:', 'Why now:', 'Success:', 'Constraint:', 'Out of scope:'])
+test('discover.md ends with a read-back card that lists the assumptions, with no second question', () => {
+  for (const f of ['Outcome:', 'User:', 'Why now:', 'Success:', 'Constraint:', 'Out of scope:', 'Assumed (N):'])
     assert.ok(src.includes(f), f);
-  assert.match(src, /only after an explicit yes/);
-  assert.match(src, /predict the user's next three answers/);
   assert.ok(src.indexOf('Read-back card') < src.indexOf('Advance'));
-  const step7 = src.slice(src.indexOf('## 7. Read-back card'), src.indexOf('## 8.'));
-  assert.match(step7, /two revisions/);
-  assert.match(step7, /step back/);
-  // The card rides the question as the Yes option's preview, tagged so the pane can show it too.
-  assert.match(step7, /\[cairn:readback <slug>\]/);
-  assert.match(step7, /`Yes \(Recommended\)`, with the whole card as its preview/);
+  const step7 = src.slice(src.indexOf('## 7. The one round and the read-back card'), src.indexOf('## 8.'));
+  assert.match(step7, /with no question under it/);
+  assert.match(step7, /the PRD will repeat every Assumed line/);
+  assert.doesNotMatch(step7, /\[cairn:readback|Is this right\?/);
 });
 
 test('discover.md keeps the follow-up step and drops the old completeness wording', () => {

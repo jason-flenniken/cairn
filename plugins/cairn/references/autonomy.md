@@ -1,23 +1,35 @@
 # Running without asking
 
-Once the plan is approved, the build runs on its own until the proofs pass. The user defined done (the PRD and the proofs) and approved how to get there (the plan). Between that approval and the ship approval, a question goes to the user only when it is theirs to answer. A menu the user would always answer with the recommended option is not a question: take the default and record it.
+After the user approves the PRD, the run is hands-off. You never ask and never wait. The run ends in an open pull request, and the user reads there what you did. The goal is fixed: the PRD (requirements and "done when") and the proofs. You choose how to reach it. You never change what it is.
 
-## Decide alone, and record it
-Take the default and run `cd <plan worktree> && cairn decide "Assumed: <question>" "<answer>" --why "<why, and why it is easy to undo>"`. The ship approval lists these decisions.
-- A question the documents almost answer, when the answer is easy to reverse later (a name, a message, a default value, which existing pattern to follow).
-- A fix attempt: fix, never ask "fix it?". Red tests at a merge or a phase end, a red proof, an unmet requirement and a review finding all go straight to a fix implementer.
-- A retry: an unreachable registry or a flaky network call gets one retry. If it still fails, note it and go on (`cairn suggest add`).
+## A choice about how to build: decide, and record it
+Take the default and record it. The pull request lists each one under "Calls made for you".
+- A question the documents almost answer (a name, a message, a default value, which existing pattern to follow, how to split a task): `cd <plan worktree> && cairn decide "Assumed: <question>" "<answer>" --why "<why, and why it is easy to undo>"`.
+- A check the CLI refuses and names as a choice about how to build: run the command again with `--call "<what you chose and why>"`. Examples: a fix that touches more files than a fix should, a change in Linear you handled one way, more follow-ups than a plan may leave open.
+- A fix attempt: fix, never ask "fix it?". Red tests, a red proof, an unmet requirement and a review finding go straight to a fix implementer.
+- A retry: an unreachable registry or a flaky network call gets one retry. If it still fails, note it (`cairn suggest add`) and go on.
+- Re-plan, split a task, change a setup, test or build command, stub a dependency that lives outside the plan: do it and record it. The CLI records a changed command by itself.
 
-## Set a task aside
-A task is set aside when it can't go on without the user: its fix attempts are used up (the CLI refuses another) and its findings or proofs are still red, or it needs an answer that is not easy to undo. Run `cd <plan worktree> && cairn task step <id> blocked --note "set aside: <why>; tried: <what>; question: <the question, with your recommended answer>"`. Then keep building every task that does not wait on it. Tell the user in one line, without asking.
+## Part of the goal that cannot be met: record it, and go on
+When a requirement, a proof, a green suite or a review finding is still unmet after the allowed fix attempts (two per task, two for the verify stage, two for the review stage), write it down and keep going. The pull request opens as a draft that lists it under "Not done".
+- A check the CLI refuses and names as part of the goal: run the command again with `--not-done "<why; what was tried; the fix you propose>"`.
+- A task whose fix attempts are used up: `cd <plan worktree> && cairn task step <id> blocked --note "set aside: <why>; tried: <what>; proposed: <the fix>"`. This sets the task aside. It no longer holds a builder slot or a phase. Keep building every task that does not wait on it. The tasks that wait behind it are left out too, and the pull request lists them.
+- A locked proof that is itself wrong: leave it. Add a corrected one with `cairn prove add`, run it green, and pass the wrong, red one with `--not-done`. Say in the note which proof replaces it.
+- A secret in the diff: remove it, and say in the pull request that it counts as leaked. Do not ask.
 
-A set-aside task holds its phase open: tasks in later phases wait for it, unless the phase has `overlap`. So the build reaches the one stop below at the end of that phase, not at the end of the plan.
+## What you never do
+- Edit, replace or retire a locked proof. `cairn prove retire` is always refused.
+- Drop, reword or weaken a requirement, or move a "done when".
+- Call a red suite green, or record a pass you did not see.
+- Hide a gap. A gap you do not record is a lie in the pull request.
 
-## The one stop
-When nothing else can run (no ready task, no agent running) and something is set aside or held, ask once, and end your turn on it. List at most four questions, one per set-aside task or held question, most blocking first, and say how to answer (a reply per task; "go" takes every recommended answer). The user can take hours, and the answer arrives as a new message, so no AskUserQuestion stays open. Each question has the recommended answer first, with what was tried. The usual options for a stuck task are: Re-plan this task (Recommended when another approach exists; name it) / Fix by hand / Accept as is (noted in the record). There is no third fix attempt: the CLI allows two per task. Run `cairn step asking` when you ask and `cairn step clear` when the answer arrives (the build has no other step). Then act on every answer and carry on. A resumed agent would carry the conversation from before the wait: never SendMessage an agent after the user was asked something; dispatch a fresh one from its report.
+## What is the user's
+Only three things, and none of them is a question mid-run:
+- The PRD approval, before the run starts.
+- An edit to the PRD. If notes change a requirement, edit `prd.md` and get the PRD approved again.
+- The merge. Merging the pull request is the sign-off.
 
-## Still a stop, every time
-- The user's approvals: the PRD, the plan and the ship.
-- A change of scope: a re-plan, pulling in or releasing a Linear issue, or changing or removing a proof (proofs are add-only once approved).
-- Accepting an open Critical or Required finding, a security finding, or a red proof as is.
-- A secret in the diff: remove it, and tell the user it counts as leaked.
+Everything else in the run is yours to decide. Do not ask in plain text, with a menu, or by ending your turn on a question. A message with no question in it ends the run: the pull request link, whether it is ready or a draft, and how many calls were made and how much is not done.
+
+## Handling agents that ask
+An implementer or reviewer that returns `NEEDS_CONTEXT` or `BLOCKED` gets its answer from the documents (PRD, plan, `proofs.md`, `decisions.md`). When they do not answer it, take the default and record it as above. When even that cannot let the task go on, set the task aside. Never relay the question to the user. A resumed agent carries the conversation from before: dispatch a fresh one from its report when the fix brief changes.

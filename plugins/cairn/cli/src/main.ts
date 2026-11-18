@@ -91,7 +91,7 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
 
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] [--json [--full]] | new <slug> --title "…" [--level …] [--proofs | --no-proofs] [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd | pr body|open | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
+  approve prd | pr body|open|not-done | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers … --run "…" --files …
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
@@ -197,7 +197,7 @@ function dispatch(argv: string[], cwd: string, stdin?: string): Result {
     case 'merge-check':
       return cmdMergeCheck(ctx(), opts);
     case 'pr':
-      return cmdPr(ctx(), a, opts);
+      return cmdPr(ctx(), a, opts, b);
     case 'trace':
       return cmdTrace(ctx(), a, opts);
     case 'render':

@@ -10,13 +10,14 @@ const read = (p: string) => readFileSync(join(root, p), 'utf8');
 
 // FR-10: each procedure runs `cairn step <name>` at every step its stage has.
 const PROCEDURES: Record<string, string[]> = {
-  'procedures/prd.md': [...STEPS.prd!],
+  // The PRD stage keeps `asking` for discover's one round; prd.md itself asks nothing.
+  'procedures/prd.md': STEPS.prd!.filter((n) => n !== 'asking'),
   'procedures/plan.md': [...STEPS.plan!],
   'procedures/verify.md': [...STEPS.verify!],
   'procedures/review.md': [...STEPS.review!],
   'procedures/ship.md': [...STEPS.ship!],
   // The fix track goes through review and ship; it has no verify stage.
-  'procedures/fix.md': ['reviewing', 'rechecking', 'recording', 'approving', 'opening-pr', 'asking'],
+  'procedures/fix.md': ['reviewing', 'rechecking', 'recording', 'opening-pr', 'asking'],
 };
 
 for (const [file, names] of Object.entries(PROCEDURES)) {
@@ -34,11 +35,14 @@ test('fixing steps pass the finding count', () => {
   }
 });
 
-test('procedures that ask a blocking question run cairn step asking, and say how it ends', () => {
-  for (const file of ['execute', 'phase-end', 'discover']) {
-    const src = read(`procedures/${file}.md`);
-    assert.match(src, /cd <plan worktree> && cairn step asking/, file);
-    // The phase end goes back to its own step; the others have none to go back to.
-    assert.match(src, file === 'phase-end' ? /cd <plan worktree> && cairn step wrapping/ : /cd <plan worktree> && cairn step clear/, file);
-  }
+test('only discover and the fix repro ask, each with cairn step asking and a way back', () => {
+  const discover = read('procedures/discover.md');
+  assert.match(discover, /cd <plan worktree> && cairn step asking/);
+  assert.match(discover, /cd <plan worktree> && cairn step clear/);
+  const fix = read('procedures/fix.md');
+  assert.match(fix, /cd <plan worktree> && cairn step asking/);
+  assert.match(fix, /cairn step clear/);
+  // After the PRD approval nothing asks: no other procedure opens a question step.
+  for (const file of ['execute', 'execute-cases', 'phase-end', 'plan', 'verify', 'review', 'ship', 'learn'])
+    assert.doesNotMatch(read(`procedures/${file}.md`), /cairn step asking/, file);
 });

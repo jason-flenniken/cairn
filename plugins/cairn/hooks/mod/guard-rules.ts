@@ -1,4 +1,4 @@
-// FR-03 and FR-04: the model may not approve, override, or edit plan state.
+// FR-03 and FR-04: the model may not approve or edit plan state.
 // Approvals and plan state come from the user (through the mod) and the CLI.
 // The Bash guard is a best-effort deny-list on spellings; the CLI's proof is the real control.
 // The pure rules, shared by the Claude mod (guards.ts) and the CLI's `cairn hook pre-tool` for hosts without the mod (Codex).
@@ -7,7 +7,7 @@
 export const WHY = 'approvals and plan state come from the user and the CLI, not from tool calls.'
 const REASON = `cairn: ${WHY}`
 // Where to send the agent instead, so a denied approval is not followed by guessing at the CLI.
-const ASK_REASON = `${REASON} Ask the user: read modActive from cairn status --json. When it is true, ask with AskUserQuestion tagged [cairn:approve <kind> <slug>] (or [cairn:level <slug>]); the mod records the answer. When it is false, give them the full --human command to run in their own terminal.`
+const ASK_REASON = `${REASON} Ask the user: read modActive from cairn status --json. When it is true, ask with AskUserQuestion tagged [cairn:approve prd <slug>] (the PRD is the only approval; or [cairn:level <slug>] for a level change); the mod records the answer. When it is false, give them the full --human command to run in their own terminal.`
 
 // Words run before the real command: `env FOO=1 cairn`, `timeout 5 cairn`.
 const PREFIXES = new Set(['env', 'exec', 'command', 'nohup', 'nice', 'time', 'sudo', 'xargs', 'timeout'])
@@ -54,7 +54,8 @@ function isDenied(cmd: string): boolean {
     runsCodeNamingStateFile(command) ||
     writes(command, word => HEARTBEAT_WORD.test(word)) ||
     reachesCairnFolder(command) ||
-    (mentionsCairn && wrapsInPty(command)),
+    (mentionsCairn && wrapsInPty(command)) ||
+    launchesTerminal(command),
   )
 }
 
@@ -409,6 +410,13 @@ function globRegex(glob: string): RegExp {
   } catch {
     return /^\.git$/i
   }
+}
+
+/** `open x.command` or `osascript` driving Terminal: a way to run cairn approve in a real terminal the model started. */
+function launchesTerminal(command: Command): boolean {
+  const [name, args] = split(command)
+  if (name === 'open') return args.some(word => /\.command$/i.test(word) || /^Terminal(\.app)?$/i.test(word))
+  return name === 'osascript' && [...command.words, ...command.bodies].some(word => /Terminal/i.test(word))
 }
 
 /** A pty wrapper, or python/perl naming `pty`, as the command run. */

@@ -39,6 +39,10 @@ describe('bashVerdict', () => {
     'mv /tmp/forged.json docs/sdlc/plans/x/state.json',
     'cat docs/sdlc/plans/x/state.json; rm docs/sdlc/plans/x/state.json',
     'dd if=/tmp/f of=docs/sdlc/plans/x/state.json',
+    // A terminal the model starts to run cairn approve itself.
+    'open /tmp/approve.command',
+    'open -a Terminal /tmp/x',
+    `osascript -e 'tell application "Terminal" to do script "cairn approve prd --human"'`,
     // The cairn folder under the git common dir: no writes, no reads but the heartbeat.
     'cat /repo/.git/cairn/mod-secret',
     'cat /repo/.git/cairn/mod-secret.sha256',
@@ -123,9 +127,10 @@ describe('bashVerdict', () => {
     'cp docs/sdlc/plans/x/state.json /tmp/backup.json',
     'cat docs/sdlc/plans/x/state.json > /tmp/copy',
     'cairn status',
+    'open https://github.com/x/y/pull/1',
     'cairn ready --json',
     'cairn task done x',
-    'cairn advance --override "r" --note "level of approve"',
+    'cairn advance --call "level of approve" --note "level of approve"',
     'cairn decide "change the level?" "yes"',
     'cairn decide "approve the wording?" "yes"',
     'grep approve README.md',
@@ -332,7 +337,7 @@ describe('Bash guard (FR-03)', () => {
     const denied = (await $.tool.call({ tool: 'Bash', command: 'cairn approve prd' })).deny
     expect(denied).toMatch(REASON)
     // The denial says where an approval comes from, so the agent does not go probing the CLI.
-    expect(denied).toMatch(/\[cairn:approve <kind> <slug>\]/)
+    expect(denied).toMatch(/\[cairn:approve prd <slug>\]/)
     expect(denied).toMatch(/--human command/)
     expect(bashVerdict('cairn level polished').deny).toMatch(/\[cairn:level <slug>\]/)
     expect(bashVerdict('echo x > .git/cairn/mod-secret.sha256').deny).not.toMatch(/AskUserQuestion/)

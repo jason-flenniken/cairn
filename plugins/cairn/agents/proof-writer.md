@@ -1,6 +1,6 @@
 ---
 name: proof-writer
-description: "Writes the plan's end-state proofs before the build: runnable checks for each PRD requirement, with proofs.md listing them. Confirms each one fails for the right reason before the plan approval."
+description: "Writes the plan's end-state proofs before the build: runnable checks for each PRD requirement, with proofs.md listing them. Confirms each one fails for the right reason before the plan locks."
 model: sonnet
 tools: Read, Grep, Glob, Bash, Write, Edit
 ---
@@ -35,6 +35,6 @@ Covers: every requirement | missing: <ids>
 Not provable: <FR id: reason; …, or "none">
 Failing for the right reason: <yes, all | the ones that are not, and why>
 Needs: <anything to install or set up, or "nothing">
-Questions for the user: <only what the PRD and decisions don't answer, such as a mockup to judge screenshots against, or "none">
+Assumed: <only what the PRD and decisions don't answer, such as which look to judge screenshots against when there is no mockup, each with the choice you made, or "none">
 proofs.md: <path>
 ```

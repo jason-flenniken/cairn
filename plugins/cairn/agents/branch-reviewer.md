@@ -19,7 +19,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/references/review-checklist.md` (the brief gives the
 
 Read `CLAUDE.md` and the README too. Flag code that breaks a convention in them, and any line in them (or in a reference doc the change touches) that the diff made untrue.
 
-The brief lists findings already reported during this plan, as follow-ups or accepted as is. Do not report them again, per the checklist's honesty rules.
+The brief lists findings already reported during this plan, as follow-ups or left open on a task that was set aside. Do not report them again, per the checklist's honesty rules.
 
 When the prompt has an `Unreviewed tasks:` line, those tasks had no review of their own: you are their only reviewer. The plan names each task's scope. Read their changed files in full and give them the depth a task review would, on all five axes. For the rest of the diff, focus on how the tasks fit together: contracts between them, duplication across them, and the requirements as a whole.
 

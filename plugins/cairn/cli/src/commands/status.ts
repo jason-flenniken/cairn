@@ -143,7 +143,7 @@ function readyRow(r: { state: State; worktree?: string; dir: string }, ctx: Ctx)
   const pc: PlanCtx | undefined = r.worktree ? { ctx, plan: { slug: r.state.slug, worktree: r.worktree, dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) } : undefined;
   const { ready, error } = pc ? readyCheck(pc) : {};
   const st = r.state.step;
-  const asked = st !== undefined && st.stage === r.state.stage && (st.name === 'approving' || st.name === 'asking' || st.name === 'waiting');
+  const asked = st !== undefined && st.stage === r.state.stage && (st.name === 'approving' || st.name === 'asking');
   return { ready, ...(error ? { readyError: error } : {}), needsUser: ready !== undefined || asked };
 }
 

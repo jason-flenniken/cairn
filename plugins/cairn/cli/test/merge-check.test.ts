@@ -1,7 +1,6 @@
 import './no-auto-gc.ts';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { createHash, randomBytes } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,8 +11,6 @@ import { pd } from './plandir.ts';
 
 let repo: string;
 let remote: string;
-/** The conflict test's plan worktree, which the hand-resolved merge test picks up. */
-let conflictWt: string;
 const g = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 const stateOf = (wt: string, slug: string) => JSON.parse(readFileSync(join(pd(wt, slug), 'state.json'), 'utf8'));
 function edit(wt: string, slug: string, fn: (s: Record<string, any>) => void) {
@@ -35,25 +32,13 @@ const refused = (cwd: string, pattern: RegExp, ...argv: string[]) =>
       return true;
     },
   );
-/** Act as the user through the mod: write the hash of a fresh mod secret and pass the secret in CAIRN_APPROVER. */
-function asUser<T>(fn: () => T): T {
-  const secret = randomBytes(16).toString('hex');
-  mkdirSync(join(repo, '.git/cairn'), { recursive: true });
-  writeFileSync(join(repo, '.git/cairn', `approver-${createHash('sha256').update(secret).digest('hex')}`), '1', { mode: 0o600 });
-  process.env.CAIRN_APPROVER = secret;
-  try {
-    return fn();
-  } finally {
-    delete process.env.CAIRN_APPROVER;
-  }
-}
 /** A change landing on main (and origin/main) while the plan waits to merge. */
 function moveMain(file: string, text: string) {
   writeFileSync(join(repo, file), text);
   commitAll(repo, `main: ${file}`);
   g(repo, 'push', '-q', 'origin', 'main');
 }
-/** A closed feature plan whose ship was approved, with one code commit, as the Merge step finds it. */
+/** A closed feature plan with its pull request open and one code commit, as the Merge step finds it. */
 function shipped(slug: string, code: Record<string, string> = { [`${slug}.txt`]: 'code\n' }): string {
   const wt = run(['new', slug, '--level', 'standard', '--no-proofs', '--title', slug], repo).data!.worktree as string;
   for (const [f, text] of Object.entries(code)) writeFileSync(join(wt, f), text);
@@ -63,8 +48,10 @@ function shipped(slug: string, code: Record<string, string> = { [`${slug}.txt`]:
   });
   copyFileSync(join(import.meta.dirname, '../../templates/record.md'), join(pd(wt, slug), 'RECORD.md'));
   commitAll(wt, 'code, record and plan files');
-  asUser(() => run(['approve', 'ship'], wt));
-  edit(wt, slug, (s) => (s.stage = 'closed'));
+  edit(wt, slug, (s) => {
+    s.pullRequest = { url: 'https://example.test/pull/1', draft: false, at: new Date().toISOString(), head: 'abc' };
+    s.stage = 'closed';
+  });
   commitAll(wt, 'closed');
   return wt;
 }
@@ -88,13 +75,6 @@ after(() => {
   for (const d of [repo, remote]) rmSync(d, { recursive: true, force: true });
 });
 
-test('ship approval records the commit it approved', () => {
-  const wt = shipped('pin1');
-  const sha = stateOf(wt, 'pin1').approvals.ship.sha;
-  assert.match(sha, /^[0-9a-f]{40}$/);
-  assert.equal(g(wt, 'merge-base', '--is-ancestor', sha, 'HEAD'), '');
-});
-
 test('up to date with main: passes, prints the HEAD it checked, and passes again', () => {
   const wt = shipped('uptodate');
   const r = run(['merge-check'], wt);
@@ -105,7 +85,7 @@ test('up to date with main: passes, prints the HEAD it checked, and passes again
   assert.match(run(['merge-check'], wt).message, /Up to date/);
 });
 
-test('main moved without conflicts: merges it in, runs the tests, and the merge needs no new approval', () => {
+test('main moved without conflicts: merges it in, runs the tests, and the merge asks nothing of the user', () => {
   const wt = shipped('moved');
   moveMain('other.txt', 'from main\n');
   const r = run(['merge-check'], wt);
@@ -114,62 +94,32 @@ test('main moved without conflicts: merges it in, runs the tests, and the merge 
   assert.match(r.message, /merged it in cleanly\. The tests pass/);
   assert.ok(existsSync(join(wt, 'other.txt')));
   assert.equal(stateOf(wt, 'moved').baseMerges.length, 1);
-  assert.ok(stateOf(wt, 'moved').approvals.ship, 'a clean merge cairn made keeps the approval');
   assert.match(run(['merge-check'], wt).message, /Up to date/);
 });
 
-test('main moved with a conflict: the merge is aborted, the worktree is clean, and the approval stays', () => {
-  const wt = (conflictWt = shipped('conflict', { 'shared.txt': 'plan side\n' }));
+test('main moved with a conflict: the merge is aborted, the worktree is clean, and the PR stays recorded', () => {
+  const wt = shipped('conflict', { 'shared.txt': 'plan side\n' });
   moveMain('shared.txt', 'main side\n');
-  refused(wt, /conflict with this branch in shared\.txt[\s\S]*aborted[\s\S]*asks for the ship approval again/, 'merge-check');
+  refused(wt, /conflict with this branch in shared\.txt[\s\S]*aborted[\s\S]*cairn pr open/, 'merge-check');
   assert.equal(g(wt, 'status', '--porcelain'), '');
   assert.equal(readFileSync(join(wt, 'shared.txt'), 'utf8'), 'plan side\n');
-  assert.ok(stateOf(wt, 'conflict').approvals.ship);
+  assert.ok(stateOf(wt, 'conflict').pullRequest);
 });
 
-test('a merge resolved by hand clears the approval; approving again restores it', () => {
-  const wt = conflictWt;
-  assert.throws(() => g(wt, 'merge', '-q', 'origin/main'));
-  writeFileSync(join(wt, 'shared.txt'), 'resolved\n');
-  commitAll(wt, 'resolve the merge by hand');
-  refused(wt, /approving again: code changed after you approved shipping \(merge [0-9a-f]{7}, which cairn did not make/, 'merge-check');
-  const s = stateOf(wt, 'conflict');
-  assert.equal(s.approvals.ship, undefined);
-  assert.match(s.reapprove.why, /merge [0-9a-f]{7}, which cairn did not make/);
-  const status = run(['status', '--json'], wt).data!;
-  assert.equal((status.ready as { kind: string }).kind, 'ship');
-  assert.match(run(['next'], wt).message, /Approve shipping again/);
-  refused(wt, /approving again/, 'merge-check');
-  asUser(() => run(['approve', 'ship'], wt));
-  const after = stateOf(wt, 'conflict');
-  assert.equal(after.reapprove, undefined);
-  assert.equal(after.approvals.ship.sha, g(wt, 'rev-parse', 'HEAD~1'), 'the approval pins the HEAD it saw, before its own state commit');
-  assert.match(run(['merge-check'], wt).message, /Up to date/);
-});
-
-test('a code commit after the approval clears it and names the files', () => {
-  const wt = shipped('latecode');
-  writeFileSync(join(wt, 'late.txt'), 'agent push\n');
-  commitAll(wt, 'a late fix');
-  refused(wt, /commits changed late\.txt/, 'merge-check');
-  assert.equal(stateOf(wt, 'latecode').approvals.ship, undefined);
-  refused(wt, /approvals come from the user/, 'approve', 'ship');
-});
-
-test('plan-folder and REVIEW.md commits after the approval pass', () => {
+test('plan-folder and REVIEW.md commits after the pull request opened pass', () => {
   const wt = shipped('docsonly');
   writeFileSync(join(pd(wt, 'docsonly'), 'RECORD.md'), `${readFileSync(join(pd(wt, 'docsonly'), 'RECORD.md'), 'utf8')}\n- PR: https://example.test/pull/1\n`);
   writeFileSync(join(wt, 'REVIEW.md'), '# Reviewing\n\n## Rules learned\n- **2026-10-30 · docs** — a rule. *Why:* x.\n');
   commitAll(wt, 'PR link and a ticked rule');
-  assert.match(run(['merge-check'], wt).message, /Nothing changed since the ship approval/);
+  assert.match(run(['merge-check'], wt).message, /Up to date/);
 });
 
 test('tests that fail with main merged in refuse, and the clean merge stays', () => {
   const wt = shipped('redtests');
   moveMain('broken.txt', 'x\n');
-  refused(wt, /tests fail with main merged in[\s\S]*asks for the ship approval again/, 'merge-check');
+  refused(wt, /tests fail with main merged in[\s\S]*cairn pr open/, 'merge-check');
   assert.ok(existsSync(join(wt, 'broken.txt')));
-  assert.ok(stateOf(wt, 'redtests').approvals.ship);
+  assert.ok(stateOf(wt, 'redtests').pullRequest);
   // Run again with no fix: the merge is in, but the head never passed, so the tests run and it still refuses.
   refused(wt, /tests fail: /, 'merge-check');
   assert.equal(stateOf(wt, 'redtests').mergeChecked, undefined);
@@ -212,7 +162,7 @@ test('merge-check and close skip the suite when the last green run covers this c
   refused(wt2, /tests are not green/, 'close');
 });
 
-test('a conflict only in OVERVIEW.md is settled by regenerating it, and needs no new approval', () => {
+test('a conflict only in OVERVIEW.md is settled by regenerating it', () => {
   const wt = shipped('overview');
   mkdirSync(join(wt, 'docs/cairn'), { recursive: true });
   writeFileSync(join(wt, 'docs/cairn/OVERVIEW.md'), '# Changelog\n\nplan side\n');
@@ -223,11 +173,10 @@ test('a conflict only in OVERVIEW.md is settled by regenerating it, and needs no
   assert.equal(r.data!.merged, true);
   assert.equal(g(wt, 'status', '--porcelain'), '');
   assert.doesNotMatch(readFileSync(join(wt, 'docs/cairn/OVERVIEW.md'), 'utf8'), /<<<<<<<|>>>>>>>/);
-  assert.ok(stateOf(wt, 'overview').approvals.ship);
   assert.match(run(['merge-check'], wt).message, /Up to date/);
 });
 
-test('a conflict only in USAGE.md is settled by regenerating it, and needs no new approval', () => {
+test('a conflict only in USAGE.md is settled by regenerating it', () => {
   const wt = shipped('usagemd');
   mkdirSync(join(wt, 'docs/cairn'), { recursive: true });
   writeFileSync(join(wt, 'docs/cairn/USAGE.md'), '# Usage\n\nplan side\n');
@@ -240,7 +189,6 @@ test('a conflict only in USAGE.md is settled by regenerating it, and needs no ne
   const md = readFileSync(join(wt, 'docs/cairn/USAGE.md'), 'utf8');
   assert.doesNotMatch(md, /<<<<<<<|>>>>>>>/);
   assert.match(md, /^# Usage/);
-  assert.ok(stateOf(wt, 'usagemd').approvals.ship);
   assert.match(run(['merge-check'], wt).message, /Up to date/);
 });
 

@@ -12,14 +12,14 @@ const has = (file: string, ...phrases: string[]) => {
   for (const p of phrases) assert.ok(src.includes(p), `${file} is missing "${p}"`);
 };
 
-test('ship and fix require changelog.md before the approval, and the stops show it', () => {
+test('ship and fix write changelog.md before the pull request opens', () => {
   for (const f of ['procedures/ship.md', 'procedures/fix.md']) {
     has(f, 'changelog.md', '120 words', 'what was', 'big rocks');
     const src = read(f);
-    assert.ok(src.indexOf('changelog.md') < src.indexOf('cairn step approving'), `${f} writes the entry after the stop`);
-    assert.match(src, /Revise the record or the entry/);
+    assert.ok(src.indexOf('changelog.md') < src.indexOf('cairn step opening-pr'), `${f} writes the entry before the pull request`);
+    assert.doesNotMatch(src, /Revise the record or the entry/);
   }
-  has('procedures/ship.md', 'the changelog entry');
+  has('procedures/ship.md', 'changelog entry');
   has('procedures/fix.md', 'the changelog entry', 'Record · changelog entry');
   has('procedures/ship.md', 'one dispatch, not two');
 });

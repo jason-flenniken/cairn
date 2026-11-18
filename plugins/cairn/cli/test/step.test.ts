@@ -87,7 +87,9 @@ test('the other stages take their own steps; the fix track uses review and ship'
     run(['step', name], p.wt);
     assert.equal(p.state().step?.name, name);
   }
-  assert.match(summary((() => { const p = plan('ship'); run(['step', 'approving'], p.wt); return p.state(); })()), /Ship · waiting on approval/);
+  assert.match(summary((() => { const p = plan('ship'); run(['step', 'opening-pr'], p.wt); return p.state(); })()), /Ship · opening the PR/);
+  refused(plan('ship').wt, /not a step at ship/, 'step', 'waiting');
+  refused(plan('ship').wt, /not a step at ship/, 'step', 'approving');
   assert.equal((() => { const p = plan('prd'); run(['step', 'checking'], p.wt); return p.state().step?.name; })(), 'checking');
   const f = plan('review', 'fix');
   run(['step', 'reviewing'], f.wt);
@@ -109,7 +111,7 @@ test('prd approving is refused while approval would refuse the PRD, and taken on
 test('refusals list the valid steps and write nothing', () => {
   const p = plan('review');
   const before = p.raw();
-  refused(p.wt, /not a step at review; valid steps: reviewing, fixing, rechecking, asking, clear/, 'step', 'merging');
+  refused(p.wt, /not a step at review; valid steps: reviewing, fixing, rechecking, clear/, 'step', 'merging');
   refused(p.wt, /whole number/, 'step', 'fixing', '--count', '-1');
   refused(p.wt, /whole number/, 'step', 'fixing', '--count', 'three');
   refused(p.wt, /usage/, 'step');
@@ -143,8 +145,9 @@ test('status --all --json words the step on each plan row, for the current stage
   assert.equal(rowOf().stepText, 're-checking');
 });
 
-test('asking is a step at every working stage, and clear drops it', () => {
-  for (const stage of ['repro', 'discover', 'prd', 'plan', 'execute', 'verify', 'review', 'ship'] as const) {
+test('asking is a step until the PRD is approved, and clear drops it; after that nothing asks', () => {
+  for (const stage of ['plan', 'execute', 'verify', 'review', 'ship'] as const) refused(plan(stage).wt, /"asking" is not a step at/, 'step', 'asking');
+  for (const stage of ['repro', 'discover', 'prd'] as const) {
     const p = plan(stage);
     run(['step', 'asking'], p.wt);
     assert.equal(p.state().step?.name, 'asking', stage);
@@ -154,8 +157,8 @@ test('asking is a step at every working stage, and clear drops it', () => {
   refused(plan('learn').wt, /there are no steps at learn/, 'step', 'asking');
 });
 
-test('status --all --json sets needsUser while a plan is asking or at its approval step', () => {
-  const p = plan('execute');
+test('status --all --json sets needsUser while a plan is asking or at the PRD approval step', () => {
+  const p = plan('discover');
   const rowOf = () => (run(['status', '--all', '--json'], p.wt).data!.plans as { needsUser?: boolean; stepText?: string }[])[0]!;
   assert.equal(rowOf().needsUser, false);
   run(['step', 'asking'], p.wt);
@@ -166,9 +169,8 @@ test('status --all --json sets needsUser while a plan is asking or at its approv
   const q = plan('plan');
   const qRow = () => (run(['status', '--all', '--json'], q.wt).data!.plans as { needsUser?: boolean }[])[0]!;
   run(['step', 'drafting'], q.wt);
-  assert.equal(qRow().needsUser, false);
-  run(['step', 'approving'], q.wt);
-  assert.equal(qRow().needsUser, true);
+  assert.equal(qRow().needsUser, false, 'a plan never waits on the user');
+  refused(q.wt, /not a step at plan/, 'step', 'approving');
 });
 
 test('a PRD with step asking is not ready: approval waits until the question is answered', () => {

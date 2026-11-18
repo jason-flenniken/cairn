@@ -2,7 +2,7 @@
 
 Send the updates cairn has queued for Linear, mark each one sent, then carry on with the stage. Linear owns the backlog; cairn only queues what is due and the `linear-sender` agent sends it through the Linear MCP.
 
-**Who does what.** The main thread dispatches the `linear-sender` agent (`model: haiku`, `description` "Record · Linear updates") in the background with the plan worktree path and the plugin root (only when none is already running), and carries on with the stage; the sender runs steps 1 to 3 and returns one line ("Sent N, failed M: …"). Entries that need approval (step 4) stay queued; the main thread asks about them itself, at the next stop where the user is already answering, or right away when the stage is waiting on them. Step 5 is the main thread's.
+**Who does what.** The main thread dispatches the `linear-sender` agent (`model: haiku`, `description` "Record · Linear updates") in the background with the plan worktree path and the plugin root (only when none is already running), and carries on with the stage; the sender runs steps 1 to 3 and returns one line ("Sent N, failed M: …"). The project status update (step 4) is cairn's own factual text; it is sent without asking. Step 5 is the main thread's.
 
 **Only the queue.** Linear updates go out only through this queue. Send what `cairn linear pending` lists, and mark each entry sent with the id listed for that exact entry, after its send worked. Never mark ids by guessing or by range (`for i in 49..57`): an entry that was never sent would count as sent and never go out. Never call Linear's status, comment or issue tools on your own for a plan update outside the queue; when something is missing, `cairn next` will queue it.
 
@@ -11,7 +11,7 @@ Talk to the user per `references/reporting.md`. `cairn` is on PATH; if not, run 
 The Linear tools are named here by their base name (`save_issue`, `save_comment`, `save_status_update`, `create_issue_label`, `list_issue_labels`). The prefix differs between installs: use the Linear tools you have. When no Linear tools are available, say so in one line, put every entry on hold (`cd <plan worktree> && cairn linear hold <id> --note "no Linear tools"`), and go to step 5. A held entry stays queued and is tried again at the next sync, but `cairn next` no longer sends you here for it alone.
 
 ## 1. List what is waiting
-Run `cd <plan worktree> && cairn linear pending --claim --json`: it hands you the entries that need no approval, held ones included, and marks them yours for 10 minutes so a second sender skips them. Each entry in `pending` has `id`, `kind`, `target`, `tool`, `payload`, `why`, and `needsApproval` when the user has to see it first.
+Run `cd <plan worktree> && cairn linear pending --claim --json`: it hands you the entries that are due, held ones included, and marks them yours for 10 minutes so a second sender skips them. Each entry in `pending` has `id`, `kind`, `target`, `tool`, `payload` and `why`. An entry marked `needsApproval` is the project status update: step 4 sends it too.
 
 **Done when:** you hold the list of unsent entries.
 
@@ -36,15 +36,12 @@ After each send that worked, run `cd <plan worktree> && cairn linear sent <id>`.
 
 A send that fails stays queued: run `cd <plan worktree> && cairn linear hold <id> --note "<the error>"`, note it in one line, and go on to the next entry. A failure never blocks the stage. Entries listed as held were tried before: send them like the rest.
 
-**Done when:** every entry that needs no approval was sent and marked, or failed and noted.
+**Done when:** every entry was sent and marked, or failed and noted.
 
-## 4. Ask about the entries that need approval
-The main thread does this step: `cd <plan worktree> && cairn linear pending --json` (no `--claim`) lists them. Entries with `needsApproval` (the project status update) are the user's words going out under their name. For each, show its `payload.body` and `payload.health`, then ask with AskUserQuestion:
-- Send (Recommended): call `save_status_update` with the payload, then `cairn linear sent <id>`.
-- Edit: ask what to change, apply it to the body, and ask again.
-- Don't send: run `cd <plan worktree> && cairn linear drop <id> --note "<why>"`.
+## 4. Send the project status update
+Entries with `needsApproval` are the project status update. Its body and health are cairn's factual summary of the plan, so send it as it stands, without asking: `cd <plan worktree> && cairn linear pending --json` (no `--claim`) lists them; call `save_status_update` with the payload, then `cairn linear sent <id>`. Do not edit the body. When the send fails, `cairn linear hold <id> --note "<the error>"`, and go on.
 
-**Done when:** each such entry was sent, dropped with a note, or held (`cairn linear hold <id> --note "the user wants to wait"`) when the user said to wait.
+**Done when:** each such entry was sent, or held with the error noted.
 
 ## 5. Report and continue
 Say what the sender returned in one line ("Sent 4 updates to Linear"), plus any that failed or are held; say nothing when all went out and the stage is moving on. Then, when you came here from `cairn next`, run `cd <plan worktree> && cairn next --json` and follow the procedure it names.

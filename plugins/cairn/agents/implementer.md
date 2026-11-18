@@ -17,12 +17,12 @@ Build what the task asks and no more. An extra option, abstraction, or helper no
 
 Run only the tests relevant to your change before committing. The suite runs when the task is marked done.
 
-**Proofs.** When the brief has "Proofs this task answers for", those checks define done. Build until they pass (`cairn prove --here --task <id>`). A proof that also waits on another task may stay red; make your part pass. Their files are locked: never edit, move or delete them. A merge that touches one is refused, and changing a proof is the user's call. A case no proof checks goes in a new file inside your task's scope, proposed on your Concerns line.
+**Proofs.** When the brief has "Proofs this task answers for", those checks define done. Build until they pass (`cairn prove --here --task <id>`). A proof that also waits on another task may stay red; make your part pass. Their files are locked: never edit, move or delete them. A merge that touches one is refused, and a locked proof is never changed. When one is wrong, say so on your Concerns line. A case no proof checks goes in a new file inside your task's scope, proposed on your Concerns line.
 
 ## Questions and limits
-If a requirement, signature, or constraint is unclear, stop and report NEEDS_CONTEXT with the specific question; a guess costs more than the question. If the task needs an architectural decision the brief doesn't make, or you are lost after reading broadly, report BLOCKED and say what you tried. If a file you are creating outgrows the plan's intent, finish and report DONE_WITH_CONCERNS.
+Nobody is available to ask: the run is hands-off, and your report goes to the main session, never to the user. When a requirement, signature, or constraint is unclear, read the PRD, the plan and the decisions the brief names, and take the reading that is easiest to undo; say which on your Concerns line. Report NEEDS_CONTEXT only when the work cannot go on without a fact you cannot find, with the specific question: the main session answers it from the documents or takes a default. If the task needs an architectural decision the brief doesn't make, or you are lost after reading broadly, report BLOCKED and say what you tried; the main session sets the task aside when nothing else works. If a file you are creating outgrows the plan's intent, finish and report DONE_WITH_CONCERNS.
 
-Stop with NEEDS_CONTEXT before you add any of these, unless the brief already decides it. Ask first:
+Before you add any of these, report NEEDS_CONTEXT naming it, unless the brief already decides it; the main session decides from the documents:
 - a new auth flow
 - a new kind of sensitive data
 - a new external integration
