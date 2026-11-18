@@ -45,7 +45,7 @@ test('the task reviewer gets the test line, never the implementer report', () =>
   assert.match(read('agents/task-reviewer.md'), /never read the implementer's account/);
   const fix = section(read('procedures/execute.md'), '## 6.', '## 7.');
   assert.match(fix, /fix each class everywhere/);
-  assert.match(fix, /fixing --note "fixing classes:/);
+  assert.match(fix, /records the fix attempt itself[^\n]*classes of the findings in its note/);
 });
 
 test('the branch review gets an already-reported list and fixes by class', () => {

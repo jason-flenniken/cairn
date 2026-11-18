@@ -6,9 +6,9 @@ Talk to the user per `references/reporting.md`; model choices follow `references
 
 You stay at the repo root. The session is not locked to a worktree, so your subagents can edit and commit in task worktrees. The plan lives in its own worktree on the plan branch (from `cairn status --json`, `state.branch`). You and the steward agents (the writers and the `linear-sender`) run `cairn`; implementers and reviewers never do, and never touch `docs/cairn/`. You are the only one who merges. Every `Agent` call sets `description` to "<Role> · <task name>" (Build, Review, Fix, Check, Record), per `references/reporting.md`.
 
-Keep your own context small. Agents get a path, not text: `cairn task brief` writes each brief to disk, agents write their full report to disk, and you read only their last few lines. Do not read a report or a brief file yourself; `cairn task report` and `cairn review record` read them for you.
+Keep your own context small and your turns few. Agents get a path, not text: cairn writes each brief to disk, agents write their full report to disk and record it themselves, and you read only their last few lines. Every build and review agent ends with a `Next:` line that cairn printed: it names the next dispatch, so you act on it without running cairn first. Do not read a report or a brief file yourself.
 
-**Running cairn.** Every `cairn` command below runs from the plan worktree: `cd <plan worktree> && cairn <command>`. Each model turn re-reads the whole conversation, so do the bookkeeping in as few turns as possible: when two commands follow each other, chain them in one Bash call with `&&`; when a command precedes an agent dispatch or a question, send the Bash call and that tool call in the same message.
+**Running cairn.** Every `cairn` command below runs from the plan worktree: `cd <plan worktree> && cairn <command>`. Each model turn re-reads the whole conversation, so do the bookkeeping in as few turns as possible: when two commands follow each other, chain them in one Bash call with `&&`; when a command precedes an agent dispatch or a question, send the Bash call and that tool call in the same message. Never spend a turn on a progress message alone: the 1-3 line note goes in the same message as a dispatch or a `cairn` call, and a turn with nothing to dispatch ends with no message.
 
 **When a stage or phase ends.** Carry on into the next step. Never stop to suggest `/clear` or a new session: long sessions are compacted automatically, and the user decides when to clear.
 
@@ -30,55 +30,61 @@ Run `cd <plan worktree> && cairn status --json` once. The stage must be `execute
 
 **Linear updates.** When a `cairn` command's output says "N Linear updates queued", dispatch the `linear-sender` agent in the background (`model: haiku`, `description` "Record · Linear updates") with the plan worktree path and the plugin root, and carry on, but only when no `linear-sender` is already running (a running one claims the queue itself). Do not wait for it. When it returns, mention its one line only if something failed.
 
-**Pause.** Rely on the refusals: `cairn task start` and `cairn task merge` refuse while the plan is paused, and `cairn ready` prints it. When one does, start nothing new and read `procedures/execute-cases.md` ("The plan is paused"). Run `cd <plan worktree> && cairn status` (one line) only before sending a fix to an already-running agent, and once per loop round in step 8.
+**Pause.** Rely on the refusals: `cairn task start` and `cairn task merge` refuse while the plan is paused, and a merge's `Next:` line says so. When one does, start nothing new and read `procedures/execute-cases.md` ("The plan is paused").
 
 ## 2. Resume what is in progress
 Tasks already `in_progress` carry a recorded step. Continue each from there; starting over wastes finished work.
 - `implementing` (`cairn task start` records it): check whether an implementer is still running for it. If not, dispatch a fresh one (step 4) with a note to inspect the worktree's existing commits first.
-- `reviewing`: run step 5.
-- `fixing`: run step 6.
+- `reviewing` or `fixing`: when the agent for that step has ended, record its report yourself (step 5, "No `Next:` line") and follow the line it prints. Otherwise wait for it.
 - `merging`: run step 7.
 - `blocked`: read `procedures/execute-cases.md` ("A task is blocked").
 
 **Done when:** every in-progress task is back in the loop at its recorded step.
 
 ## 3. Start ready tasks
-Run `cd <plan worktree> && cairn ready --json`. For each ready task run `cd <plan worktree> && cairn task start <id>` (chain the starts and `cairn ready --json` in one Bash call: `cairn ready --json && cairn task start <id> && …`); each creates the task worktree, writes the build brief, records the step `implementing`, and prints "Brief: <path>". Cap parallelism at what `cairn ready` returns.
+Run `cd <plan worktree> && cairn task start --ready`. It starts every ready task: it creates the task worktree, writes the build brief and records the step `implementing`. It prints one `Start: <id> (<name>) — Brief: <path> — Builder: …` line per task and a `Next:` line. Parallelism is capped at what is ready. (`cairn task start <id>` starts one task.)
 
-**Done when:** every ready task is started and you hold its brief path. An empty ready list with no in-progress tasks means the phase is finished: go to step 8.
+**Done when:** every ready task is started and you hold its `Start:` line. A `Next: cairn next --json` line (nothing ready, nothing running) means the phase is finished: go to step 8.
 
 ## 4. Build
-For each started task, dispatch the `implementer` agent in the background, with the `model` (and `effort`, when named) from the `Builder:` line `cairn task start` printed, and `description` "Build · <task name>". The prompt is three lines at most:
+For each `Start:` line, dispatch the `implementer` agent in the background, all in one message. Use the `model` (and `effort`, when named) from its `Builder:` line, and the `description` "Build · <task name>". The prompt is three lines at most:
 
 ```
 Brief: <brief path>. Plugin root: <root>.
 <one line only when needed: "Inspect the worktree's existing commits first." / "Write the failing test first.">
 ```
 
-`cairn task start` already recorded the step `implementing`, so there is no step call here. Tell the user in 1-3 lines which tasks started, in the same message as the dispatches.
+Tell the user in 1-3 lines which tasks started, in the same message as the dispatches.
 
 **Done when:** each started task has a running implementer.
 
-## 5. Record the report, review the task
-An implementer's final message is five lines: `Status`, `Commits`, `Tests`, `Concerns`, `Report`. Record it: `cd <plan worktree> && cairn task report <id> <report path>`. It prints one line (the status and how many follow-ups it logged).
-- `NEEDS_CONTEXT`, `BLOCKED`, a merge refusal or red tests after merging: read `procedures/execute-cases.md` for that case.
-- `DONE` or `DONE_WITH_CONCERNS`: when the report's `Task review:` line says `no`, skip the task-reviewer. The next bullet still applies: a diff that shows a trust boundary gets the `security-reviewer`. With no reviewer to run, go to step 7. When the status is `DONE`, `Task review:` is `no` and the `Concerns` line names no trust boundary, record and merge in one Bash call: `cd <plan worktree> && cairn task report <id> <report path> && cairn task merge <id>`. Otherwise run `cd <plan worktree> && cairn task step <id> reviewing && cairn task brief <id> --role review` in one call; it prints the brief path and the report path. Dispatch the `task-reviewer` agent (`model: sonnet`, `description` "Review · <task name>") with the prompt `Brief: <path>. Plugin root: <root>.` (the root is `${CLAUDE_PLUGIN_ROOT}`). The brief points at the implementer's report for its `Tests:` line (and its `Concerns / questions:` line when the status is `DONE_WITH_CONCERNS`) only. Never tell the reviewer to read the rest of the report: a reviewer who reads the builder's account grades the account instead of the code.
-- When the task is `risky` (or the build's `Concerns` line or the diff shows auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data), also run `cd <plan worktree> && cairn task brief <id> --role security` and dispatch the `security-reviewer` agent in the same message, so both run in parallel (alone when the task-reviewer was skipped) (`model: sonnet`, `description` "Review · <task name> (security)").
-- Each reviewer ends with `Verdict`, `Counts` and `Report`. Record each: `cd <plan worktree> && cairn review record <id> <report path>`. It logs the Optional, Nit and pre-existing findings as follow-ups itself (the `cairn suggest add` step, with `--from task-review` or `--from security-review`) and prints one line: `PASS`, or `FIX` with the must-fix findings. A pre-existing finding, at any label, is logged and never sent to step 6; name a pre-existing Critical to the user in one line. FYI: mention once in your progress line. Do not log it.
-- Both recorded `PASS`: step 7. Critical and Required: step 6 (the `FIX` line names each with its proposed fix).
+## 5. Follow the agent's `Next:` line
+Each implementer and each task or security reviewer records its own report as the last step of its brief: `cairn task report` for a build or a fix, `cairn review record` for a review. It then ends its final message with the `Next:` line cairn printed. Do what that line says, in one message:
+- `Next: dispatch …`: dispatch exactly the agents it names, with the model, effort and `description` it gives, and the prompt `Brief: <path>. Plugin root: <root>.` (the root is `${CLAUDE_PLUGIN_ROOT}`). Two reviewers go in the same message, so they run in parallel. The brief points at the implementer's report for its `Tests:` line (and its `Concerns / questions:` line when the status is `DONE_WITH_CONCERNS`) only. Never tell the reviewer to read the rest of the report: a reviewer who reads the builder's account grades the account instead of the code.
+- `Next: wait …`: another review of the same task is still running. End the turn with no tool call and no message.
+- `Next: cairn task merge <id>`: step 7.
+- `Next: set the task aside …`: step 6, last bullet.
+- `Next: read procedures/execute-cases.md for …`: that case.
+- **No `Next:` line** (the agent skipped the record, or it refused): record it yourself, then follow the line it prints. For a build or a fix run `cd <plan worktree> && cairn task report <id> <report path>`; for a review run `cd <plan worktree> && cairn review record <id> <report path>`. Recording the same report twice changes nothing, so this is always safe.
 
-**Done when:** each reported task is ready to merge, or in step 6.
+How cairn chooses, so you can check it:
+- `cairn task report` prints a `Task review:` line. When the `Task review:` line says `no`, skip the task-reviewer. The next bullet still applies: the security floor runs on a task with no task review.
+- cairn names the `security-reviewer` when the task is `risky` or the build's `Trust boundary:` line names one. When the `Concerns` line shows auth, money, deletes, migrations, a public API, untrusted input, personal data, a new dependency, model output, or shell commands and paths built from data, and cairn named no security review, add it: run `cd <plan worktree> && cairn task brief <id> --role security` and dispatch the `security-reviewer` (`model: sonnet`, `description` "Review · <task name> (security)"), in parallel with the task-reviewer when there is one. To brief a reviewer by hand (a lost brief), use `cairn task brief <id> --role review`, or `--role review --again` after a fix.
+- `cairn review record` logs the Optional, Nit and pre-existing findings as follow-ups itself (the `cairn suggest add` step, with `--from task-review` or `--from security-review`). A pre-existing finding, at any label, is logged and never sent to step 6; name a pre-existing Critical to the user in one line. FYI: mention once in your progress line. Do not log it.
+- Every review in and all PASS: merge. Critical and Required: step 6. cairn has already recorded the fix attempt and written the fix brief.
+
+**Done when:** each reported task is merging, fixing, set aside, or waiting on its other review.
 
 ## 6. Fix
-Only Critical and Required findings are fixed. Run `cd <plan worktree> && cairn task step <id> fixing --note "fixing classes: <class>, <class>"` (the classes come from the `FIX` line), so the plan log keeps which kinds of mistake needed fixing. Plan on one fix attempt for review findings; the CLI refuses past 2 per task (the second is for a test failure after merging).
-- Run `cd <plan worktree> && cairn task brief <id> --role fix` chained after the `fixing` step call above, in one Bash call. Its `Builder:` line names the model for the fix (the last attempt is one tier up). It writes the must-fix findings, grouped by class, with their proposed fixes (and the last red test run, when there is one). Send the brief path to the same implementer with SendMessage (run `cairn status` first, per the pause rule above), or dispatch a fresh implementer on the same worktree when the old one has ended, when the user was asked something since it started (a resumed agent would carry that conversation), or when the `Builder:` line names a different model than the original build (a running agent cannot change model), `description` "Fix · <task name>". Tell it in one line to fix each class everywhere in the task's scope, not only at the lines cited, and to list the other places it fixed.
-- When it ends, run `cd <plan worktree> && cairn task report <id> <report path> && cairn task brief <id> --role review --again` (or `--role security`) in one call, then re-review once with the reviewer that raised the findings (both when both did). The brief lists the earlier must-fix findings and writes to the same report path as the first review. The re-review is always a fresh reviewer agent given only that brief (the fix diff and the earlier must-fix findings): never resume an earlier reviewer or send it a message, because a resumed reviewer drags its whole earlier context along. Dispatch it with the brief path (when the brief output has a `Reviewer:` line, pass its `effort` on the Agent call), then `cd <plan worktree> && cairn review record <id> <report path>`; recording replaces the old must-fix findings.
-- When a Critical or Required finding is still open after that attempt (or the CLI refuses another), set the task aside (`references/autonomy.md`): `cd <plan worktree> && cairn task step <id> blocked --note "set aside: <finding>; tried: <fixes>; proposed: <next step>"`. Keep building the other tasks. The pull request lists it under Not done.
+Only Critical and Required findings are fixed. When the last review records a must-fix, cairn records the fix attempt itself: the step `fixing`, with the classes of the findings in its note, so the plan log keeps which kinds of mistake needed fixing. Review findings get one attempt; the CLI allows a second only for a test failure after merging, at one tier up. It also writes the fix brief (`--role fix`), with the findings grouped by class and their proposed fixes. Its `Next:` line names the model.
+- Dispatch a fresh implementer as the line names, `description` "Fix · <task name>". Tell it in one line to fix each class everywhere in the task's scope, not only at the lines cited, and to list the other places it fixed. Never resume the original implementer with SendMessage. A fresh agent starts small, while a resumed one drags its whole build along, and a running agent cannot change model.
+- The fix's report names the re-review. It goes only to the reviewer that raised the findings (both when both did), with a `--again` brief that lists the earlier must-fix and writes to the same report path. The re-review is always a fresh reviewer: never resume an earlier reviewer or send it a message, because a resumed reviewer drags its whole earlier context along. Recording it replaces the old must-fix findings.
+- When a Critical or Required finding is still open after that attempt, cairn says so. Set the task aside (`references/autonomy.md`): `cd <plan worktree> && cairn task step <id> blocked --note "set aside: <finding>; tried: <fixes>; proposed: <next step>"`. Keep building the other tasks. The pull request lists it under Not done.
 
 **Done when:** the task passed, or it is set aside.
 
 ## 7. Merge
-When the task is ready to merge: run `cd <plan worktree> && cairn task merge <id>` (it records the step `merging` itself). It merges the task branch into the plan branch, runs the repo's checks and tests, and cleans up. Docs-only conflicts are settled by the CLI.
+Run `cd <plan worktree> && cairn task merge <id>`. It records the step `merging` itself, merges the task branch into the plan branch, runs the repo's checks and tests, and cleans up. Docs-only conflicts are settled by the CLI. It then starts every task the merge made ready, printing their `Start:` lines and a `Next:` line, so the next builders go out in the following message (step 4). The call runs the tests and each started task's `setup`, so give it, and `cairn task start --ready`, a long Bash timeout (600000 ms).
 
 Anything else (a refusal, a conflict outside `docs/cairn/`, red tests after the merge): read `procedures/execute-cases.md`.
 
@@ -86,14 +92,17 @@ Anything else (a refusal, a conflict outside `docs/cairn/`, red tests after the 
 
 **A locked proof that is itself wrong.** Never edit, replace or retire it. When the code is right and the proof is what is wrong, add a corrected one beside it with `cairn prove add` and run it green. The old one stays red: pass it with `--not-done "<why this proof is wrong; the corrected one is <new-id>>"` when a check asks, so the pull request lists it for the user to retire after the merge.
 
-**Done when:** `cairn task merge <id>` exits 0. Report in 1-3 lines: the task, the test count, what starts next.
+**Done when:** `cairn task merge <id>` exits 0. Report in 1-3 lines, in the same message as the dispatches its `Start:` lines call for: the task, the test count, what starts next.
 
 ## 8. Loop
-After every completion, return to step 3. Once per round, run `cd <plan worktree> && cairn status` first, chained with the round's `cairn ready --json`.
+The merge's `Next:` line drives the loop:
+- Dispatch the builders its `Start:` lines name (step 4).
+- `wait for the running tasks`: end the turn with no message.
+- `cairn next --json`: the phase has no remaining tasks.
 
 A set-aside task never stops the loop: build every task that does not wait on it. The tasks that wait behind it are left out, and the pull request lists them.
 
-When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks. Run `cd <plan worktree> && cairn next --json`, follow the procedure it names (phase-end for a feature plan, review for a fix plan). When the merge of the last task said the plan moved to Check, it names Check: follow it (its first step tells the user).
+When the phase has no remaining tasks, run `cd <plan worktree> && cairn next --json` and follow the procedure it names (phase-end for a feature plan, review for a fix plan). When the merge of the last task said the plan moved to Check, it names Check: follow it (its first step tells the user).
 
 ## Rare cases
 Read `procedures/execute-cases.md` only when one of these happens: an implementer returns `NEEDS_CONTEXT` or `BLOCKED`, `cairn task merge` refuses or conflicts, tests are red after the merge, a task is blocked, or the plan is paused.

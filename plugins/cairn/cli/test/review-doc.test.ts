@@ -57,5 +57,5 @@ test('branch-reviewer names the axes and keeps Strengths and names the requireme
 });
 
 test('task-reviewer keeps the re-review rule', () => {
-  assert.match(read('agents/task-reviewer.md'), /When resumed to re-review a fix/);
+  assert.match(read('agents/task-reviewer.md'), /When briefed with `--again` to re-review a fix/);
 });

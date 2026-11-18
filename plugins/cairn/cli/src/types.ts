@@ -125,7 +125,13 @@ export interface Task {
   mustFix?: MustFix[];
   /** Files `cairn task merge` could not merge; cleared by the next clean merge. */
   mergeConflict?: string[];
+  /** Reviews dispatched by `cairn task report` and not yet recorded: the last one recorded decides merge or fix. */
+  pendingReviews?: ReviewRole[];
+  /** Report path -> content hash and the `Next:` line it printed, so recording the same report again changes nothing. */
+  recorded?: Record<string, { hash: string; next: string }>;
 }
+
+export type ReviewRole = 'review' | 'security';
 
 export interface Phase {
   id: string;

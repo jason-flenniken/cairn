@@ -185,6 +185,9 @@ function lastAssistantText(input: HookInput): string {
   for (let i = lines.length - 1; i >= 0 && i >= lines.length - 50; i--) {
     try {
       const row = JSON.parse(lines[i]);
+      // A prompt or an agent's notification starts the turn: text before it belongs to an earlier turn, so a turn that
+      // ends with no text (a deliberate wait while agents run) is never read as an announcement.
+      if (row.type === 'user' && typeof row.message?.content === 'string') return '';
       if (row.type !== 'assistant') continue;
       const content = row.message?.content;
       const text = Array.isArray(content) ? content.filter((b: { type?: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('\n') : '';

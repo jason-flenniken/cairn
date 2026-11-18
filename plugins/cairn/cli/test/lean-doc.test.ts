@@ -92,7 +92,7 @@ test('second review fixes: sender claims in both listings, plan-writer returns t
   assert.match(read('procedures/plan.md'), /`Opus builds:` line when it printed one/);
   assert.match(read('procedures/execute-cases.md'), /merges the plan branch into the task branch in the task worktree, fixes and commits there/);
   assert.doesNotMatch(read('procedures/execute-cases.md'), /on the merged tree \(`description`/);
-  assert.match(read('procedures/execute.md'), /names a different model than the original build/);
+  assert.match(read('procedures/execute.md'), /Never resume the original implementer with SendMessage/);
   assert.match(read('procedures/verify.md'), /Full output:/);
   assert.doesNotMatch(read('procedures/review.md'), /--kind hardening/);
 });
@@ -114,4 +114,26 @@ test('no procedure stops a run to ask for /clear', () => {
   for (const f of readdirSync(join(root, 'procedures'))) {
     assert.doesNotMatch(read(`procedures/${f}`), /start fresh with \/clear|fresh-start line/, f);
   }
+});
+
+test('every agent declares its tools, so none loads every MCP tool and skill listing on the machine', () => {
+  const dir = join(root, 'agents');
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.md'))) {
+    const head = read(`agents/${f}`).split('---')[1] ?? '';
+    assert.match(head, /^(tools|disallowedTools):/m, f);
+  }
+  assert.match(read('agents/implementer.md'), /^tools: Read, Grep, Glob, Bash, Write, Edit, Monitor, TaskStop, SendMessage$/m);
+});
+
+test('build and review agents record their own report and pass back the Next line', () => {
+  for (const f of ['implementer', 'task-reviewer', 'security-reviewer']) {
+    const src = read(`agents/${f}.md`);
+    assert.match(src, /Last step/, f);
+    assert.match(src, /Next: <the line cairn printed>/, f);
+  }
+  assert.match(read('agents/implementer.md'), /^Trust boundary: <none, or which/m);
+  const src = read('procedures/execute.md');
+  assert.match(src, /cairn task start --ready/);
+  assert.match(src, /## 5\. Follow the agent's `Next:` line/);
+  assert.match(src, /No `Next:` line/);
 });

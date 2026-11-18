@@ -217,7 +217,9 @@ test('review record: mixed report sorts into must-fix and follow-ups; the fix br
     ].join('\n'),
   );
   const r = ok(w.wt, 'review', 'record', 'charge', report);
-  assert.equal(r.message, 'FIX: 2 must-fix (security: src/charge/index.ts:40; quality: src/charge/index.ts:12); 3 logged as follow-ups.');
+  const [first, next] = r.message.split('\n');
+  assert.equal(first, 'FIX: 2 must-fix (security: src/charge/index.ts:40; quality: src/charge/index.ts:12); 3 logged as follow-ups.');
+  assert.match(next, /^Next: dispatch a fresh implementer \(sonnet, "Fix · Charge"\) with Brief: .*briefs\/charge-fix\.md\. Tell it to fix each class everywhere/);
   assert.equal(r.data!.verdict, 'FIX');
   assert.equal(r.data!.logged, 3);
   assert.deepEqual((r.data!.mustFix as { label: string; area: string; cls: string; where: string; problem: string; fix: string }[])[0], {
@@ -228,9 +230,10 @@ test('review record: mixed report sorts into must-fix and follow-ups; the fix br
   const open = s.suggestions!.map((x) => [x.area, x.from, x.where]);
   assert.deepEqual(open, [['tests', 'task-review', ['src/charge/index.ts']], ['docs', 'task-review', ['README.md']], ['security', 'task-review', ['src/old.ts']]]);
 
-  // Recording the same file again replaces the must-fix and adds no duplicate follow-ups.
+  // Recording the same file again changes nothing and prints the same next step.
   const again = ok(w.wt, 'review', 'record', 'charge', report);
-  assert.match(again.message, /^FIX: 2 must-fix .*; 0 logged as follow-ups\.$/);
+  assert.equal(again.message, `Already recorded.\n${next}`);
+  assert.equal(w.state().phases[0].tasks[0].fixRound, 1, 'the repeat does not use another fix attempt');
   assert.equal(w.state().phases[0].tasks[0].mustFix!.length, 2);
   assert.equal(w.state().suggestions!.length, 3);
 
@@ -243,7 +246,7 @@ test('review record: mixed report sorts into must-fix and follow-ups; the fix br
   // A later clean review of the same file clears the must-fix.
   write(report, 'Verdict: PASS\n1. Optional | quality | naming | src/charge/index.ts:2 | rename x | rename it\n');
   const pass = ok(w.wt, 'review', 'record', 'charge', report);
-  assert.equal(pass.message, 'PASS: 1 logged as follow-ups.');
+  assert.equal(pass.message, 'PASS: 1 logged as follow-ups.\nNext: cairn task merge charge');
   assert.equal(w.state().phases[0].tasks[0].mustFix, undefined);
 
   // A report that says FIX with nothing parseable is refused rather than read as a pass.
@@ -275,7 +278,7 @@ test('task report logs the implementer suggestions as follow-ups', () => {
   write(report, ['Status: DONE_WITH_CONCERNS', 'Commits: abc1234 charge', 'Tests: npm test -> 3 passed', 'Concerns / questions: one', 'Suggestions:', '- tests | src/charge/** | cover zero amounts', 'perf | src/charge/index.ts | cache the rate', 'bad line', ''].join('\n'));
   const r = ok(w.wt, 'task', 'report', 'charge', report);
   assert.match(r.message, /^DONE_WITH_CONCERNS; 2 follow-ups logged\.\nTask review: (yes|no) — /);
-  assert.deepEqual(r.data, { status: 'DONE_WITH_CONCERNS', logged: 2, taskReview: { review: false, reason: 'the branch review covers it' } });
+  assert.deepEqual(r.data, { status: 'DONE_WITH_CONCERNS', logged: 2, taskReview: { review: false, reason: 'the branch review covers it' }, next: 'Next: cairn task merge charge' });
   assert.deepEqual(w.state().suggestions!.map((x) => [x.area, x.from, x.text]), [['tests', 'implementer', 'cover zero amounts'], ['perf', 'implementer', 'cache the rate']]);
   write(report, 'Status: DONE\nSuggestions: none\n');
   assert.match(ok(w.wt, 'task', 'report', 'charge', report).message, /^DONE; 0 follow-ups logged\.\n/);
@@ -576,16 +579,18 @@ test('re-review: the brief lists the prior must-fix and reuses the report path; 
   // One item still open, one addressed, and a new breakage as a normal line.
   write(report, ['Verdict: FIX', 'Prior: src/charge/index.ts:40 | open | still concatenated', 'Prior: src/charge/index.ts:12 | addressed | guarded now', '1. Required | tests | gap | src/charge/new.ts:3 | fix broke refunds | restore it'].join('\n'));
   const r = ok(w.wt, 'review', 'record', 'charge', report);
-  assert.equal(r.message, 'FIX: 2 must-fix (tests: src/charge/new.ts:3; security: src/charge/index.ts:40); 0 logged as follow-ups.');
+  assert.equal(r.message.split('\n')[0], 'FIX: 2 must-fix (tests: src/charge/new.ts:3; security: src/charge/index.ts:40); 0 logged as follow-ups.');
   const must = w.state().phases[0].tasks[0].mustFix!;
   const kept = must.find((x) => x.where === 'src/charge/index.ts:40')!;
   assert.deepEqual([kept.label, kept.area, kept.cls, kept.problem, kept.fix], ['Critical', 'security', 'injection', 'still concatenated', 'use a bound parameter']);
   assert.ok(!must.some((x) => x.where === 'src/charge/index.ts:12'), 'the addressed item is gone');
   // Everything addressed: PASS, and a verdict FIX with only open Prior lines is not refused.
   write(report, 'Verdict: FIX\nPrior: src/charge/index.ts:40 | open | nope\n');
-  assert.match(ok(w.wt, 'review', 'record', 'charge', report).message, /^FIX: 1 must-fix/);
+  const third = ok(w.wt, 'review', 'record', 'charge', report).message;
+  assert.match(third, /^FIX: 1 must-fix/);
+  assert.match(third, /\nNext: set the task aside: cairn task step charge blocked --note/, 'past the last fix attempt the task is set aside');
   write(report, 'Verdict: PASS\nPrior: src/charge/index.ts:40 | addressed | done\n');
-  assert.equal(ok(w.wt, 'review', 'record', 'charge', report).message, 'PASS: 0 logged as follow-ups.');
+  assert.equal(ok(w.wt, 'review', 'record', 'charge', report).message, 'PASS: 0 logged as follow-ups.\nNext: cairn task merge charge');
   assert.equal(w.state().phases[0].tasks[0].mustFix, undefined);
   // Security re-review writes to the security report; --again needs a reviewing role.
   assert.match(ok(w.wt, 'task', 'brief', 'charge', '--role', 'security', '--again').data!.report as string, /reports\/charge-security\.md$/);
@@ -610,7 +615,7 @@ test('MVP: review record files Optional, Nit and pre-existing findings as harden
     '3. Critical pre-existing | security | auth | src/old.ts:9 | old hole | later',
   ]);
   const r = ok(w.wt, 'review', 'record', 'charge', report);
-  assert.equal(r.message, 'PASS: 3 logged as follow-ups.');
+  assert.equal(r.message, 'PASS: 3 logged as follow-ups.\nNext: cairn task merge charge');
   const items = w.state().suggestions!;
   assert.deepEqual(items.map((x) => x.kind), ['hardening', 'hardening', 'hardening']);
   assert.deepEqual(items[0].where, ['src/charge/index.ts']);
@@ -618,7 +623,7 @@ test('MVP: review record files Optional, Nit and pre-existing findings as harden
   assert.deepEqual(items[2].where, ['src/old.ts']);
   assert.equal(ok(w.wt, 'status', '--json').data!.hardeningItems, 3);
   // Recording again adds nothing; at Standard the same lines are ordinary follow-ups.
-  assert.match(ok(w.wt, 'review', 'record', 'charge', report).message, /0 logged/);
+  assert.match(ok(w.wt, 'review', 'record', 'charge', report).message, /^Already recorded\./);
   const std = world();
   ok(std.wt, 'task', 'start', 'charge');
   ok(std.wt, 'review', 'record', 'charge', reviewReport(std, 'charge-review.md', ['Verdict: PASS', '1. Optional | tests | coverage | src/charge/index.ts:5 | no test | add one']));
@@ -879,4 +884,97 @@ test('Polished: no quick tests, every task reviewed, opus branch review', () => 
   assert.equal(w.state().phases[0].tasks[0].lean, undefined);
   assert.equal(taskReviewOf(w.state().phases[0].tasks[0]).review, true);
   assert.equal((ok(w.wt, 'status', '--json').data!.branchReviewer as { model: string }).model, 'opus');
+});
+
+// ---------- Agents record themselves; the CLI names the next step ----------
+
+const buildReport = (w: World, id: string, lines: string[], name = `${id}-build.md`) => reviewReport(w, name, lines);
+const nextOf = (message: string) => message.split('\n').filter((l) => l.startsWith('Next: ')).at(-1);
+
+test('task report: a build that crosses a trust boundary gets the security review, named on the Next line with its brief', () => {
+  const w = world();
+  const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+  const build = buildReport(w, 'charge', ['Status: DONE', 'Trust boundary: auth (reads the session cookie)']);
+  // The implementer records from its own task worktree.
+  const r = ok(tw, 'task', 'report', 'charge', build);
+  const next = nextOf(r.message)!;
+  assert.match(next, /^Next: dispatch security-reviewer \(sonnet, "Review · Charge \(security\)"\) with Brief: (.*charge-security\.md)$/);
+  const brief = next.match(/Brief: (.*)$/)![1];
+  assert.match(readFileSync(brief, 'utf8'), /## Last step\n\nAfter the report is written, record it: `cd .* && cairn review record charge .*reports\/charge-security\.md`/);
+  const t = w.state().phases[0].tasks[0];
+  assert.equal(t.substep, 'reviewing');
+  assert.deepEqual(t.pendingReviews, ['security']);
+  // Recording the same report again changes nothing and prints the same step.
+  const again = ok(w.wt, 'task', 'report', 'charge', build);
+  assert.match(again.message, /^DONE; already recorded\./);
+  assert.equal(nextOf(again.message), next);
+  // No trust boundary on a lean task: straight to merge.
+  const plain = world();
+  ok(plain.wt, 'task', 'start', 'charge');
+  assert.equal(nextOf(ok(plain.wt, 'task', 'report', 'charge', buildReport(plain, 'charge', ['Status: DONE', 'Trust boundary: none'])).message), 'Next: cairn task merge charge');
+  // Not done: the rare-case procedure.
+  write(build, 'Status: NEEDS_CONTEXT\n');
+  assert.equal(nextOf(ok(w.wt, 'task', 'report', 'charge', build).message), 'Next: read procedures/execute-cases.md for NEEDS_CONTEXT');
+});
+
+test('two reviewers in either order: the first waits, the last decides; a fix goes back only to the reviewer that asked for it', () => {
+  for (const order of [['review', 'security'], ['security', 'review']] as const) {
+    const w = world({ level: 'polished' });
+    ok(w.wt, 'task', 'start', 'charge');
+    const r = ok(w.wt, 'task', 'report', 'charge', buildReport(w, 'charge', ['Status: DONE', 'Trust boundary: money']));
+    assert.match(nextOf(r.message)!, /^Next: dispatch task-reviewer \(sonnet, "Review · Charge"\) with Brief: .*charge-review\.md, and security-reviewer \(sonnet, "Review · Charge \(security\)"\) with Brief: .*charge-security\.md, in one message$/);
+    const reports = {
+      review: reviewReport(w, 'charge-review.md', ['Verdict: PASS']),
+      security: reviewReport(w, 'charge-security.md', ['Verdict: FIX', '1. Critical | security | injection | src/charge/index.ts:40 | SQL built from input | bind it']),
+    };
+    const first = ok(w.wt, 'review', 'record', 'charge', reports[order[0]]);
+    assert.match(nextOf(first.message)!, new RegExp(`^Next: wait for the ${order[1] === 'security' ? 'security review' : 'task review'} \\(end the turn, no message\\)$`), order.join(','));
+    const last = ok(w.wt, 'review', 'record', 'charge', reports[order[1]]);
+    assert.match(nextOf(last.message)!, /^Next: dispatch a fresh implementer \(sonnet, "Fix · Charge"\) with Brief: .*charge-fix\.md\./);
+    const t = w.state().phases[0].tasks[0];
+    assert.equal(t.substep, 'fixing');
+    assert.equal(t.fixRound, 1);
+    assert.equal(t.note, 'fixing classes: injection');
+    assert.match(readFileSync(join(w.wt, '.cairn/work/billing/briefs/charge-fix.md'), 'utf8'), /1\. Critical \| security \| injection/);
+    // The fix report: only the security reviewer looks again.
+    const fixed = ok(w.wt, 'task', 'report', 'charge', buildReport(w, 'charge', ['Status: DONE'], 'charge-fix.md'));
+    assert.match(nextOf(fixed.message)!, /^Next: dispatch security-reviewer \(sonnet, "Review · Charge \(security\)"\) with Brief: .*charge-security-again\.md$/);
+    write(reports.security, 'Verdict: PASS\nPrior: src/charge/index.ts:40 | addressed | bound now\n');
+    assert.equal(nextOf(ok(w.wt, 'review', 'record', 'charge', reports.security).message), 'Next: cairn task merge charge');
+  }
+});
+
+test('task merge starts what is ready now and names the builders; task start --ready does the same at a phase start', () => {
+  const w = world();
+  const tw = ok(w.wt, 'task', 'start', 'charge').data!.worktree as string;
+  commitIn(tw, 'src/charge/index.ts', 'export const charge = 1;\n', 'charge');
+  const r = ok(w.wt, 'task', 'merge', 'charge');
+  assert.match(r.message, /\nStart: refund \(Refund\) — Brief: .*briefs\/refund-build\.md — Builder: sonnet\n/);
+  assert.equal(nextOf(r.message), 'Next: dispatch an implementer for each Start line (its model and effort, "Build · <task name>", prompt "Brief: <path>. Plugin root: <root>."), in one message');
+  assert.deepEqual(r.data!.started, ['refund']);
+  assert.equal(w.state().phases[0].tasks[1].substep, 'implementing');
+
+  const fresh = world();
+  const s = ok(fresh.wt, 'task', 'start', '--ready');
+  assert.deepEqual(s.data!.started, ['charge', 'refund']);
+  assert.match(s.message, /^Start: charge \(Charge\) — Brief: .*charge-build\.md — Builder: sonnet\nStart: refund/);
+  // Nothing ready and work still running: wait.
+  assert.equal(nextOf(ok(fresh.wt, 'task', 'start', '--ready').message), 'Next: wait for the running tasks (end the turn, no message)');
+});
+
+test('a reviewer the main session briefs by hand is waited for; a second review FIX sets the task aside', () => {
+  const w = world();
+  ok(w.wt, 'task', 'start', 'charge');
+  assert.equal(nextOf(ok(w.wt, 'task', 'report', 'charge', buildReport(w, 'charge', ['Status: DONE'])).message), 'Next: cairn task merge charge');
+  // Main reads auth on the Concerns line and adds both reviews by hand.
+  ok(w.wt, 'task', 'brief', 'charge', '--role', 'review');
+  ok(w.wt, 'task', 'brief', 'charge', '--role', 'security');
+  assert.deepEqual(w.state().phases[0].tasks[0].pendingReviews, ['review', 'security']);
+  assert.equal(nextOf(ok(w.wt, 'review', 'record', 'charge', reviewReport(w, 'charge-review.md', ['Verdict: PASS'])).message), 'Next: wait for the security review (end the turn, no message)');
+  const sec = reviewReport(w, 'charge-security.md', ['Verdict: FIX', '1. Required | security | authz | src/charge/index.ts:9 | no owner check | check the owner']);
+  assert.match(nextOf(ok(w.wt, 'review', 'record', 'charge', sec).message)!, /^Next: dispatch a fresh implementer/);
+  ok(w.wt, 'task', 'report', 'charge', buildReport(w, 'charge', ['Status: DONE'], 'charge-fix.md'));
+  write(sec, 'Verdict: FIX\nPrior: src/charge/index.ts:9 | open | still unchecked\n');
+  assert.match(nextOf(ok(w.wt, 'review', 'record', 'charge', sec).message)!, /^Next: set the task aside: cairn task step charge blocked/);
+  assert.equal(w.state().phases[0].tasks[0].fixRound, 1, 'the second attempt is kept for red tests after the merge');
 });
