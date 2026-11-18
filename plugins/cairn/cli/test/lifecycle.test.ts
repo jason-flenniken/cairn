@@ -260,6 +260,15 @@ test('full lifecycle with every checkpoint', () => {
   assert.equal(said('Next: I\'m reading the discovery steps.', { stop_hook_active: true }), '');
   assert.equal(said('Which option do you want? Next: I\'ll start once you pick?'), '');
   assert.equal(said('The refund path retries twice, see src/refund.ts:40.'), '');
+  // A silent turn (a wait while agents run) never reads the text of an earlier turn from the transcript.
+  const tr = join(repo, 'transcript.jsonl');
+  const row = (o: unknown) => JSON.stringify(o);
+  writeFileSync(tr, [
+    row({ type: 'assistant', message: { content: [{ type: 'text', text: "Next: I'm dispatching the reviewers." }] } }),
+    row({ type: 'user', message: { content: '<task-notification>reviewer done</task-notification>' } }),
+    row({ type: 'assistant', message: { content: [] } }),
+  ].join('\n'));
+  assert.equal(hookStop({ cwd: wt, transcript_path: tr }), '');
   assert.equal(hookStop({ cwd: repo, last_assistant_message: 'Next: I\'ll start.' }), '', 'main is not a plan worktree');
   const all = ok(repo, 'status', '--all');
   assert.match(all.message, /Billing/);

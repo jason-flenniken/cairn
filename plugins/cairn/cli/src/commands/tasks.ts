@@ -6,11 +6,11 @@ import { matchesAny } from '../glob.ts';
 import { planRelOf, taskBranch, type Ctx } from '../locate.ts';
 import { isCairnPath } from '../paths.ts';
 import { phaseStatus } from '../plan-parse.ts';
-import { currentPhase, findTask, readySet } from '../ready.ts';
+import { allTasks, currentPhase, findTask, readySet } from '../ready.ts';
 import { levelOf, loadState, log, setStage } from '../state.ts';
 import { SUBSTEPS, type State, type Substep, type Task } from '../types.ts';
 import { CliError, now, Refusal } from '../util.ts';
-import { builderLine, builderOf, MAX_FIX_ROUNDS } from '../builder.ts';
+import { builderLine, builderOf, MAX_FIX_ROUNDS, type Builder } from '../builder.ts';
 import { recordTestRun, taskBrief, taskReport, writeBrief } from './brief.ts';
 import { ensureExcluded, gate, mutate, planCtx, runQuickTests, runSetup, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
 import { changedFiles, fastLane, runRepro } from './fix.ts';
@@ -47,7 +47,11 @@ export function cmdReady(ctx: Ctx): Result {
 }
 
 export function cmdTask(ctx: Ctx, action: string | undefined, id: string | undefined, rest: string[], opts: Opts): Result {
-  if (!id) throw new CliError('usage: cairn task start|step|done|merge|brief|report <task-id> …');
+  if (action === 'start' && !id && opts.ready) {
+    const r = startReady(planCtx(ctx));
+    return { message: r.message, data: { started: r.started, next: r.next } };
+  }
+  if (!id) throw new CliError('usage: cairn task start|step|done|merge|brief|report <task-id> … (or cairn task start --ready)');
   if (action === 'report') return taskReport(ctx, id, rest[0]);
   const pc = planCtx(ctx);
   if (action === 'start') return taskStart(pc, id, opts);
@@ -306,5 +310,39 @@ function taskMerge(pc: PlanCtx, id: string, opts: Opts): Result {
       throw new Refusal(e.message, [`the merge stays in place: ${sl.branch} is merged into ${pb}. In ${sl.worktree}, merge ${pb} into ${sl.branch}, fix and commit there, then run cairn task merge ${id} again`, ...e.fixes]);
     throw e;
   }
-  return { ...r, message: `${note}\n${r.message}`, data: { ...r.data, merged: true } };
+  const next = startReady(pc);
+  return { ...r, message: `${note}\n${r.message}${next.message ? `\n${next.message}` : ''}`, data: { ...r.data, merged: true, started: next.started, next: next.next } };
+}
+
+/**
+ * Start every task that is ready now, one `Start:` line each (id, brief, builder), and a `Next:` line for the main
+ * session: dispatch the builders, wait for the running tasks, or read the next procedure. Used by `cairn task merge`
+ * (so a merge also starts what it unblocked) and by `cairn task start --ready`.
+ */
+export function startReady(pc: PlanCtx): { message: string; started: string[]; next: string } {
+  const s = loadState(pc.plan.dir);
+  const ready = readySet(s, pc.cfg.maxParallel).ready;
+  const lines: string[] = [];
+  const started: string[] = [];
+  for (const t of ready) {
+    try {
+      const r = taskStart(pc, t.id, {});
+      if (r.data?.brief) {
+        lines.push(`Start: ${t.id} (${t.name}) — Brief: ${r.data.brief} — ${builderLine(r.data.builder as Builder)}`);
+        started.push(t.id);
+      }
+    } catch (e) {
+      lines.push(`Could not start ${t.id}: ${(e as Error).message}`);
+    }
+  }
+  const after = loadState(pc.plan.dir);
+  const running = allTasks(after).filter((x) => x.status === 'in_progress' && x.substep !== 'blocked' && !started.includes(x.id));
+  const next = after.paused
+    ? 'Next: the plan is paused: start nothing new (procedures/execute-cases.md, "The plan is paused")'
+    : started.length
+      ? `Next: dispatch an implementer for each Start line (its model and effort, "Build · <task name>", prompt "Brief: <path>. Plugin root: <root>."), in one message`
+      : after.stage === 'execute' && running.length
+        ? 'Next: wait for the running tasks (end the turn, no message)'
+        : 'Next: cairn next --json';
+  return { message: [...lines, next].join('\n'), started, next };
 }

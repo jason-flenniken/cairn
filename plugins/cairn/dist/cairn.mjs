@@ -10508,6 +10508,7 @@ function proofsOfTask(ep, t, tasks) {
 }
 
 // plugins/cairn/cli/src/commands/brief.ts
+var REVIEW_FIX_ROUNDS = 1;
 var ROLES = ["build", "review", "security", "fix"];
 function workDir(pc) {
   const root = join11(pc.plan.worktree, CAIRN_DIR, "work");
@@ -10606,6 +10607,15 @@ function proofsBlock(s, sl) {
     ""
   ];
 }
+function recordCommand(pc, id, role, report) {
+  const cmd = role === "build" || role === "fix" ? `cairn task report ${id} ${report}` : `cairn review record ${id} ${report}`;
+  return `cd ${pc.plan.worktree} && ${cmd}`;
+}
+var lastStep = (pc, id, role, report) => [
+  "## Last step",
+  "",
+  `After the report is written, record it: \`${recordCommand(pc, id, role, report)}\`. End your final message with the \`Next:\` line it prints, word for word. If it refuses, fix the report it names and run it again.`
+];
 function buildBrief(pc, s, sl, role, again = false) {
   const b = taskBits(pc, s, sl);
   const report = reportPath(pc, sl.id, role);
@@ -10652,7 +10662,7 @@ function buildBrief(pc, s, sl, role, again = false) {
     }
   }
   if (role === "build" || role === "fix") parts.push(...proofsBlock(s, sl));
-  parts.push("## Report", "", `Write your full report to: ${report}`);
+  parts.push("## Report", "", `Write your full report to: ${report}`, "", ...lastStep(pc, sl.id, role, report));
   return { text: parts.join("\n") + "\n", report };
 }
 function writeBrief(pc, id, role, again = false) {
@@ -10670,6 +10680,14 @@ function taskBrief(pc, id, opts) {
   const again = !!opts.again;
   if (again && role !== "review" && role !== "security") throw new CliError("--again needs --role review or --role security");
   const r = writeBrief(pc, id, role, again);
+  if (role === "review" || role === "security")
+    mutate(pc, void 0, (s) => {
+      const sl = findTask(s, id);
+      if (sl?.status === "in_progress" && !sl.pendingReviews?.includes(role)) {
+        sl.pendingReviews = [...sl.pendingReviews ?? [], role];
+        sl.substep = "reviewing";
+      }
+    });
   const builds = role === "build" || role === "fix";
   const lean = again && role === "review" && !!findTask(loadState(pc.plan.dir), id)?.lean;
   return {
@@ -10737,6 +10755,18 @@ function reportSuggestions(md) {
   }
   return out;
 }
+function crossesTrustBoundary(md) {
+  const v = md.match(/^\s*[*_]*Trust boundary[*_]*\s*:[*_]*\s*(.*)$/im)?.[1]?.trim();
+  return !!v && !/^(none|no|n\/a|-)\b/i.test(v.replace(/[`*_]/g, ""));
+}
+var AGENT = { review: "task-reviewer", security: "security-reviewer" };
+var briefFile = (pc, id, role, again = false) => join11(workDir(pc), "briefs", `${id}-${role}${again ? "-again" : ""}.md`);
+var modelText = (b) => `${b.model}${b.effort ? `, effort ${b.effort}` : ""}`;
+var reviewerDispatch = (pc, sl, role, again) => `${AGENT[role]} (sonnet${again && role === "review" && sl.lean ? ", effort default" : ""}, "Review \xB7 ${sl.name}${role === "security" ? " (security)" : ""}") with Brief: ${briefFile(pc, sl.id, role, again)}`;
+var roleOfReport = (path) => isSecurityReport(path) ? "security" : "review";
+var remember = (sl, path, hash, next) => {
+  sl.recorded = { ...sl.recorded ?? {}, [path]: { hash, next } };
+};
 function taskReport(ctx, id, path) {
   if (!id || !path) throw new CliError("usage: cairn task report <task-id> <report-path>");
   const pc = planCtx(ctx);
@@ -10745,17 +10775,48 @@ function taskReport(ctx, id, path) {
   const status = md.match(/^\s*[*_]*Status[*_]*\s*:[*_]*\s*([A-Za-z_]+)/im)?.[1]?.toUpperCase();
   if (!status) throw new Refusal(`the report at ${path} has no Status: line`, ["the implementer ends its report with the Status / Commits / Files / Tests / Concerns / Suggestions lines"]);
   const found = reportSuggestions(md);
-  return mutate(pc, void 0, (s) => {
+  const hash = hashText(md);
+  const report = path;
+  let reviews = [];
+  const r = mutate(pc, void 0, (s) => {
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ["cairn ready"]);
+    const review = taskReviewOf(sl);
+    const line = `Task review: ${review.review ? "yes" : "no"} \u2014 ${review.reason}.`;
+    const seen = sl.recorded?.[report];
+    if (seen?.hash === hash) return { message: `${status}; already recorded.
+${line}
+${seen.next}`, data: { status, logged: 0, taskReview: review, next: seen.next, repeat: true } };
     let logged = 0;
     for (const f of found) if (logFollowUp(s, { ...f, from: "implementer" }, true)) logged++;
     log(s, "task report", `${sl.name}: ${status}, ${logged} follow-ups`);
-    const review = taskReviewOf(sl);
-    const line = `Task review: ${review.review ? "yes" : "no"} \u2014 ${review.reason}.`;
+    let next;
+    if (sl.status !== "in_progress") next = `Next: cairn status (task "${sl.name}" is not running)`;
+    else if (status !== "DONE" && status !== "DONE_WITH_CONCERNS") next = `Next: read procedures/execute-cases.md for ${status}`;
+    else {
+      if (sl.substep === "fixing") reviews = [...new Set((sl.mustFix ?? []).map((f) => roleOfReport(f.report)))].map((role) => ({ role, again: true }));
+      else {
+        if (review.review) reviews.push({ role: "review", again: false });
+        if (sl.risky || crossesTrustBoundary(md)) reviews.push({ role: "security", again: false });
+      }
+      if (reviews.length) {
+        sl.substep = "reviewing";
+        sl.pendingReviews = reviews.map((x) => x.role);
+        log(s, "task reviewing", sl.name);
+        syncTickets(s, linearConfig(pc.cfg));
+        next = `Next: dispatch ${reviews.map((x) => reviewerDispatch(pc, sl, x.role, x.again)).join(", and ")}${reviews.length > 1 ? ", in one message" : ""}`;
+      } else {
+        delete sl.pendingReviews;
+        next = `Next: cairn task merge ${id}`;
+      }
+    }
+    remember(sl, report, hash, next);
     return { message: `${status}; ${logged} follow-ups logged.
-${line}`, data: { status, logged, taskReview: review } };
+${line}
+${next}`, data: { status, logged, taskReview: review, next } };
   });
+  for (const x of reviews) writeBrief(pc, id, x.role, x.again);
+  return r;
 }
 var FINDING = /^\s*(?:\d+[.)]|[-*])?\s*[*_]*(Critical|Required|Optional|Nit|FYI)[*_]*(\s+pre-existing)?\s*\|\s*(.*)$/i;
 var LABEL_CELL = /^[*_]*(Critical|Required|Optional|Nit|FYI)[*_]*(\s+pre-existing)?$/i;
@@ -10813,7 +10874,13 @@ function cmdReview(ctx, action, target, path) {
   const security = isSecurityReport(path);
   const from = security ? "security-review" : target === "branch" ? "branch-review" : "task-review";
   const reportPath2 = path;
-  return mutate(pc, void 0, (s) => {
+  const hash = hashText(md);
+  let fixBrief = false;
+  const r = mutate(pc, void 0, (s) => {
+    const task = target === "branch" ? void 0 : findTask(s, target);
+    const seen = task?.recorded?.[reportPath2];
+    if (seen?.hash === hash) return { message: `Already recorded.
+${seen.next}`, data: { verdict: task?.mustFix?.some((x) => x.report === reportPath2) ? "FIX" : "PASS", repeat: true, next: seen.next } };
     const before = target === "branch" ? s.branchMustFix ?? [] : findTask(s, target)?.mustFix ?? [];
     const carried = stillOpen.map((p) => {
       const was = before.find((x) => x.report === reportPath2 && x.where === p.where);
@@ -10841,8 +10908,35 @@ function cmdReview(ctx, action, target, path) {
     const verdict = mine.length ? "FIX" : "PASS";
     const tail = `${logged} logged as follow-ups.`;
     const message = mine.length ? `FIX: ${mine.length} must-fix (${mine.map((f) => `${f.area}: ${f.where}`).join("; ")}); ${tail}` : `PASS: ${tail}`;
-    return { message, data: { verdict, mustFix: mine.map(({ report: _r, ...rest }) => rest), logged } };
+    const data = { verdict, mustFix: mine.map(({ report: _r, ...rest }) => rest), logged };
+    if (!task || task.status !== "in_progress") return { message, data };
+    const next = afterReview(pc, s, task, security ? "security" : "review");
+    fixBrief = task.substep === "fixing" && next.includes("Fix \xB7 ");
+    remember(task, reportPath2, hash, next);
+    return { message: `${message}
+${next}`, data: { ...data, next } };
   });
+  if (fixBrief) writeBrief(pc, target, "fix");
+  return r;
+}
+function afterReview(pc, s, sl, role) {
+  const pending2 = (sl.pendingReviews ?? []).filter((x) => x !== role);
+  if (pending2.length) {
+    sl.pendingReviews = pending2;
+    return `Next: wait for the ${pending2.map((x) => x === "security" ? "security review" : "task review").join(" and ")} (end the turn, no message)`;
+  }
+  delete sl.pendingReviews;
+  const must = sl.mustFix ?? [];
+  if (!must.length) return `Next: cairn task merge ${sl.id}`;
+  if (sl.fixRound >= REVIEW_FIX_ROUNDS)
+    return `Next: set the task aside: cairn task step ${sl.id} blocked --note "set aside: <the open finding>; tried: <the fixes>; proposed: <the next step>"`;
+  sl.fixRound++;
+  sl.substep = "fixing";
+  sl.note = `fixing classes: ${[...new Set(must.map((f) => classHeading(f.cls)))].join(", ")}`;
+  log(s, "task fixing", `${sl.name} (attempt ${sl.fixRound}): ${sl.note}`);
+  syncTickets(s, linearConfig(pc.cfg));
+  const b = builderOf(s, sl, sl.fixRound);
+  return `Next: dispatch a fresh implementer (${modelText(b)}, "Fix \xB7 ${sl.name}") with Brief: ${briefFile(pc, sl.id, "fix")}. Tell it to fix each class everywhere in the task's scope, not only at the lines cited`;
 }
 
 // plugins/cairn/cli/src/commands/merge.ts
@@ -12489,7 +12583,11 @@ function cmdReady(ctx) {
   };
 }
 function cmdTask(ctx, action, id, rest, opts) {
-  if (!id) throw new CliError("usage: cairn task start|step|done|merge|brief|report <task-id> \u2026");
+  if (action === "start" && !id && opts.ready) {
+    const r = startReady(planCtx(ctx));
+    return { message: r.message, data: { started: r.started, next: r.next } };
+  }
+  if (!id) throw new CliError("usage: cairn task start|step|done|merge|brief|report <task-id> \u2026 (or cairn task start --ready)");
   if (action === "report") return taskReport(ctx, id, rest[0]);
   const pc = planCtx(ctx);
   if (action === "start") return taskStart(pc, id, opts);
@@ -12710,8 +12808,31 @@ function taskMerge(pc, id, opts) {
       throw new Refusal(e.message, [`the merge stays in place: ${sl.branch} is merged into ${pb}. In ${sl.worktree}, merge ${pb} into ${sl.branch}, fix and commit there, then run cairn task merge ${id} again`, ...e.fixes]);
     throw e;
   }
+  const next = startReady(pc);
   return { ...r, message: `${note}
-${r.message}`, data: { ...r.data, merged: true } };
+${r.message}${next.message ? `
+${next.message}` : ""}`, data: { ...r.data, merged: true, started: next.started, next: next.next } };
+}
+function startReady(pc) {
+  const s = loadState(pc.plan.dir);
+  const ready = readySet(s, pc.cfg.maxParallel).ready;
+  const lines = [];
+  const started = [];
+  for (const t of ready) {
+    try {
+      const r = taskStart(pc, t.id, {});
+      if (r.data?.brief) {
+        lines.push(`Start: ${t.id} (${t.name}) \u2014 Brief: ${r.data.brief} \u2014 ${builderLine(r.data.builder)}`);
+        started.push(t.id);
+      }
+    } catch (e) {
+      lines.push(`Could not start ${t.id}: ${e.message}`);
+    }
+  }
+  const after = loadState(pc.plan.dir);
+  const running = allTasks(after).filter((x) => x.status === "in_progress" && x.substep !== "blocked" && !started.includes(x.id));
+  const next = after.paused ? 'Next: the plan is paused: start nothing new (procedures/execute-cases.md, "The plan is paused")' : started.length ? `Next: dispatch an implementer for each Start line (its model and effort, "Build \xB7 <task name>", prompt "Brief: <path>. Plugin root: <root>."), in one message` : after.stage === "execute" && running.length ? "Next: wait for the running tasks (end the turn, no message)" : "Next: cairn next --json";
+  return { message: [...lines, next].join("\n"), started, next };
 }
 
 // plugins/cairn/cli/src/commands/step.ts
@@ -13664,6 +13785,7 @@ function lastAssistantText(input) {
   for (let i = lines.length - 1; i >= 0 && i >= lines.length - 50; i--) {
     try {
       const row = JSON.parse(lines[i]);
+      if (row.type === "user" && typeof row.message?.content === "string") return "";
       if (row.type !== "assistant") continue;
       const content = row.message?.content;
       const text = Array.isArray(content) ? content.filter((b) => b.type === "text").map((b) => b.text).join("\n") : "";
@@ -13733,7 +13855,7 @@ function driftFor(file, cwd) {
 }
 
 // plugins/cairn/cli/src/main.ts
-var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links", "claim", "again", "force", "here", "proofs", "no-proofs"]);
+var BOOLEAN = /* @__PURE__ */ new Set(["json", "full", "all", "replan", "now", "no-worktree", "human", "open", "dismiss", "lasting", "refresh", "board", "merge", "links", "claim", "again", "force", "here", "proofs", "no-proofs", "ready"]);
 var REPEATABLE = /* @__PURE__ */ new Set(["where", "for"]);
 function parseArgs(argv, cwd = process.cwd()) {
   const pos = [];

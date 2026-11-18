@@ -48,12 +48,15 @@ Not checked: <what you could not check and why, or "none">
 ```
 
 Write "none" under Findings when there are none. Cite `path:line` for every finding.
-When resumed to re-review a fix (or briefed with `--again`): write to the same report path as the first review. List each prior must-fix item as one line `Prior: <path:line> | addressed|open | <note>` (an `open` one counts as must-fix), check the fix diff for new breakage and report that as normal finding lines, and ignore code the fix did not touch. The brief or message names the report path.
+When briefed with `--again` to re-review a fix: write to the same report path as the first review. List each prior must-fix item as one line `Prior: <path:line> | addressed|open | <note>` (an `open` one counts as must-fix), check the fix diff for new breakage and report that as normal finding lines, and ignore code the fix did not touch. The brief or message names the report path.
 
-Then end with a final message of exactly three lines, and nothing else:
+When the brief has a **Last step** section, run its record command once, after the report is written. It is the only `cairn` command you run. It records your verdict and prints a `Next:` line, which tells the main session what comes next. If it refuses, fix the report it names and run it again. With no Last step (a whole-branch review), skip it: the main session records the report.
+
+Then end with a final message of exactly these lines, and nothing else. `Next:` is the line the record command printed, word for word (leave it out when there was no Last step):
 
 ```
 Verdict: PASS | FIX
 Counts: Critical N, Required N, Optional N, Nit N, FYI N, pre-existing N
 Report: <abs path>
+Next: <the line cairn printed>
 ```

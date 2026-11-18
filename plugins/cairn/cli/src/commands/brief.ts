@@ -1,14 +1,19 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { builderLine, builderOf, taskReviewOf, type Builder } from '../builder.ts';
+
+/** Fix attempts a task gets for review findings before it is set aside. */
+const REVIEW_FIX_ROUNDS = 1;
 import { commonDir } from '../git.ts';
 import { taskBranch, type Ctx } from '../locate.ts';
 import { allTasks, findTask } from '../ready.ts';
 import { proofsOfTask } from '../endproofs.ts';
 import { sections } from '../sections.ts';
 import { levelOf, loadState, log } from '../state.ts';
-import { SUGGESTION_AREAS, type MustFix, type Suggestion, type State, type Task } from '../types.ts';
-import { CliError, now, readText, Refusal } from '../util.ts';
+import { SUGGESTION_AREAS, type MustFix, type ReviewRole, type Suggestion, type State, type Task } from '../types.ts';
+import { CliError, hashText, now, readText, Refusal } from '../util.ts';
+import { syncTickets } from './linear.ts';
+import { linearConfig } from '../linear.ts';
 import { ensureExcluded, excludeScratch, mutate, planCtx, planFile, planScope, type Opts, type PlanCtx, type Result, type TestRun } from '../shared.ts';
 import { logFollowUp } from './suggest.ts';
 import { CAIRN_DIR } from '../paths.ts';
@@ -142,6 +147,18 @@ function proofsBlock(s: State, sl: Task): string[] {
   ];
 }
 
+/** The command the agent runs after writing its report: it records the report and prints the `Next:` line the agent ends with. */
+export function recordCommand(pc: PlanCtx, id: string, role: Role, report: string): string {
+  const cmd = role === 'build' || role === 'fix' ? `cairn task report ${id} ${report}` : `cairn review record ${id} ${report}`;
+  return `cd ${pc.plan.worktree} && ${cmd}`;
+}
+
+const lastStep = (pc: PlanCtx, id: string, role: Role, report: string): string[] => [
+  '## Last step',
+  '',
+  `After the report is written, record it: \`${recordCommand(pc, id, role, report)}\`. End your final message with the \`Next:\` line it prints, word for word. If it refuses, fix the report it names and run it again.`,
+];
+
 function buildBrief(pc: PlanCtx, s: State, sl: Task, role: Role, again = false): { text: string; report: string } {
   const b = taskBits(pc, s, sl);
   const report = reportPath(pc, sl.id, role);
@@ -191,7 +208,7 @@ function buildBrief(pc: PlanCtx, s: State, sl: Task, role: Role, again = false):
     }
   }
   if (role === 'build' || role === 'fix') parts.push(...proofsBlock(s, sl));
-  parts.push('## Report', '', `Write your full report to: ${report}`);
+  parts.push('## Report', '', `Write your full report to: ${report}`, '', ...lastStep(pc, sl.id, role, report));
   return { text: parts.join('\n') + '\n', report };
 }
 
@@ -212,6 +229,15 @@ export function taskBrief(pc: PlanCtx, id: string, opts: Opts): Result {
   const again = !!opts.again;
   if (again && role !== 'review' && role !== 'security') throw new CliError('--again needs --role review or --role security');
   const r = writeBrief(pc, id, role as Role, again);
+  // A reviewer briefed by hand is one more review to wait for: the last one recorded decides merge or fix.
+  if (role === 'review' || role === 'security')
+    mutate(pc, undefined, (s) => {
+      const sl = findTask(s, id);
+      if (sl?.status === 'in_progress' && !sl.pendingReviews?.includes(role)) {
+        sl.pendingReviews = [...(sl.pendingReviews ?? []), role];
+        sl.substep = 'reviewing';
+      }
+    });
   const builds = role === 'build' || role === 'fix';
   // A lean re-review checks only the cited findings, so it runs at the default effort instead of the agent's high.
   const lean = again && role === 'review' && !!findTask(loadState(pc.plan.dir), id)?.lean;
@@ -300,6 +326,27 @@ export function reportSuggestions(md: string): { area: Suggestion['area']; where
   return out;
 }
 
+/** The `Trust boundary:` line of an implementer report: true unless it says none (no line counts as none). */
+export function crossesTrustBoundary(md: string): boolean {
+  const v = md.match(/^\s*[*_]*Trust boundary[*_]*\s*:[*_]*\s*(.*)$/im)?.[1]?.trim();
+  return !!v && !/^(none|no|n\/a|-)\b/i.test(v.replace(/[`*_]/g, ''));
+}
+
+const AGENT: Record<ReviewRole, string> = { review: 'task-reviewer', security: 'security-reviewer' };
+const briefFile = (pc: PlanCtx, id: string, role: Role, again = false): string => join(workDir(pc), 'briefs', `${id}-${role}${again ? '-again' : ''}.md`);
+const modelText = (b: Builder): string => `${b.model}${b.effort ? `, effort ${b.effort}` : ''}`;
+/** A reviewer dispatch, as the `Next:` line names it. A lean re-review runs at the default effort. */
+const reviewerDispatch = (pc: PlanCtx, sl: Task, role: ReviewRole, again: boolean): string =>
+  `${AGENT[role]} (sonnet${again && role === 'review' && sl.lean ? ', effort default' : ''}, "Review · ${sl.name}${role === 'security' ? ' (security)' : ''}") with Brief: ${briefFile(pc, sl.id, role, again)}`;
+
+/** Which reviewer wrote a task's report, by its file name. */
+const roleOfReport = (path: string): ReviewRole => (isSecurityReport(path) ? 'security' : 'review');
+
+/** Record a report once: the same file content recorded again prints the same `Next:` line and changes nothing. */
+const remember = (sl: Task, path: string, hash: string, next: string): void => {
+  sl.recorded = { ...(sl.recorded ?? {}), [path]: { hash, next } };
+};
+
 export function taskReport(ctx: Ctx, id: string | undefined, path: string | undefined): Result {
   if (!id || !path) throw new CliError('usage: cairn task report <task-id> <report-path>');
   const pc = planCtx(ctx);
@@ -308,16 +355,46 @@ export function taskReport(ctx: Ctx, id: string | undefined, path: string | unde
   const status = md.match(/^\s*[*_]*Status[*_]*\s*:[*_]*\s*([A-Za-z_]+)/im)?.[1]?.toUpperCase();
   if (!status) throw new Refusal(`the report at ${path} has no Status: line`, ['the implementer ends its report with the Status / Commits / Files / Tests / Concerns / Suggestions lines']);
   const found = reportSuggestions(md);
-  return mutate(pc, undefined, (s) => {
+  const hash = hashText(md);
+  const report = path;
+  let reviews: { role: ReviewRole; again: boolean }[] = [];
+  const r = mutate(pc, undefined, (s) => {
     const sl = findTask(s, id);
     if (!sl) throw new Refusal(`no task "${id}" in this plan`, ['cairn ready']);
+    const review = taskReviewOf(sl);
+    const line = `Task review: ${review.review ? 'yes' : 'no'} — ${review.reason}.`;
+    const seen = sl.recorded?.[report];
+    if (seen?.hash === hash) return { message: `${status}; already recorded.\n${line}\n${seen.next}`, data: { status, logged: 0, taskReview: review, next: seen.next, repeat: true } };
     let logged = 0;
     for (const f of found) if (logFollowUp(s, { ...f, from: 'implementer' }, true)) logged++;
     log(s, 'task report', `${sl.name}: ${status}, ${logged} follow-ups`);
-    const review = taskReviewOf(sl);
-    const line = `Task review: ${review.review ? 'yes' : 'no'} — ${review.reason}.`;
-    return { message: `${status}; ${logged} follow-ups logged.\n${line}`, data: { status, logged, taskReview: review } };
+    let next: string;
+    if (sl.status !== 'in_progress') next = `Next: cairn status (task "${sl.name}" is not running)`;
+    else if (status !== 'DONE' && status !== 'DONE_WITH_CONCERNS') next = `Next: read procedures/execute-cases.md for ${status}`;
+    else {
+      // After a fix, only the reviewers whose must-fix it answered look again; a fix for a conflict or red tests goes straight to merge.
+      if (sl.substep === 'fixing') reviews = [...new Set((sl.mustFix ?? []).map((f) => roleOfReport(f.report)))].map((role) => ({ role, again: true }));
+      else {
+        if (review.review) reviews.push({ role: 'review', again: false });
+        // The security floor holds at every level: a risky task, or a build that says it crosses a trust boundary.
+        if (sl.risky || crossesTrustBoundary(md)) reviews.push({ role: 'security', again: false });
+      }
+      if (reviews.length) {
+        sl.substep = 'reviewing';
+        sl.pendingReviews = reviews.map((x) => x.role);
+        log(s, 'task reviewing', sl.name);
+        syncTickets(s, linearConfig(pc.cfg));
+        next = `Next: dispatch ${reviews.map((x) => reviewerDispatch(pc, sl, x.role, x.again)).join(', and ')}${reviews.length > 1 ? ', in one message' : ''}`;
+      } else {
+        delete sl.pendingReviews;
+        next = `Next: cairn task merge ${id}`;
+      }
+    }
+    remember(sl, report, hash, next);
+    return { message: `${status}; ${logged} follow-ups logged.\n${line}\n${next}`, data: { status, logged, taskReview: review, next } };
   });
+  for (const x of reviews) writeBrief(pc, id, x.role, x.again);
+  return r;
 }
 
 // ---------- review record ----------
@@ -403,7 +480,12 @@ export function cmdReview(ctx: Ctx, action: string | undefined, target: string |
   const security = isSecurityReport(path);
   const from: Suggestion['from'] = security ? 'security-review' : target === 'branch' ? 'branch-review' : 'task-review';
   const reportPath = path;
-  return mutate(pc, undefined, (s) => {
+  const hash = hashText(md);
+  let fixBrief = false;
+  const r = mutate(pc, undefined, (s): Result => {
+    const task = target === 'branch' ? undefined : findTask(s, target);
+    const seen = task?.recorded?.[reportPath];
+    if (seen?.hash === hash) return { message: `Already recorded.\n${seen.next}`, data: { verdict: task?.mustFix?.some((x) => x.report === reportPath) ? 'FIX' : 'PASS', repeat: true, next: seen.next } };
     const before = target === 'branch' ? s.branchMustFix ?? [] : findTask(s, target)?.mustFix ?? [];
     // A prior item still open stays must-fix: it keeps what the first review said about it, with the re-review's note.
     const carried: MustFix[] = stillOpen.map((p) => {
@@ -433,6 +515,39 @@ export function cmdReview(ctx: Ctx, action: string | undefined, target: string |
     const verdict = mine.length ? 'FIX' : 'PASS';
     const tail = `${logged} logged as follow-ups.`;
     const message = mine.length ? `FIX: ${mine.length} must-fix (${mine.map((f) => `${f.area}: ${f.where}`).join('; ')}); ${tail}` : `PASS: ${tail}`;
-    return { message, data: { verdict, mustFix: mine.map(({ report: _r, ...rest }) => rest), logged } };
+    const data = { verdict, mustFix: mine.map(({ report: _r, ...rest }) => rest), logged };
+    if (!task || task.status !== 'in_progress') return { message, data };
+    const next = afterReview(pc, s, task, security ? 'security' : 'review');
+    fixBrief = task.substep === 'fixing' && next.includes('Fix · ');
+    remember(task, reportPath, hash, next);
+    return { message: `${message}\n${next}`, data: { ...data, next } };
   });
+  if (fixBrief) writeBrief(pc, target, 'fix');
+  return r;
+}
+
+/**
+ * What follows a recorded task review. Another review still out: wait. Every review in and no must-fix: merge.
+ * Must-fix open: the CLI records the fix attempt (the classes go in the note) and names the fix dispatch, or, past the
+ * last attempt, says to set the task aside.
+ */
+function afterReview(pc: PlanCtx, s: State, sl: Task, role: ReviewRole): string {
+  const pending = (sl.pendingReviews ?? []).filter((x) => x !== role);
+  if (pending.length) {
+    sl.pendingReviews = pending;
+    return `Next: wait for the ${pending.map((x) => (x === 'security' ? 'security review' : 'task review')).join(' and ')} (end the turn, no message)`;
+  }
+  delete sl.pendingReviews;
+  const must = sl.mustFix ?? [];
+  if (!must.length) return `Next: cairn task merge ${sl.id}`;
+  // One fix attempt answers review findings; the second is kept for red tests after the merge (`MAX_FIX_ROUNDS`).
+  if (sl.fixRound >= REVIEW_FIX_ROUNDS)
+    return `Next: set the task aside: cairn task step ${sl.id} blocked --note "set aside: <the open finding>; tried: <the fixes>; proposed: <the next step>"`;
+  sl.fixRound++;
+  sl.substep = 'fixing';
+  sl.note = `fixing classes: ${[...new Set(must.map((f) => classHeading(f.cls)))].join(', ')}`;
+  log(s, 'task fixing', `${sl.name} (attempt ${sl.fixRound}): ${sl.note}`);
+  syncTickets(s, linearConfig(pc.cfg));
+  const b = builderOf(s, sl, sl.fixRound);
+  return `Next: dispatch a fresh implementer (${modelText(b)}, "Fix · ${sl.name}") with Brief: ${briefFile(pc, sl.id, 'fix')}. Tell it to fix each class everywhere in the task's scope, not only at the lines cited`;
 }
