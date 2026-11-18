@@ -98,6 +98,8 @@ When `cairn ready` is empty, no agent is running, and a task is set aside (`bloc
 When `cairn ready` is empty and no task is in progress, the phase has no remaining tasks. Run `cd <plan worktree> && cairn next --json`, follow the procedure it names (phase-end for a feature plan, review for a fix plan). When the merge of the last task said the plan moved to Check, it names Check: follow it (its first step tells the user).
 
 ## Rare cases
+**The commands changed.** When a task command refuses because the setup, test or build command changed since the user approved it, run `cairn step asking` and ask once with AskUserQuestion tagged `[cairn:approve commands <slug>]`, showing each `old → new` from the refusal: "Approve (Recommended)" or "Revert the command". Never use Override for this: it holds for one command and the next task start refuses again. With `modActive` false, give the user the `cairn approve commands --human` command the refusal names. Changing `testQuick` needs no approval.
+
 Read `procedures/execute-cases.md` only when one of these happens: an implementer returns `NEEDS_CONTEXT` or `BLOCKED`, `cairn task merge` refuses or conflicts, tests are red after the merge, a task is blocked, or the plan is paused.
 
 **Done when:** the phase has no remaining tasks and the next procedure started.

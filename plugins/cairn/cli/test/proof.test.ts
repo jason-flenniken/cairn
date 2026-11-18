@@ -32,7 +32,7 @@ const writeHeartbeat = (ageMs: number) => {
   mkdirSync(cairnDir(), { recursive: true });
   writeFileSync(join(cairnDir(), 'mod-heartbeat'), String(Date.now() - ageMs));
 };
-const tty = (typed: string, interactive = true) => ({ isTTY: () => interactive, readLine: () => typed });
+const tty = (interactive = true, typed = '') => ({ isTTY: () => interactive, readLine: () => typed });
 
 before(() => {
   repo = realpathSync(mkdtempSync(join(tmpdir(), 'cairn-proof-')));
@@ -82,17 +82,25 @@ test('a wrong secret, an empty secret, or a missing secret file gives no proof',
 
 test('with the secret file missing, the terminal path still works', () => {
   process.env.CAIRN_APPROVER = 'whatever';
-  assert.deepEqual(humanProof(context(repo), { human: true }, tty('billing')), { source: 'terminal' });
+  assert.deepEqual(humanProof(context(repo), { human: true }, tty()), { source: 'terminal' });
 });
 
-test('--human with a TTY and the typed slug gives source terminal; a wrong slug gives none', () => {
-  assert.deepEqual(humanProof(context(repo), { human: true }, tty(' billing\n')), { source: 'terminal' });
-  assert.equal(humanProof(context(repo), { human: true }, tty('billings')), undefined);
+test('--human with a TTY and Enter (or y) gives source terminal; anything else gives none', () => {
+  assert.deepEqual(humanProof(context(repo), { human: true }, tty()), { source: 'terminal' });
+  assert.deepEqual(humanProof(context(repo), { human: true }, tty(true, 'y\n')), { source: 'terminal' });
+  assert.equal(humanProof(context(repo), { human: true }, tty(true, 'no')), undefined);
+});
+
+test('the --human prompt asks for Enter, never for the plan name', () => {
+  let prompt = '';
+  humanProof(context(repo), { human: true }, { isTTY: () => true, readLine: (p) => ((prompt = p), '') });
+  assert.match(prompt, /press Enter/);
+  assert.doesNotMatch(prompt, /Type the plan name/);
 });
 
 test('--human without a TTY refuses with "run this in your own terminal"', () => {
   assert.throws(
-    () => humanProof(context(repo), { human: true }, tty('billing', false)),
+    () => humanProof(context(repo), { human: true }, tty(false)),
     (e: unknown) => e instanceof Refusal && /run this in your own terminal/.test(e.message),
   );
 });
@@ -100,13 +108,6 @@ test('--human without a TTY refuses with "run this in your own terminal"', () =>
 test('modActive is false for a heartbeat dated in the future', () => {
   writeHeartbeat(-5_000);
   assert.equal(modActive(common), false);
-});
-
-test('the --human prompt does not show the plan slug', () => {
-  let prompt = '';
-  humanProof(context(repo), { human: true }, { isTTY: () => true, readLine: (p) => ((prompt = p), 'billing') });
-  assert.match(prompt, /Type the plan name to confirm:/);
-  assert.ok(!prompt.includes('billing'));
 });
 
 test('a symlinked hash file gives no proof and is left in place', () => {
@@ -253,16 +254,13 @@ test('approve with a used secret is refused', () => {
   assert.equal(planState('billing').approvals.prd.at, at);
 });
 
-test('approve --human at a terminal with the slug typed records source terminal; a wrong slug records nothing', () => {
-  cmdApprove(context(wt), 'prd', { human: true }, tty('billing'));
-  const a = planState('billing').approvals.prd;
-  assert.equal(a.source, 'terminal');
-  refusedWith(() => cmdApprove(context(wt), 'prd', { human: true }, tty('nope')), /cairn approve prd --human/);
-  assert.deepEqual(planState('billing').approvals.prd, a);
+test('approve --human at a terminal records source terminal', () => {
+  cmdApprove(context(wt), 'prd', { human: true }, tty());
+  assert.equal(planState('billing').approvals.prd.source, 'terminal');
 });
 
 test('approve --human without a TTY says "run this in your own terminal"', () => {
-  refusedWith(() => cmdApprove(context(wt), 'prd', { human: true }, tty('billing', false)), /run this in your own terminal/);
+  refusedWith(() => cmdApprove(context(wt), 'prd', { human: true }, tty(false)), /run this in your own terminal/);
 });
 
 test('--override with no proof is refused and changes nothing', () => {
@@ -306,16 +304,7 @@ test('approve --via human with no proof is refused', () => {
   refusedWith(() => run(['approve', 'prd', '--via', 'human'], wt), /cairn approve prd --human/);
 });
 
-test('a wrong slug on a plan with no prior approval records nothing', () => {
-  const fwt = run(['new', 'fresh', '--level', 'standard', '--no-proofs', '--title', 'Fresh'], main).data!.worktree as string;
-  run(['decide', 'q', 'a'], fwt);
-  run(['advance'], fwt);
-  writeFileSync(join(pd(fwt, 'fresh'), 'prd.md'), PRD);
-  refusedWith(() => cmdApprove(context(fwt), 'prd', { human: true }, tty('billing')), /cairn approve fresh --human|cairn approve prd --human/);
-  assert.equal(planState('fresh').approvals.prd, undefined);
-});
-
-/** Run `cairn close --override … --human` with `typed` as the terminal answer; returns the prompts shown. */
+/** Run `cairn close --override … --human` at a faked terminal with `typed` as the answer; collects the prompts shown. */
 function closeAtTerminal(typed: string, prompts: string[]): void {
   const bytes = Buffer.from(`${typed}\n`);
   let pos = 0;
@@ -337,24 +326,27 @@ function closeAtTerminal(typed: string, prompts: string[]): void {
     Object.defineProperty(process.stdout, 'isTTY', { value: wasTTY[1], configurable: true });
   }
 }
-const askedOnce = (prompts: string[]) => assert.equal(prompts.filter((p) => p.includes('Type the plan name')).length, 1);
 
 // fresh is in plan with no RECORD.md: close fails two checks (the stage and the record); a missing test command only warns.
-test('a failed --human proof is asked once per command, and the override is refused', () => {
+test('a declined --human prompt is asked once per command, and the override is refused', () => {
+  const fwt = run(['new', 'fresh', '--level', 'standard', '--no-proofs', '--title', 'Fresh'], main).data!.worktree as string;
+  run(['decide', 'q', 'a'], fwt);
+  run(['advance'], fwt);
+  writeFileSync(join(pd(fwt, 'fresh'), 'prd.md'), PRD);
   const prompts: string[] = [];
   const stage = planState('fresh').stage;
   assert.throws(
-    () => closeAtTerminal('wrong', prompts),
+    () => closeAtTerminal('no', prompts),
     (e: unknown) => e instanceof Refusal && /override needs proof/.test(e.message),
   );
-  askedOnce(prompts);
+  assert.equal(prompts.filter((p) => p.includes('press Enter')).length, 1);
   assert.equal(planState('fresh').stage, stage);
 });
 
-test('one --human proof is asked once and covers every overridden check in a command', () => {
+test('one --human Enter covers every overridden check in a command', () => {
   const prompts: string[] = [];
-  closeAtTerminal('fresh', prompts);
-  askedOnce(prompts);
+  closeAtTerminal('', prompts);
+  assert.equal(prompts.filter((p) => p.includes('press Enter')).length, 1);
   const s = planState('fresh');
   assert.equal(s.stage, 'closed');
   const overrides = s.log.filter((l: { event: string }) => l.event === 'override: close');

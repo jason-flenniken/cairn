@@ -6,7 +6,7 @@ const RAN = { stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 const TOKEN_PREFIX = '/repo/.git/cairn/approver-'
 
 type Run = { argv: readonly string[]; init?: { cwd?: string; env?: Record<string, string>; timeoutMs?: number } }
-type Plan = { slug: string; stage: string; approvals?: Record<string, unknown>; phases?: unknown[]; worktree?: string; ready?: { kind: string }; readyError?: string }
+type Plan = { slug: string; stage: string; approvals?: Record<string, unknown>; phases?: unknown[]; worktree?: string; ready?: { kind: string }; readyError?: string; commandsChanged?: boolean }
 
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -43,15 +43,16 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
     if (args.join(' ') === 'status --all --json') {
       // A plan at an unapproved stop is ready unless the fixture says `ready: undefined`.
       const rows = plans.map(p => {
-        const { worktree, ready, readyError, ...rest } = p
+        const { worktree, ready, readyError, commandsChanged, ...rest } = p
         const atStop = ['prd', 'plan', 'ship'].includes(p.stage) && !p.approvals?.[p.stage]
         return {
           state: { approvals: {}, phases: [], ...rest },
           live: worktree !== undefined,
           worktree,
           next: {},
-          ready: 'ready' in p ? ready : atStop ? { kind: p.stage } : undefined,
+          ready: commandsChanged ? { kind: 'commands' } : 'ready' in p ? ready : atStop ? { kind: p.stage } : undefined,
           ...(readyError !== undefined ? { readyError } : {}),
+          ...(commandsChanged !== undefined ? { commandsChanged } : {}),
         }
       })
       return answer(0, JSON.stringify({ ok: true, plans: rows, modActive: true }))
@@ -73,6 +74,8 @@ function world(on: On, plans: Plan[], { refuse, cwd = '/repo', writable = Infini
       return answer(2, '✗ Refused: no human proof\n')
     }
     if (given !== undefined && live.delete(await sha256(given))) {
+      const at = plans.find(p => p.worktree === e.init?.cwd)
+      if (at !== undefined && args[0] === 'approve' && args[1] === 'commands') at.commandsChanged = false
       return answer(0, args[0] === 'approve' ? `${args[1]} approved.\n` : 'Advanced (override recorded).\n')
     }
     return answer(2, '✗ Refused: no human proof\n')
@@ -131,9 +134,9 @@ describe('parseTags', () => {
     ])
   })
 
-  test('takes each of the three kinds and nothing else', () => {
+  test('takes each of the four kinds and nothing else', () => {
     const tag = (kind: string) => ({ question: `ok? [cairn:approve ${kind} x]` })
-    expect(parseTags(['prd', 'plan', 'ship'].map(tag)).map(t => t.kind)).toEqual(['prd', 'plan', 'ship'])
+    expect(parseTags(['prd', 'plan', 'ship', 'commands'].map(tag)).map(t => t.kind)).toEqual(['prd', 'plan', 'ship', 'commands'])
     expect(parseTags([tag('deploy'), tag('phase'), tag('PRD'), { question: '[cairn:approve prd]' }])).toEqual([])
   })
 
@@ -506,6 +509,23 @@ describe('ready gates approval (FR-11)', () => {
     const got = await $.tool.call(ask(q))
     expect(approveRuns()).toEqual([])
     expect(got.context?.join()).toMatch(/not waiting for prd approval/)
+  })
+
+  test('changed commands mid-build: a commands tag runs approve commands, though the plan was approved long ago', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'cmds', stage: 'execute', worktree: '/wt/cmds', approvals: { plan: { via: 'human' } }, commandsChanged: true }])
+    const q = 'Approve the changed commands? [cairn:approve commands cmds]'
+    dialog(on, { [q]: 'Approve (Recommended)' })
+    const got = await $.tool.call(ask(q))
+    expect(approveRuns().map(r => r.argv.slice(1))).toEqual([['approve', 'commands']])
+    expect(got.context?.join('\n')).toMatch(/commands approved/)
+  })
+
+  test('changed commands mid-build: an older plan tag re-approves them instead of passing silently', async ($, on) => {
+    const { approveRuns } = world(on, [{ slug: 'old', stage: 'execute', worktree: '/wt/old', approvals: { plan: { via: 'human' } }, commandsChanged: true }])
+    const q = 'Re-approve? [cairn:approve plan old]'
+    dialog(on, { [q]: 'Approve (Recommended)' })
+    await $.tool.call(ask(q))
+    expect(approveRuns().map(r => r.argv.slice(1))).toEqual([['approve', 'commands']])
   })
 
   test('ready for another stop does not approve this one', async ($, on) => {

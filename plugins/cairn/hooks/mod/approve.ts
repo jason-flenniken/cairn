@@ -9,7 +9,7 @@ import { claimPlan, hereSlug, isInferred, namedPlan, ownPlan } from './own.ts'
 import { wakeChat } from './pause.ts'
 import { pluginVersion } from './util.ts'
 
-export type Kind = 'prd' | 'plan' | 'ship'
+export type Kind = 'prd' | 'plan' | 'ship' | 'commands'
 export type Tag = { kind?: Kind; slug: string; question: string; override?: true; level?: true }
 export const LEVELS = ['mvp', 'standard', 'polished'] as const
 export type Level = (typeof LEVELS)[number]
@@ -22,7 +22,9 @@ export const LEVEL_OF_LABEL: Record<string, Level> = Object.fromEntries(LEVELS.m
 /** A plan's stored level as one of the three, `standard` when absent or unrecognised. */
 export const levelOrStandard = (v: unknown): Level => LEVELS.find(l => l === v) ?? 'standard'
 
-const APPROVE_TAG = /\[cairn:approve (prd|plan|ship) ([^\s\]]+)\]/
+/** How a wake message names each stop. */
+const WAKE_NAME: Record<Kind, string> = { prd: 'PRD', plan: 'plan', ship: 'ship', commands: 'changed commands' }
+const APPROVE_TAG = /\[cairn:approve (prd|plan|ship|commands) ([^\s\]]+)\]/
 const OVERRIDE_TAG = /\[cairn:override ([^\s\]]+)\]/
 const LEVEL_TAG = /\[cairn:level ([^\s\]]+)\]/
 const READBACK_TAG = /\[cairn:readback ([^\s\]]+)\]/
@@ -130,7 +132,7 @@ function cairnWithSecret($: EngineInterface, args: string[], cwd: string): Promi
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 export type PlanState = { slug?: string; stage?: string; approvals?: Record<string, unknown> }
-type PlanRow = { state?: PlanState; worktree?: string; ready?: { kind?: string }; readyError?: string }
+type PlanRow = { state?: PlanState; worktree?: string; ready?: { kind?: string }; readyError?: string; commandsChanged?: boolean }
 
 /** Every plan, from `cairn status --all --json` run where the session is. */
 async function planRows($: EngineInterface): Promise<PlanRow[]> {
@@ -146,10 +148,18 @@ async function notOwn($: EngineInterface, rows: PlanRow[], slug: string, what: s
     : `cairn: this session works on ${own}, so ${what} on ${slug} was not done; do it from ${slug}'s own session.`
 }
 
-/** True when the CLI's status shows `kind` approved on plan `slug`. */
+/**
+ * True when the CLI's status shows `kind` approved on plan `slug`. Changed commands have no approval entry of their own
+ * (the plan was approved long before): they count as approved once the row says they no longer differ.
+ */
 function isApproved(rows: PlanRow[], slug: string, kind: Kind): boolean {
-  return Boolean(rows.find(p => p.state?.slug === slug)?.state?.approvals?.[kind])
+  const row = rows.find(p => p.state?.slug === slug)
+  if (meant(row, kind) === 'commands') return row?.commandsChanged === false
+  return Boolean(row?.state?.approvals?.[kind])
 }
+
+/** A plan approval asked after the plan stage, while changed commands wait, means them (the CLI's older spelling did). */
+const meant = (row: PlanRow | undefined, kind: Kind): Kind => (kind === 'plan' && row?.ready?.kind === 'commands' ? 'commands' : kind)
 
 // Open tagged dialogs, by `${kind} ${slug}`: each entry is told when its stop is approved from elsewhere.
 const watchers = new Map<string, Set<() => void>>()
@@ -174,10 +184,11 @@ function fireApproved(kind: Kind, slug: string): void {
  * `from` names where an approval came from when it was not the chat's own menu answer ("the pane", "/cairn-approve"):
  * the chat is not waiting on those, so a recorded approval then sends it a message to carry on.
  */
-export async function approveAs($: EngineInterface, slug: string, kind: Kind, from?: string): Promise<string | undefined> {
+export async function approveAs($: EngineInterface, slug: string, asked: Kind, from?: string): Promise<string | undefined> {
   const rows = await planRows($)
   const row = rows.find(p => p.state?.slug === slug)
   if (row?.state === undefined) return `cairn: no plan "${slug}", so nothing was approved.`
+  const kind = meant(row, asked)
   const other = await notOwn($, rows, slug, `the ${kind} approval`)
   if (other !== undefined) return other
   if (row.worktree === undefined) return `cairn: plan "${slug}" is not checked out, so nothing was approved.`
@@ -210,7 +221,7 @@ export async function approveAs($: EngineInterface, slug: string, kind: Kind, fr
   }
   fireApproved(kind, slug)
   if (from !== undefined) {
-    wakeChat($, `cairn: the ${kind === 'ship' ? 'ship' : kind === 'prd' ? 'PRD' : 'plan'} approval for ${slug} is recorded (from ${from}). Continue the plan: run cairn next in its worktree.`)
+    wakeChat($, `cairn: the ${WAKE_NAME[kind]} approval for ${slug} is recorded (from ${from}). Continue the plan: run cairn next in its worktree.`)
   }
   return `cairn: ${slug}: ${said}`
 }

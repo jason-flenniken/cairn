@@ -270,6 +270,8 @@ export interface State {
   step?: Step;
   repro?: { cmd: string; tail: string; at: string };
   configHash?: string;
+  /** The setup, test and build commands the user last approved, shown as old → new when they change. */
+  approvedCommands?: { setup?: string; test?: string; build?: string };
   phases: Phase[];
   /** End-state proofs (proofs.md), loaded with the plan. */
   endProofs?: EndProofs;

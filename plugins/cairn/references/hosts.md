@@ -33,7 +33,7 @@ Approvals of the PRD, the plan, a level change and the ship always come from the
 - **Codex, always.** Ignore `modActive` here: it can read true because a Claude Code session on the same repo is running the mod, but that mod never sees your questions. Take the branch the procedures give for `modActive: false`. The same applies in Claude Code when `modActive` is false.
 
   There is no menu approval. Give the user the full command, with real paths, to run in their own terminal:
-  - approval: `cd <plan worktree> && "<plugin root>/cli/bin/cairn" approve <prd|plan|ship> --human`
+  - approval: `cd <plan worktree> && "<plugin root>/cli/bin/cairn" approve <prd|plan|ship|commands> --human`
   - level change: `cd <plan worktree> && "<plugin root>/cli/bin/cairn" level <mvp|standard|polished> --human`
   - override the user chose: the refused command with `--override "<their reason>" --human` added
 

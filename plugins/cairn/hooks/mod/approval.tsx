@@ -8,12 +8,12 @@ import { openDoc } from './doc.tsx'
 import { isAsking, type Ui } from './header.tsx'
 import { act, clean, viewPress } from './util.ts'
 
-export const DOC_NAME = { prd: 'PRD', plan: 'Plan', ship: 'Ship record' } as const
+export const DOC_NAME = { prd: 'PRD', plan: 'Plan', ship: 'Ship record', commands: 'Commands' } as const
 
 const APPROVE = 'Approve'
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
-const confirmQuestion = (kind: Kind, slug: string) => `Approve the ${kind} stop of plan ${slug}?`
+const confirmQuestion = (kind: Kind, slug: string) => (kind === 'commands' ? `Approve the changed commands of plan ${slug}?` : `Approve the ${kind} stop of plan ${slug}?`)
 
 /** Confirms with fixed wording, then approves through the shared secret path (FR-05). */
 export async function confirmAndApprove($: EngineInterface, slug: string, kind: Kind, from = 'the pane'): Promise<string | undefined> {
@@ -69,8 +69,8 @@ export async function approvalCard($: EngineInterface, ui: Ui, slug: string, rea
   return (
     <Box key="waiting" flexDirection={isInline ? 'row' : 'column'} gap={1} borderStyle={isInline ? undefined : 'round'} borderColor="yellow" paddingX={isInline ? 0 : 1}>
       {isInline
-        ? <Text bold color="yellow">{`Waiting on you: ${ready.kind} approval`}</Text>
-        : <Button key="approval" plain onPress={() => act($, () => viewPress($))}><Text bold color="yellow">{`Waiting on you: ${ready.kind} approval`}</Text></Button>}
+        ? <Text bold color="yellow">{`Waiting on you: ${ready.kind === 'commands' ? 'changed commands' : ready.kind} approval`}</Text>
+        : <Button key="approval" plain onPress={() => act($, () => viewPress($))}><Text bold color="yellow">{`Waiting on you: ${ready.kind === 'commands' ? 'changed commands' : ready.kind} approval`}</Text></Button>}
       {!isInline && <Markdown key="summary" text={ready.summary} />}
       <Box key="approval:buttons" flexDirection="row" gap={1}>
         {!isInline && (
@@ -107,7 +107,7 @@ export function readBackCard(ui: Ui, rb: CairnReadBack, isInline: boolean) {
 /** The most waiting plans the seven-row inline pane lists; the rest are counted in its other-plans line. */
 export const INLINE_WAITING = 2
 
-const WHAT = { prd: 'PRD', plan: 'plan', ship: 'ship' } as const
+const WHAT = { prd: 'PRD', plan: 'plan', ship: 'ship', commands: 'changed commands' } as const
 
 /**
  * The Waiting on you block: one entry per plan in `rows` (other plans that want the person). It never approves:

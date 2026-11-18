@@ -42,7 +42,7 @@ const PANE = 'cairn'
 const PANE_PREF = 'pane'
 const EVERY_MS = 2_000
 const DRIFT_SHOWN = 5
-const KINDS: readonly string[] = ['prd', 'plan', 'ship']
+const KINDS: readonly string[] = ['prd', 'plan', 'ship', 'commands']
 const DOCK_COLUMNS = 48
 const INLINE_ROWS = 7
 const UP_NEXT_SHOWN = 4
@@ -53,7 +53,7 @@ const COMMANDS = [
   {
     name: 'cairn-approve',
     description: 'Approve the stop this cairn plan is waiting on, after a confirm.',
-    argumentHint: '[prd|plan|ship]',
+    argumentHint: '[prd|plan|ship|commands]',
   },
   { name: 'cairn-level', description: 'Change this cairn plan\'s depth level (MVP, Standard or Polished), after a menu.' },
 ] as const
@@ -319,7 +319,7 @@ async function togglePane($: EngineInterface, arg: string): Promise<string> {
 
 /** /cairn-approve [kind]: the stop waiting on the session's plan, resolved by `cairn status --json`. */
 async function approveCommand($: EngineInterface, arg: string): Promise<string> {
-  if (arg !== '' && !KINDS.includes(arg)) return `cairn: "${arg}" is not a stop; use prd, plan or ship.`
+  if (arg !== '' && !KINDS.includes(arg)) return `cairn: "${arg}" is not a stop; use prd, plan, ship or commands.`
   const found = await plan($)
   if (typeof found === 'string') return 'cairn: this session is not in a plan, so nothing was approved.'
   const state = found.state as CairnPlanState

@@ -39,6 +39,7 @@ function readLineFromStdin(prompt: string): string {
   }
 }
 
+/** A real terminal on stdin and stdout: the model's tool runs have none, and the guard denies pty wrappers around cairn. */
 const terminalIO: ProofIO = {
   isTTY: () => !!process.stdin.isTTY && !!process.stdout.isTTY,
   readLine: readLineFromStdin,
@@ -119,7 +120,8 @@ function spendLegacyHash(common: string, given: string): boolean {
 
 /**
  * Proof that the user, not the model, is behind this command: the mod's one-time secret in
- * CAIRN_APPROVER (its SHA-256 names a file on disk, deleted on use), or `--human` at a real terminal with the plan slug typed.
+ * CAIRN_APPROVER (its SHA-256 names a file on disk, deleted on use), or `--human` at a real terminal with Enter pressed.
+ * The keypress, not its content, is the proof: a terminal window the model opens itself waits there for a person.
  */
 export function humanProof(ctx: Ctx, opts: Opts, io: ProofIO = terminalIO): { source: 'mod' | 'terminal' } | undefined {
   const common = commonDir(ctx.mainRoot);
@@ -129,9 +131,8 @@ export function humanProof(ctx: Ctx, opts: Opts, io: ProofIO = terminalIO): { so
   if (secretMatches(common, secret)) return { source: 'mod' };
   if (!opts.human) return undefined;
   if (!io.isTTY()) throw new Refusal('--human needs an interactive terminal: run this in your own terminal, not through the agent');
-  const slug = ctx.plan?.slug;
-  const typed = io.readLine('Type the plan name to confirm: ').trim();
-  return slug && typed === slug ? { source: 'terminal' } : undefined;
+  const typed = io.readLine(`Confirm for plan ${ctx.plan?.slug ?? '?'}: press Enter (Ctrl-C cancels) `).trim();
+  return typed === '' || /^y(es)?$/i.test(typed) ? { source: 'terminal' } : undefined;
 }
 
 /** The mod writes a heartbeat every 2 s; under 10 s old means it is running. */

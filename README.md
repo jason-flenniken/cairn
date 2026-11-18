@@ -369,7 +369,8 @@ Approvals have to come from you, not from the model. Only you can provide either
 
 - **Menu (the usual way).** cairn asks with a menu, and the mod records the approval when *you* choose an option starting with "Approve", or type something like "approve", "yes", or "lgtm". Answers the model fills in itself, dialogs that time out while you're away, and menus inside subagents never count. The pane's Approve button and `/cairn-approve` work the same way.
 - **Stops you may walk away from end the turn.** At the plan approval, the ship approval, the merge choice and the question about set-aside tasks, cairn shows its summary and the answers it takes, then stops talking. Approve in the pane (or `/cairn-approve`) and the run carries on; reply instead (for example "approve", "revise: ...", "merge", "not yet") and cairn asks the one approval menu then, so the approval still comes from your pick. Nothing is held open while you're away, which is what makes the fresh start below possible.
-- **Terminal (fallback).** When the mod isn't running, run `cairn approve <prd|plan|ship> --human` in your own terminal and type the plan's name.
+- **Terminal (fallback).** When the mod isn't running, run `cairn approve <prd|plan|ship|commands> --human` in your own terminal and press Enter. You no longer type the plan's name.
+- **Changed commands.** The setup, test and build commands are part of what you approve with the plan. If one changes mid-build, task starts wait until you approve the new ones: the pane shows each old → new, and one press lets the build go on. `testQuick` is not locked, since a quick run never counts as the full suite.
 
 Behind the scenes, the mod makes a one-time secret for each approval and the CLI checks it against a file on disk named by its hash, so a used secret can't be replayed and parallel sessions never spend each other's. Guards also stop the model from running `cairn approve` or editing plan state directly.
 
@@ -491,7 +492,7 @@ Each repo has `.cairn/config.json`, which cairn creates the first time:
 |---|---|
 | `setup` | Runs in every new plan or task worktree, for example to install dependencies. |
 | `test` | The full test command. It runs when each phase but the last wraps up and at Check. At Polished it also runs before each task is marked done. Close and the merge check skip it when the same code already passed. |
-| `testQuick` | Optional. At Standard it runs instead of `test` when a task is marked done, with `$CAIRN_CHANGED_FILES` set to the task's changed files (for example `npx vitest related --run $CAIRN_CHANGED_FILES`). |
+| `testQuick` | Optional. At Standard it runs instead of `test` when a task is marked done, with `$CAIRN_CHANGED_FILES` set to the task's changed files (for example `npx vitest related --run $CAIRN_CHANGED_FILES`). Changing it mid-build needs no approval. |
 | `build` | The build command, run at Check. |
 | `start`, `seed`, `appTypes` | How to run the app, seed its data, and what kind of app it is (`web`, `expo`, `api`). These are recorded for checks that drive the running app; the lean defaults don't use them yet. |
 | `maxParallel` | How many tasks run at once (default 3). A task in review does not count, and a fix round after review is never held back, so the cap can briefly be exceeded by the tasks returning from review. |

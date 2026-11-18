@@ -19,6 +19,7 @@ import { isFoundational, linearConfig, takenIssues } from '../linear.ts';
 import { allTasks } from '../ready.ts';
 import { branchReviewerOf, taskReviewOf } from '../builder.ts';
 import { awaitsDone, mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
+import { commandsChanged } from './fix.ts';
 import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function listPlans(ctx: Ctx): IndexRow[] {
@@ -144,7 +145,9 @@ function readyRow(r: { state: State; worktree?: string; dir: string }, ctx: Ctx)
   const { ready, error } = pc ? readyCheck(pc) : {};
   const st = r.state.step;
   const asked = st !== undefined && st.stage === r.state.stage && (st.name === 'approving' || st.name === 'asking');
-  return { ready, ...(error ? { readyError: error } : {}), needsUser: ready !== undefined || asked };
+  // The mod reads this to tell a re-approval of the commands landed: `approvals` can't say, the plan was approved before.
+  const changed = pc ? commandsChanged(r.state, pc.cfg) : undefined;
+  return { ready, ...(error ? { readyError: error } : {}), ...(changed !== undefined ? { commandsChanged: changed } : {}), needsUser: ready !== undefined || asked };
 }
 
 /**

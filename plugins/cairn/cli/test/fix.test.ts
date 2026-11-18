@@ -259,7 +259,7 @@ test('editing the test command after plan approval refuses task done until the p
   g(wt, 'merge', '-q', '--no-ff', '-m', 'merge one', 'task/locked/one');
   write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'touch ../edited-ran' }));
   commitAll(wt, 'edit the test command');
-  refused(wt, /changed since the user approved it[\s\S]*cairn approve plan --human[\s\S]*Override/, 'task', 'done', 'one');
+  refused(wt, /changed since the user approved the commands: test: `[^`]*` → `touch \.\.\/edited-ran`[\s\S]*\[cairn:approve commands locked\][\s\S]*cairn approve commands --human/, 'task', 'done', 'one');
   assert.ok(!existsSync(join(wt, '../edited-ran')), 'the changed test command did not run');
 
   // re-approval at execute re-records the hash without moving the stage
@@ -280,7 +280,7 @@ test('task start and repro refuse while the commands differ from the approved on
   ok(other, 'repro', REPRO);
   write(join(other, '.sdlc/config.json'), JSON.stringify({ test: 'true', build: 'make' }));
   commitAll(other, 'add a build command');
-  refused(other, /changed since the user approved it/, 'repro', 'touch ../repro-ran; exit 1');
+  refused(other, /changed since the user approved the commands/, 'repro', 'touch ../repro-ran; exit 1');
   assert.ok(!existsSync(join(other, '../repro-ran')), 'the repro did not run');
   // put a started fix task back to pending so it can be started again under the changed config
   const third = fixInExecute('drifted-start');
@@ -290,7 +290,49 @@ test('task start and repro refuse while the commands differ from the approved on
   writeFileSync(join(dirOf(third.wt, 'drifted-start'), 'state.json'), JSON.stringify(st));
   write(join(third.wt, '.sdlc/config.json'), JSON.stringify({ test: 'false' }));
   commitAll(third.wt, 'change the test command');
-  refused(third.wt, /changed since the user approved it/, 'task', 'start', 'fix');
+  refused(third.wt, /changed since the user approved the commands/, 'task', 'start', 'fix');
+});
+
+test('changed commands: no skip offered, ready while asking, and approve commands clears them for every task', () => {
+  const wt = featureInExecute('cmds');
+  write(join(wt, '.sdlc/config.json'), JSON.stringify({ test: 'true', build: 'make' }));
+  commitAll(wt, 'add a build command');
+  assert.throws(
+    () => run(['task', 'start', 'one'], wt),
+    (e: unknown) => e instanceof Refusal && !/--override/.test(e.fixes.join('\n')),
+  );
+  ok(wt, 'step', 'asking');
+  const ready = ok(wt, 'status', '--json').data!.ready as { kind: string; summary: string };
+  assert.equal(ready.kind, 'commands');
+  assert.match(ready.summary, /build: \(none\) → `make`/);
+  const row = (ok(wt, 'status', '--all', '--json').data!.plans as { state: { slug: string }; commandsChanged?: boolean }[]).find((p) => p.state.slug === 'cmds');
+  assert.equal(row?.commandsChanged, true);
+  byUser(wt, 'approve', 'commands');
+  const s = stateOf(wt, 'cmds');
+  assert.deepEqual(s.approvedCommands, { test: 'true', build: 'make' });
+  assert.equal(s.stage, 'execute');
+  ok(wt, 'task', 'start', 'one');
+  assert.equal(ok(wt, 'status', '--json').data!.ready, undefined);
+  refusedByUser(wt, /have not changed/, 'approve', 'commands');
+});
+
+test('a testQuick change needs no approval, and a plan locked under the old hash still matches', () => {
+  const wt = featureInExecute('quick');
+  const cfg = { ...JSON.parse(readFileSync(join(wt, '.sdlc/config.json'), 'utf8')), testQuick: 'a' };
+  write(join(wt, '.sdlc/config.json'), JSON.stringify(cfg));
+  commitAll(wt, 'set a quick test');
+  // 0.24.0 hashed testQuick with the other commands; this plan was locked then, with testQuick 'a'.
+  const legacy = createHash('sha256').update(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build, testQuick: 'a' })).digest('hex').slice(0, 16);
+  assert.notEqual(legacy, configHash(cfg));
+  const st = stateOf(wt, 'quick');
+  st.configHash = legacy;
+  writeFileSync(join(dirOf(wt, 'quick'), 'state.json'), JSON.stringify(st));
+  // Any state write moves the plan to the new hash, before the model gets to edit the config.
+  ok(wt, 'step', 'wrapping');
+  assert.equal(stateOf(wt, 'quick').configHash, configHash(cfg));
+  write(join(wt, '.sdlc/config.json'), JSON.stringify({ ...cfg, testQuick: 'b' }));
+  commitAll(wt, 'change the quick test');
+  ok(wt, 'task', 'start', 'one');
 });
 
 test('a missing config hashes as empty, so adding one later counts as a change', () => {

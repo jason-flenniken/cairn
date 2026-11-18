@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig } from './config.ts';
+import { loadConfig, upgradeLegacyLock } from './config.ts';
 import { commitPath, commonDir, gitOk, gitTry } from './git.ts';
 import { cairnPathspecExcludes } from './paths.ts';
 import { allTasks } from './ready.ts';
@@ -108,6 +108,7 @@ export function planCtx(ctx: Ctx): PlanCtx {
 export function mutate<T>(pc: PlanCtx, commitMsg: string | undefined, fn: (s: State) => T): T {
   const r = withLock(pc.plan.dir, () => {
     const s = loadState(pc.plan.dir);
+    upgradeLegacyLock(s, pc.cfg);
     const out = fn(s);
     // A step belongs to one stage: any change of stage clears it.
     if (s.step && s.step.stage !== s.stage) delete s.step;

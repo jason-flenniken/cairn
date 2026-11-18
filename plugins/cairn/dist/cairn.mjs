@@ -7708,6 +7708,20 @@ function loadConfig(...roots) {
   return { ...DEFAULTS };
 }
 var worktreeRoot = (cfg, mainRoot) => cfg.worktreeRoot ? join3(mainRoot, cfg.worktreeRoot) : join3(mainRoot, ".claude", "worktrees");
+var LOCKED_COMMANDS = ["setup", "test", "build"];
+var lockedCommands = (cfg) => ({ setup: cfg.setup, test: cfg.test, build: cfg.build });
+var configHash = (cfg) => hashText(JSON.stringify(lockedCommands(cfg)));
+var legacyConfigHash = (cfg) => hashText(JSON.stringify({ ...lockedCommands(cfg), testQuick: cfg.testQuick }));
+var commandsChanged = (s, cfg) => !!s.configHash && s.configHash !== configHash(cfg) && s.configHash !== legacyConfigHash(cfg);
+function upgradeLegacyLock(s, cfg) {
+  if (!s.configHash || s.configHash === configHash(cfg) || s.configHash !== legacyConfigHash(cfg)) return;
+  s.configHash = configHash(cfg);
+  s.approvedCommands ??= lockedCommands(cfg);
+}
+function approveCommands(s, cfg) {
+  s.configHash = configHash(cfg);
+  s.approvedCommands = lockedCommands(cfg);
+}
 
 // plugins/cairn/cli/src/glob.ts
 function globToRegex(glob) {
@@ -7901,9 +7915,8 @@ function humanProof(ctx, opts, io = terminalIO) {
   if (secretMatches(common, secret)) return { source: "mod" };
   if (!opts.human) return void 0;
   if (!io.isTTY()) throw new Refusal("--human needs an interactive terminal: run this in your own terminal, not through the agent");
-  const slug = ctx.plan?.slug;
-  const typed = io.readLine("Type the plan name to confirm: ").trim();
-  return slug && typed === slug ? { source: "terminal" } : void 0;
+  const typed = io.readLine(`Confirm for plan ${ctx.plan?.slug ?? "?"}: press Enter (Ctrl-C cancels) `).trim();
+  return typed === "" || /^y(es)?$/i.test(typed) ? { source: "terminal" } : void 0;
 }
 function modActive(common) {
   const t = Number(readText(join4(cairnDir(common), "mod-heartbeat"))?.trim());
@@ -8275,6 +8288,7 @@ function planCtx(ctx) {
 function mutate(pc, commitMsg, fn) {
   const r = withLock(pc.plan.dir, () => {
     const s = loadState(pc.plan.dir);
+    upgradeLegacyLock(s, pc.cfg);
     const out = fn(s);
     if (s.step && s.step.stage !== s.stage) delete s.step;
     saveState(pc.plan.dir, s);
@@ -11302,16 +11316,22 @@ import { tmpdir } from "node:os";
 import { join as join14 } from "node:path";
 var DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
 var fastLane = (s) => s.track === "fix" && (s.stage === "repro" || !!s.repro);
-var configHash = (cfg) => hashText(JSON.stringify({ setup: cfg.setup, test: cfg.test, build: cfg.build, testQuick: cfg.testQuick }));
+function commandChanges(s, cfg) {
+  const cur = lockedCommands(cfg);
+  const was = s.approvedCommands;
+  const shown2 = (v) => v ? `\`${v}\`` : "(none)";
+  return LOCKED_COMMANDS.filter((k) => !was || was[k] !== cur[k]).map((k) => was ? `${k}: ${shown2(was[k])} \u2192 ${shown2(cur[k])}` : `${k}: ${shown2(cur[k])}`);
+}
 function configGate(s, cfg, event, opts) {
-  gate(
-    !s.configHash || s.configHash === configHash(cfg),
-    s,
-    event,
-    opts,
-    `the setup, test, testQuick or build command in ${CONFIG_REL} changed since the user approved it`,
-    ["the user re-approves the commands by running, in their own terminal: cairn approve plan --human", "or the user chooses Override in the menu"]
-  );
+  upgradeLegacyLock(s, cfg);
+  const changed = commandsChanged(s, cfg);
+  const message = `the commands in ${CONFIG_REL} changed since the user approved the commands: ${commandChanges(s, cfg).join("; ")}`;
+  if (opts.override) return gate(!changed, s, event, opts, message);
+  if (!changed) return;
+  throw new Refusal(message, [
+    `ask the user with AskUserQuestion tagged [cairn:approve commands ${s.slug}] (Approve (Recommended) / Revert the command); the mod records the answer, or they press Approve in the cairn pane`,
+    `when cairn status --json shows modActive false: the user runs, in their own terminal, in the plan worktree: ${pluginRoot()}/cli/bin/cairn approve commands --human`
+  ]);
 }
 var changedFiles = (cwd, slug, base2, head) => git(["diff", "--name-only", "-z", "-M", base2, head, "--", ".", `:!${planRelIn(slug, cwd)}`], cwd).split("\0").filter(Boolean);
 var GROUP_WRAPPER = 'if command -v setsid >/dev/null 2>&1; then setsid sh -c "$1" & else set -m; sh -c "$1" & set +m; fi; echo $! > "$2"; wait $!';
@@ -11353,7 +11373,7 @@ function cmdRepro(ctx, cmd, opts) {
       throw new Refusal(`the repro command ${ran.outcome === "timeout" ? "did not finish" : "could not start"}: ${ran.detail}`, ["write a repro command that runs and finishes"]);
     if (ran.outcome === "passes") throw new Refusal("the command exits 0: this does not reproduce the bug", ["write a command that fails while the bug is present"]);
     s.repro = { cmd, tail: ran.detail, at: now() };
-    s.configHash = configHash(pc.cfg);
+    approveCommands(s, pc.cfg);
     log(s, "repro recorded", `${cmd} \u2192 ${ran.detail}`);
     return { message: `Repro recorded: \`${cmd}\` fails (${ran.detail}). Next: \`cairn advance\` to the fix.`, data: { repro: s.repro } };
   });
@@ -11470,6 +11490,7 @@ function readyCheck(pc) {
     const s = loadState(pc.plan.dir);
     const file = (name) => join15(pc.plan.dir, name);
     const ready = (r) => ({ ready: r });
+    if (s.stage !== "plan" && s.stage !== "closed" && commandsChanged(s, pc.cfg)) return ready({ kind: "commands", file: join15(pc.plan.worktree, CONFIG_REL), summary: commandsSummary(s, pc.cfg) });
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return {};
     if (s.stage === "prd" && !s.approvals.prd) {
       const md = readText(file("prd.md"));
@@ -11498,14 +11519,27 @@ function readyCheck(pc) {
   }
   return {};
 }
-var APPROVAL_KINDS = ["prd", "plan", "ship"];
-var APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "\u2026"]';
+function commandsSummary(s, cfg) {
+  return ["**The commands cairn runs changed since you approved them.** Approving lets the build run them:", "", ...commandChanges(s, cfg).map((c) => `- ${c}`)].join("\n");
+}
+var APPROVAL_KINDS = ["prd", "plan", "ship", "commands"];
+var APPROVE_USAGE = 'usage: cairn approve prd|plan|ship|commands [--human] [--note "\u2026"]';
+function reapproveCommands(s, cfg, source) {
+  approveCommands(s, cfg);
+  log(s, "commands re-approved", source);
+  return { message: "The changed setup, test and build commands are approved. The build can go on." };
+}
 function cmdApprove(ctx, kind, opts, io) {
   if (!kind || !APPROVAL_KINDS.includes(kind)) throw new CliError(APPROVE_USAGE);
   const pc = planCtx(ctx);
   const source = requireHumanProof(kind, opts, io);
   const approval = () => ({ at: now(), via: "human", source, ...opts.note ? { note: String(opts.note) } : {} });
   switch (kind) {
+    case "commands":
+      return mutate(pc, "commands re-approved", (s) => {
+        gate(commandsChanged(s, pc.cfg), s, "approve commands", opts, "the setup, test and build commands have not changed since the user approved them");
+        return reapproveCommands(s, pc.cfg, source);
+      });
     case "prd": {
       const md = readText(planFile(pc, "prd.md"));
       return mutate(pc, "PRD approved", (s) => {
@@ -11522,11 +11556,7 @@ function cmdApprove(ctx, kind, opts, io) {
     case "plan": {
       const md = readText(planFile(pc, "plan.md"));
       return mutate(pc, "plan approved", (s) => {
-        if (s.stage !== "plan" && s.configHash && s.configHash !== configHash(pc.cfg)) {
-          s.configHash = configHash(pc.cfg);
-          log(s, "commands re-approved", source);
-          return { message: "The changed setup, test, and build commands are approved." };
-        }
+        if (s.stage !== "plan" && commandsChanged(s, pc.cfg)) return reapproveCommands(s, pc.cfg, source);
         gate(s.stage === "plan", s, "approve plan", opts, `the plan is in ${s.stage}, not plan`);
         gate(s.phases.length > 0, s, "approve plan", opts, "no plan is loaded", ["cairn plan load"]);
         gate(!!md && s.planHash === hashText(md), s, "approve plan", opts, "plan.md changed since it was loaded", ["cairn plan load"]);
@@ -11535,7 +11565,7 @@ function cmdApprove(ctx, kind, opts, io) {
         gate(!unproved.length, s, "approve plan", opts, unproved.join("; "), ["write or fix the proofs (procedures/plan.md, the proofs step), cairn plan load, then cairn prove"]);
         for (const p of s.endProofs?.list ?? []) p.lock = filesHash(pc.plan.worktree, p.files);
         s.approvals.plan = { ...approval(), hash: s.planHash };
-        s.configHash = configHash(pc.cfg);
+        approveCommands(s, pc.cfg);
         log(s, "plan approved", source);
         const prd = readText(planFile(pc, "prd.md"));
         if (prdEditedSinceApproval(s, prd)) {
@@ -11743,7 +11773,8 @@ function readyRow(r, ctx) {
   const { ready, error } = pc ? readyCheck(pc) : {};
   const st = r.state.step;
   const asked = st !== void 0 && st.stage === r.state.stage && (st.name === "approving" || st.name === "asking");
-  return { ready, ...error ? { readyError: error } : {}, needsUser: ready !== void 0 || asked };
+  const changed = pc ? commandsChanged(r.state, pc.cfg) : void 0;
+  return { ready, ...error ? { readyError: error } : {}, ...changed !== void 0 ? { commandsChanged: changed } : {}, needsUser: ready !== void 0 || asked };
 }
 var slimState = (s, keepLog = false) => {
   const { log: logLines, suggestions: _suggestions, linear, ...rest } = s;
@@ -13734,7 +13765,7 @@ ${v}` : v;
 }
 var USAGE5 = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] [--json [--full]] | new <slug> --title "\u2026" [--level \u2026] [--proofs | --no-proofs] [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd|plan|ship | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
+  approve prd|plan|ship|commands | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers \u2026 --run "\u2026" --files \u2026
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline \u2026

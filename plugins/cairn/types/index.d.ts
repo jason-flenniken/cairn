@@ -29,7 +29,7 @@ export type CairnPlanState = {
 }
 
 /** The stop a plan waits on a human for, when the CLI says it is ready: the file to read and a short markdown summary. */
-export type CairnReady = { kind: 'prd' | 'plan' | 'ship'; file: string; summary: string }
+export type CairnReady = { kind: 'prd' | 'plan' | 'ship' | 'commands'; file: string; summary: string }
 
 /** One row of `cairn status --all --json`. */
 export type CairnPlanRow = {
@@ -52,6 +52,8 @@ export type CairnPlanRow = {
   maxParallel?: number
   /** Set only while the plan's document is ready for the human; absent while it is still being drafted. */
   ready?: CairnReady
+  /** True while the setup, test or build command differs from the ones the user approved; absent when the plan is not checked out. */
+  commandsChanged?: boolean
   /** True when the plan wants the person: a document is ready, or its step is `approving` or `asking`; the CLI works it out. */
   needsUser?: boolean
   /** The Linear issue keys each task of the plan builds, by task name; absent until the plan is linked to Linear. */

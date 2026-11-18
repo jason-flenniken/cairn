@@ -12,7 +12,8 @@ import { addHardening, docProblems, gate, mutate, planCtx, planFile, recordProbl
 import { closeMemory } from './memory.ts';
 import { proofApprovalProblems, proofProblems, proofSummary } from './prove.ts';
 import { filesHash } from '../endproofs.ts';
-import { configGate, configHash, fastLane } from './fix.ts';
+import { approveCommands, commandChanges, commandsChanged, configGate, fastLane } from './fix.ts';
+import { CONFIG_REL } from '../config.ts';
 import { collectSuggestions, MAX_OPEN_PER_PLAN } from './suggest.ts';
 import { isFoundational, isPublished, linearConfig, prdLinearProblems } from '../linear.ts';
 import { crossPlanBlockers, followupsFor, linearPrdGate, onAdvance, onPrdApproved, recordRequirements, type FollowupInfo } from './linear.ts';
@@ -74,7 +75,7 @@ export function prdApprovalProblems(s: State, md: string | undefined): string[] 
 }
 
 export interface Ready {
-  kind: 'prd' | 'plan' | 'ship';
+  kind: 'prd' | 'plan' | 'ship' | 'commands';
   file: string;
   summary: string;
 }
@@ -138,6 +139,8 @@ export function readyCheck(pc: PlanCtx): { ready?: Ready; error?: string } {
     const s = loadState(pc.plan.dir);
     const file = (name: string) => join(pc.plan.dir, name);
     const ready = (r: Ready | undefined) => ({ ready: r });
+    // Changed commands wait on the user whatever the step: the question about them is open while the step is asking.
+    if (s.stage !== 'plan' && s.stage !== 'closed' && commandsChanged(s, pc.cfg)) return ready({ kind: 'commands', file: join(pc.plan.worktree, CONFIG_REL), summary: commandsSummary(s, pc.cfg) });
     if (s.step?.stage === s.stage && WRITING_STEPS.includes(s.step.name)) return {};
     if (s.stage === 'prd' && !s.approvals.prd) {
       const md = readText(file('prd.md'));
@@ -165,8 +168,20 @@ export function readyCheck(pc: PlanCtx): { ready?: Ready; error?: string } {
   return {};
 }
 
-const APPROVAL_KINDS = ['prd', 'plan', 'ship'];
-const APPROVE_USAGE = 'usage: cairn approve prd|plan|ship [--human] [--note "…"]';
+/** The commands card: what changed, so the user sees what they let run. */
+function commandsSummary(s: State, cfg: Config): string {
+  return ['**The commands cairn runs changed since you approved them.** Approving lets the build run them:', '', ...commandChanges(s, cfg).map((c) => `- ${c}`)].join('\n');
+}
+
+const APPROVAL_KINDS = ['prd', 'plan', 'ship', 'commands'];
+const APPROVE_USAGE = 'usage: cairn approve prd|plan|ship|commands [--human] [--note "…"]';
+
+/** Re-approve changed commands: `approve commands`, or `approve plan` outside the plan stage (the older spelling). */
+function reapproveCommands(s: State, cfg: Config, source: string): Result {
+  approveCommands(s, cfg);
+  log(s, 'commands re-approved', source);
+  return { message: 'The changed setup, test and build commands are approved. The build can go on.' };
+}
 
 export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: ProofIO): Result {
   if (!kind || !APPROVAL_KINDS.includes(kind)) throw new CliError(APPROVE_USAGE);
@@ -174,6 +189,11 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
   const source = requireHumanProof(kind, opts, io);
   const approval = () => ({ at: now(), via: 'human' as const, source, ...(opts.note ? { note: String(opts.note) } : {}) });
   switch (kind) {
+    case 'commands':
+      return mutate(pc, 'commands re-approved', (s) => {
+        gate(commandsChanged(s, pc.cfg), s, 'approve commands', opts, 'the setup, test and build commands have not changed since the user approved them');
+        return reapproveCommands(s, pc.cfg, source);
+      });
     case 'prd': {
       const md = readText(planFile(pc, 'prd.md'));
       return mutate(pc, 'PRD approved', (s) => {
@@ -191,11 +211,7 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
       const md = readText(planFile(pc, 'plan.md'));
       return mutate(pc, 'plan approved', (s) => {
         // Outside the plan stage, approving the plan re-approves changed commands (FR-32) and moves nothing.
-        if (s.stage !== 'plan' && s.configHash && s.configHash !== configHash(pc.cfg)) {
-          s.configHash = configHash(pc.cfg);
-          log(s, 'commands re-approved', source);
-          return { message: 'The changed setup, test, and build commands are approved.' };
-        }
+        if (s.stage !== 'plan' && commandsChanged(s, pc.cfg)) return reapproveCommands(s, pc.cfg, source);
         gate(s.stage === 'plan', s, 'approve plan', opts, `the plan is in ${s.stage}, not plan`);
         gate(s.phases.length > 0, s, 'approve plan', opts, 'no plan is loaded', ['cairn plan load']);
         gate(!!md && s.planHash === hashText(md), s, 'approve plan', opts, 'plan.md changed since it was loaded', ['cairn plan load']);
@@ -206,7 +222,7 @@ export function cmdApprove(ctx: Ctx, kind: string | undefined, opts: Opts, io?: 
         // The proofs are the end state: from here builders may add proofs, never edit or remove one.
         for (const p of s.endProofs?.list ?? []) p.lock = filesHash(pc.plan.worktree, p.files);
         s.approvals.plan = { ...approval(), hash: s.planHash };
-        s.configHash = configHash(pc.cfg);
+        approveCommands(s, pc.cfg);
         log(s, 'plan approved', source);
         // PRD edits made while planning ride this approval: the user sees the note on the card and in the question.
         const prd = readText(planFile(pc, 'prd.md'));
