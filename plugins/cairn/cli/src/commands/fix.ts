@@ -2,11 +2,10 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { approveCommands, CONFIG_REL, LOCKED_COMMANDS, lockedCommands, commandsChanged, upgradeLegacyLock } from '../config.ts';
 import { branchExists, git } from '../git.ts';
 import { planRelIn, planRelOf, type Ctx } from '../locate.ts';
 import type { Config, State } from '../types.ts';
-import { CliError, now, pluginRoot, readText, Refusal } from '../util.ts';
+import { CliError, now, readText, Refusal } from '../util.ts';
 import { childEnv, gate, mutate, planCtx, type Opts, type Result } from '../shared.ts';
 import { allTasks } from '../ready.ts';
 import { loadState, log, setStage } from '../state.ts';
@@ -16,32 +15,6 @@ const DEFAULT_REPRO_TIMEOUT_MINUTES = 10;
 
 /** A plan on the fast lane: a fix plan with a repro (or about to record one). v0.1 fix plans have neither and keep the feature stages. */
 export const fastLane = (s: State): boolean => s.track === 'fix' && (s.stage === 'repro' || !!s.repro);
-
-export { approveCommands, commandsChanged, configHash, LOCKED_COMMANDS, lockedCommands } from '../config.ts';
-
-/** The locked commands that differ from the approved ones, as `name: old → new` (all of them when the old ones were not kept). */
-export function commandChanges(s: State, cfg: Config): string[] {
-  const cur = lockedCommands(cfg);
-  const was = s.approvedCommands;
-  const shown = (v: string | undefined) => (v ? `\`${v}\`` : '(none)');
-  return LOCKED_COMMANDS.filter((k) => !was || was[k] !== cur[k]).map((k) => (was ? `${k}: ${shown(was[k])} → ${shown(cur[k])}` : `${k}: ${shown(cur[k])}`));
-}
-
-/**
- * Refuse while the configured commands differ from the ones the user approved. This check stands until the commands
- * are approved again, so a one-time override is never offered for it (one with the user's proof still works).
- */
-export function configGate(s: State, cfg: Config, event: string, opts: Opts): void {
-  upgradeLegacyLock(s, cfg);
-  const changed = commandsChanged(s, cfg);
-  const message = `the commands in ${CONFIG_REL} changed since the user approved the commands: ${commandChanges(s, cfg).join('; ')}`;
-  if (opts.override) return gate(!changed, s, event, opts, message);
-  if (!changed) return;
-  throw new Refusal(message, [
-    `ask the user with AskUserQuestion tagged [cairn:approve commands ${s.slug}] (Approve (Recommended) / Revert the command); the mod records the answer, or they press Approve in the cairn pane`,
-    `when cairn status --json shows modActive false: the user runs, in their own terminal, in the plan worktree: ${pluginRoot()}/cli/bin/cairn approve commands --human`,
-  ]);
-}
 
 /** Files changed from base to head, a rename counting once. The plan's own folder is cairn's state, not part of the change. */
 export const changedFiles = (cwd: string, slug: string, base: string, head: string): string[] =>
@@ -95,16 +68,13 @@ export function cmdRepro(ctx: Ctx, cmd: string | undefined, opts: Opts): Result 
   // A changed command never runs before the refusal; with --override the in-lock check logs it.
   // Nothing runs until the stage and the approved commands check out (an override needs the user's proof first).
   gate(pre.stage === 'repro', pre, 'repro', opts, `the plan is in ${pre.stage}, not repro`);
-  configGate(pre, pc.cfg, 'repro', opts);
   const ran = runRepro(cmd, pc.plan.worktree, pc.cfg);
   return mutate(pc, 'repro recorded', (s) => {
-    configGate(s, pc.cfg, 'repro', opts);
     gate(s.stage === 'repro', s, 'repro', opts, `the plan is in ${s.stage}, not repro`);
     if (ran.outcome === 'timeout' || ran.outcome === 'nostart')
       throw new Refusal(`the repro command ${ran.outcome === 'timeout' ? 'did not finish' : 'could not start'}: ${ran.detail}`, ['write a repro command that runs and finishes']);
     if (ran.outcome === 'passes') throw new Refusal('the command exits 0: this does not reproduce the bug', ['write a command that fails while the bug is present']);
     s.repro = { cmd, tail: ran.detail, at: now() };
-    approveCommands(s, pc.cfg);
     log(s, 'repro recorded', `${cmd} → ${ran.detail}`);
     return { message: `Repro recorded: \`${cmd}\` fails (${ran.detail}). Next: \`cairn advance\` to the fix.`, data: { repro: s.repro } };
   });
@@ -138,7 +108,7 @@ export function cmdEscalate(ctx: Ctx, opts: Opts): Result {
     setStage(s, 'prd');
     delete s.evidence.review;
     delete s.approvals.ship;
-    delete s.reapprove;
+    delete s.pullRequest;
     log(s, 'escalated', 'fix → feature plan at prd');
     return { message: `"${s.title}" is now a feature plan at the PRD stage. The fix task keeps its work, with its scope narrowed to the files it changed. Next: write the PRD.` };
   });

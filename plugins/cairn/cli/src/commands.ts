@@ -14,6 +14,7 @@ export { cmdIndex, removed } from './commands/memory.ts';
 export { cmdEscalate, cmdRepro } from './commands/fix.ts';
 export { cmdStep } from './commands/step.ts';
 export { cmdMergeCheck, cmdTrace } from './commands/merge.ts';
+export { cmdPr } from './commands/pr.ts';
 export { cmdPhase, cmdTest } from './commands/phase.ts';
 export { cmdMigrate, legacyLayout } from './commands/migrate.ts';
 export { cmdRecords } from './commands/records.ts';

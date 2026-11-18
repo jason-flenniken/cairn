@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import type { Config, State } from './types.ts';
 import { CAIRN_DIR, LEGACY_CAIRN_DIR } from './paths.ts';
-import { CliError, hashText, readText } from './util.ts';
+import { CliError, readText } from './util.ts';
 
 export const CONFIG_REL = `${CAIRN_DIR}/config.json`;
 export const LEGACY_CONFIG_REL = `${LEGACY_CAIRN_DIR}/config.json`;
@@ -34,32 +34,28 @@ export function loadConfig(...roots: (string | undefined)[]): Config {
 export const worktreeRoot = (cfg: Config, mainRoot: string) =>
   cfg.worktreeRoot ? join(mainRoot, cfg.worktreeRoot) : join(mainRoot, '.claude', 'worktrees');
 
-/** The commands whose change needs the user (FR-32). `testQuick` is left out: a quick run never stands in for the full suite. */
-export const LOCKED_COMMANDS = ['setup', 'test', 'build'] as const;
-export type Commands = Partial<Record<(typeof LOCKED_COMMANDS)[number], string>>;
-export const lockedCommands = (cfg: Config): Commands => ({ setup: cfg.setup, test: cfg.test, build: cfg.build });
-
-/** Hash of the commands cairn runs for the plan. A missing config hashes as empty. */
-export const configHash = (cfg: Config): string => hashText(JSON.stringify(lockedCommands(cfg)));
-/** The hash 0.24.0 and earlier recorded, with `testQuick` in it: a plan approved then still matches. */
-const legacyConfigHash = (cfg: Config): string => hashText(JSON.stringify({ ...lockedCommands(cfg), testQuick: cfg.testQuick }));
-
-/** True when a locked command differs from the ones the user approved. Plans without a recorded hash are not checked. */
-export const commandsChanged = (s: State, cfg: Config): boolean =>
-  !!s.configHash && s.configHash !== configHash(cfg) && s.configHash !== legacyConfigHash(cfg);
+/** The commands cairn runs for a plan. A change to one mid-run is a choice about how to build: recorded, never asked. */
+export const RUN_COMMANDS = ['setup', 'test', 'build'] as const;
+export type Commands = Partial<Record<(typeof RUN_COMMANDS)[number], string>>;
+export const runCommands = (cfg: Config): Commands => ({ setup: cfg.setup, test: cfg.test, build: cfg.build });
 
 /**
- * A plan locked under the old hash moves to the new one while its commands still match it, so a later testQuick
- * change is not a change. Every state write runs this, so it lands before the model gets to edit the config.
+ * Keep the plan's record of its commands current. The first sight records them; a later difference is added to
+ * `calls` as `name: old → new`, so the PR shows what the run changed. Every state write runs this.
  */
-export function upgradeLegacyLock(s: State, cfg: Config): void {
-  if (!s.configHash || s.configHash === configHash(cfg) || s.configHash !== legacyConfigHash(cfg)) return;
-  s.configHash = configHash(cfg);
-  s.approvedCommands ??= lockedCommands(cfg);
-}
-
-/** Record the current commands as the ones the user approved. */
-export function approveCommands(s: State, cfg: Config): void {
-  s.configHash = configHash(cfg);
-  s.approvedCommands = lockedCommands(cfg);
+export function noteCommands(s: State, cfg: Config): void {
+  const cur = runCommands(cfg);
+  const was = s.approvedCommands;
+  if (!s.approvals.prd && !s.repro) return;
+  if (!was) {
+    s.approvedCommands = cur;
+    return;
+  }
+  const shown = (v: string | undefined) => (v ? `\`${v}\`` : '(none)');
+  const changed = RUN_COMMANDS.filter((k) => was[k] !== cur[k]);
+  if (!changed.length) return;
+  const what = changed.map((k) => `${k}: ${shown(was[k])} → ${shown(cur[k])}`).join('; ');
+  (s.calls ??= []).push({ at: new Date().toISOString(), event: 'commands', what: `the commands cairn runs changed: ${what}`, why: `edited in ${CONFIG_REL}` });
+  s.log.push({ at: new Date().toISOString(), event: 'call: commands', detail: what });
+  s.approvedCommands = cur;
 }

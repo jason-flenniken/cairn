@@ -10,6 +10,7 @@ import {
   cmdLevel,
   cmdMigrate,
   cmdMergeCheck,
+  cmdPr,
   cmdTrace,
   cmdEvidence,
   cmdIndex,
@@ -90,7 +91,7 @@ export function parseArgs(argv: string[], cwd = process.cwd()): { pos: string[];
 
 const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/cli.md.
   next | status [--all] [--json [--full]] | new <slug> --title "…" [--level …] [--proofs | --no-proofs] [--from <branch> | --after <plan>] | product init | decide "<q>" "<a>" [--why] | decide --file <path>
-  approve prd|plan|ship|commands | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
+  approve prd | pr body|open | level mvp|standard|polished [--human] | advance [--to <stage>] | plan load [--replan] | ready
   prove [<id>...] [--task <id>] [--here] | prove list | prove judge <id> pass|fail | prove add <id> --covers … --run "…" --files …
   task start|step|done|merge <id> | task brief <id> [--role build|review|security|fix] [--again] | task report <id> <path> | review record <task-id|branch> <path> | test | step <name> [--count N] | phase finish | evidence verify|review pass|fail | evidence phase | drift ack <path>|--all
   suggest add|list|resolve|merge|decline …
@@ -98,7 +99,7 @@ const USAGE = `cairn: plan state for the agent-driven lifecycle. See references/
   merge-check (right before merging the PR) | trace <path>:<start>[-<end>] [--base <branch>]
   repro "<command>" | escalate (fix plans)
   linear [status] | linear import|pending [--claim]|sent|drop|depends|ack|release|board … (plans that pull Linear issues in)
-Flags: --json, --note "…", --note-file <path>, --override "reason" (only when the user chose to skip a check)`;
+Flags: --json, --note "…", --note-file <path>, --call "what you chose and why" (a how-choice past a check), --not-done "why; tried; proposed fix" (an unmet part of the goal; the PR becomes a draft)`;
 
 /** Commands that move a plan along, and so may queue Linear updates: each says when updates are waiting to be sent. */
 const MOVES = new Set(['task', 'phase', 'ready', 'advance', 'approve', 'plan']);
@@ -195,6 +196,8 @@ function dispatch(argv: string[], cwd: string, stdin?: string): Result {
       return cmdMigrate(ctx());
     case 'merge-check':
       return cmdMergeCheck(ctx(), opts);
+    case 'pr':
+      return cmdPr(ctx(), a, opts);
     case 'trace':
       return cmdTrace(ctx(), a, opts);
     case 'render':

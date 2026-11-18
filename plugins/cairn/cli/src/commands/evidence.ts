@@ -45,12 +45,12 @@ export function cmdEvidence(ctx: Ctx, kind: string | undefined, result: string |
     if (result === 'pass' && blocking) throw new Refusal(`a review with ${blocking} blocking finding(s) can't pass`, ['fix them in place, then record the review with --blocking 0']);
     if (kind === 'verify' && result === 'pass') {
       if (pc.cfg.test && levelOf(s) !== 'mvp')
-        gate(suiteCovers && !s.lastRed, s, 'evidence verify', opts, 'the full suite has not passed on the current code', ['cairn test (procedures/verify.md step 2), fixing until it is green']);
+        gate(suiteCovers && !s.lastRed, s, 'evidence verify', opts, 'the full suite has not passed on the current code', ['cairn test (procedures/verify.md step 2), fixing until it is green'], 'what');
       // The last phase's on-track check and the Linear refresh run in Check, so their gates are here.
       const last = s.phases.at(-1);
-      gate(last?.verdict?.result !== 'red', s, 'evidence verify', opts, `the on-track check for "${last?.name}" is red${last?.verdict?.note ? ` (${last.verdict.note})` : ''}`, ['fix what the report flags, then re-run `cairn evidence phase`']);
+      gate(last?.verdict?.result !== 'red', s, 'evidence verify', opts, `the on-track check for "${last?.name}" is red${last?.verdict?.note ? ` (${last.verdict.note})` : ''}`, ['fix what the report flags, then re-run `cairn evidence phase`'], 'what');
       const open = (s.linear?.changes ?? []).filter((c) => !c.handled);
-      gate(!open.length, s, 'evidence verify', opts, `changes in Linear are not handled yet: ${open.map((c) => c.id).join(', ')}`, ['handle each as procedures/phase-end.md says (cairn linear depends | ack | release)']);
+      gate(!open.length, s, 'evidence verify', opts, `changes in Linear are not handled yet: ${open.map((c) => c.id).join(', ')}`, ['handle each as procedures/phase-end.md says (cairn linear depends | ack | release)'], 'how');
     }
     s.evidence[kind] = { result, at: now(), ...(opts.note ? { note: String(opts.note) } : {}), ...(blocking !== undefined ? { blocking } : {}) };
     log(s, `${kind} ${result}`, opts.note ? String(opts.note) : undefined);

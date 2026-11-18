@@ -12,20 +12,42 @@ export interface ReadyResult {
   phase?: Phase;
 }
 
-/** Substeps that hold a builder. A task in review or merging does not. */
-const HOLDS_BUILDER = new Set<string | undefined>([undefined, 'implementing', 'fixing', 'blocked']);
+/** Substeps that hold a builder. A task in review or merging does not, and neither does one that was set aside. */
+const HOLDS_BUILDER = new Set<string | undefined>([undefined, 'implementing', 'fixing']);
+
+/** A task the run gave up on for now (`task step <id> blocked`): the build goes on without it and the PR lists it as not done. */
+export const setAside = (t: Task): boolean => t.status === 'in_progress' && t.substep === 'blocked';
+
+/**
+ * Tasks that will not be built in this run: set aside, or pending behind one that is (directly or through others).
+ * A phase finishes without them, so later phases are not held up.
+ */
+export function leftOut(s: State): Task[] {
+  const out = new Map(allTasks(s).filter(setAside).map((t) => [t.id, t]));
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const t of allTasks(s)) {
+      if (t.status === 'pending' && !out.has(t.id) && t.blockedBy.some((b) => out.has(b))) {
+        out.set(t.id, t);
+        grew = true;
+      }
+    }
+  }
+  return [...out.values()];
+}
 
 /**
  * Tasks that can start now: blockers done, scope disjoint from running work, under the cap.
  * Besides the current phase, the phases right after it that are marked `overlap` may start tasks whose own blockers
  * are done. Phases still finish in order.
- * The cap counts tasks that hold a builder: implementing, fixing, or blocked (a blocked task still holds its builder).
+ * The cap counts tasks that hold a builder: implementing or fixing. A task that was set aside holds none.
  * A task in review or merging does not.
  */
 export function readySet(s: State, maxParallel: number): ReadyResult {
   const phase = currentPhase(s);
   const done = new Set(allTasks(s).filter((x) => x.status === 'done').map((x) => x.id));
   const inProgress = allTasks(s).filter((x) => x.status === 'in_progress');
+  const out = new Set(leftOut(s).map((t) => t.id));
   const result: ReadyResult = { ready: [], inProgress, waiting: [], phase };
   if (!phase || s.stage !== 'execute' || s.paused) return result;
   let room = Math.max(0, maxParallel - inProgress.filter((x) => HOLDS_BUILDER.has(x.substep)).length);
@@ -33,7 +55,7 @@ export function readySet(s: State, maxParallel: number): ReadyResult {
   const open = [phase];
   for (let i = s.phases.indexOf(phase) + 1; i < s.phases.length && s.phases[i].overlap; i++) open.push(s.phases[i]);
   for (const sl of open.flatMap((p) => p.tasks)) {
-    if (sl.status !== 'pending') continue;
+    if (sl.status !== 'pending' || out.has(sl.id)) continue;
     const on = sl.blockedBy.filter((b) => !done.has(b));
     if (on.length) {
       result.waiting.push({ task: sl, on });

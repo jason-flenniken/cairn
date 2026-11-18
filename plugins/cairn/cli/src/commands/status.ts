@@ -19,7 +19,6 @@ import { isFoundational, linearConfig, takenIssues } from '../linear.ts';
 import { allTasks } from '../ready.ts';
 import { branchReviewerOf, taskReviewOf } from '../builder.ts';
 import { awaitsDone, mergedAwaitingDone, mergedPlansAwaitingDone, pendingCount, queueDone } from './linear.ts';
-import { commandsChanged } from './fix.ts';
 import { knownFailures, mutate, planCtx, planFile, type Opts, type PlanCtx, type Result } from '../shared.ts';
 
 export function listPlans(ctx: Ctx): IndexRow[] {
@@ -78,7 +77,7 @@ const modIsActive = (ctx: Ctx): boolean => modActive(commonDir(ctx.mainRoot));
 export function warnings(pc: PlanCtx, s: State): string[] {
   const w: string[] = [];
   const prd = readText(planFile(pc, 'prd.md'));
-  if (prdEditedSinceApproval(s, prd)) w.push(s.stage === 'plan' ? 'prd.md changed after it was approved: approving the plan accepts the edits' : 'prd.md changed after it was approved');
+  if (prdEditedSinceApproval(s, prd)) w.push('prd.md changed after it was approved: the pull request stays a draft until the user approves the PRD again');
   const plan = readText(planFile(pc, 'plan.md'));
   if (s.planHash && plan && hashText(plan) !== s.planHash) w.push('plan.md changed after it was loaded: run `cairn plan load --replan` or revert it');
   const open = s.drift.filter((d) => !d.acked);
@@ -144,10 +143,8 @@ function readyRow(r: { state: State; worktree?: string; dir: string }, ctx: Ctx)
   const pc: PlanCtx | undefined = r.worktree ? { ctx, plan: { slug: r.state.slug, worktree: r.worktree, dir: r.dir }, cfg: loadConfig(r.worktree, ctx.mainRoot) } : undefined;
   const { ready, error } = pc ? readyCheck(pc) : {};
   const st = r.state.step;
-  const asked = st !== undefined && st.stage === r.state.stage && (st.name === 'approving' || st.name === 'asking');
-  // The mod reads this to tell a re-approval of the commands landed: `approvals` can't say, the plan was approved before.
-  const changed = pc ? commandsChanged(r.state, pc.cfg) : undefined;
-  return { ready, ...(error ? { readyError: error } : {}), ...(changed !== undefined ? { commandsChanged: changed } : {}), needsUser: ready !== undefined || asked };
+  const asked = st !== undefined && st.stage === r.state.stage && (st.name === 'approving' || st.name === 'asking' || st.name === 'waiting');
+  return { ready, ...(error ? { readyError: error } : {}), needsUser: ready !== undefined || asked };
 }
 
 /**

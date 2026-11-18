@@ -13,7 +13,6 @@ const names = (xs: Task[]) => xs.map((x) => x.name).join(', ');
 
 /** The single correct next step for a plan. */
 export function nextFor(s: State): Next {
-  if (s.reapprove) return { procedure: 'ship', text: `Approve shipping again: ${s.reapprove.why}. Then run cairn merge-check and merge.` };
   if (s.stage === 'closed') return { procedure: 'status', text: 'This plan is closed. Its record is in RECORD.md.' };
   if (s.paused) return { procedure: 'resume', text: `Paused ${day(s.paused.at)}. Resume to pick up where it stopped.` };
   const all = s.phases.flatMap((p) => p.tasks);
@@ -26,12 +25,10 @@ export function nextFor(s: State): Next {
       return { procedure: 'discover', text: 'Interview: settle the open decisions, then move on to the PRD.' };
     case 'prd':
       return s.approvals.prd
-        ? { procedure: 'prd', substep: 'advance', text: 'PRD approved. Advance to planning.' }
+        ? { procedure: 'prd', substep: 'advance', text: 'PRD approved. Advance to planning; from here the run does not stop until the pull request is open.' }
         : { procedure: 'prd', text: 'Draft the PRD and get it approved.' };
     case 'plan':
-      return s.approvals.plan
-        ? { procedure: 'plan', substep: 'advance', text: 'Plan approved. Advance to execution.' }
-        : { procedure: 'plan', text: 'Write the phased plan, load it, and get it approved.' };
+      return { procedure: 'plan', text: 'Write the phased plan and the proofs, load them, see the proofs fail, then advance to the build. No approval.' };
     case 'execute': {
       const phase = s.phases.find((p) => p.status !== 'done');
       if (!phase && s.track === 'fix' && s.repro) return { procedure: 'review', text: 'The fix is built. Advance to review.' };
@@ -48,9 +45,9 @@ export function nextFor(s: State): Next {
     case 'review':
       return { procedure: 'review', text: 'Review the whole branch and record the result.' };
     case 'ship':
-      return s.approvals.ship
-        ? { procedure: 'ship', substep: 'advance', text: 'Ship approved. Open the PR and advance.' }
-        : { procedure: 'ship', text: 'Write the completion record and decide whether to ship.' };
+      return s.pullRequest
+        ? { procedure: 'ship', substep: 'advance', text: `The pull request is open${s.pullRequest.draft ? ' as a draft' : ''} (${s.pullRequest.url}). Advance, then end the turn: the user merges or sends it back.` }
+        : { procedure: 'ship', text: 'Write the completion record, then open the pull request (cairn pr open).' };
     case 'learn':
       return { procedure: 'learn', text: 'Capture anything worth keeping, then close the plan.' };
   }
@@ -154,10 +151,11 @@ export function renderStatus(s: State): string {
   const checkpoints: string[] = [];
   const a = s.approvals;
   if (a.prd) checkpoints.push(`PRD approved ${day(a.prd.at)}${approvedBy(a.prd)}`);
-  if (a.plan) checkpoints.push(`Plan approved ${day(a.plan.at)}${approvedBy(a.plan)}`);
+  if (a.plan) checkpoints.push(`Plan locked ${day(a.plan.at)}`);
   if (s.evidence.verify) checkpoints.push(`Verify: ${s.evidence.verify.result}${s.evidence.verify.note ? ` (${s.evidence.verify.note})` : ''}`);
   if (s.evidence.review) checkpoints.push(`Review: ${s.evidence.review.result}${s.evidence.review.note ? ` (${s.evidence.review.note})` : ''}`);
   if (a.ship) checkpoints.push(`Ship approved ${day(a.ship.at)}${approvedBy(a.ship)}`);
+  if (s.pullRequest) checkpoints.push(`Pull request ${s.pullRequest.draft ? 'opened as a draft' : 'opened'} ${day(s.pullRequest.at)}: ${s.pullRequest.url}`);
   if (checkpoints.length) out.push('', '## Checkpoints', ...checkpoints.map((c) => `- ${c}`));
 
   const drift = openDrift(s);

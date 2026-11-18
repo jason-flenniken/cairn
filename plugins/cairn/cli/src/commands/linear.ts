@@ -780,7 +780,7 @@ export function linearPhaseGate(s: State, opts: Opts): void {
     'cairn linear depends <KEY> --on <KEY> --reason "…" (a real dependency)',
     'cairn linear ack <id> --as taken|later|noted [--note "…"]',
     'cairn linear release <KEY> --reason "…" (drop the blocked issue)',
-  ]);
+  ], 'how');
 }
 
 /** After a re-plan loads, a new link between two in-plan issues is covered by the order check: mark it handled. */

@@ -17,11 +17,12 @@ export const STEPS: Partial<Record<Stage, readonly string[]>> = {
   repro: ['asking'],
   discover: ['asking'],
   prd: ['drafting', 'checking', 'approving', 'asking'],
-  plan: ['drafting', 'checking', 'approving', 'asking'],
-  execute: ['wrapping', 'asking'],
-  verify: ['testing', 'on-track', 'scanning', 'fixing', 'asking'],
-  review: ['reviewing', 'fixing', 'rechecking', 'asking'],
-  ship: ['recording', 'approving', 'opening-pr', 'asking'],
+  // Past the PRD approval the run is hands-off: no step waits on the user until the pull request is open.
+  plan: ['drafting', 'checking'],
+  execute: ['wrapping'],
+  verify: ['testing', 'on-track', 'scanning', 'fixing'],
+  review: ['reviewing', 'fixing', 'rechecking'],
+  ship: ['recording', 'opening-pr', 'waiting'],
 };
 /** `cairn step clear` drops the recorded step: the way out of `asking` at a stage with no other step. */
 export const STEP_CLEAR = 'clear';
@@ -39,6 +40,7 @@ export const STEP_LABEL: Record<string, string> = {
   approving: 'waiting on approval',
   asking: 'waiting for your answer',
   'opening-pr': 'opening the PR',
+  waiting: 'PR open, waiting on your merge',
 };
 export interface Step {
   stage: Stage;
@@ -253,8 +255,8 @@ export interface State {
   stageHistory?: { stage: Stage; at: string }[];
   paused: { at: string; mode: 'drain' | 'now'; handoffHash?: string } | null;
   approvals: { prd?: Approval; plan?: Approval; ship?: Approval };
-  /** Set by `cairn merge-check` when code changed after the ship approval: the ship needs approving again. */
-  reapprove?: { at: string; why: string };
+  /** The plan's pull request, set by `cairn pr open`: `draft` while anything is not done. */
+  pullRequest?: { url: string; draft: boolean; at: string; head: string };
   /** Merges of the base that `cairn merge-check` made itself, cleanly: commits it can vouch for after the approval. */
   baseMerges?: string[];
   /**
@@ -266,6 +268,10 @@ export interface State {
   /** The last head `cairn merge-check` saw the tests pass on. Only plan-folder commits since it skip the tests. */
   mergeChecked?: string;
   planHash?: string;
+  /** Choices about how to build that the run made itself, past a `how` check. The PR lists them. */
+  calls?: Ledger[];
+  /** Parts of the goal the run could not meet, past a `what` check. Any entry makes the PR a draft. */
+  notDone?: Ledger[];
   /** What the check, review or ship stage is doing now. Cleared when the stage changes. */
   step?: Step;
   repro?: { cmd: string; tail: string; at: string };
@@ -434,4 +440,12 @@ export interface LinearConfig {
   foundationalLabel?: string;
   /** Which open follow-ups a close files as Linear issues: ordinary ones only (default), all (hardening too), or none. */
   fileFollowUps?: 'ordinary' | 'all' | 'none';
+}
+
+/** One entry of `calls` or `notDone`: the command, the check it passed, and the reason given. */
+export interface Ledger {
+  at: string;
+  event: string;
+  what: string;
+  why: string;
 }

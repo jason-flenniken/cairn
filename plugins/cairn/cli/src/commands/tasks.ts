@@ -13,7 +13,7 @@ import { CliError, now, Refusal } from '../util.ts';
 import { builderLine, builderOf, MAX_FIX_ROUNDS } from '../builder.ts';
 import { recordTestRun, taskBrief, taskReport, writeBrief } from './brief.ts';
 import { ensureExcluded, gate, mutate, planCtx, runQuickTests, runSetup, testsGate, type Opts, type PlanCtx, type Result } from '../shared.ts';
-import { changedFiles, configGate, fastLane, runRepro } from './fix.ts';
+import { changedFiles, fastLane, runRepro } from './fix.ts';
 import { syncTickets } from './linear.ts';
 import { linearConfig } from '../linear.ts';
 import { lockedFiles } from '../endproofs.ts';
@@ -79,7 +79,6 @@ function taskStart(pc: PlanCtx, id: string, opts: Opts): Result {
     }
     if (sl.status === 'done') throw new Refusal(`task "${sl.name}" is already done`);
     gate(s.stage === 'execute' && !s.paused, s, 'task start', opts, s.paused ? 'the plan is paused' : `the plan is in ${s.stage}, not execute`);
-    configGate(s, cfg, 'task start', opts);
     const ready = readySet(s, cfg.maxParallel);
     const waiting = ready.waiting.find((w) => w.task.id === id);
     gate(ready.ready.some((x) => x.id === id), s, 'task start', opts, waiting ? `task "${sl.name}" is waiting on ${waiting.on.join(', ')}` : `task "${sl.name}" is not in the current phase`, ['cairn ready']);
@@ -113,7 +112,7 @@ function taskStep(pc: PlanCtx, id: string, step: string | undefined, opts: Opts)
     const sl = findTask(s, id);
     if (!sl || sl.status !== 'in_progress') throw new Refusal(`task "${id}" is not running`, ['cairn task start ' + id]);
     if (step === 'fixing') {
-      gate(sl.fixRound < MAX_FIX_ROUNDS, s, 'task fix round', opts, `task "${sl.name}" has used ${MAX_FIX_ROUNDS} fix attempts`, ['stop and ask the user: split the task, re-plan, or take it over']);
+      gate(sl.fixRound < MAX_FIX_ROUNDS, s, 'task fix round', opts, `task "${sl.name}" has used ${MAX_FIX_ROUNDS} fix attempts`, [`set the task aside and build the rest: cairn task step ${id} blocked --note "set aside: <why>; tried: <what>; proposed: <the fix>"`]);
       sl.fixRound++;
     }
     sl.substep = step as Substep;
@@ -132,7 +131,6 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   if (sl.status !== 'in_progress' || !sl.branch) throw new Refusal(`task "${sl.name}" is not running`);
   const pb = pre.branch;
   // A changed command never runs before this check (an override needs the user's proof first).
-  configGate(pre, pc.cfg, 'task done', opts);
   // Evidence is gathered before taking the lock: tests can be slow.
   const merged = branchExists(sl.branch, plan.worktree) && gitOk(['merge-base', '--is-ancestor', sl.branch, pb], plan.worktree);
   const dirty = sl.worktree && existsSync(sl.worktree) ? git(['status', '--porcelain'], sl.worktree) : '';
@@ -163,7 +161,6 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
   const maxFiles = pc.cfg.fixMaxFiles ?? DEFAULT_FIX_MAX_FILES;
   const r = mutate(pc, `task done: ${sl.name}`, (s) => {
     const cur = findTask(s, id)!;
-    configGate(s, pc.cfg, 'task done', opts);
     gate(!dirty, s, 'task done', opts, `the task worktree has uncommitted changes`, [`commit or discard them in ${cur.worktree}`]);
     gate(commits > 0, s, 'task done', opts, `${cur.branch} has no commits since the task started`, ['the implementer commits its work on the task branch, in the task worktree']);
     gate(!planDirty, s, 'task done', opts, `the plan worktree has uncommitted changes outside cairn's files: ${planDirty.split('\n').slice(0, 5).join(', ')}`, ['work belongs on task branches: move it into a task, or discard it']);
@@ -171,8 +168,8 @@ function taskDone(pc: PlanCtx, id: string, opts: Opts): Result {
     gate(merged, s, 'task done', opts, `${cur.branch} is not merged into ${pb}`, [`git -C ${plan.worktree} merge --no-ff ${cur.branch}`]);
     if (!deferTests) testsGate(tests ?? (checkable ? undefined : { ok: false, ran: false, cmd: pc.cfg.test ?? '(none)', tail: 'not run' }), s, 'task done', opts, cur.scope);
     if (fix) {
-      gate(repro?.outcome === 'passes', s, 'task done', opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` → ${repro.detail})` : 'the repro was not run: the task is not merged', ['fix the bug so the repro command exits 0']);
-      gate(changed <= maxFiles, s, 'task done', opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ['this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work']);
+      gate(repro?.outcome === 'passes', s, 'task done', opts, repro ? `the repro still fails (\`${s.repro?.cmd}\` → ${repro.detail})` : 'the repro was not run: the task is not merged', ['fix the bug so the repro command exits 0'], 'what');
+      gate(changed <= maxFiles, s, 'task done', opts, `the fix changed ${changed} files; a fix may change at most ${maxFiles}`, ['this is bigger than a fix: cairn escalate turns it into a feature plan, keeping the work'], 'how');
     }
     for (const path of outside)
       if (!s.drift.some((d) => d.path === path && !d.acked)) {
@@ -222,20 +219,18 @@ const DOCS_ROOTS = ['docs/cairn/', 'docs/sdlc/'];
 function preMergeChecks(pc: PlanCtx, pre: State, sl: Task, opts: Opts): void {
   const { plan } = pc;
   const pb = pre.branch;
-  configGate(pre, pc.cfg, 'task merge', opts);
   if (pre.paused) throw new Refusal('the plan is paused: let running steps finish', ['/cairn:resume continues']);
-  if (opts.override) return; // task done checks again, with the user's proof, and logs the override
   // Proofs are add-only after the plan approval: a task that edits or deletes a locked proof file does not merge.
   const locked = lockedFiles(pre.endProofs);
   const touched = locked.length && branchExists(sl.branch!, plan.worktree) ? git(['diff', '--name-only', `${pre.branch}...${sl.branch}`, '--', ...locked], plan.worktree).split('\n').filter(Boolean) : [];
   if (touched.length)
-    throw new Refusal(`task "${sl.name}" changes locked proof files: ${touched.join(', ')}. Proofs are add-only once the plan is approved`, [
+    throw new Refusal(`task "${sl.name}" changes locked proof files: ${touched.join(', ')}. Proofs are add-only once the build starts`, [
       `restore them on the task branch: git -C ${sl.worktree ?? '<task worktree>'} checkout ${pre.branch} -- ${touched.join(' ')}, then commit`,
       'a new check goes in a new file, added after the merge with cairn prove add',
-      'if a proof itself is wrong, that is the user\'s call: changing it is a re-plan',
+      'if a proof itself is wrong: leave it as it is, add the corrected check beside it (cairn prove add), and name the wrong one with --not-done where its red result is checked; only the user changes the goal',
     ]);
   const owner = pre.lastRed?.task ? findTask(pre, pre.lastRed.task) : undefined;
-  if (pre.lastRed && owner && owner.id !== sl.id && owner.status !== 'done') {
+  if (pre.lastRed && owner && owner.id !== sl.id && owner.status !== 'done' && owner.substep !== 'blocked') {
     const other = owner.name;
     throw new Refusal(`the plan branch is red from task ${other}'s merge: fix that first`, [`finish "${other}" (its fix brief carries the failing run), then merge this task`, `Full output: ${pre.lastRed.log}`]);
   }
